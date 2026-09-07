@@ -143,6 +143,56 @@ button.ghost:active{border-color:var(--ink-2)}
 ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line-height:1.6}
 ul.rep li{margin-bottom:2px}
 .flagline{color:var(--warn);font-weight:700}
+/* ---------- belt form ----------
+   Ported from Belt Call Log v13, restated in this app's tokens. The originals
+   used a different variable set (--gray, --cyan-tint, --action, --danger); the
+   rules are the same, the colours come from the palette at the top of this file. */
+.gap{height:10px}
+.hide{display:none!important}
+.sublab{font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3);margin-bottom:3px}
+.auto{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  background:var(--cyan-lt);color:var(--cyan-dk);border:1px solid var(--cyan-md);
+  border-radius:2px;padding:0 4px;margin-left:5px;vertical-align:1px}
+.auto.off{background:var(--sunk);color:var(--ink-3);border-color:var(--line-2)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chips button{padding:9px 13px;border:1px solid var(--line);border-radius:99px;background:var(--surface);
+  color:var(--ink);font-size:13px;cursor:pointer}
+.chips button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);font-weight:700}
+.chips button.top{border-color:var(--cyan);color:var(--cyan-dk)}
+.chips .none{font-size:13px;color:var(--ink-3);font-style:italic;padding:9px 0}
+.chk{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink-2);margin:0 0 4px;cursor:pointer}
+.chk input{width:18px;height:18px;flex:none;margin-top:1px;accent-color:var(--cyan-dk)}
+.msg{display:none;font-size:12.5px;line-height:1.45;margin-top:8px;padding:8px 10px;
+  border-radius:var(--r);border:1px solid var(--line)}
+.msg.show{display:block}
+.msg b{font-weight:700}
+.msg.ok{background:var(--ok-lt);border-color:var(--ok);color:#1B5F28}
+.msg.warn{background:var(--orange-lt);border-color:var(--orange-dk);color:#8A4B00}
+.msg.info{background:var(--cyan-lt);border-color:var(--cyan);color:var(--cyan-dk)}
+.msg .lnk{color:var(--link);text-decoration:underline;cursor:pointer;font-weight:700}
+.lnk{color:var(--link);text-decoration:underline;cursor:pointer}
+input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,35,47,.14)}
+/* ---------- manual page viewer ----------
+   Ported from Belt Call Log v13. Full-screen over everything, because a manual
+   page is unreadable in a column. */
+.sec{margin-bottom:10px}
+.linkbtn{background:none;border:none;color:var(--link);font-size:13px;font-weight:700;
+  padding:10px 2px;text-align:left;text-decoration:underline;cursor:pointer}
+.mview{position:fixed;inset:0;z-index:50;background:var(--surface);flex-direction:column;display:none}
+.mview.on{display:flex}
+.mview .mvtop{display:flex;align-items:center;gap:11px;padding:9px 14px;
+  border-bottom:3px solid var(--red);flex:none}
+.mview .mvtop h1{font-size:14px;margin:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mview .mvbody{flex:1;overflow:auto;background:var(--ground);display:flex;justify-content:center;
+  align-items:flex-start;padding:10px;-webkit-overflow-scrolling:touch}
+.mview .mvbody img{max-width:100%;height:auto;background:var(--surface);border:1px solid var(--line)}
+.mview .mvnav{flex:none;display:flex;gap:9px;background:#363738;border-top:3px solid var(--red);
+  padding:9px 12px calc(10px + max(20px, env(safe-area-inset-bottom)))}
+.mview .mvnav button{flex:1;padding:12px 2px;border-radius:var(--r);border:1px solid #5a5c5e;
+  background:transparent;color:#fff;font-size:13px;cursor:pointer}
+.mview .mvnav button.pri{background:#fff;color:#363738;border-color:#fff;font-weight:700}
+.mview .mvnav button:disabled{opacity:.4}
+#mSerChips button{min-width:64px;justify-content:center}
 /* ---------- exchange direction and the load log ---------- */
 .dirhdr{margin-bottom:6px}
 .dirtag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;
@@ -444,7 +494,10 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button data-go="accounts"><b>Accounts</b><span id="acctInfo">Nothing loaded</span></button>
     <button data-go="due"><b>Overdue</b><span id="dueInfo">Nothing loaded</span></button>
     <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span></button>
+    <button data-go="manuals"><b>Manuals</b><span id="manInfo">Nothing loaded</span></button>
   </div>
+  <p class="msg" id="homeSetup"></p>
+
   <h2>Data</h2>
   <div class="fld">
     <label>Contact database</label>
@@ -453,6 +506,27 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <input type="file" id="xlsxFile" accept=".xlsx,.csv" style="margin-top:10px">
     <button class="ghost" id="importBtn">Import CRM export</button>
     <p class="hint">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
+  </div>
+  <div class="fld">
+    <label>Belt reference data</label>
+    <p class="stat" id="refStat">No data loaded.</p>
+    <input type="file" id="refFile" accept=".xlsm,.xlsx" style="margin-top:10px">
+    <button class="ghost" id="refBtn">Import plant audit workbook</button>
+    <p class="hint">Plant_Audit_Template_1.xlsm. This is what drives the series, style, material, sprocket and flight pickers on the belt form. It is the bigger of the two files &mdash; the app will sit still for a few seconds while it reads. Leave the screen on until it says it is done.</p>
+  </div>
+  <div class="fld">
+    <label>Engineering manuals</label>
+    <p class="stat" id="manStat">No manuals loaded.</p>
+    <div class="gap"></div>
+    <label>Pages to keep as images</label>
+    <select id="manMode">
+      <option value="series" selected>Series sections only &mdash; recommended</option>
+      <option value="full">Every page in the manual &mdash; largest</option>
+    </select>
+    <input type="file" id="manFile" accept=".pdf,application/pdf" style="margin-top:10px">
+    <button class="ghost" id="manBtn">Import engineering manual</button>
+    <p class="msg" id="manMsg"></p>
+    <p class="hint">One manual at a time. Import the MPB manual, wait for it to finish, then the ThermoDrive one. Each takes several minutes and needs the screen left on &mdash; every page is read and turned into an image so it works with no reception afterwards. The first import needs a connection once, to fetch the PDF reader. These are stored separately from the Belt Call Log's copy, so loading them here does not touch that app.</p>
   </div>
   <div class="fld">
     <label>Zone overrides</label>
@@ -583,6 +657,26 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <button class="ghost" id="tvPlanner" hidden>Open the planner</button>
 </section>
 
+<!-- MANUALS -->
+<section class="scr" id="s-manuals">
+  <div class="fld">
+    <label>Search</label>
+    <input type="search" id="mQ" placeholder="Series number, or any term" autocomplete="off">
+    <p class="hint" id="mHint"></p>
+  </div>
+  <div class="seg" id="mSeg">
+    <button type="button" data-seg="search" class="on">Search</button>
+    <button type="button" data-seg="browse">All series</button>
+  </div>
+  <p class="msg" id="mMsg"></p>
+  <div id="mBody"></div>
+  <div class="fld" id="mSelBar" style="display:none">
+    <p class="stat" id="mSelN"></p>
+    <button class="big" id="mShare">Share selected sections</button>
+    <button class="ghost" id="mClear">Clear selection</button>
+  </div>
+</section>
+
 <!-- ACCOUNT BROWSE -->
 <section class="scr" id="s-accounts">
   <div class="fld">
@@ -674,8 +768,24 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
 </dialog>
 
+<div class="mview" id="mview">
+  <div class="mvtop">
+    <button class="back" id="mvClose">&#8249;</button>
+    <div class="hdt">
+      <h1 id="mvTtl"></h1>
+      <div class="sub" id="mvSub"></div>
+    </div>
+  </div>
+  <div class="mvbody"><img id="mvImg" alt=""></div>
+  <div class="mvnav">
+    <button type="button" id="mvPrev">Previous</button>
+    <button type="button" id="mvShare" class="pri">Share section</button>
+    <button type="button" id="mvNext">Next</button>
+  </div>
+</div>
+
 <dialog id="mvdlg">
-  <div class="dlg-h"><b id="mvTitle"></b><div id="mvSub"></div></div>
+  <div class="dlg-h"><b id="mvTitle"></b><div id="mvDlgSub"></div></div>
   <div class="dlg-b"><div class="res" id="mvDays"></div></div>
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="mvCancel" type="button">Cancel</button></div>
 </dialog>
@@ -726,26 +836,164 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <input type="text" id="bAsset" placeholder="61-156 boning line 2">
     <p class="err" id="bErr">Enter an asset no. or line description first</p>
   </div>
-  <div class="fld"><label>Belt description</label><input type="text" id="bDesc" placeholder="S800OHFT"></div>
+
+  <h2>Belt data</h2>
+  <p class="msg" id="refWarn"></p>
+  <div class="fld" id="bCopyWrap">
+    <label>Copy spec from a belt already logged</label>
+    <select id="bCopy"><option value="">Start from blank</option></select>
+  </div>
   <div class="fld">
-    <div class="row">
-      <div><label>Belt width (mm)</label><input type="text" id="bWidth" inputmode="decimal" placeholder="606"></div>
-      <div><label>Centre line length (m)</label><input type="text" id="bClen" inputmode="decimal" placeholder="9"></div>
-    </div>
+    <label>Belt description</label>
+    <input type="text" id="bDesc" placeholder="S800OHFT">
+    <p class="hint">Shorthand as you would write it. The pickers below are the detail behind it.</p>
   </div>
   <div class="fld">
     <div class="row">
-      <div><label>Belt material</label><select id="bMat"><option>PP</option><option>PK</option><option>AC</option><option>PE</option><option selected>Unknown</option></select></div>
-      <div><label>Rod material</label><select id="bRod"><option>PP</option><option>PK</option><option>AC</option><option>PE</option><option>N/A</option><option selected>Unknown</option></select></div>
+      <div><label>Series</label><select id="bSeries"></select></div>
+      <div><label>Style</label><select id="bStyle" disabled><option value="">Select series first</option></select></div>
     </div>
+  </div>
+  <div class="fld">
+    <label>Material</label>
+    <div class="chips" id="bMatChips"></div>
+    <input type="text" id="bMatOther" class="hide" placeholder="Material (other)" style="margin-top:8px">
+    <div class="gap"></div>
+    <label>Colour</label>
+    <div class="chips" id="bColourChips"></div>
+    <input type="text" id="bColourOther" class="hide" placeholder="Colour (other)" style="margin-top:8px">
+  </div>
+  <div class="fld">
+    <label>Rod material</label>
+    <div class="chips" id="bRodChips"></div>
+    <input type="text" id="bRodOther" class="hide" placeholder="Rod material (other)" style="margin-top:8px">
+  </div>
+  <div class="fld">
+    <div class="row">
+      <div><label>Conveyor length (m)</label><input type="number" id="bCvLen" inputmode="decimal" step="0.01" placeholder="9"></div>
+      <div><label>Inside frame width (mm)</label><input type="number" id="bFrame" inputmode="decimal" step="1"></div>
+    </div>
+    <div class="gap"></div>
+    <div class="row">
+      <div><label>Belt width (mm)</label><input type="number" id="bWidth" inputmode="decimal" step="1" placeholder="606"></div>
+      <div>
+        <label>Belt length (m) <span class="auto" id="bLenAuto">estimated</span></label>
+        <input type="number" id="bLen" inputmode="decimal" step="0.01">
+      </div>
+    </div>
+    <p class="msg" id="bFrameMsg"></p>
+    <p class="msg" id="bWidthMsg"></p>
   </div>
   <div class="fld">
     <label>Retrofit</label>
     <div class="seg" id="bRetro"><button type="button" data-v="Y">Y</button><button type="button" data-v="N">N</button></div>
   </div>
-  <div class="fld"><label>Sprocket details</label><input type="text" id="bSprk" placeholder="S40 8T"></div>
-  <h2>Flights</h2>
-  <div id="flightWrap"></div>
+
+  <h2>Sprocket data</h2>
+  <div class="fld">
+    <label class="chk"><input type="checkbox" id="bSkipSpr"> Skip &mdash; sprockets not assessed or not applicable</label>
+    <div id="bSprBody">
+      <div class="gap"></div>
+      <label>Bore <span class="auto">defaults to 40 mm square</span></label>
+      <select id="bSprBore"></select>
+      <div class="gap"></div>
+      <label>Pitch diameter and tooth count</label>
+      <select id="bSprPd" disabled><option value="">Select bore first</option></select>
+      <div class="gap"></div>
+      <label>Material</label>
+      <select id="bSprMat" disabled><option value="">Select pitch diameter first</option></select>
+      <div id="bSprVarWrap" class="hide">
+        <div class="gap"></div>
+        <label>Build type or variant</label>
+        <select id="bSprVar"></select>
+      </div>
+      <div class="gap"></div>
+      <label>Description <span class="auto" id="bSprDescAuto">auto-filled</span></label>
+      <input type="text" id="bSprDesc" placeholder="S40 8T, or leave to the picker">
+      <div class="gap"></div>
+      <label>Part number <span class="auto" id="bSprPnAuto">auto-filled</span></label>
+      <input type="text" id="bSprPn">
+      <div class="gap"></div>
+      <div class="row">
+        <div>
+          <label>Drive qty <span class="auto" id="bSprDrvAuto">from width</span></label>
+          <input type="number" id="bSprDrive" inputmode="numeric">
+        </div>
+        <div>
+          <label>Idle qty <span class="auto" id="bSprIdlAuto">from width</span></label>
+          <input type="number" id="bSprIdle" inputmode="numeric">
+        </div>
+      </div>
+      <div class="gap"></div>
+      <label class="chk"><input type="checkbox" id="bSprSpacers"> Sprocket spacers fitted</label>
+      <label class="chk"><input type="checkbox" id="bSprHdRet"> Heavy duty retainers fitted</label>
+      <p class="hint" id="bSprExtraNote"></p>
+    </div>
+  </div>
+
+  <h2>Flights and sideguards</h2>
+  <div class="fld">
+    <label class="chk"><input type="checkbox" id="bSkipAcc" checked> Skip &mdash; no flights, sideguards or indent on this belt</label>
+    <div id="bAccBody" class="hide">
+      <div class="gap"></div>
+      <div class="row">
+        <div>
+          <label>Flight type</label>
+          <select id="bFlType"></select>
+        </div>
+        <div>
+          <label>Flight material <span class="auto" id="bFlMatAuto">matches belt</span></label>
+          <select id="bFlMat"></select>
+        </div>
+      </div>
+      <input type="text" id="bFlTypeOther" class="hide" placeholder="Flight type (other)" style="margin-top:8px">
+      <div class="gap"></div>
+      <label>Flight height (mm)</label>
+      <input type="number" id="bFlHeight" inputmode="decimal" step="0.1">
+      <div class="gap"></div>
+      <label>Flight spacing</label>
+      <div class="row">
+        <div>
+          <div class="sublab">Every N rows</div>
+          <input type="number" id="bFlRows" inputmode="numeric" step="1" min="1" placeholder="10">
+        </div>
+        <div>
+          <div class="sublab">Millimetres</div>
+          <input type="number" id="bFlMm" inputmode="decimal" step="0.1" placeholder="508">
+        </div>
+      </div>
+      <p class="msg" id="bPitchMsg"></p>
+      <div class="gap"></div>
+      <div class="row">
+        <div>
+          <label>Indent (mm)</label>
+          <select id="bIndent"></select>
+        </div>
+        <div>
+          <label>Centre notch (mm)</label>
+          <input type="text" id="bNotch" placeholder="25 or 25/51">
+        </div>
+      </div>
+      <input type="text" id="bIndentOther" class="hide" placeholder="Indent (other)" style="margin-top:8px">
+      <p class="msg" id="bIndentMsg"></p>
+      <div class="gap"></div>
+      <div class="row">
+        <div>
+          <label>Sideguard type</label>
+          <select id="bSgType"></select>
+        </div>
+        <div>
+          <label>Sideguard material</label>
+          <select id="bSgMat"></select>
+        </div>
+      </div>
+      <input type="text" id="bSgTypeOther" class="hide" placeholder="Sideguard type (other)" style="margin-top:8px">
+      <div class="gap"></div>
+      <label>Sideguard height (mm)</label>
+      <input type="text" id="bSgHeight">
+    </div>
+  </div>
+
   <h2>Quote contact</h2>
   <div class="fld">
     <label>Only if different to the call contacts</label>
@@ -838,6 +1086,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="zones.js"></script>
+<script src="manuals.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

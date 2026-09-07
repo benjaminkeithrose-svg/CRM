@@ -57,6 +57,14 @@ You'll get a short report: how many accounts and contacts came in, how many are 
 
 **Export as .xlsx, not .csv.** The .xlsx carries a hidden sheet that the app needs later to get notes back into Dynamics. A .csv works for looking things up, but that route closes.
 
+**Then load the belt reference data.** Under **Belt reference data**, choose `Plant_Audit_Template_1.xlsm` and tap **Import plant audit workbook**. This is what fills the series, style, material, sprocket and flight pickers on the belt form. Without it the belt form still works but every picker is empty, and it tells you so at the top of the screen.
+
+It takes a few seconds and the app will sit still while it reads. Leave the screen on.
+
+**Optionally, load the engineering manuals.** Under **Engineering manuals**, pick a PDF and tap **Import engineering manual**. One at a time, several minutes each, screen left on — every page becomes an image so it works with no reception. Then **Manuals** on the home screen searches them by series or by any term.
+
+These are stored separately from the Belt Call Log's copy, so loading them here doesn't touch that app. It also means you load them once for each.
+
 **Then load the zone pins.** Under **Zone overrides**, choose `zone-overrides.json` and tap **Load zone overrides**. This is the file that puts particular accounts in the right zone. It is kept out of the app on purpose, because it contains customer names.
 
 You don't need to import on the phone. The plan file carries the accounts across — see step 4.

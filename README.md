@@ -20,13 +20,14 @@ Anyone can install this and load their own data.
 
 ## Deploying
 
-No build step. No npm. Upload these eight files to the repository root:
+No build step. No npm. Upload these nine files to the repository root:
 
 | File | What it is |
 |---|---|
 | `index.html` | Every screen, and all the CSS |
 | `app.js` | Everything else |
 | `zones.js` | The zone map — geography only, no customer names |
+| `manuals.js` | Offline engineering manual library, own database |
 | `sw.js` | Service worker, makes it work offline |
 | `manifest.webmanifest` | Makes it installable |
 | `icon-192.png` | Home screen icon |
@@ -42,7 +43,7 @@ Filenames are case-sensitive on GitHub Pages, and the manifest must agree with w
 `sw.js` line 6:
 
 ```js
-const CACHE = 'fieldcrm-v18';
+const CACHE = 'fieldcrm-v20';
 ```
 
 **Increment this whenever any file changes**, or the old version is what gets tested and a fix will be reported as broken. This is the single most likely source of confusing behaviour after an update.
@@ -76,6 +77,10 @@ Eight files, no framework, no bundler. One external library: SheetJS from jsDeli
 
 **Load log.** Every file in or out is recorded in `kv.loadLog` with filename, kind, detail and success, capped at 12 and rendered under Exchange. Refusals are logged too, marked failed.
 
+**Belt reference data.** `Plant_Audit_Template_1.xlsm` is read on the device into `kv.beltref` — every valid Series > Style > Material > Colour, the link geometry the width check needs, and the sprocket table. The belt form is driven entirely by it; without it the pickers are empty and the form says so. Ported from Belt Call Log v13, along with the usage ranking in `kv.usage` that floats the values you reach for most.
+
+**Manual library.** `manuals.js` owns its own database, **`fieldcrmmanuals`** — deliberately not the Belt Call Log's `beltmanuals`. Both apps share an origin on GitHub Pages, so sharing the database would let either app clear pages the other relies on, and uninstalling either would take both. The manuals are loaded once per app. pdf.js comes from a CDN on first import only.
+
 **Share target.** The manifest registers the app as an Android share target for `.json`, `.xlsx` and `.csv`. The service worker catches the POST to `./share-target`, parks the file in a separate unversioned cache (`fieldcrm-share`) and redirects with a 303 so a reload cannot re-post. The page collects the file on boot, deletes it from the cache, and routes it. Every incoming file — shared, or chosen with the Receive button — goes through one function that sniffs content rather than filename, so a plan file renamed by OneDrive to `plan (1).json` still works.
 
 **Layout** switches at 900px. Below that the app routes to Today and This Week; above, to the planner. The same breakpoint is used by the routing and the CSS so the two cannot disagree.
@@ -92,7 +97,7 @@ node qa.mjs          # wiring, ids, assets, a full walkthrough, bad input
 node test.mjs        # ... through test16.mjs
 ```
 
-Roughly 1,160 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
+Roughly 1,210 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
 
 **They cannot cover:** the camera, the share sheet, whether Blobs really persist in IndexedDB (fake-indexeddb does not preserve Blob identity), `showDirectoryPicker` against a real folder, SheetJS at full scale, or anything Outlook actually does with an `.ics`.
 
