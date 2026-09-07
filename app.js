@@ -2729,10 +2729,97 @@ $('exPickDir').addEventListener('click', ()=>pickDir().catch(e=>{
 $('exPull').addEventListener('click', ()=>receiveFromFolder().catch(reportErr));
 $('exBtn').addEventListener('click', async ()=>{
   const f = $('exFile').files[0];
-  if(!f){ toast('Choose a plan or call file first'); return; }
-  try { toast(await receiveExchange(f)); renderExchange(); }
+  if(!f){ toast('Choose a file first'); return; }
+  try {
+    const msg = await routeIncomingFile(f);
+    renderExchange(); renderDbStat(); fillManagers(); renderBackupStat();
+    await renderHome();
+    toast(msg);
+  }
   catch(e){ console.error(e); toast('Could not read that file: ' + e.message); }
 });
+
+/* ================= one door for every incoming file =================
+
+   The share target, the Receive button and the Restore button all end up here.
+   Android hands over whatever the user tapped Share on, with no way to say what
+   kind of file it is, so the app has to work it out - and once it can, there is
+   no reason the on-screen buttons should be fussier than the share sheet.
+
+   Sniffing is on content, not the filename. A plan file renamed by OneDrive to
+   "field-crm-plan-2026-09-07 (1).json" still has its kind inside it. */
+async function routeIncomingFile(file, opts){
+  opts = opts || {};
+  const name = (file.name || '').toLowerCase();
+
+  if(name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')){
+    await importCrm(file);
+    return 'Imported ' + (META ? META.counts.accounts + ' accounts' : 'the CRM export');
+  }
+
+  let data;
+  try { data = JSON.parse(await file.text()); }
+  catch(e){
+    throw new Error('that is not a file Field CRM knows what to do with. Expected a plan, ' +
+      'a call file, a backup, the zone overrides, or a CRM export.');
+  }
+
+  if(data && (data.kind === PLAN_KIND || data.kind === CALL_KIND)){
+    return await receiveExchange(file);
+  }
+  if(data && data.format === BACKUP_FORMAT){
+    /* A backup arriving through the share sheet is almost always deliberate, but
+       it is the one route that can pull a whole database in, so it asks. */
+    if(!opts.silent && !confirm('That is a backup file, not a plan.\n\nRestore from it?\n\n' +
+       'Records are added and updated by id. Nothing already on this device is deleted.')) {
+      return 'Restore cancelled';
+    }
+    await doRestore(file);
+    return 'Backup restored';
+  }
+  if(data && (data.acctZone || data.spelling)){
+    await importOverrides(file);
+    return Object.keys(OVERRIDES.acctZone).length + ' zone overrides loaded';
+  }
+  throw new Error('that JSON file is not a Field CRM plan, call file, backup or zone overrides');
+}
+
+/* ---------- share target hand-off ----------
+   The service worker parks the shared file in a cache and redirects here, because
+   a File cannot survive the redirect itself. Collected once, then deleted - a
+   file left in the cache would re-import itself on every launch. */
+const SHARE_CACHE = 'fieldcrm-share', SHARE_KEY = './shared-file';
+async function takeSharedFile(){
+  if(typeof caches === 'undefined') return null;
+  try {
+    const c = await caches.open(SHARE_CACHE);
+    const res = await c.match(SHARE_KEY);
+    if(!res) return null;
+    await c.delete(SHARE_KEY);
+    const name = decodeURIComponent(res.headers.get('x-filename') || 'shared-file');
+    const blob = await res.blob();
+    return new File([blob], name, {type: res.headers.get('content-type') || blob.type || ''});
+  } catch(e){ console.warn('share hand-off', e); return null; }
+}
+async function consumeSharedFile(){
+  const file = await takeSharedFile();
+  // strip ?shared=1 either way, so it cannot linger in the history entries
+  try {
+    if(location.search) history.replaceState(history.state || {screen:'home'}, '',
+      location.pathname + location.hash);
+  } catch(e){}
+  if(!file) return;
+  toast('Reading ' + file.name + '...');
+  try {
+    const msg = await routeIncomingFile(file);
+    renderExchange(); renderDbStat(); fillManagers(); renderBackupStat();
+    await renderHome();
+    toast(msg);
+  } catch(e){
+    console.error(e);
+    toast(file.name + ': ' + e.message);
+  }
+}
 
 /* ---------- home ---------- */
 async function renderHome(){
@@ -3718,6 +3805,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   buildFlights();
   try { history.replaceState({screen:'home'}, '', location.href); } catch(e){}
   try { await renderHome(); } catch(e){ console.error('home', e); }
+  try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
   if(dbErr){
     $('dbStat').textContent = 'Storage error - ' + dbErr.message;
     toast('Storage error - ' + dbErr.message);
