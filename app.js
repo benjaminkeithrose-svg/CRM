@@ -600,9 +600,32 @@ function buildAccounts(rows){
 }
 
 let ACCOUNTS = [], ACC_BY_NAME = new Map(), META = null;
+/* ---------- account keys ----------
+   An appointment travelling to GitHub refers to its account by key, never by
+   name, so no customer name is ever written to the repository.
+
+   FNV-1a, 64 bits, rendered as 16 hex characters. Deliberately not a crypto
+   hash, and it is worth being straight about why that makes no difference: the
+   account list is a thousand-odd names, so anyone holding it could rebuild the
+   mapping from any hash in seconds. This is not encryption and does not pretend
+   to be. What it does is keep the names out of the file and out of git history,
+   which is the actual requirement. Collisions across 1,201 accounts at 64 bits
+   are about one in ten trillion. */
+function acctKey(name){
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  const s = String(name == null ? '' : name).trim().toUpperCase();
+  for(let i = 0; i < s.length; i++){
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ (c + i), 0x85ebca6b) >>> 0;
+  }
+  return ('00000000' + h1.toString(16)).slice(-8) + ('00000000' + h2.toString(16)).slice(-8);
+}
+let KEY_TO_ACCT = new Map();
 function indexAccounts(list){
   ACCOUNTS = list;
   ACC_BY_NAME = new Map(list.map(a => [a.a, a]));
+  KEY_TO_ACCT = new Map(list.map(a => [acctKey(a.a), a.a]));
 }
 async function loadAccounts(){
   indexAccounts(await accAll());
@@ -3317,7 +3340,8 @@ let LOAD_LOG = [];
 const LOAD_LOG_MAX = 12;
 const LOAD_KIND = {
   crm:'CRM export', overrides:'Zone overrides', beltref:'Belt reference data',
-  manual:'Engineering manual', plan:'Plan from PC',
+  manual:'Engineering manual', ghpull:'Pulled from GitHub', ghpush:'Pushed to GitHub',
+  ghtest:'GitHub connection', plan:'Plan from PC',
   calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
 };
 async function logLoad(filename, kind, detail, failed){
@@ -3345,6 +3369,265 @@ function renderLoadLog(){
         d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})+'</div></div>';
   }).join('');
 }
+
+/* ================= appointment sync over GitHub =================
+
+   The schedule, and only the schedule, moves between the phone and the PC over a
+   private GitHub repository. Call reports stay on the device that made them.
+
+   WHAT GOES UP. Nothing that names a customer. An appointment is written as its
+   account KEY (see acctKey above), a date, a time, a duration, contact indices
+   into the account's own contact list, and a status. No account names, no
+   contact names, no phone numbers, no emails, no notes, no photos. The only
+   free text is the agenda line, which is yours to write - treat it as a subject
+   line, because it is the one field that will be readable.
+
+   WHAT STAYS. callSummary - the whole call write-up - is deliberately NOT synced.
+   It is the largest part of an appointment record and it holds contact names,
+   belts, health items and notes. Sending it would put call notes into git
+   history permanently, which is the thing this scope was narrowed to avoid.
+   The consequence is real and worth remembering: the PC cannot put the write-up
+   into the Outlook invite, because it never receives it.
+
+   OWNERSHIP is unchanged from the file exchange. The phone owns the outcome -
+   whether a visit happened, was moved, was missed. The desktop owns the invite -
+   the agenda, who is listed, and the Outlook export state. So exp, expAt and
+   icsSeq are never overwritten by an incoming record that does not carry them. */
+
+const GH_KIND = 'field-crm-appts', GH_VER = 1;
+let GH = {owner:'', repo:'', branch:'main', path:'exchange/appointments.json', token:''};
+let ghSha = null;
+
+async function loadGh(){
+  try { GH = Object.assign(GH, await kvGet('github') || {}); } catch(e){}
+  renderGh();
+}
+async function saveGh(){ await kvSet('github', GH); renderGh(); }
+const ghReady = () => !!(GH.owner && GH.repo && GH.token);
+function ghHeaders(){
+  return {'Accept':'application/vnd.github+json', 'Authorization':'Bearer '+GH.token,
+          'X-GitHub-Api-Version':'2022-11-28'};
+}
+function ghUrl(){
+  return 'https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
+    encodeURIComponent(GH.repo)+'/contents/'+GH.path.split('/').map(encodeURIComponent).join('/');
+}
+/* base64 that survives non-ASCII. The agenda can contain anything you typed. */
+function b64encode(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for(const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function b64decode(b64){
+  const bin = atob(String(b64).replace(/\s/g, ''));
+  const arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(arr);
+}
+
+/* The repository must be private. Pushing a schedule into a public repo would
+   undo the one rule this project has held since the first day, so it is checked
+   before anything is written and refused rather than warned about. */
+async function ghCheckRepo(){
+  const r = await fetch('https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
+    encodeURIComponent(GH.repo), {headers: ghHeaders()});
+  if(r.status === 404) throw new Error('repository not found, or the token cannot see it');
+  if(r.status === 401) throw new Error('the token was rejected - check it has not expired');
+  if(!r.ok) throw new Error('GitHub returned ' + r.status);
+  const j = await r.json();
+  if(!j.private) throw new Error('that repository is PUBLIC. Appointments must go to a private one.');
+  if(j.permissions && j.permissions.push === false)
+    throw new Error('the token can read that repository but not write to it');
+  return j;
+}
+async function ghGet(){
+  const r = await fetch(ghUrl()+'?ref='+encodeURIComponent(GH.branch), {headers: ghHeaders()});
+  if(r.status === 404){ ghSha = null; return null; }   // nothing pushed yet
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading the file');
+  const j = await r.json();
+  ghSha = j.sha;
+  return JSON.parse(b64decode(j.content));
+}
+async function ghPut(doc, message){
+  const body = {message: message, content: b64encode(JSON.stringify(doc, null, 1)),
+                branch: GH.branch};
+  if(ghSha) body.sha = ghSha;
+  const r = await fetch(ghUrl(), {method:'PUT', headers:
+    Object.assign({'Content-Type':'application/json'}, ghHeaders()), body: JSON.stringify(body)});
+  if(r.status === 409 || r.status === 422) return false;   // someone else moved it
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' writing the file');
+  const j = await r.json();
+  ghSha = j.content && j.content.sha;
+  return true;
+}
+
+/* ---------- the slim record ---------- */
+const GH_FIELDS = ['id','type','date','start','dur','agenda','contacts','status',
+                   'origin','acked','unplanned','touchedAt','exp','expAt','icsSeq'];
+function slimAppt(ap){
+  const out = {ak: acctKey(ap.acct)};
+  GH_FIELDS.forEach(k => { if(ap[k] !== undefined && ap[k] !== null) out[k] = ap[k]; });
+  return out;   // note: no acct, no callId, no callSummary
+}
+function fattenAppt(sl){
+  const name = KEY_TO_ACCT.get(sl.ak);
+  const out = {acct: name || ''};
+  GH_FIELDS.forEach(k => { if(sl[k] !== undefined) out[k] = sl[k]; });
+  out.ak = sl.ak;
+  return out;
+}
+function buildApptDoc(){
+  const from = iso(startOfWeek(new Date()));
+  return {
+    kind: GH_KIND, version: GH_VER, made: Date.now(),
+    device: isPhone() ? 'phone' : 'desktop',
+    range: {from: from, to: '9999-12-31'},
+    appts: APPTS.filter(a => a.date >= from).map(slimAppt)
+  };
+}
+
+/* The merge is the file exchange's rules, applied to the slim record. */
+async function mergeApptDoc(doc){
+  if(!doc || doc.kind !== GH_KIND) throw new Error('that file is not an appointment sync document');
+  const incoming = Array.isArray(doc.appts) ? doc.appts : [];
+  const byId = new Map(APPTS.map(a => [a.id, a]));
+  let added = 0, updated = 0, kept = 0, removed = 0, unknown = 0;
+
+  for(const sl of incoming){
+    if(!sl || !sl.id) continue;
+    const fat = fattenAppt(sl);
+    if(!fat.acct){ unknown++; continue; }   // key resolves to no account here
+    const mine = byId.get(sl.id);
+    if(!mine){ await apptsPut(Object.assign(fat, {acked:true})); added++; continue; }
+    if(mine.origin && !mine.acked) mine.acked = true;
+    if((mine.touchedAt||0) > (sl.touchedAt||0)){ await apptsPut(mine); kept++; continue; }
+    /* Merge onto the local record rather than replacing it: callId and
+       callSummary live only here and must not be lost, and the Outlook export
+       state is the desktop's, so an incoming record without it never clears it. */
+    const merged = Object.assign({}, mine, fat, {acked:true});
+    if(mine.callId && !fat.callId) merged.callId = mine.callId;
+    if(mine.callSummary) merged.callSummary = mine.callSummary;
+    ['exp','expAt','icsSeq'].forEach(k => {
+      if(sl[k] === undefined && mine[k] !== undefined) merged[k] = mine[k];
+    });
+    if(mine.status && !sl.status) merged.status = mine.status;
+    await apptsPut(merged);
+    updated++;
+  }
+
+  const inDoc = new Set(incoming.map(a => a.id));
+  const r = doc.range || {from:'0000-00-00', to:'9999-12-31'};
+  for(const mine of APPTS){
+    if(inDoc.has(mine.id)) continue;
+    if(mine.date < r.from || mine.date > r.to) continue;
+    if(mine.origin && !mine.acked){ kept++; continue; }        // made here, never sent
+    if((mine.touchedAt||0) > (doc.made||0)){ kept++; continue; }
+    await apptsDel(mine.id);
+    removed++;
+  }
+  APPTS = await apptsAll();
+  return {added, updated, kept, removed, unknown};
+}
+
+/* ---------- pull, push, and both ---------- */
+async function ghPull(){
+  const doc = await ghGet();
+  if(!doc) return 'Nothing has been pushed to that repository yet';
+  const r = await mergeApptDoc(doc);
+  renderPlanCount(); renderGh();
+  if(screen === 'today') renderToday();
+  if(screen === 'plan') renderPlan();
+  await renderHome();
+  const bits = [r.added+' added', r.updated+' updated'];
+  if(r.removed) bits.push(r.removed+' removed');
+  if(r.kept) bits.push(r.kept+' kept, changed here since');
+  if(r.unknown) bits.push(r.unknown+' for accounts not in this device\u2019s CRM export');
+  const msg = 'Pulled: ' + bits.join(', ');
+  await logLoad(GH.owner+'/'+GH.repo+'/'+GH.path, 'ghpull', msg);
+  return msg;
+}
+async function ghPush(){
+  // read first so the merge happens here, not by overwriting whatever is up there
+  const remote = await ghGet();
+  if(remote){
+    try { await mergeApptDoc(remote); }
+    catch(e){ console.warn('remote merge', e); }
+  }
+  const doc = buildApptDoc();
+  let ok = await ghPut(doc, 'Field CRM: appointments from the ' + doc.device);
+  if(!ok){
+    // someone pushed between the read and the write: take theirs, merge, try once more
+    const again = await ghGet();
+    if(again) await mergeApptDoc(again);
+    ok = await ghPut(buildApptDoc(), 'Field CRM: appointments from the ' + doc.device + ' (retry)');
+    if(!ok) throw new Error('the file changed twice while pushing - try again');
+  }
+  localStorage.setItem(LS('ghPush'), String(Date.now()));
+  renderGh();
+  const msg = 'Pushed ' + doc.appts.length + ' appointment' + (doc.appts.length===1?'':'s');
+  await logLoad(GH.owner+'/'+GH.repo+'/'+GH.path, 'ghpush', msg);
+  return msg;
+}
+async function ghSync(){
+  if(!ghReady()) throw new Error('set the repository and token first');
+  if(!navigator.onLine) throw new Error('no connection - try again when you have signal');
+  const pulled = await ghPull();
+  const pushed = await ghPush();
+  localStorage.setItem(LS('ghSync'), String(Date.now()));
+  renderGh();
+  return pulled + '. ' + pushed + '.';
+}
+
+function renderGh(){
+  const el = $('ghStat');
+  if(!el) return;
+  ['ghOwner','ghRepo','ghBranch','ghPath','ghToken'].forEach(id => {
+    const f = $(id); if(!f) return;
+    const k = id.replace('gh','').toLowerCase();
+    const map = {owner:'owner', repo:'repo', branch:'branch', path:'path', token:'token'};
+    if(document.activeElement !== f) f.value = GH[map[k]] || '';
+  });
+  const bits = [];
+  if(!ghReady()) bits.push('<span class="flagline">Not set up.</span> Needs a private repository and a token.');
+  else bits.push('Syncing <b>'+esc(GH.owner+'/'+GH.repo)+'</b> &middot; '+esc(GH.path));
+  const last = localStorage.getItem(LS('ghSync'));
+  bits.push(last ? 'Last synced ' + new Date(Number(last)).toLocaleString() : 'Never synced from this device');
+  const unsent = APPTS.filter(a => a.origin && !a.acked).length;
+  if(unsent) bits.push('<span class="flagline">'+unsent+' made here and not yet pushed</span>');
+  bits.push('<span class="cov">Appointments only. No customer names, no contacts, no call notes.</span>');
+  el.innerHTML = bits.join('<br>');
+  $('ghSync').disabled = !ghReady();
+  $('ghTest').disabled = !ghReady();
+}
+['ghOwner','ghRepo','ghBranch','ghPath','ghToken'].forEach(id => {
+  const f = $(id);
+  if(!f) return;
+  f.addEventListener('change', async ()=>{
+    const map = {ghOwner:'owner', ghRepo:'repo', ghBranch:'branch', ghPath:'path', ghToken:'token'};
+    GH[map[id]] = f.value.trim();
+    ghSha = null;
+    await saveGh();
+  });
+});
+$('ghTest').addEventListener('click', async ()=>{
+  try {
+    const j = await ghCheckRepo();
+    toast('Connected to ' + j.full_name + ' - private, writable');
+    await logLoad(j.full_name, 'ghtest', 'Private repository, token accepted');
+  } catch(e){ console.error(e); toast('Cannot use that repository: ' + e.message);
+    await logLoad(GH.owner+'/'+GH.repo, 'ghtest', e.message, true); }
+});
+$('ghSync').addEventListener('click', async ()=>{
+  const btn = $('ghSync');
+  btn.disabled = true;
+  try {
+    await ghCheckRepo();          // never write to a public repo, every time
+    toast(await ghSync());
+  } catch(e){ console.error(e); toast('Sync failed: ' + e.message);
+    await logLoad(GH.owner+'/'+GH.repo, 'ghpush', e.message, true); }
+  finally { btn.disabled = !ghReady(); }
+});
 
 /* ---------- home ---------- */
 async function renderHome(){
@@ -4960,6 +5243,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   renderDbStat(); renderRefStat(); renderHomeSetup(); fillManagers(); renderBackupStat();
   renderManStat(); renderManCount();
   await loadDir();
+  await loadGh();
   $('cMgr').addEventListener('change', renderHomeCounts);
   $('cDate').value = todayISO();
   try { resetBelt(); } catch(e){ console.error('belt form', e); }

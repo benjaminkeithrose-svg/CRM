@@ -128,7 +128,31 @@ That's it. The app opens and merges the file.
 
 If Field CRM isn't in the share sheet, the app hasn't been installed to the home screen properly — see step 1. As a fallback you can download the file in OneDrive and pick it under **Exchange** → **Receive a file**.
 
-**Optional, and worth doing once — on the PC.** There are two folders, and they must be different ones:
+### Syncing appointments automatically
+
+Set this up once on each device and the plan moves by itself.
+
+**First, on GitHub:** make a **private** repository — `field-crm-data` or similar. Then create a fine-grained personal access token with **Contents: read and write** on that one repository, and give it an expiry date.
+
+**Then in Field CRM,** under **Exchange → Phone ↔ PC**, fill in your GitHub username, the repo name, and paste the token. Tap **Test the connection** — it checks the repo exists, is private, and that the token can write. Then **Sync appointments now**.
+
+Do the same on the other device with the same details. After that, one tap on each device keeps the plan in step.
+
+**What goes to GitHub:** an account key, the date, time, duration, which contacts you listed as numbers, the status, and your agenda line.
+
+**What never goes:** account names, contact names, phone numbers, emails, call notes, photos. The account is sent as a key, and each device looks the name up in its own copy of the CRM export. If a key doesn't match anything, the app says so instead of guessing.
+
+The agenda is the one field you type into, so it's the one thing that will be readable in the repository. Write it like a subject line.
+
+**Call reports stay on the phone.** That's the trade — the PC learns that you visited, not what you found. It also means the Outlook invite no longer carries the write-up.
+
+If you lose the phone, revoke the token on GitHub and it's dead.
+
+### The file folders
+
+Still there, and still how call reports and everything else move.
+
+**Worth doing once — on the PC.** There are two folders, and they must be different ones:
 
 | Folder | Who writes | Who reads |
 |---|---|---|
@@ -270,6 +294,12 @@ Your call notes also travel inside the Outlook appointment. Write up a visit and
 **Nothing appears on Today.** Either nothing is planned, or the plan file hasn't been merged in. Check **Exchange** — it says how many appointments the device is holding.
 
 **Did that file actually load?** Look at **Files loaded on this device** under **Exchange**. Every file in or out is listed newest first, with its name, what it did, and a plain **Loaded successfully** or **Failed**. If a file isn't in that list, it never loaded.
+
+**Sync says the repository is public.** It refuses to write, and it's right to. Appointments go to a private repository only. Change it in GitHub settings, or point at a different repo.
+
+**Sync says the token was rejected.** Fine-grained tokens expire. Make a new one on GitHub and paste it in.
+
+**An appointment arrived for an unknown account.** The key didn't match anything in this device's CRM export. Re-import the export — the two devices need the same account book.
 
 **Field CRM isn't in the Android share sheet.** It only appears once the app is installed to the home screen. Open it in Chrome, three dots, **Add to Home screen**, then try again. If you've just updated the app, close it fully and reopen it once so the new version registers.
 

@@ -199,6 +199,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   border-radius:2px;padding:2px 8px}
 .dirtag.out{background:var(--cyan-lt);color:var(--cyan-dk);border:1px solid var(--cyan-md)}
 .dirtag.in{background:var(--orange-lt);color:var(--orange-dk);border:1px solid var(--orange)}
+.dirtag.sync{background:var(--ok-lt);color:var(--ok);border:1px solid #BFD8C4}
 .ldrow{border-left:3px solid var(--ok);background:var(--surface);border:1px solid var(--line-2);
   border-left-width:3px;border-radius:0 var(--r) var(--r) 0;padding:8px 10px;margin-bottom:7px}
 .ldrow.bad{border-left-color:var(--warn)}
@@ -551,6 +552,30 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <p class="stat" id="exInStat"></p>
     <button class="ghost" id="exPickIn" hidden>Set the Phone &rarr; PC folder (on the PC)</button>
     <button class="ghost" id="exSendCalls">Send the calls to the PC</button>
+  </div>
+
+  <div class="fld">
+    <div class="dirhdr"><span class="dirtag sync">Phone &harr; PC</span></div>
+    <p class="hint">Appointments only, over a <b>private</b> GitHub repository. The plan syncs both ways automatically; call reports stay on the device that made them.</p>
+    <p class="stat" id="ghStat"></p>
+    <div class="gap"></div>
+    <div class="row">
+      <div class="f"><label>GitHub user or org</label><input type="text" id="ghOwner" autocomplete="off" placeholder="your-username"></div>
+      <div class="f"><label>Private repo name</label><input type="text" id="ghRepo" autocomplete="off" placeholder="field-crm-data"></div>
+    </div>
+    <div class="gap"></div>
+    <div class="row">
+      <div class="f"><label>Branch</label><input type="text" id="ghBranch" autocomplete="off" placeholder="main"></div>
+      <div class="f"><label>File path</label><input type="text" id="ghPath" autocomplete="off" placeholder="exchange/appointments.json"></div>
+    </div>
+    <div class="gap"></div>
+    <label>Access token</label>
+    <input type="password" id="ghToken" autocomplete="off" placeholder="github_pat_...">
+    <p class="hint">A fine-grained token with <b>Contents: read and write</b> on that one repository, and an expiry date. It is stored on this device only. If you lose the device, revoke it on GitHub and it is dead.</p>
+    <div class="gap"></div>
+    <button class="ghost" id="ghTest">Test the connection</button>
+    <button class="big" id="ghSync">Sync appointments now</button>
+    <p class="hint">What goes up: account key, date, time, duration, contact numbers, status, and your agenda line. What never goes up: account names, contact names, phone numbers, emails, call notes, photos.</p>
   </div>
 
   <div class="fld">
