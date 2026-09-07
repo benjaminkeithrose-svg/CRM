@@ -42,7 +42,7 @@ Filenames are case-sensitive on GitHub Pages, and the manifest must agree with w
 `sw.js` line 6:
 
 ```js
-const CACHE = 'fieldcrm-v16';
+const CACHE = 'fieldcrm-v18';
 ```
 
 **Increment this whenever any file changes**, or the old version is what gets tested and a fix will be reported as broken. This is the single most likely source of confusing behaviour after an update.
@@ -68,6 +68,14 @@ Eight files, no framework, no bundler. One external library: SheetJS from jsDeli
 
 **Navigation** uses `history.pushState`, so the Android back gesture moves back a screen instead of closing the app. Dialogs get their own history entry.
 
+**Unplanned calls create their own appointment**, marked `origin` and `acked:false`. They travel to the other device in the call file's `newAppts`. The plan file is authoritative for its date range and deletes anything inside it that the file does not contain — so an appointment made here and never sent is exempt until the other side acknowledges it by including it in a plan. Without that exemption a plan arriving after an unplanned call would wipe it.
+
+**Two exchange folders, not one.** `DIR_OUT` is PC → Phone (the PC writes plans), `DIR_IN` is Phone → PC (the phone writes calls). Each folder is read only for the kind that belongs in it, so neither device re-imports what it just wrote. A single `dirHandle` from an earlier build migrates to `DIR_OUT`.
+
+**One call per account per week.** Before a new call is created, the week is checked for an existing call at that account. If there is one it is offered; taking it resumes the same record and merges in any contacts picked this time. Cancelled and missed calls are not offered.
+
+**Load log.** Every file in or out is recorded in `kv.loadLog` with filename, kind, detail and success, capped at 12 and rendered under Exchange. Refusals are logged too, marked failed.
+
 **Share target.** The manifest registers the app as an Android share target for `.json`, `.xlsx` and `.csv`. The service worker catches the POST to `./share-target`, parks the file in a separate unversioned cache (`fieldcrm-share`) and redirects with a 303 so a reload cannot re-post. The page collects the file on boot, deletes it from the cache, and routes it. Every incoming file — shared, or chosen with the Receive button — goes through one function that sniffs content rather than filename, so a plan file renamed by OneDrive to `plan (1).json` still works.
 
 **Layout** switches at 900px. Below that the app routes to Today and This Week; above, to the planner. The same breakpoint is used by the routing and the CSS so the two cannot disagree.
@@ -81,10 +89,10 @@ Thirteen harnesses plus a QA pass, all headless with jsdom and fake-indexeddb.
 ```
 npm install jsdom fake-indexeddb xlsx
 node qa.mjs          # wiring, ids, assets, a full walkthrough, bad input
-node test.mjs        # ... through test14.mjs
+node test.mjs        # ... through test16.mjs
 ```
 
-Roughly 970 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
+Roughly 1,160 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
 
 **They cannot cover:** the camera, the share sheet, whether Blobs really persist in IndexedDB (fake-indexeddb does not preserve Blob identity), `showDirectoryPicker` against a real folder, SheetJS at full scale, or anything Outlook actually does with an `.ics`.
 

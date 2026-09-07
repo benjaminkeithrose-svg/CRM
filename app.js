@@ -406,6 +406,7 @@ async function loadAccounts(){
   APPTS = await apptsAll();
   WEEKS = await kvGet('weeks') || {};
   MGR_OF = await kvGet('mgrOf') || {};
+  LOAD_LOG = await kvGet('loadLog') || [];
   META = await kvGet('meta') || null;
   const ov = await kvGet('overrides');
   if(ov) OVERRIDES = Object.assign({acctZone:{}, spelling:{}}, ov);
@@ -444,6 +445,8 @@ async function importCrm(file){
   await kvSet('meta', meta);
   META = meta;
   indexAccounts(list);
+  await logLoad(file.name || 'CRM export', 'crm',
+    list.length + ' accounts, ' + contacts + ' contacts, ' + rows.length + ' rows read');
   // the planner's rule, kept: an appointment against an account that no longer
   // exists is dropped rather than left pointing at nothing
   const orphans = APPTS.filter(ap => !ACC_BY_NAME.has(ap.acct));
@@ -469,10 +472,16 @@ async function importCrm(file){
 async function importOverrides(file){
   const o = JSON.parse(await file.text());
   if(!o || (!o.acctZone && !o.spelling)) throw new Error('that file has no acctZone or spelling map');
-  OVERRIDES = {acctZone:o.acctZone||{}, spelling:o.spelling||{}, loaded:Date.now()};
+  OVERRIDES = {acctZone:o.acctZone||{}, spelling:o.spelling||{}, loaded:Date.now(),
+               file: file.name || 'zone-overrides.json'};
   await kvSet('overrides', OVERRIDES);
   renderDbStat();
-  toast('Loaded '+Object.keys(OVERRIDES.acctZone).length+' zone overrides');
+  await logLoad(file.name || 'zone-overrides.json', 'overrides',
+    Object.keys(OVERRIDES.acctZone).length + ' account pins, ' +
+    Object.keys(OVERRIDES.spelling).length + ' spelling corrections');
+  toast('Loaded ' + (file.name || 'zone overrides') + ' - ' +
+    Object.keys(OVERRIDES.acctZone).length + ' pins, ' +
+    Object.keys(OVERRIDES.spelling).length + ' spellings');
 }
 
 function renderDbStat(){
@@ -1148,7 +1157,8 @@ function apptEl(ap, pill){
     fd.className = 'fd ' + apptFocusCls(ap);
     fd.title = (a ? a.foc : 'No Focus') + ' focus';
     el.querySelector('.a span').textContent = ap.acct;
-    el.querySelector('.k').textContent = ST_SHORT[st]+' \u00b7 '+ap.type+(a ? ' \u00b7 '+(a.sub||'no suburb') : '');
+    el.querySelector('.k').textContent = (ap.unplanned ? 'unplanned \u00b7 ' : '')+
+      ST_SHORT[st]+' \u00b7 '+ap.type+(a ? ' \u00b7 '+(a.sub||'no suburb') : '');
     el.title = stTip;
   }
   el.addEventListener('dragstart', e=>{
@@ -2280,7 +2290,10 @@ async function startVisit(id){
     const existing = all.find(c => c.id === ap.callId);
     if(existing){ call = existing; call.loose = call.loose || []; go('dash'); return; }
   }
-  call = callFromAppt(ap);
+  const draft = callFromAppt(ap);
+  const reuse = await offerExistingCall(ap.acct, ap.date, draft.contacts, '');
+  call = reuse || draft;
+  if(reuse) toast('Continuing the call from ' + reuse.date);
   await saveCall();
   ap.status = 'in progress';
   ap.callId = call.id;
@@ -2325,6 +2338,107 @@ async function setVisitStatus(id, status, quiet){
   await saveAppt(ap);
   renderToday(); renderHomeCounts();
   if(!quiet) toast('Marked '+status);
+}
+
+/* ================= one call per account per week =================
+   Two visits to the same plant in the same week are usually one job: you were
+   there Tuesday, went back Thursday for the thing you could not get to. Starting
+   a second record splits the notes across two files and two rows of history.
+
+   So before a new call is created, the week is checked. If there is already a
+   call at that account, it is offered - and taking it carries everything across,
+   because it IS the same record. Contacts picked this time are merged in rather
+   than replacing what was there. */
+function weekBounds(dISO){
+  const d = dISO ? parseIso(dISO) : new Date();
+  const mon = startOfWeek(d);
+  return {from: mon.getTime(), to: addDays(mon, 6).getTime() + 86399999};
+}
+function callsSameWeek(customer, dISO, excludeId){
+  const {from, to} = weekBounds(dISO);
+  return callsFor(customer)
+    .filter(c => c.id !== excludeId && c.status !== 'cancelled' && c.status !== 'missed')
+    .filter(c => { const t = callWhen(c); return t >= from && t <= to; })
+    .sort((a,b) => callWhen(b) - callWhen(a));
+}
+function describeCall(c){
+  const n = (c.entries||[]).length;
+  const belts = (c.entries||[]).filter(e => e.type === 'belt').length;
+  const bits = [n ? n + ' entr' + (n===1?'y':'ies') : 'nothing logged yet'];
+  if(belts) bits.push(belts + ' belt' + (belts===1?'':'s'));
+  if(c.site) bits.push(c.site);
+  bits.push(c.closed ? 'closed' : 'still open');
+  return c.date + ' - ' + bits.join(', ');
+}
+/* Returns the existing call if the user chooses it, or null to start a new one. */
+async function offerExistingCall(customer, dISO, chosenContacts, site){
+  const found = callsSameWeek(customer, dISO);
+  if(!found.length) return null;
+  const c = found[0];
+  const more = found.length > 1 ? '\n\n(' + (found.length - 1) + ' other call' +
+    (found.length === 2 ? '' : 's') + ' this week as well - the most recent is offered.)' : '';
+  if(!confirm('There is already a call at ' + customer + ' this week:\n\n' +
+      describeCall(c) + more +
+      '\n\nContinue that one? Everything already on it is kept.\n\n' +
+      'Cancel to start a separate call instead.')) return null;
+
+  const all = await callsAll();
+  const live = all.find(x => x.id === c.id) || c;
+  live.loose = live.loose || [];
+  // anyone picked this time who was not on it before
+  const have = new Set((live.contacts||[]).map(x => (x.name||'').toLowerCase()));
+  (chosenContacts||[]).forEach(x => {
+    if(!have.has((x.name||'').toLowerCase())){ live.contacts.push(x); have.add((x.name||'').toLowerCase()); }
+  });
+  if(site && !live.site) live.site = site;
+  if(live.closed){ live.closed = false; live.status = 'in progress'; }
+  return live;
+}
+
+/* ---------- an unplanned call books itself ----------
+   A call started without a plan behind it still happened, and the desktop should
+   see it on the calendar rather than only in the account history. So the call
+   creates its own appointment, on the day it is being done, and that appointment
+   travels back with the calls.
+
+   Only for accounts that are in the account book. An appointment against a
+   manually typed account would have nothing to look up - the invite builder
+   reads the zone, and the next CRM import drops appointments whose account is
+   not in the export. The call itself still syncs either way; it just does not
+   get a calendar entry. */
+async function bookUnplanned(c, acc){
+  if(!c || !acc || c.apptId) return null;
+  const now = new Date();
+  const ap = {
+    id: 'ap' + Date.now().toString(36) + (plan.seq++),
+    acct: acc.a,
+    type: c.type === 'Phone call' ? 'Planned phone call' : 'Intralox site visit',
+    date: isoFromDdmmyyyy(c.date) || todayISOdate(),
+    start: String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
+    dur: 60,
+    agenda: '',
+    contacts: (c.contacts||[]).map(x => acc.c.findIndex(y => y.n === x.name)).filter(i => i >= 0),
+    /* origin marks it as made on this device and not yet seen by the other one.
+       The plan-file deletion rule is authoritative for its date range, and would
+       otherwise wipe this the moment a plan arrived that predates it. */
+    origin: isPhone() ? 'phone' : 'desktop',
+    acked: false,
+    status: 'in progress',
+    callId: c.id,
+    unplanned: true
+  };
+  APPTS.push(ap);
+  await saveAppt(ap);
+  c.apptId = ap.id;
+  await saveCall();
+  renderPlanCount();
+  return ap;
+}
+// call dates are stored DD/MM/YYYY; appointments are keyed on ISO
+function isoFromDdmmyyyy(d){
+  const p = String(d||'').split('/');
+  if(p.length !== 3) return null;
+  return p[2] + '-' + p[1].padStart(2,'0') + '-' + p[0].padStart(2,'0');
 }
 
 /* ---------- move ---------- */
@@ -2381,8 +2495,50 @@ $('tvView').querySelectorAll('button').forEach(b => b.addEventListener('click', 
   $('title').textContent = todayView === 'today' ? 'Today' : 'This week';
   renderToday();
 }));
-$('tvUnplanned').addEventListener('click', ()=>{
+/* Booking ahead from the phone. The unplanned path already creates an
+   appointment as a side effect of starting a call; this is the same thing
+   without doing the visit - "I said I'd come back Thursday". Same origin and
+   acknowledgement flags, so it survives the next plan file the same way. */
+let bookAcct = null;
+function startBooking(){
+  if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
+  bookAcct = null;
   cameFromAcct = false;
+  bookingMode = true;
+  $('cDate').value = todayISO();
+  go('account'); renderAccSearch();
+  $('accHint').textContent = 'Pick the account to book a visit at';
+}
+let bookingMode = false;
+async function bookVisitFor(name){
+  const acc = ACC_BY_NAME.get(name);
+  bookingMode = false;
+  if(!acc){
+    toast('Only accounts from the CRM export can be booked');
+    go('today');
+    return;
+  }
+  bookAcct = acc;
+  const ap = {
+    id: 'ap' + Date.now().toString(36) + (plan.seq++),
+    acct: acc.a, type: 'Intralox site visit',
+    date: todayISOdate(), start: '09:00', dur: 60, agenda: '',
+    contacts: acc.c.map((_, i) => i).slice(0, 6),
+    origin: isPhone() ? 'phone' : 'desktop', acked: false,
+    status: 'planned'
+  };
+  APPTS.push(ap);
+  await saveAppt(ap);
+  renderPlanCount();
+  go('today');
+  // straight into the day picker, because the date is the point of booking
+  openMoveDialog(ap.id);
+  $('mvTitle').textContent = 'Book ' + acc.a;
+  $('mvSub').textContent = 'Pick the day. It travels to the PC with your calls.';
+}
+$('tvBook').addEventListener('click', startBooking);
+$('tvUnplanned').addEventListener('click', ()=>{
+  cameFromAcct = false; bookingMode = false;
   $('cDate').value = todayISO();
   go('account'); renderAccSearch();
 });
@@ -2452,6 +2608,10 @@ async function buildCallFile(withPhotos){
     device: isPhone() ? 'phone' : 'desktop',
     withPhotos: !!withPhotos,
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos),
+    /* Appointments made on this device that the other side has never seen. Sent
+       whole, because there is nothing there to update - it does not exist yet. */
+    newAppts: JSON.parse(JSON.stringify(
+      APPTS.filter(a => a.origin && !a.acked))),
     apptUpdates: APPTS
       .filter(a => a.status || a.callId || a.movedOn)
       .map(a => ({id:a.id, status:a.status||null, date:a.date, callId:a.callId||null,
@@ -2468,15 +2628,25 @@ async function mergePlanFile(data){
   for(const ap of incoming){
     if(!ap || !ap.id) continue;
     const mine = byId.get(ap.id);
-    if(!mine){ await apptsPut(ap); added++; continue; }
+    if(!mine){ await apptsPut(Object.assign({}, ap, {acked:true})); added++; continue; }
+    /* The file contains it, so the other side has seen it and it is no longer
+       this device's private record. Persisted here rather than in a sweep at the
+       end - a later sweep would write back records the deletion pass removed. */
+    const wasPrivate = mine.origin && !mine.acked;
+    if(wasPrivate) mine.acked = true;
     // newest wins, and a tie goes to what is already here rather than churning
-    if((mine.touchedAt||0) > (ap.touchedAt||0)){ kept++; continue; }
+    if((mine.touchedAt||0) > (ap.touchedAt||0)){
+      if(wasPrivate) await apptsPut(mine);
+      kept++; continue;
+    }
     /* The phone's outcome is not in the desktop's copy, so carry it over rather
        than losing that the visit was done. */
     const merged = Object.assign({}, ap);
     if(mine.status && !ap.status) merged.status = mine.status;
     if(mine.callId && !ap.callId) merged.callId = mine.callId;
     if(mine.callSummary && !ap.callSummary) merged.callSummary = mine.callSummary;
+    if(mine.origin && !merged.origin) merged.origin = mine.origin;
+    merged.acked = true;
     await apptsPut(merged);
     updated++;
   }
@@ -2486,6 +2656,9 @@ async function mergePlanFile(data){
   for(const mine of APPTS){
     if(inFile.has(mine.id)) continue;
     if(mine.date < r.from || mine.date > r.to){ keptOutside++; continue; }
+    /* Made here and not yet sent anywhere. The file cannot be authoritative about
+       a record whose existence it has never been told of. */
+    if(mine.origin && !mine.acked){ kept++; continue; }
     // touched here since the file was made: keep it and say so
     if((mine.touchedAt||0) > (data.made||0)){ kept++; continue; }
     await apptsDel(mine.id);
@@ -2528,6 +2701,18 @@ async function mergeCallFile(data){
     if(mine) updated++; else added++;
     await callsPut(c);
   }
+  // appointments the other device created for calls that were not planned
+  let booked = 0;
+  for(const ap of (data.newAppts || [])){
+    if(!ap || !ap.id) continue;
+    if(APPTS.some(x => x.id === ap.id)) continue;
+    if(!ACC_BY_NAME.has(ap.acct)) continue;   // nothing to hang it on here
+    const copy = Object.assign({}, ap, {acked: true});
+    await apptsPut(copy);
+    booked++;
+  }
+  if(booked) APPTS = await apptsAll();
+
   // visit outcomes ride back with the calls
   let visits = 0, visitsKept = 0;
   /* Newest-wins is the wrong rule for the whole record here. The phone owns the
@@ -2556,7 +2741,7 @@ async function mergeCallFile(data){
   }
   APPTS = await apptsAll();
   indexCalls(await callsAll());
-  return {added, updated, skipped, visits, visitsKept,
+  return {added, updated, skipped, visits, visitsKept, booked,
           photos: data.withPhotos ? 'with photos' : 'no photos'};
 }
 
@@ -2584,6 +2769,7 @@ async function receiveExchange(file){
     await renderHome();
     const bits = [r.added+' calls added', r.updated+' updated'];
     if(r.skipped) bits.push(r.skipped+' already newer here');
+    if(r.booked) bits.push(r.booked+' unplanned visit'+(r.booked===1?'':'s')+' added to the plan');
     if(r.visits) bits.push(r.visits+' visit outcomes');
     return 'Calls merged: ' + bits.join(', ') + ' (' + r.photos + ')';
   }
@@ -2596,7 +2782,22 @@ async function receiveExchange(file){
    folder and the handle kept in IndexedDB. OneDrive's own client does the
    upload. The API is not supported on Android Chrome, which is why the phone
    uses the share sheet instead. */
-let DIR = null;
+/* Two folders, not one, and each is named for the device that owns it and the
+   direction the data travels. A single shared folder meant "did I already read
+   that one?" every time, and a plan the PC had just written could be re-read by
+   the PC itself. Separate folders make each one a one-way pipe:
+
+     PC -> Phone    the PC writes plan files here; the phone reads them
+     Phone -> PC    the phone writes call files here; the PC reads them
+
+   The phone cannot hold a folder handle at all - Android Chrome has no File
+   System Access API - so on the phone these are OneDrive folders reached through
+   the share sheet, and the buttons are hidden. */
+let DIR_OUT = null, DIR_IN = null;
+const DIR_LABEL = {
+  out: 'PC \u2192 Phone (the PC writes plans here)',
+  in:  'Phone \u2192 PC (the phone writes calls here)'
+};
 const hasFS = () => typeof window.showDirectoryPicker === 'function';
 async function dirOk(handle, mode){
   if(!handle || !handle.queryPermission) return !!handle;
@@ -2605,46 +2806,65 @@ async function dirOk(handle, mode){
   return await handle.requestPermission(opts) === 'granted';
 }
 async function loadDir(){
-  try { DIR = await kvGet('dirHandle') || null; } catch(e){ DIR = null; }
+  try {
+    DIR_OUT = await kvGet('dirOut') || null;
+    DIR_IN  = await kvGet('dirIn')  || null;
+    // one folder was used for both before this; keep it as the outbound one
+    if(!DIR_OUT){
+      const old = await kvGet('dirHandle');
+      if(old){ DIR_OUT = old; await kvSet('dirOut', old); }
+    }
+  } catch(e){ DIR_OUT = DIR_IN = null; }
   renderExchange();
 }
-async function pickDir(){
-  if(!hasFS()){ toast('This browser cannot hold a folder - use the share sheet instead'); return; }
+async function pickDir(which){
+  if(!hasFS()){
+    toast('This device cannot hold a folder. Use the share sheet, or the Receive button.');
+    return;
+  }
   const h = await window.showDirectoryPicker({mode:'readwrite'});
-  DIR = h;
-  await kvSet('dirHandle', h);
+  if(which === 'in'){ DIR_IN = h; await kvSet('dirIn', h); }
+  else { DIR_OUT = h; await kvSet('dirOut', h); }
   renderExchange();
-  toast('Folder set to ' + (h.name || 'the chosen folder'));
+  logLoad(h.name || 'folder', 'folder', 'Set as ' + DIR_LABEL[which === 'in' ? 'in' : 'out']);
+  toast('Folder set: ' + (h.name || 'chosen') + ' \u2014 ' + DIR_LABEL[which === 'in' ? 'in' : 'out']);
 }
-async function writeToDir(name, text){
-  if(!DIR) return false;
-  if(!await dirOk(DIR, 'readwrite')){ toast('Permission to that folder was declined'); return false; }
-  const fh = await DIR.getFileHandle(name, {create:true});
+async function writeToDir(dir, name, text){
+  if(!dir) return false;
+  if(!await dirOk(dir, 'readwrite')){ toast('Permission to that folder was declined'); return false; }
+  const fh = await dir.getFileHandle(name, {create:true});
   const wr = await fh.createWritable();
   await wr.write(text);
   await wr.close();
   return true;
 }
-async function readFromDir(name){
-  if(!DIR) return null;
-  if(!await dirOk(DIR, 'read')) return null;
+async function readFromDir(dir, name){
+  if(!dir) return null;
+  if(!await dirOk(dir, 'read')) return null;
   try {
-    const fh = await DIR.getFileHandle(name);
+    const fh = await dir.getFileHandle(name);
     return await fh.getFile();
   } catch(e){ return null; }
 }
-async function sendFile(name, text){
-  if(DIR && await writeToDir(name, text)){
-    toast('Written to ' + (DIR.name || 'the folder') + ' as ' + name);
+async function sendFile(name, text, dir, where){
+  if(dir && await writeToDir(dir, name, text)){
+    toast('Written to ' + (dir.name || 'the folder') + '/' + name + ' \u2014 ' + where);
+    logLoad(name, 'sent', 'Written to ' + (dir.name || 'folder') + ' \u2014 ' + where);
     return;
   }
   const file = new File([text], name, {type:'application/json'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
-    try { await navigator.share({files:[file], title:name}); toast('Shared ' + name); return; }
+    try {
+      await navigator.share({files:[file], title:name});
+      toast('Shared ' + name + ' \u2014 save it to the ' + where + ' folder');
+      logLoad(name, 'sent', 'Shared \u2014 ' + where);
+      return;
+    }
     catch(e){ if(e.name === 'AbortError') return; console.error(e); }
   }
   downloadFile(name, text, 'application/json');
-  toast('Saved ' + name + ' to Downloads');
+  toast('Saved ' + name + ' to Downloads \u2014 move it to the ' + where + ' folder');
+  logLoad(name, 'sent', 'Downloaded \u2014 ' + where);
 }
 function exchangeName(kind){
   const d = new Date(), p = n => String(n).padStart(2,'0');
@@ -2656,7 +2876,7 @@ async function sendPlan(){
     'Say yes the first time, or after re-importing from Dynamics. Say no for a ' +
     'routine weekly plan - it keeps the file small.');
   const data = await buildPlanFile(withAccounts);
-  await sendFile(exchangeName(PLAN_KIND), JSON.stringify(data));
+  await sendFile(exchangeName(PLAN_KIND), JSON.stringify(data), DIR_OUT, DIR_LABEL.out);
   localStorage.setItem(LS('lastPlanSent'), String(Date.now()));
   renderExchange();
 }
@@ -2666,30 +2886,39 @@ async function sendCalls(){
   const withPhotos = confirm('Include the photos?\n\nThey are already in the notes you shared, ' +
     'so no is usually right and keeps the file small.');
   const data = await buildCallFile(withPhotos);
-  await sendFile(exchangeName(CALL_KIND), JSON.stringify(data));
+  await sendFile(exchangeName(CALL_KIND), JSON.stringify(data), DIR_IN, DIR_LABEL['in']);
   localStorage.setItem(LS('lastCallsSent'), String(Date.now()));
   renderExchange();
 }
+/* Each folder is read for the one kind that belongs in it. Reading a plan out of
+   the outbound folder would mean the PC re-importing what it just wrote. */
 async function receiveFromFolder(){
-  if(!DIR){ toast('No folder set'); return; }
+  const jobs = [[DIR_IN, CALL_KIND, DIR_LABEL['in']], [DIR_OUT, PLAN_KIND, DIR_LABEL.out]];
+  if(!jobs.some(j => j[0])){ toast('No folders set yet'); return; }
   let found = 0;
-  for(const kind of [PLAN_KIND, CALL_KIND]){
-    for(const name of await dirCandidates(kind)){
-      const f = await readFromDir(name);
+  for(const [dir, kind, where] of jobs){
+    if(!dir) continue;
+    for(const name of await dirCandidates(dir, kind)){
+      const f = await readFromDir(dir, name);
       if(!f) continue;
-      try { toast(await receiveExchange(f)); found++; }
+      try {
+        const msg = await receiveExchange(f);
+        logLoad(name, kind === PLAN_KIND ? 'plan' : 'calls', msg);
+        toast(name + ': ' + msg);
+        found++;
+      }
       catch(e){ console.error(e); toast(name + ': ' + e.message); }
       break;
     }
   }
-  if(!found) toast('No exchange files found in that folder');
+  if(!found) toast('No new files found in the folders that are set');
   renderExchange();
 }
-async function dirCandidates(kind){
+async function dirCandidates(dir, kind){
   // newest first, so a folder with several weeks of files takes the current one
   const names = [];
-  if(DIR && DIR.entries){
-    for await (const [n, h] of DIR.entries()){
+  if(dir && dir.entries){
+    for await (const [n, h] of dir.entries()){
       if(typeof n === 'string' && n.startsWith(kind) && n.endsWith('.json')) names.push(n);
     }
   }
@@ -2698,34 +2927,50 @@ async function dirCandidates(kind){
   return names;
 }
 function renderExchange(){
-  const el = $('exStat');
-  if(!el) return;
-  const when = k => {
-    const v = localStorage.getItem(LS(k));
-    return v ? new Date(Number(v)).toLocaleDateString() : null;
+  const phone = isPhone();
+  const dirLine = (dir, which) => {
+    if(dir) return 'Folder set: <b>' + esc(dir.name || 'chosen folder') + '</b>';
+    if(!hasFS()) return which === 'out'
+      ? 'This device cannot hold a folder. On the phone, open the plan in OneDrive and tap Share &rarr; Field CRM.'
+      : 'This device cannot hold a folder. Send the calls with the share sheet and save them into the Phone &rarr; PC folder in OneDrive.';
+    return '<span class="flagline">No folder set.</span> Set it on the PC and point it at a OneDrive folder that syncs.';
   };
-  const bits = [];
-  bits.push(DIR ? 'Folder: ' + esc(DIR.name || 'set')
-                : (hasFS() ? 'No folder set - files go to the share sheet or Downloads'
-                           : 'This device uses the share sheet'));
-  bits.push(APPTS.length + ' appointment' + (APPTS.length===1?'':'s') + ' held');
-  const withNotes = APPTS.filter(a => a.callSummary).length;
-  if(withNotes) bits.push(withNotes + ' visit' + (withNotes===1?'':'s') + ' written up');
-  const moved = ACCOUNTS.filter(isMoved).length;
-  const wk = weeksList().length;
-  if(wk) bits.push(wk + ' territory week' + (wk===1?'':'s') + ' set');
-  if(moved) bits.push(moved + ' account' + (moved===1?'':'s') + ' reassigned');
-  $('exReassignCsv').hidden = !moved;
-  el.innerHTML = bits.join('<br>');
-  $('exPickDir').hidden = !hasFS();
-  $('exPull').hidden = !DIR;
+  const out = $('exOutStat'), inn = $('exInStat');
+  if(out) out.innerHTML = dirLine(DIR_OUT, 'out') +
+    '<br><span class="cov">' + (phone ? 'You read from this folder.' : 'You write to this folder.') + '</span>';
+  if(inn) inn.innerHTML = dirLine(DIR_IN, 'in') +
+    '<br><span class="cov">' + (phone ? 'You write to this folder.' : 'You read from this folder.') + '</span>';
+  $('exPickOut').hidden = !hasFS();
+  $('exPickIn').hidden = !hasFS();
+  $('exPull').hidden = !(DIR_OUT || DIR_IN);
+
+  const el = $('exStat');
+  if(el){
+    const bits = [];
+    bits.push('This device is acting as the <b>' + (phone ? 'phone' : 'PC') + '</b>.');
+    bits.push(APPTS.length + ' appointment' + (APPTS.length===1?'':'s') + ' held');
+    const unsent = APPTS.filter(a => a.origin && !a.acked).length;
+    if(unsent) bits.push('<span class="flagline">' + unsent + ' made here and not yet sent</span>');
+    const withNotes = APPTS.filter(a => a.callSummary).length;
+    if(withNotes) bits.push(withNotes + ' visit' + (withNotes===1?'':'s') + ' written up');
+    const wk = weeksList().length;
+    if(wk) bits.push(wk + ' territory week' + (wk===1?'':'s') + ' set');
+    const moved = ACCOUNTS.filter(isMoved).length;
+    if(moved) bits.push(moved + ' account' + (moved===1?'':'s') + ' reassigned');
+    el.innerHTML = bits.join('<br>');
+    $('exReassignCsv').hidden = !moved;
+  }
+  renderLoadLog();
 }
+$('exPickOut').addEventListener('click', ()=>pickDir('out').catch(e=>{
+  if(e && e.name === 'AbortError') return; reportErr(e);
+}));
+$('exPickIn').addEventListener('click', ()=>pickDir('in').catch(e=>{
+  if(e && e.name === 'AbortError') return; reportErr(e);
+}));
 $('exReassignCsv').addEventListener('click', exportReassignments);
 $('exSendPlan').addEventListener('click', ()=>sendPlan().catch(reportErr));
 $('exSendCalls').addEventListener('click', ()=>sendCalls().catch(reportErr));
-$('exPickDir').addEventListener('click', ()=>pickDir().catch(e=>{
-  if(e && e.name === 'AbortError') return; reportErr(e);
-}));
 $('exPull').addEventListener('click', ()=>receiveFromFolder().catch(reportErr));
 $('exBtn').addEventListener('click', async ()=>{
   const f = $('exFile').files[0];
@@ -2749,6 +2994,15 @@ $('exBtn').addEventListener('click', async ()=>{
    Sniffing is on content, not the filename. A plan file renamed by OneDrive to
    "field-crm-plan-2026-09-07 (1).json" still has its kind inside it. */
 async function routeIncomingFile(file, opts){
+  try { return await routeIncomingFileInner(file, opts); }
+  catch(e){
+    // a refusal is worth logging too - during testing the question is always
+    // "did that file load?", and "no, and here is why" is a real answer
+    await logLoad(file.name || '(no name)', 'unknown', e.message, true);
+    throw e;
+  }
+}
+async function routeIncomingFileInner(file, opts){
   opts = opts || {};
   const name = (file.name || '').toLowerCase();
 
@@ -2765,7 +3019,10 @@ async function routeIncomingFile(file, opts){
   }
 
   if(data && (data.kind === PLAN_KIND || data.kind === CALL_KIND)){
-    return await receiveExchange(file);
+    const msg = await receiveExchange(file);
+    await logLoad(file.name || 'exchange file',
+      data.kind === PLAN_KIND ? 'plan' : 'calls', msg);
+    return msg;
   }
   if(data && data.format === BACKUP_FORMAT){
     /* A backup arriving through the share sheet is almost always deliberate, but
@@ -2775,6 +3032,9 @@ async function routeIncomingFile(file, opts){
       return 'Restore cancelled';
     }
     await doRestore(file);
+    await logLoad(file.name || 'backup', 'backup',
+      (data.calls||[]).length + ' calls, ' + (data.accounts||[]).length + ' accounts' +
+      (data.withPhotos ? ', with photos' : ', no photos'));
     return 'Backup restored';
   }
   if(data && (data.acctZone || data.spelling)){
@@ -2821,6 +3081,42 @@ async function consumeSharedFile(){
   }
 }
 
+/* ================= what has been loaded =================
+   Every file that comes in or goes out is written to a short log with its
+   filename, when, and what it did. During testing the constant question is "did that
+   actually load?" and a toast that has already faded is no answer. */
+let LOAD_LOG = [];
+const LOAD_LOG_MAX = 12;
+const LOAD_KIND = {
+  crm:'CRM export', overrides:'Zone overrides', plan:'Plan from PC',
+  calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
+};
+async function logLoad(filename, kind, detail, failed){
+  LOAD_LOG.unshift({at: Date.now(), file: filename || '(no name)', kind: kind,
+                    detail: detail || '', failed: !!failed});
+  LOAD_LOG = LOAD_LOG.slice(0, LOAD_LOG_MAX);
+  try { await kvSet('loadLog', LOAD_LOG); } catch(e){}
+  renderLoadLog();
+}
+function renderLoadLog(){
+  const el = $('loadLog');
+  if(!el) return;
+  if(!LOAD_LOG.length){
+    el.innerHTML = '<p class="empty">No files loaded on this device yet.</p>';
+    return;
+  }
+  el.innerHTML = LOAD_LOG.map(r => {
+    const d = new Date(r.at);
+    return '<div class="ldrow'+(r.failed ? ' bad' : '')+'">'+
+      '<div class="ldtop"><span class="ldok">'+(r.failed ? '\u2717 Failed' : '\u2713 Loaded successfully')+
+      '</span><span class="ldkind">'+esc(LOAD_KIND[r.kind] || r.kind)+'</span></div>'+
+      '<div class="ldfile">'+esc(r.file)+'</div>'+
+      '<div class="lddet">'+esc(r.detail)+'</div>'+
+      '<div class="ldwhen">'+d.toLocaleDateString()+' '+
+        d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})+'</div></div>';
+  }).join('');
+}
+
 /* ---------- home ---------- */
 async function renderHome(){
   const all = await callsAll();
@@ -2863,7 +3159,7 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   if(t==='newcall'){
     // a manual account is still possible with no database, so this warns rather than blocks
     if(!ACCOUNTS.length) toast('No contact database - manual account entry only');
-    cameFromAcct = false;
+    cameFromAcct = false; bookingMode = false;
     $('cDate').value = todayISO(); go('account'); renderAccSearch();
   } else if(t==='accounts'){
     browseScope = 'mine';
@@ -2947,11 +3243,17 @@ const FOC_CLS = {'High':'high','Medium':'med','Low':'low','No Focus':'none'};
 $('accManualGo').addEventListener('click', ()=>{
   const m = $('accManual').value.trim();
   if(!m){ toast('Enter an account name'); return; }
+  if(bookingMode){
+    bookingMode = false;
+    toast('Only accounts from the CRM export can be booked - log it as a call instead');
+    return;
+  }
   chooseAccount(m, true);
 });
 
 let pendingAcct = null;
 function chooseAccount(name, manual){
+  if(bookingMode){ bookVisitFor(name).catch(reportErr); return; }
   const acc = manual ? null : (ACC_BY_NAME.get(name) || null);
   pendingAcct = {name, manual: !!manual, acc};
   $('ctAcc').textContent = name;
@@ -3000,6 +3302,15 @@ $('openCall').addEventListener('click', async ()=>{
   if(!chosen.length){ $('ctErr').classList.add('show'); return; }
 
   const acc = pendingAcct.acc;
+  const site = $('cSite').value.trim();
+  const reuse = await offerExistingCall(pendingAcct.name, $('cDate').value, chosen, site);
+  if(reuse){
+    call = reuse;
+    await saveCall();
+    go('dash');
+    toast('Continuing the call from ' + reuse.date);
+    return;
+  }
   call = {
     id: 'c'+Date.now(),
     date: ddmmyyyy($('cDate').value),
@@ -3020,6 +3331,7 @@ $('openCall').addEventListener('click', async ()=>{
     updated: Date.now()
   };
   await saveCall();
+  await bookUnplanned(call, acc);
   const noMob = chosen.filter(c=>!c.mobile).map(c=>c.name);
   const noEm = chosen.filter(c=>!c.email).map(c=>c.name);
   go('dash');

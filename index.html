@@ -143,6 +143,22 @@ button.ghost:active{border-color:var(--ink-2)}
 ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line-height:1.6}
 ul.rep li{margin-bottom:2px}
 .flagline{color:var(--warn);font-weight:700}
+/* ---------- exchange direction and the load log ---------- */
+.dirhdr{margin-bottom:6px}
+.dirtag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;
+  border-radius:2px;padding:2px 8px}
+.dirtag.out{background:var(--cyan-lt);color:var(--cyan-dk);border:1px solid var(--cyan-md)}
+.dirtag.in{background:var(--orange-lt);color:var(--orange-dk);border:1px solid var(--orange)}
+.ldrow{border-left:3px solid var(--ok);background:var(--surface);border:1px solid var(--line-2);
+  border-left-width:3px;border-radius:0 var(--r) var(--r) 0;padding:8px 10px;margin-bottom:7px}
+.ldrow.bad{border-left-color:var(--warn)}
+.ldtop{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ldok{font-size:11px;font-weight:700;color:var(--ok)}
+.ldrow.bad .ldok{color:var(--warn)}
+.ldkind{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.ldfile{font-size:13px;font-weight:600;margin-top:2px;word-break:break-all}
+.lddet{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+.ldwhen{font-size:11px;color:var(--ink-3);margin-top:2px}
 /* ---------- today / this week ----------
    The phone half of the planner. A read-and-act list: what is on, tap to start,
    tap to close out, tap to move. No drag, no rail, no month grid. */
@@ -446,19 +462,42 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
 
   <h2>Exchange</h2>
+
+  <div class="fld">
+    <div class="dirhdr"><span class="dirtag out">PC &rarr; Phone</span></div>
+    <p class="hint">The <b>PC writes</b> the week's plan into this folder. The <b>phone reads</b> it. Nothing else belongs in here.</p>
+    <p class="stat" id="exOutStat"></p>
+    <button class="ghost" id="exPickOut" hidden>Set the PC &rarr; Phone folder (on the PC)</button>
+    <button class="ghost" id="exSendPlan">Send the plan to the phone</button>
+  </div>
+
+  <div class="fld">
+    <div class="dirhdr"><span class="dirtag in">Phone &rarr; PC</span></div>
+    <p class="hint">The <b>phone writes</b> the week's calls into this folder. The <b>PC reads</b> it. Keep it separate from the folder above, or each device ends up reading back what it just wrote.</p>
+    <p class="stat" id="exInStat"></p>
+    <button class="ghost" id="exPickIn" hidden>Set the Phone &rarr; PC folder (on the PC)</button>
+    <button class="ghost" id="exSendCalls">Send the calls to the PC</button>
+  </div>
+
+  <div class="fld">
+    <label>Bring a file in</label>
+    <button class="ghost" id="exPull" hidden>Check both folders for new files (PC only)</button>
+    <input type="file" id="exFile" accept=".json,.xlsx,.csv">
+    <button class="ghost" id="exBtn">Load that file</button>
+    <p class="hint">Takes a plan, a call file, a backup, the zone overrides or a CRM export &mdash; it works out which. Everything merges by record id; nothing already on this device is overwritten. On the phone you can also tap <b>Share</b> on a file in OneDrive and pick Field CRM.</p>
+  </div>
+
+  <div class="fld">
+    <label>Files loaded on this device</label>
+    <div id="loadLog"></div>
+    <p class="hint">Newest first. Shows the filename and what each file did, so it is obvious what has and has not been loaded on this device.</p>
+  </div>
+
   <div class="fld">
     <p class="stat" id="exStat"></p>
-    <button class="ghost" id="exPickDir" hidden>Choose the OneDrive folder</button>
-    <button class="ghost" id="exSendPlan">Send the plan</button>
     <button class="ghost" id="exReassignCsv" hidden>Export reassignments as CSV</button>
     <button class="ghost" id="exCallNotes">Export call notes as CSV</button>
-    <button class="ghost" id="exSendCalls">Send the calls</button>
-    <button class="ghost" id="exPull" hidden>Check the folder for new files</button>
-    <div style="height:10px"></div>
-    <label>Receive a file</label>
-    <input type="file" id="exFile" accept=".json,.xlsx,.csv">
-    <button class="ghost" id="exBtn">Merge that file in</button>
-    <p class="hint">The plan goes PC to phone, the calls go phone to PC. Both merge by record id and neither one overwrites what is already here. This accepts a plan, a call file, a backup, the zone overrides or a CRM export &mdash; it works out which. On the phone you can also share a file to Field CRM straight from OneDrive.</p>
+    <p class="hint">Both CSVs are for Dynamics, not for the other device.</p>
   </div>
 
   <h2>Backup</h2>
@@ -540,6 +579,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <p class="hint" id="tvHint"></p>
   <div id="tvBody"></div>
   <button class="ghost" id="tvUnplanned">Log an unplanned call</button>
+  <button class="ghost" id="tvBook">Book a visit for later</button>
   <button class="ghost" id="tvPlanner" hidden>Open the planner</button>
 </section>
 

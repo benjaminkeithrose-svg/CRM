@@ -120,7 +120,18 @@ That's it. The app opens and merges the file.
 
 If Field CRM isn't in the share sheet, the app hasn't been installed to the home screen properly — see step 1. As a fallback you can download the file in OneDrive and pick it under **Exchange** → **Receive a file**.
 
-**Optional, and worth doing once:** on the PC, tap **Choose the OneDrive folder** and point it at a synced folder. After that, sending writes straight into the folder and OneDrive does the rest.
+**Optional, and worth doing once — on the PC.** There are two folders, and they must be different ones:
+
+| Folder | Who writes | Who reads |
+|---|---|---|
+| **PC → Phone** | the PC, when you send the plan | the phone |
+| **Phone → PC** | the phone, when you send the calls | the PC |
+
+On the PC, tap **Set the PC → Phone folder** and **Set the Phone → PC folder** and point each at a different OneDrive folder that syncs. After that, sending writes straight in, and **Check both folders for new files** reads whatever has arrived.
+
+Keep them separate. One shared folder means each device reads back what it just wrote.
+
+The phone can't hold a folder — Android has no way to do it — so on the phone you share files in and out through OneDrive.
 
 ---
 
@@ -138,6 +149,24 @@ Four things you can do:
 - **Cancel** or **Missed** — it didn't happen.
 
 **This week** shows Monday to Friday.
+
+### A call that wasn't planned
+
+Tap **Log an unplanned call** and search for the account. The call opens the same way.
+
+It also books itself into the plan, on today's date and at the time you started it, so when you send the week back the PC sees it on the calendar as well as in the account history. It's tagged **unplanned** so you can tell it apart from something you scheduled.
+
+If you type in an account that isn't in the CRM, you still get the call — it just doesn't get a calendar entry, because there's no account for it to hang on.
+
+### Booking a visit for later
+
+Tap **Book a visit for later**, pick the account, pick the day. Nothing is started — it just goes in the diary, and travels to the PC with your calls.
+
+### Going back to the same site
+
+If you already have a call at that account **this week**, the app says so and offers to continue it. Say yes and everything already on it is kept — the belts, the notes, the photos. Anyone new you ticked this time is added.
+
+Say no and you get a separate call. Both are fine; one call is usually what you want, because two trips to the same plant in a week are normally one job.
 
 ### Once a call is started
 
@@ -190,7 +219,7 @@ Save it to OneDrive. On the PC, choose that file and **Merge that file in**.
 
 > **Sharing works for any file the app understands** — a plan, a call file, a backup, the zone overrides, or a CRM export. Share it to Field CRM and the app works out what it is. The **Receive a file** button does the same thing.
 
-The PC picks up your calls, your entries, and what happened to each planned visit.
+The PC picks up your calls, your entries, what happened to each planned visit, and any unplanned calls you logged along the way.
 
 **Nothing is ever overwritten.** Both sides merge record by record. If you moved a visit on the phone and someone moved it on the PC, the most recent change wins and the app tells you.
 
@@ -231,6 +260,8 @@ Your call notes also travel inside the Outlook appointment. Write up a visit and
 **A fix I asked for isn't there.** The old version is cached. Close the app completely and reopen it. If it's still wrong, the `sw.js` file didn't get its version bumped when it was uploaded.
 
 **Nothing appears on Today.** Either nothing is planned, or the plan file hasn't been merged in. Check **Exchange** — it says how many appointments the device is holding.
+
+**Did that file actually load?** Look at **Files loaded on this device** under **Exchange**. Every file in or out is listed newest first, with its name, what it did, and a plain **Loaded successfully** or **Failed**. If a file isn't in that list, it never loaded.
 
 **Field CRM isn't in the Android share sheet.** It only appears once the app is installed to the home screen. Open it in Chrome, three dots, **Add to Home screen**, then try again. If you've just updated the app, close it fully and reopen it once so the new version registers.
 
