@@ -514,14 +514,52 @@ let ASSETS = null;
 
 async function importAssets(file){
   toast('Reading the register...');
-  if(typeof XLSX === 'undefined')
-    throw new Error('the spreadsheet library has not loaded - open the app online once');
-  const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
-  if(!rows.length) throw new Error('no rows found in that file');
-  if(!rows.some(r => pick(r, ASSET_COLS.asset)))
-    throw new Error('no "Intralox Asset Number" column found - is this the master database?');
+  const name = (file.name || '').toLowerCase();
+  let rows = null, sheetUsed = '', sheetsSeen = [], headersSeen = [];
+
+  if(name.endsWith('.csv')){
+    rows = csvToObjects(await file.text());
+    sheetUsed = 'csv';
+    headersSeen = rows.length ? Object.keys(rows[0]) : [];
+  } else {
+    if(typeof XLSX === 'undefined')
+      throw new Error('the spreadsheet library has not loaded. Open the app once with a ' +
+        'connection, or save the register as .csv and load that.');
+    const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+    sheetsSeen = wb.SheetNames.slice();
+    /* Every sheet is searched, not just the first. A working copy of the master
+       database can easily gain a cover sheet or a pivot in front of the data,
+       and failing on that would be a silly reason to say the file is wrong. */
+    for(const sn of wb.SheetNames){
+      const r = XLSX.utils.sheet_to_json(wb.Sheets[sn], {defval:'', raw:false});
+      if(!r.length) continue;
+      const heads = Object.keys(r[0]);
+      if(!headersSeen.length) headersSeen = heads;
+      if(r.some(x => pick(x, ASSET_COLS.asset))){ rows = r; sheetUsed = sn; headersSeen = heads; break; }
+    }
+    if(!rows){
+      /* No sheet carried the column. Fall back to the first sheet that has any
+         rows at all, so the error can say what the file DOES contain - "no rows"
+         and "wrong columns" are different problems and used to report the same. */
+      for(const sn of wb.SheetNames){
+        const r = XLSX.utils.sheet_to_json(wb.Sheets[sn], {defval:'', raw:false});
+        if(r.length){ headersSeen = Object.keys(r[0]); sheetUsed = sn; rows = r; break; }
+      }
+    }
+  }
+
+  if(!rows || !rows.length){
+    throw new Error('no rows could be read. Sheets in the file: ' +
+      (sheetsSeen.join(', ') || 'none') + '.' +
+      (headersSeen.length ? ' First columns seen: ' + headersSeen.slice(0,6).join(', ') + '.' : ''));
+  }
+  if(!rows.some(r => pick(r, ASSET_COLS.asset))){
+    throw new Error('no "Intralox Asset Number" column. Looked in ' +
+      (sheetsSeen.length ? sheetsSeen.join(', ') : 'the file') +
+      '. The columns found were: ' + headersSeen.slice(0,10).join(', ') +
+      (headersSeen.length > 10 ? ', and ' + (headersSeen.length-10) + ' more' : '') +
+      '. The header row has to be the first row of the sheet.');
+  }
 
   const map = {};
   let withData = 0, dupes = 0;
@@ -546,19 +584,34 @@ async function importAssets(file){
       map[key] = rec;
     }
   }
+  if(!Object.keys(map).length)
+    throw new Error('the "Intralox Asset Number" column is there but every row is empty');
+
+  /* Which of the belt columns were actually recognised. If the register has been
+     rebuilt with different headings, this is what says so - rather than loading
+     a thousand asset numbers with nothing attached and looking like it worked. */
+  const matched = Object.entries(ASSET_COLS).filter(([k]) => k !== 'asset')
+    .filter(([, col]) => rows.some(r => pick(r, col) !== '')).length;
 
   ASSETS = {
-    imported: Date.now(), file: file.name || 'master database',
+    imported: Date.now(), file: file.name || 'master database', sheet: sheetUsed,
     rows: map,
-    counts: {assets: Object.keys(map).length, withData: withData, dupes: dupes}
+    counts: {assets: Object.keys(map).length, withData: withData, dupes: dupes,
+             columns: matched, ofColumns: Object.keys(ASSET_COLS).length - 1}
   };
   await kvSet('assets', ASSETS);
   renderAssetStat();
   renderHomeSetup();
   await logLoad(file.name || 'master database', 'assets',
-    ASSETS.counts.assets + ' asset numbers, ' + withData + ' with belt data' +
+    ASSETS.counts.assets + ' asset numbers, ' + withData + ' with belt data, ' +
+    matched + ' of ' + ASSETS.counts.ofColumns + ' belt columns recognised' +
+    (sheetUsed && sheetUsed !== 'csv' ? ' (sheet: ' + sheetUsed + ')' : '') +
     (dupes ? ', ' + dupes + ' duplicated' : ''));
-  toast(withData + ' assets with belt data loaded');
+  if(!withData){
+    toast('Loaded ' + ASSETS.counts.assets + ' asset numbers, but none carry belt data');
+  } else {
+    toast(withData + ' assets with belt data loaded');
+  }
 }
 
 function assetLookup(v){
@@ -584,11 +637,16 @@ function renderAssetStat(){
   if(!el) return;
   if(!ASSETS){ el.textContent = 'No register loaded.'; return; }
   const d = new Date(ASSETS.imported);
-  el.innerHTML = '<b>'+ASSETS.counts.withData+'</b> assets with belt data, of <b>'+
-    ASSETS.counts.assets+'</b> numbers<br>Loaded '+esc(ASSETS.file)+'<br>'+
+  const c = ASSETS.counts;
+  el.innerHTML = '<b>'+c.withData+'</b> assets with belt data, of <b>'+c.assets+'</b> numbers<br>'+
+    'Loaded '+esc(ASSETS.file)+
+    (ASSETS.sheet && ASSETS.sheet !== 'csv' ? ' &middot; sheet '+esc(ASSETS.sheet) : '')+'<br>'+
     d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+
-    (ASSETS.counts.dupes ? '<br><span class="flagline">'+ASSETS.counts.dupes+
-      ' asset number'+(ASSETS.counts.dupes===1?'':'s')+' appear more than once</span>' : '');
+    (c.columns != null ? '<br>'+c.columns+' of '+c.ofColumns+' belt columns recognised' : '')+
+    (!c.withData ? '<br><span class="flagline">No belt data came through. The asset numbers '+
+      'loaded but none of the spec columns matched.</span>' : '')+
+    (c.dupes ? '<br><span class="flagline">'+c.dupes+
+      ' asset number'+(c.dupes===1?'':'s')+' appear more than once</span>' : '');
 }
 $('assetBtn').addEventListener('click', async ()=>{
   const f = $('assetFile').files[0];
