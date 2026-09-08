@@ -521,6 +521,13 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <p class="hint">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
   </div>
   <div class="fld">
+    <label>Plant audit register</label>
+    <p class="stat" id="assetStat">No register loaded.</p>
+    <input type="file" id="assetFile" accept=".xlsx,.xlsm,.csv" style="margin-top:10px">
+    <button class="ghost" id="assetBtn">Import master database</button>
+    <p class="hint">Copy_of_Plant_Audit_Master_Database.xlsx. Which belts are actually installed, by Intralox asset number. Reload it whenever you refresh it &mdash; a reload replaces the whole register, so new belts appear and nothing needs merging. This is customer data: it stays on the device and never goes to GitHub.</p>
+  </div>
+  <div class="fld">
     <label>Belt reference data</label>
     <p class="stat" id="refStat">No data loaded.</p>
     <input type="file" id="refFile" accept=".xlsm,.xlsx" style="margin-top:10px">
@@ -872,6 +879,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <label>Asset no. and line description</label>
     <input type="text" id="bAsset" placeholder="61-156 boning line 2">
     <p class="err" id="bErr">Enter an asset no. or line description first</p>
+    <p class="msg" id="bAssetHit"></p>
   </div>
 
   <h2>Belt data</h2>

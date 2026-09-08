@@ -463,6 +463,261 @@ function renderHomeSetup(){
   el.innerHTML = 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="home">see Data on the home screen</span>';
 }
 
+/* ================= the plant audit register =================
+
+   Not the same thing as the belt reference data, and the two are easy to
+   confuse. The reference workbook is a CATALOGUE - which belts exist and what
+   goes with what. This is a REGISTER - which belts are actually installed, by
+   Intralox asset number.
+
+   It is customer data: asset numbers against named plants. It never enters the
+   repository and never travels in the GitHub appointment sync. It is reloaded
+   whenever it is refreshed, and a reload replaces it wholesale rather than
+   merging, because a refresh is the whole file.
+
+   The point of it: type 61-201 on the belt form and every spec field fills, so
+   the only things left to add are the condition and the photos. */
+
+const ASSET_COLS = {
+  asset:'Intralox Asset Number', oracle:'Oracle Account Number', desc:'Application Description',
+  series:'Belt Series', style:'Belt Style', material:'Belt Material', colour:'Belt Colour',
+  rod:'Rod Material', cvlen:'Conveyor Length (m)', frame:'Inside Frame Width (mm)',
+  width:'Belt Width (mm)', beltlen:'Belt Length (m)',
+  sprpd:'Sprocket Pitch Diameter', sprbore:'Sprocket Bore', sprmat:'Sprocket Material',
+  sprdesc:'Sprocket Description', sprpn:'Sprocket Part Number',
+  sprdrive:'Sprocket Drive QTY', spridle:'Sprocket Idle QTY',
+  indent:'Indent (mm)', notch:'Centre Notch (mm)',
+  fltype:'Flight Type', flmat:'Flight Material', flheight:'Flight Height (mm)',
+  flspacing:'Flight Spacing (mm)',
+  sgtype:'Sideguard Type', sgmat:'Sideguard Material', sgheight:'Sideguard Height (mm)',
+  condition:'Belt Condition', elong:'Elongation (%)'
+};
+
+/* The sheet uses a literal 0 as a filler for "nothing here" - Flight Type 0,
+   Sideguard Material 0, Belt Condition 0. Treating that as a value would put a
+   zero into the flight type picker. So 0 and '0' mean not recorded, for every
+   column, and a genuinely zero indent is indistinguishable from a blank one -
+   which is the sheet's limitation, not something the app can invent around. */
+function assetVal(v){
+  if(v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if(s === '' || s === '0') return '';
+  // Excel float noise: 6.6499999999999995 is 6.65
+  const n = Number(s);
+  if(!isNaN(n) && /\./.test(s) && s.length > 6) return String(Math.round(n * 1000) / 1000);
+  return s;
+}
+// 61-201, 61201 and "61-201 boning line 2" are the same asset
+const assetNo = v => String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+
+let ASSETS = null;
+
+async function importAssets(file){
+  toast('Reading the register...');
+  if(typeof XLSX === 'undefined')
+    throw new Error('the spreadsheet library has not loaded - open the app online once');
+  const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+  if(!rows.length) throw new Error('no rows found in that file');
+  if(!rows.some(r => pick(r, ASSET_COLS.asset)))
+    throw new Error('no "Intralox Asset Number" column found - is this the master database?');
+
+  const map = {};
+  let withData = 0, dupes = 0;
+  for(const r of rows){
+    const raw = pick(r, ASSET_COLS.asset);
+    if(!raw) continue;
+    const key = assetNo(raw);
+    if(!key) continue;
+    const rec = {no: String(raw).trim()};
+    for(const [k, col] of Object.entries(ASSET_COLS)){
+      if(k === 'asset') continue;
+      const v = assetVal(pick(r, col));
+      if(v) rec[k] = v;
+    }
+    // an asset number with nothing against it is a placeholder, not a belt
+    rec.has = Object.keys(rec).length > 1;
+    if(rec.has) withData++;
+    if(map[key]){
+      dupes++;
+      map[key] = Array.isArray(map[key]) ? map[key].concat([rec]) : [map[key], rec];
+    } else {
+      map[key] = rec;
+    }
+  }
+
+  ASSETS = {
+    imported: Date.now(), file: file.name || 'master database',
+    rows: map,
+    counts: {assets: Object.keys(map).length, withData: withData, dupes: dupes}
+  };
+  await kvSet('assets', ASSETS);
+  renderAssetStat();
+  renderHomeSetup();
+  await logLoad(file.name || 'master database', 'assets',
+    ASSETS.counts.assets + ' asset numbers, ' + withData + ' with belt data' +
+    (dupes ? ', ' + dupes + ' duplicated' : ''));
+  toast(withData + ' assets with belt data loaded');
+}
+
+function assetLookup(v){
+  if(!ASSETS) return [];
+  const k = assetNo(v);
+  if(k.length < 3) return [];
+  const hit = ASSETS.rows[k];
+  if(hit) return Array.isArray(hit) ? hit : [hit];
+  /* Typing carries on past the number - "61-201 boning line 2" - so a prefix
+     match keeps working while the description is still being typed. */
+  const near = [];
+  for(const key of Object.keys(ASSETS.rows)){
+    if(k.startsWith(key) && key.length >= 4){
+      const r = ASSETS.rows[key];
+      Array.isArray(r) ? near.push(...r) : near.push(r);
+    }
+  }
+  return near;
+}
+
+function renderAssetStat(){
+  const el = $('assetStat');
+  if(!el) return;
+  if(!ASSETS){ el.textContent = 'No register loaded.'; return; }
+  const d = new Date(ASSETS.imported);
+  el.innerHTML = '<b>'+ASSETS.counts.withData+'</b> assets with belt data, of <b>'+
+    ASSETS.counts.assets+'</b> numbers<br>Loaded '+esc(ASSETS.file)+'<br>'+
+    d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+
+    (ASSETS.counts.dupes ? '<br><span class="flagline">'+ASSETS.counts.dupes+
+      ' asset number'+(ASSETS.counts.dupes===1?'':'s')+' appear more than once</span>' : '');
+}
+$('assetBtn').addEventListener('click', async ()=>{
+  const f = $('assetFile').files[0];
+  if(!f){ toast('Choose the master database first'); return; }
+  try { await importAssets(f); }
+  catch(e){ console.error(e); toast('Register import failed: '+e.message);
+    await logLoad(f.name || 'master database', 'assets', e.message, true); }
+});
+
+/* ---------- filling the belt form from the register ---------- */
+/* Offered, never automatic. The register is what was installed last time it was
+   audited, and a line gets rebuilt without anyone updating a spreadsheet. One
+   tap keeps you looking at what it filled in. */
+let assetMatches = [];
+function renderAssetMatch(){
+  const el = $('bAssetHit');
+  if(!el) return;
+  assetMatches = assetLookup($('bAsset').value);
+  if(!assetMatches.length){ showMsg(el, '', ''); return; }
+  const withData = assetMatches.filter(r => r.has);
+  if(!withData.length){
+    showMsg(el, 'info', '<b>'+esc(assetMatches[0].no)+'</b> is in the register but has no belt '+
+      'data against it yet.');
+    return;
+  }
+  showMsg(el, 'ok', withData.map((r,i) =>
+    '<b>'+esc(r.no)+'</b>' + (r.desc ? ' \u2014 '+esc(r.desc) : '') + '<br>' +
+    esc([r.series && ('Series '+r.series), r.style, r.material, r.colour,
+         r.width && (r.width+' mm'), r.beltlen && (r.beltlen+' m')]
+        .filter(Boolean).join(' \u00b7 ')) +
+    ' <span class="lnk" data-usea="'+i+'">Use this</span>').join('<hr style="border:0;border-top:1px solid var(--line-2);margin:8px 0">'));
+  el.querySelectorAll('[data-usea]').forEach(b => b.addEventListener('click', ()=>{
+    applyAssetRecord(withData[+b.dataset.usea]);
+  }));
+}
+function applyAssetRecord(r){
+  const setVal = (id, v) => { const f = $(id); if(f && v) f.value = v; };
+  const missed = [];
+
+  /* The belt cascade already has a function for this - the same one the "copy
+     spec from a belt already logged" button uses. Setting the selects by hand
+     skipped the change handlers, so the colour chips were still showing the
+     previous belt's list and the colour silently failed to land. */
+  setCascade(r.series || '', r.style || '', r.material || '', r.colour || '');
+  if(r.series && serSel().value !== r.series) missed.push('series ' + r.series);
+  if(r.style && stySel().value !== r.style) missed.push('style ' + r.style);
+  if(r.material && !beltMat()) missed.push('material ' + r.material);
+  if(r.rod && !setChip('bRodChips', r.rod, 'bRodOther')) missed.push('rod ' + r.rod);
+
+  setVal('bCvLen', r.cvlen); setVal('bFrame', r.frame);
+  setVal('bWidth', r.width); setVal('bLen', r.beltlen);
+  setVal('bNotch', r.notch);
+  if(r.indent) setSelLoose('bIndent', r.indent);
+
+  /* Sprockets are the awkward part. The register writes the pitch diameter as a
+     code - SERIES_2400_PD_163mm_20T - while the reference data writes it as
+     "6.4 in (163 mm) PD, 20T". Nothing matches on text, so the millimetres and
+     the tooth count are pulled out of the code and matched on those.
+
+     The bore is often blank in the register but is spelled out at the end of the
+     sprocket description, so that is read as a fallback. Without a bore the
+     pitch diameter list cannot populate at all. */
+  let bore = r.sprbore || '';
+  if(!bore && r.sprdesc){
+    const m = String(r.sprdesc).match(/WITH\s+([\d.\/\s"]+(?:MM|IN|INCH)?)\s*(SQUARE|ROUND)\s*BORE/i);
+    if(m) bore = (m[1].trim() + ' ' + m[2].toLowerCase()).replace(/\s+/g,' ').toLowerCase();
+  }
+  if(bore && !setSelLoose('bSprBore', bore)) missed.push('sprocket bore ' + bore);
+  if($('bSprBore').value){
+    onSprBore();
+    if(r.sprpd){
+      /* The register holds two formats side by side, depending on who typed the
+         row: SERIES_400_PD_132mm_8T and "5.2 in (132 mm) PD, 8T". Rather than
+         parse either shape, take the millimetres and the tooth count from
+         wherever they appear and match the option on those two numbers. */
+      const mm = String(r.sprpd).match(/(\d+)\s*mm/i);
+      const tt = String(r.sprpd).match(/(\d+)\s*T\b/i);
+      let ok = false;
+      if(mm && tt){
+        const want = [...$('bSprPd').options].find(o =>
+          new RegExp('\\b' + mm[1] + '\\s*mm').test(o.value) &&
+          new RegExp('\\b' + tt[1] + 'T\\b').test(o.value));
+        if(want){ $('bSprPd').value = want.value; onSprPd(); ok = true; }
+      }
+      if(!ok) missed.push('pitch diameter ' + r.sprpd);
+    }
+    if(r.sprmat && $('bSprPd').value && !setSelLoose('bSprMat', r.sprmat)){
+      missed.push('sprocket material');
+    } else if($('bSprMat').value){ onSprMat(); }
+  } else if(r.sprpd){
+    missed.push('pitch diameter (no bore recorded against this asset)');
+  }
+  /* The description, part number and quantities are written last and on purpose:
+     the pickers derive them, so setting them first would have them overwritten. */
+  setVal('bSprDesc', r.sprdesc); setVal('bSprPn', r.sprpn);
+  setVal('bSprDrive', r.sprdrive); setVal('bSprIdle', r.spridle);
+
+  if(r.fltype && !setSelLoose('bFlType', r.fltype)) missed.push('flight type ' + r.fltype);
+  setVal('bFlMat', r.flmat); setVal('bFlHeight', r.flheight); setVal('bFlMm', r.flspacing);
+  if(r.sgtype && !setSelLoose('bSgType', r.sgtype)) missed.push('sideguard type ' + r.sgtype);
+  setVal('bSgMat', r.sgmat); setVal('bSgHeight', r.sgheight);
+  if(r.desc && !$('bDesc').value) $('bDesc').value = r.desc;
+
+  try { runWidthCheck(); runFrameCheck(); } catch(e){}
+  /* Say what did not fit rather than filling most of it and going quiet. A value
+     the catalogue does not recognise usually means the register is ahead of the
+     reference workbook, which is worth knowing. */
+  showMsg($('bAssetHit'), missed.length ? 'warn' : 'ok',
+    missed.length
+      ? 'Filled from the register. <b>' + missed.length + ' value' + (missed.length===1?'':'s') +
+        ' did not match the reference data</b> and were left for you: ' + esc(missed.join(', ')) +
+        '.'
+      : 'Filled from the register. Add the condition and photos.');
+  toast('Filled from ' + r.no);
+}
+// selects are matched case- and punctuation-insensitively, because the register
+// and the reference workbook are maintained by different hands
+function setSelLoose(id, v){
+  const sel = $(id);
+  if(!sel || !v) return false;
+  const norm = x => String(x).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const want = norm(v);
+  const opt = [...sel.options].find(o => norm(o.value) === want);
+  if(!opt) return false;
+  sel.value = opt.value;
+  return true;
+}
+$('bAsset').addEventListener('input', renderAssetMatch);
+
 /* ---------- one importer ---------- */
 /* Planner schema, call-log dedupe. .xlsx goes through SheetJS, .csv through the
    parser below; both land in the same array of header-keyed rows and take the
@@ -631,6 +886,7 @@ async function loadAccounts(){
   indexAccounts(await accAll());
   APPTS = await apptsAll();
   REF = await kvGet('beltref') || null;
+  ASSETS = await kvGet('assets') || null;
   await loadUse();
   WEEKS = await kvGet('weeks') || {};
   MGR_OF = await kvGet('mgrOf') || {};
@@ -3340,6 +3596,7 @@ let LOAD_LOG = [];
 const LOAD_LOG_MAX = 12;
 const LOAD_KIND = {
   crm:'CRM export', overrides:'Zone overrides', beltref:'Belt reference data',
+  assets:'Plant audit register',
   manual:'Engineering manual', ghpull:'Pulled from GitHub', ghpush:'Pushed to GitHub',
   ghtest:'GitHub connection', plan:'Plan from PC',
   calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
@@ -4575,6 +4832,7 @@ $('bCopy').addEventListener('change', () => {
 
 /* ---------- reset and save ---------- */
 function resetBelt(){
+  try { showMsg($('bAssetHit'), '', ''); } catch(e){}
   ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn','bSprDrive','bSprIdle',
    'bFlHeight','bFlRows','bFlMm','bNotch','bSgHeight','bQc','bRodOther','bFlTypeOther',
    'bSgTypeOther','bIndentOther'].forEach(i => { if($(i)) $(i).value = ''; });
@@ -5490,7 +5748,8 @@ $('rsBtn').addEventListener('click', async ()=>{
     await openDB();
     await loadAccounts();
   } catch(e){ dbErr = e; console.error('storage', e); }
-  renderDbStat(); renderRefStat(); renderHomeSetup(); fillManagers(); renderBackupStat();
+  renderDbStat(); renderRefStat(); renderAssetStat(); renderHomeSetup();
+  fillManagers(); renderBackupStat();
   renderManStat(); renderManCount();
   await loadDir();
   await loadGh();
