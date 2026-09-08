@@ -694,6 +694,10 @@ function applyAssetRecord(r){
   if(r.series && serSel().value !== r.series) missed.push('series ' + r.series);
   if(r.style && stySel().value !== r.style) missed.push('style ' + r.style);
   if(r.material && !beltMat()) missed.push('material ' + r.material);
+  // colour was being set and never checked, so a failure here said nothing
+  // beltColour() reads Other as well as the chips, so a value carried across
+  // into Other counts as landed - it is on the form and it will save
+  if(r.colour && !beltColour()) missed.push('colour ' + r.colour);
   if(r.rod && !setChip('bRodChips', r.rod, 'bRodOther')) missed.push('rod ' + r.rod);
 
   setVal('bCvLen', r.cvlen); setVal('bFrame', r.frame);
@@ -754,12 +758,33 @@ function applyAssetRecord(r){
   /* Say what did not fit rather than filling most of it and going quiet. A value
      the catalogue does not recognise usually means the register is ahead of the
      reference workbook, which is worth knowing. */
+  /* Listing four values that "did not match" is useless when the real answer is
+     that there was nothing to match them against. Name the actual cause. */
+  let why = '';
+  if(missed.length){
+    const combos = (REF && REF.combos) ? REF.combos.length : 0;
+    const seriesList = combos ? [...new Set(REF.combos.map(c => String(c[0])))] : [];
+    if(!REF){
+      why = '<b>No belt reference data is loaded</b>, so the series, style, material and ' +
+        'sprocket pickers are empty and nothing can match. Load Plant_Audit_Template_1.xlsm ' +
+        'under Data on the home screen. The measurements and descriptions above still filled.';
+    } else if(!combos){
+      why = '<b>The belt reference workbook loaded but no belt specs came out of it</b> (' +
+        combos + ' combinations). It may be the wrong workbook, or its Belt Audit Data sheet ' +
+        'has been rebuilt. Re-import it and check the count under Data.';
+    } else if(r.series && !seriesList.includes(String(r.series))){
+      why = '<b>Series ' + esc(r.series) + ' is not in the belt reference workbook</b>, which ' +
+        'holds ' + seriesList.length + ' series. The register is ahead of the reference data - ' +
+        'a fresh export of the reference workbook should fix it.';
+    } else {
+      why = '<b>' + missed.length + ' value' + (missed.length===1?'':'s') +
+        ' did not match the reference data</b> and were left for you: ' +
+        esc(missed.join(', ')) + '.';
+    }
+  }
   showMsg($('bAssetHit'), missed.length ? 'warn' : 'ok',
-    missed.length
-      ? 'Filled from the register. <b>' + missed.length + ' value' + (missed.length===1?'':'s') +
-        ' did not match the reference data</b> and were left for you: ' + esc(missed.join(', ')) +
-        '.'
-      : 'Filled from the register. Add the condition and photos.');
+    missed.length ? 'Filled from the register. ' + why
+                  : 'Filled from the register. Add the condition and photos.');
   toast('Filled from ' + r.no);
 }
 // selects are matched case- and punctuation-insensitively, because the register
@@ -4407,8 +4432,23 @@ function renderBeltChips(id, values, o){
   o = o || {};
   const cur = chipSel[id] || '';
   if(!values.length){
-    el.innerHTML = '<span class="none">'+esc(o.empty || 'Nothing to choose yet')+'</span>';
-    if(o.other) $(o.other).classList.add('hide');
+    /* An empty list still needs Other. The reference workbook carries no colours
+       at all for some style and material combinations, and without this there is
+       literally no way to record the colour of a belt you are standing next to -
+       or for the register to carry one across. */
+    el.innerHTML = '<span class="none">'+esc(o.empty || 'Nothing to choose yet')+'</span>' +
+      (o.other ? '<button type="button" data-v="OTHER">Other...</button>' : '');
+    if(!o.other){ chipSel[id] = ''; return; }
+    el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      const was = b.classList.contains('on');
+      el.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+      chipSel[id] = '';
+      if(!was){ b.classList.add('on'); chipSel[id] = b.dataset.v; }
+      $(o.other).classList.toggle('hide', chipSel[id] !== 'OTHER');
+      if(o.onPick) o.onPick();
+    }));
+    if(cur === 'OTHER') setChip(id, 'OTHER', o.other);
+    else { chipSel[id] = ''; $(o.other).classList.add('hide'); }
     return;
   }
   const r = rank(values, o.field, o.ctx);
@@ -5813,6 +5853,12 @@ $('rsBtn').addEventListener('click', async ()=>{
   await loadGh();
   $('cMgr').addEventListener('change', renderHomeCounts);
   $('cDate').value = todayISO();
+  /* buildBeltRef was only called from importRef, so the pickers were built the
+     once and never again. Reopen the app the next day and every belt select was
+     empty even though the reference data was sitting in IndexedDB - the belt
+     form looked broken, and anything filling it from the register failed on
+     every value. It has to run at boot, off whatever was loaded before. */
+  try { buildBeltRef(); } catch(e){ console.error('belt reference', e); }
   try { resetBelt(); } catch(e){ console.error('belt form', e); }
   try { history.replaceState({screen:'home'}, '', location.href); } catch(e){}
   try { await renderHome(); } catch(e){ console.error('home', e); }
