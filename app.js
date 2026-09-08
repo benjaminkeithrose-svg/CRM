@@ -1993,7 +1993,7 @@ function callSummary(c){
       name:e.project, status:e.status, next:e.next, target:e.target, owner:e.owner, notes:e.notes
     })),
     notes: E('note').map(e => ({topic:e.topic, text:e.text})),
-    health: E('health').map(e => ({
+    health: E('health').slice().sort(bySeverity).map(e => ({
       asset:e.asset, fault:e.fault, htype:e.htype, severity:e.severity, action:e.action
     })),
     photos: photos,
@@ -3428,17 +3428,74 @@ function b64decode(b64){
 
 /* The repository must be private. Pushing a schedule into a public repo would
    undo the one rule this project has held since the first day, so it is checked
-   before anything is written and refused rather than warned about. */
+   before anything is written and refused rather than warned about.
+
+   GitHub answers 404 for a repository a fine-grained token has not been granted,
+   exactly as it does for one that does not exist - it will not confirm existence
+   to a token that cannot see it. "Not found" is therefore almost never a typo in
+   the name, and saying so was useless. This asks three questions in order and
+   reports which one actually failed:
+
+     GET /user        does the token work at all?
+     GET /user/repos  which repositories has it been granted?
+     GET /repos/o/r   can it see this one, is it private, can it write?
+
+   The middle call is what turns a dead end into an answer, because a
+   fine-grained token only lists repositories it has been given. */
+async function ghWhoAmI(){
+  const r = await fetch('https://api.github.com/user', {headers: ghHeaders()});
+  if(r.status === 401) return {ok:false, why:'the token was rejected. It has expired, been revoked, ' +
+    'or was pasted short - they are long and phone keyboards truncate them.'};
+  if(!r.ok) return {ok:false, why:'GitHub returned ' + r.status + ' checking the token.'};
+  const j = await r.json();
+  return {ok:true, login: j.login};
+}
+async function ghGrantedRepos(){
+  try {
+    const r = await fetch('https://api.github.com/user/repos?per_page=100&affiliation=owner,collaborator,organization_member',
+      {headers: ghHeaders()});
+    if(!r.ok) return null;
+    const j = await r.json();
+    return Array.isArray(j) ? j.map(x => x.full_name) : null;
+  } catch(e){ return null; }
+}
 async function ghCheckRepo(){
+  const who = await ghWhoAmI();
+  if(!who.ok) throw new Error(who.why);
+
+  const wanted = GH.owner + '/' + GH.repo;
   const r = await fetch('https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
     encodeURIComponent(GH.repo), {headers: ghHeaders()});
-  if(r.status === 404) throw new Error('repository not found, or the token cannot see it');
-  if(r.status === 401) throw new Error('the token was rejected - check it has not expired');
-  if(!r.ok) throw new Error('GitHub returned ' + r.status);
+
+  if(r.status === 404){
+    const granted = await ghGrantedRepos();
+    if(granted && !granted.length)
+      throw new Error('the token works (signed in as ' + who.login + ') but has not been given ' +
+        'ANY repository. On GitHub, edit the token: Repository access \u2192 Only select ' +
+        'repositories \u2192 pick ' + GH.repo + '.');
+    if(granted && granted.length){
+      const near = granted.filter(n => n.toLowerCase().includes(GH.repo.toLowerCase().slice(0,6)));
+      throw new Error('the token works (signed in as ' + who.login + ') but cannot see ' + wanted +
+        '. It has been given: ' + granted.slice(0,6).join(', ') +
+        (granted.length > 6 ? ' and ' + (granted.length-6) + ' more' : '') + '.' +
+        (near.length ? ' Did you mean ' + near[0] + '?' : ''));
+    }
+    // the repos list itself was refused, which points at the metadata permission
+    throw new Error('the token works (signed in as ' + who.login + ') but cannot see ' + wanted +
+      '. Either it was not granted that repository, or Metadata is set to No access - ' +
+      'Contents needs Metadata: Read-only alongside it.');
+  }
+  if(r.status === 403) throw new Error('GitHub refused the request. If the repository belongs to an ' +
+    'organisation, a fine-grained token needs an owner to approve it.');
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' for ' + wanted);
+
   const j = await r.json();
   if(!j.private) throw new Error('that repository is PUBLIC. Appointments must go to a private one.');
   if(j.permissions && j.permissions.push === false)
-    throw new Error('the token can read that repository but not write to it');
+    throw new Error('the token can read ' + wanted + ' but not write to it. ' +
+      'Set Contents to Read and write, not Read-only.');
+  if(who.login && GH.owner.toLowerCase() !== who.login.toLowerCase() && !j.organization)
+    console.warn('signed in as ' + who.login + ' but the owner is set to ' + GH.owner);
   return j;
 }
 async function ghGet(){
@@ -4602,13 +4659,108 @@ $('bSave').addEventListener('click', async () => {
 });
 
 /* ---------- entry: project ---------- */
-function resetProject(){ ['pName','pNext','pTarg','pOwner','pNotes'].forEach(i=>$(i).value=''); $('pStat').value='Being considered'; $('pErr').classList.remove('show'); }
+/* ---------- carrying a project forward ----------
+   Every visit used to create a new project entry, so six calls at one plant left
+   six copies of the same job at different stages and nothing said which was
+   current. A project is a thing that moves, not a thing that repeats.
+
+   So the form offers what is already running at this account. Taking one fills
+   the form in and records the move - Scoping to Awaiting quote - which is what
+   turns a pile of entries into something you can read back.
+
+   Matching is on the project name, case and spacing ignored. Two genuinely
+   different projects at one plant need two different names, which they would
+   need anyway to be told apart in a report. */
+const PROJECT_DONE = ['Complete', 'Not proceeding'];
+const projKey = n => String(n||'').trim().toLowerCase().replace(/\s+/g,' ');
+
+function projectsHere(){
+  if(!call) return [];
+  const seen = new Map();
+  // this call first, then previous ones, newest first
+  const sources = [call].concat(callsFor(call.customer).filter(c => c.id !== call.id)
+    .sort((a,b) => callWhen(b) - callWhen(a)));
+  for(const c of sources){
+    for(const e of (c.entries||[])){
+      if(e.type !== 'project' || !e.project) continue;
+      const k = projKey(e.project);
+      if(seen.has(k)) continue;              // the newest sighting wins
+      seen.set(k, {e: e, when: c === call ? Date.now() : callWhen(c), date: c.date,
+                   here: c === call});
+    }
+  }
+  return [...seen.values()].filter(x => !PROJECT_DONE.includes(x.e.status));
+}
+
+let editingProject = null;   // {key, fromStatus, inThisCall}
+function renderProjectCarry(){
+  const el = $('pCarry');
+  if(!el) return;
+  const list = projectsHere();
+  if(!list.length){ el.innerHTML = ''; el.classList.remove('show'); return; }
+  el.classList.add('show');
+  el.innerHTML = '<div class="carrylab">Already running at this account</div>' +
+    list.map((x,i) => '<button type="button" class="carry" data-proj="'+i+'">' +
+      '<b>'+esc(x.e.project)+'</b>' +
+      '<span>'+esc(x.e.status||'no status')+
+      (x.e.target ? ' \u00b7 target '+esc(x.e.target) : '') +
+      (x.here ? ' \u00b7 logged in this call' : ' \u00b7 last seen '+esc(x.date))+'</span></button>').join('') +
+    '<button type="button" class="carry new" data-proj="new">Start a different project</button>';
+  el.querySelectorAll('[data-proj]').forEach(b => b.addEventListener('click', ()=>{
+    if(b.dataset.proj === 'new'){ editingProject = null; resetProjectFields(); el.classList.remove('show'); return; }
+    loadProject(list[+b.dataset.proj]);
+  }));
+}
+function loadProject(x){
+  const e = x.e;
+  editingProject = {key: projKey(e.project), fromStatus: e.status || '', inThisCall: x.here};
+  $('pName').value = e.project;
+  $('pStat').value = e.status || 'Being considered';
+  $('pNext').value = e.next || '';
+  $('pTarg').value = e.target || '';
+  $('pOwner').value = e.owner || '';
+  $('pNotes').value = '';                    // notes are per visit, not carried
+  $('pErr').classList.remove('show');
+  $('pCarry').classList.remove('show');
+  $('pSave').textContent = 'Update project';
+  showMsg($('pMsg'), 'info', 'Carried forward from ' + esc(x.date) +
+    '. Change the status and next action; the move is recorded.');
+}
+function resetProjectFields(){
+  ['pName','pNext','pTarg','pOwner','pNotes'].forEach(i=>$(i).value='');
+  $('pStat').value='Being considered';
+  $('pErr').classList.remove('show');
+  $('pSave').textContent = 'Add project';
+  showMsg($('pMsg'), '', '');
+}
+function resetProject(){
+  editingProject = null;
+  resetProjectFields();
+  renderProjectCarry();
+}
 $('pSave').addEventListener('click', async ()=>{
   const p = $('pName').value.trim();
   if(!p){ $('pErr').classList.add('show'); $('pName').focus(); return; }
-  call.entries.push({type:'project', project:p, status:$('pStat').value, next:$('pNext').value.trim(),
-    target:$('pTarg').value.trim(), owner:$('pOwner').value.trim(), notes:$('pNotes').value.trim(), photos:[]});
-  await saveCall(); toast('Project logged'); go('dash');
+  const status = $('pStat').value;
+  const carried = editingProject && editingProject.key === projKey(p);
+  const entry = {type:'project', project:p, status:status, next:$('pNext').value.trim(),
+    target:$('pTarg').value.trim(), owner:$('pOwner').value.trim(),
+    notes:$('pNotes').value.trim(), photos:[]};
+  if(carried && editingProject.fromStatus && editingProject.fromStatus !== status){
+    entry.fromStatus = editingProject.fromStatus;   // the report reads this as a move
+  }
+  /* Updating a project already logged in THIS call replaces it. Two entries for
+     one project in one visit is the duplication this was built to stop. */
+  let replaced = false;
+  if(carried && editingProject.inThisCall){
+    const i = call.entries.findIndex(e => e.type==='project' && projKey(e.project) === editingProject.key);
+    if(i >= 0){ entry.photos = call.entries[i].photos || []; call.entries[i] = entry; replaced = true; }
+  }
+  if(!replaced) call.entries.push(entry);
+  editingProject = null;
+  await saveCall();
+  toast(entry.fromStatus ? ('Project moved to ' + status) : (replaced ? 'Project updated' : 'Project logged'));
+  go('dash');
 });
 
 /* ---------- entry: note ---------- */
@@ -4621,18 +4773,111 @@ $('nSave').addEventListener('click', async ()=>{
 
 /* ---------- entry: health ---------- */
 let hSevVal='';
+/* ---------- has this been logged before? ----------
+   Every previous call at the account is already held and indexed, so the app can
+   answer a question you would otherwise have to remember: was this asset on the
+   list last time? Three things fall out of it - you stop writing the same fault
+   twice, you can say how long it has been outstanding while standing in front of
+   the person, and an escalation from Monitor to Plan to Urgent becomes a fact
+   rather than a feeling.
+
+   Matched on the asset field, loosely: CV-114, cv114 and CV 114 drive end are
+   the same conveyor as far as this is concerned. */
+const assetKey = v => String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function healthHistory(asset){
+  const k = assetKey(asset);
+  if(k.length < 3 || !call) return [];        // too short to match on
+  const out = [];
+  const sources = callsFor(call.customer).filter(c => c.id !== call.id)
+    .sort((a,b) => callWhen(b) - callWhen(a));
+  for(const c of sources){
+    for(const e of (c.entries||[])){
+      if(e.type !== 'health' || !e.asset) continue;
+      const ek = assetKey(e.asset);
+      if(ek === k || ek.startsWith(k) || k.startsWith(ek)) out.push({e:e, date:c.date, when:callWhen(c)});
+    }
+  }
+  return out;
+}
+function renderHealthHistory(){
+  const el = $('hPrev');
+  if(!el) return;
+  const hits = healthHistory($('hAsset').value);
+  if(!hits.length){ showMsg(el, '', ''); return; }
+  const h = hits[0];
+  const older = hits.length > 1 ? ' (' + (hits.length-1) + ' earlier ' +
+    (hits.length === 2 ? 'one' : 'ones') + ' as well)' : '';
+  const days = Math.floor((Date.now() - h.when) / 86400000);
+  // an unresolved Urgent from last time is the one worth shouting about
+  const cls = h.e.severity === 'Urgent' ? 'warn' : 'info';
+  showMsg(el, cls, '<b>Logged here before.</b> ' + esc(h.date) +
+    (days > 0 ? ' (' + days + ' days ago)' : '') + ' as ' +
+    esc(h.e.htype || 'a fault') + (h.e.severity ? ', ' + esc(h.e.severity) : '') + older +
+    '<br>' + esc(String(h.e.fault||'').slice(0,160)) +
+    (h.e.action ? '<br>Action was: ' + esc(h.e.action) : ''));
+}
+$('hAsset').addEventListener('input', renderHealthHistory);
+
+/* ---------- photos on the form ----------
+   A health item almost always wants a photo, and taking it used to mean saving
+   the item, finding its card on the dashboard and tapping Camera there. These
+   hold the photos against the entry the moment it is saved, so the picture is
+   taken while you are still looking at the thing. */
+let healthShots = [];
+function renderHealthShots(){
+  const el = $('hShots');
+  if(!el) return;
+  el.innerHTML = healthShots.map((p,i) =>
+    '<img src="'+photoSrc(p)+'" data-hrm="'+i+'">').join('');
+  el.querySelectorAll('[data-hrm]').forEach(img => img.addEventListener('click', ()=>{
+    if(!confirm('Remove this photo?')) return;
+    releasePhoto(healthShots[+img.dataset.hrm]);
+    healthShots.splice(+img.dataset.hrm, 1);
+    renderHealthShots();
+  }));
+  const n = healthShots.length;
+  $('hShotN').textContent = n ? n + (n===1 ? ' photo' : ' photos') + ' ready' : '';
+}
+async function addHealthShots(files){
+  for(const f of files){
+    try { healthShots.push(await shrink(f)); }
+    catch(err){ console.error('skipped', f.name, err); }
+  }
+  renderHealthShots();
+}
+$('hCam').addEventListener('click', ()=>{ $('hCamIn').value=''; $('hCamIn').click(); });
+$('hGal').addEventListener('click', ()=>{ $('hGalIn').value=''; $('hGalIn').click(); });
+$('hCamIn').addEventListener('change', e => addHealthShots([...e.target.files]));
+$('hGalIn').addEventListener('change', e => addHealthShots([...e.target.files]));
+
 function resetHealth(){ ['hAsset','hFault','hAction'].forEach(i=>$(i).value=''); hSevVal='';
-  document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on')); $('hErr').classList.remove('show'); }
+  document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
+  $('hErr').classList.remove('show'); $('hSevErr').classList.remove('show');
+  healthShots.forEach(releasePhoto); healthShots = []; renderHealthShots();
+  showMsg($('hPrev'), '', ''); }
 document.querySelectorAll('#hSev button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); hSevVal=b.dataset.v;
+  $('hSevErr').classList.remove('show');
 }));
 $('hSave').addEventListener('click', async ()=>{
   const f = $('hFault').value.trim();
   if(!f){ $('hErr').classList.add('show'); $('hFault').focus(); return; }
+  /* Severity used to save empty and then print as if nothing was wrong. An
+     unanswered question is not the same as "not important", so it is asked. */
+  if(!hSevVal){
+    $('hSevErr').classList.add('show');
+    // jsdom has no scrollIntoView, and neither do some older webviews
+    if($('hSev').scrollIntoView) $('hSev').scrollIntoView({block:'center'});
+    return;
+  }
   call.entries.push({type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
-    severity:hSevVal, action:$('hAction').value.trim(), photos:[]});
-  await saveCall(); toast('Fault logged - add a photo if you want one'); go('dash');
+    severity:hSevVal, action:$('hAction').value.trim(), photos:healthShots.slice()});
+  const n = healthShots.length;
+  healthShots = [];
+  await saveCall();
+  toast(n ? ('Fault logged with '+n+' photo'+(n===1?'':'s')) : 'Fault logged');
+  go('dash');
 });
 
 /* ---------- photos ---------- */
@@ -4758,6 +5003,11 @@ function shrink(file, max=1400, q=0.72){
     img.src = url;
   });
 }
+
+/* Urgent first. Nobody reads to the bottom of a list, so the order has to carry
+   the meaning rather than the reader having to find it. */
+const SEV_ORDER = {Urgent:0, Plan:1, Monitor:2};
+const bySeverity = (a,b) => (SEV_ORDER[a.severity] ?? 3) - (SEV_ORDER[b.severity] ?? 3);
 
 /* ---------- compile ---------- */
 const DASH_CH = '\u2014';
@@ -4888,7 +5138,7 @@ async function buildNotesHTML(){
     }
   }
 
-  const health = c.entries.filter(e=>e.type==='health');
+  const health = c.entries.filter(e=>e.type==='health').slice().sort(bySeverity);
   if(health.length){
     p.push('<h2>Health check</h2>');
     for(let i=0;i<health.length;i++){

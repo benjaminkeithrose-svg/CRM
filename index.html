@@ -143,6 +143,18 @@ button.ghost:active{border-color:var(--ink-2)}
 ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line-height:1.6}
 ul.rep li{margin-bottom:2px}
 .flagline{color:var(--warn);font-weight:700}
+/* ---------- carrying a project forward ---------- */
+.carrybox{display:none;margin-bottom:10px}
+.carrybox.show{display:block}
+.carrylab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
+  font-weight:700;margin-bottom:6px}
+button.carry{display:block;width:100%;text-align:left;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
+  padding:10px 11px;margin-bottom:7px;cursor:pointer;color:var(--ink)}
+button.carry b{display:block;font-size:14px;font-weight:700}
+button.carry span{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px}
+button.carry:active{background:var(--sunk)}
+button.carry.new{border-left-color:var(--line);color:var(--ink-3);font-size:13px}
 /* ---------- belt form ----------
    Ported from Belt Call Log v13, restated in this app's tokens. The originals
    used a different variable set (--gray, --cyan-tint, --action, --danger); the
@@ -1029,14 +1041,16 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- PROJECT -->
 <section class="scr" id="s-project">
+  <div class="carrybox" id="pCarry"></div>
   <div class="fld">
     <label>Project or site</label>
     <input type="text" id="pName" placeholder="Nitrogen tunnel">
     <p class="err" id="pErr">Enter a project or site first</p>
+    <p class="msg" id="pMsg"></p>
   </div>
   <div class="fld">
     <label>Current status</label>
-    <select id="pStat"><option>Being considered</option><option>Scoping</option><option>Awaiting quote</option><option>Quoted</option><option>Approved</option><option>Scheduled</option><option>On hold</option></select>
+    <select id="pStat"><option>Being considered</option><option>Scoping</option><option>Awaiting quote</option><option>Quoted</option><option>Approved</option><option>Scheduled</option><option>On hold</option><option>Complete</option><option>Not proceeding</option></select>
   </div>
   <div class="fld"><label>Next action</label><input type="text" id="pNext" placeholder="Discuss with OEM"></div>
   <div class="fld">
@@ -1065,11 +1079,21 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- HEALTH -->
 <section class="scr" id="s-health">
-  <div class="fld"><label>Asset no. or location</label><input type="text" id="hAsset" placeholder="CV-114 drive end"></div>
+  <div class="fld">
+    <label>Asset no. or location</label>
+    <input type="text" id="hAsset" placeholder="CV-114 drive end">
+    <p class="msg" id="hPrev"></p>
+  </div>
   <div class="fld">
     <label>Fault or observation</label>
     <textarea id="hFault" placeholder="Sprocket teeth worn, belt tracking right"></textarea>
     <p class="err" id="hErr">Describe the fault first</p>
+    <div class="cardbar">
+      <button type="button" id="hCam">Camera</button>
+      <button type="button" id="hGal">Photos</button>
+      <span class="phc" id="hShotN"></span>
+    </div>
+    <div class="thumbs" id="hShots"></div>
   </div>
   <div class="fld">
     <label>Type</label>
@@ -1078,6 +1102,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div class="fld">
     <label>Severity</label>
     <div class="seg" id="hSev"><button type="button" data-v="Monitor">Monitor</button><button type="button" data-v="Plan">Plan</button><button type="button" data-v="Urgent">Urgent</button></div>
+    <p class="err" id="hSevErr">Pick a severity &mdash; an unanswered one reads as &ldquo;not important&rdquo;</p>
   </div>
   <div class="fld"><label>Recommended action</label><input type="text" id="hAction"></div>
   <button class="big" id="hSave">Add fault</button>
@@ -1105,6 +1130,8 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <button id="barMenu" class="pri">Call menu</button>
 </div>
 
+<input type="file" id="hCamIn" accept="image/*" capture="environment" multiple style="display:none">
+<input type="file" id="hGalIn" accept="image/*" multiple style="display:none">
 <input type="file" id="camInput" accept="image/*" capture="environment" multiple style="display:none">
 <input type="file" id="galInput" accept="image/*" multiple style="display:none">
 <div class="toast" id="toast"></div>

@@ -207,11 +207,17 @@ You're on the call screen. Four buttons:
 | Button | Use it for |
 |---|---|
 | **Belt** | Asset number, line, width, length, materials, sprockets, flights |
-| **Project** | Something in the pipeline, with a status and a target |
+| **Project** | Something in the pipeline, with a status and a target. If that project is already running at this account, it offers it &mdash; update it rather than logging a second copy |
 | **Note** | Anything else — turnover, kill rate, plant conditions, competitors |
-| **Health check** | A fault or a wear observation |
+| **Health check** | A fault or a wear observation. Camera is on the form. Severity has to be answered |
 
 Add them in any order, whenever suits.
+
+**Projects carry forward.** Open the Project form at an account with something already running and it offers it at the top. Tap it and the form fills in — change the status and the next action, and the move is recorded, so the report can say *Scoping → Awaiting quote* rather than showing you two unrelated entries. **Start a different project** is there for when it genuinely is one. Setting a project to **Complete** or **Not proceeding** stops it being offered again.
+
+**Health checks remember.** Type an asset number that's been logged here before and it tells you: when, what it was, at what severity, and what was recommended. If the last one was Urgent it says so in red. Take the photo on the form — the camera is right under the fault description — and it goes with the entry when you save.
+
+Severity has to be answered. An unanswered one used to save quietly and then print as if nothing was wrong. Urgent items come first in the report.
 
 ### Photos
 

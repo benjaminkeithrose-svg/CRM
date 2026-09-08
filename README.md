@@ -43,7 +43,7 @@ Filenames are case-sensitive on GitHub Pages, and the manifest must agree with w
 `sw.js` line 6:
 
 ```js
-const CACHE = 'fieldcrm-v21';
+const CACHE = 'fieldcrm-v23';
 ```
 
 **Increment this whenever any file changes**, or the old version is what gets tested and a fix will be reported as broken. This is the single most likely source of confusing behaviour after an update.
@@ -79,6 +79,10 @@ Eight files, no framework, no bundler. One external library: SheetJS from jsDeli
 
 **Load log.** Every file in or out is recorded in `kv.loadLog` with filename, kind, detail and success, capped at 12 and rendered under Exchange. Refusals are logged too, marked failed.
 
+**Projects carry forward, they do not repeat.** `projectsHere()` gathers project entries across every call at the account, keyed on a normalised name, newest sighting winning, filtered to non-terminal statuses. Taking one records `fromStatus` so the report reads the move; updating one already in the current call replaces it rather than appending. `PROJECT_DONE` holds the two terminal statuses.
+
+**Health checks read their own history.** `healthHistory()` matches on a loosely normalised asset key across previous calls, requires three characters, and surfaces the most recent with a count of the rest. Severity is required, and health items sort `Urgent, Plan, Monitor, blank` in both the compiled notes and the invite body.
+
 **Belt reference data.** `Plant_Audit_Template_1.xlsm` is read on the device into `kv.beltref` — every valid Series > Style > Material > Colour, the link geometry the width check needs, and the sprocket table. The belt form is driven entirely by it; without it the pickers are empty and the form says so. Ported from Belt Call Log v13, along with the usage ranking in `kv.usage` that floats the values you reach for most.
 
 **Manual library.** `manuals.js` owns its own database, **`fieldcrmmanuals`** — deliberately not the Belt Call Log's `beltmanuals`. Both apps share an origin on GitHub Pages, so sharing the database would let either app clear pages the other relies on, and uninstalling either would take both. The manuals are loaded once per app. pdf.js comes from a CDN on first import only.
@@ -96,10 +100,10 @@ Thirteen harnesses plus a QA pass, all headless with jsdom and fake-indexeddb.
 ```
 npm install jsdom fake-indexeddb xlsx
 node qa.mjs          # wiring, ids, assets, a full walkthrough, bad input
-node test.mjs        # ... through test17.mjs
+node test.mjs        # ... through test18.mjs
 ```
 
-Roughly 1,285 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
+Roughly 1,370 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
 
 **They cannot cover:** the camera, the share sheet, whether Blobs really persist in IndexedDB (fake-indexeddb does not preserve Blob identity), `showDirectoryPicker` against a real folder, SheetJS at full scale, or anything Outlook actually does with an `.ics`.
 
