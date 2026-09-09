@@ -143,6 +143,33 @@ button.ghost:active{border-color:var(--ink-2)}
 ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line-height:1.6}
 ul.rep li{margin-bottom:2px}
 .flagline{color:var(--warn);font-weight:700}
+/* ---------- contacts, accounts and reports ---------- */
+#peQ,#rpQ{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:16px}
+#peQ:focus,#rpQ:focus{outline:none;border-color:var(--cyan-dk)}
+.pgroup{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
+  font-weight:700;margin:14px 0 6px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan);
+  border-radius:0 var(--r) var(--r) 0;padding:11px;margin-bottom:8px}
+.pcard.high{border-left-color:var(--high)} .pcard.med{border-left-color:var(--med)}
+.pcard.low{border-left-color:var(--low)}  .pcard.none{border-left-color:var(--none)}
+.pcard .pn{font-size:15px;font-weight:700;line-height:1.25}
+.pcard .pr{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.pcard .pa{font-size:12px;color:var(--ink-2);margin-top:3px}
+.pcard .pl{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.pcard .pl a,.pcard .pl button{flex:1;min-width:120px;text-align:center;padding:10px 8px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+  color:var(--link);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer}
+.pcard .pl .missing{color:var(--ink-3);font-weight:400;border-style:dashed;cursor:default}
+button.rpt{display:block;width:100%;text-align:left;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
+  padding:12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
+button.rpt:active{background:var(--sunk)}
+button.rpt .rt{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+button.rpt .rd{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+button.rpt .rn{font-size:15px;font-weight:700;line-height:1.25;margin-top:2px}
+button.rpt .rm{font-size:11.5px;color:var(--ink-2);margin-top:3px}
+button.rpt.open{border-left-color:var(--red)}
+button.backcall{margin-top:14px}
 /* ---------- carrying a project forward ---------- */
 .carrybox{display:none;margin-bottom:10px}
 .carrybox.show{display:block}
@@ -507,6 +534,8 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button data-go="accounts"><b>Accounts</b><span id="acctInfo">Nothing loaded</span></button>
     <button data-go="due"><b>Overdue</b><span id="dueInfo">Nothing loaded</span></button>
     <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span></button>
+    <button data-go="people"><b>Contacts</b><span id="peopleInfo">Nothing loaded</span></button>
+    <button data-go="reports"><b>Reports</b><span id="reportsInfo">No calls yet</span></button>
     <button data-go="manuals"><b>Manuals</b><span id="manInfo">Nothing loaded</span></button>
   </div>
   <p class="msg" id="homeSetup"></p>
@@ -699,6 +728,36 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <button class="ghost" id="tvUnplanned">Log an unplanned call</button>
   <button class="ghost" id="tvBook">Book a visit for later</button>
   <button class="ghost" id="tvPlanner" hidden>Open the planner</button>
+</section>
+
+<!-- CONTACTS AND ACCOUNTS -->
+<section class="scr" id="s-people">
+  <div class="fld">
+    <input type="search" id="peQ" placeholder="Name, account, role, email or number" autocomplete="off">
+    <p class="hint" id="peHint"></p>
+  </div>
+  <div class="seg" id="peView">
+    <button type="button" data-v="all" class="on">Everything</button>
+    <button type="button" data-v="people">People</button>
+    <button type="button" data-v="accounts">Accounts</button>
+  </div>
+  <div style="height:10px"></div>
+  <div id="peRes"></div>
+</section>
+
+<!-- REPORTS -->
+<section class="scr" id="s-reports">
+  <div class="fld">
+    <input type="search" id="rpQ" placeholder="Account, contact, asset or note" autocomplete="off">
+    <p class="hint" id="rpHint"></p>
+  </div>
+  <div class="seg" id="rpView">
+    <button type="button" data-v="all" class="on">All</button>
+    <button type="button" data-v="open">Open</button>
+    <button type="button" data-v="done">Finished</button>
+  </div>
+  <div style="height:10px"></div>
+  <div id="rpRes"></div>
 </section>
 
 <!-- MANUALS -->
@@ -1045,6 +1104,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <input type="text" id="bQc" placeholder="Leave blank to use call contacts">
   </div>
   <button class="big" id="bSave">Add belt to call log</button>
+  <button class="ghost backcall">Back to the call without saving</button>
 </section>
 
 <!-- PROJECT -->
@@ -1069,6 +1129,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
   <div class="fld"><label>Notes</label><textarea id="pNotes"></textarea></div>
   <button class="big" id="pSave">Add project</button>
+  <button class="ghost backcall">Back to the call without saving</button>
 </section>
 
 <!-- GENERAL NOTE -->
@@ -1083,6 +1144,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <p class="err" id="nErr">Enter a note first</p>
   </div>
   <button class="big" id="nSave">Add note</button>
+  <button class="ghost backcall">Back to the call without saving</button>
 </section>
 
 <!-- HEALTH -->
@@ -1114,6 +1176,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
   <div class="fld"><label>Recommended action</label><input type="text" id="hAction"></div>
   <button class="big" id="hSave">Add fault</button>
+  <button class="ghost backcall">Back to the call without saving</button>
 </section>
 
 <!-- COMPILE -->
@@ -1125,6 +1188,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div id="detachWrap"></div>
   <button class="big" id="doShare">Generate and share</button>
   <button class="ghost" id="doDownload">Download instead</button>
+  <button class="ghost backcall">Back to the call</button>
   <p class="hint">Share sends the HTML file to the Android share sheet &mdash; pick OneDrive, Outlook or Teams. Download saves it to this phone.</p>
 </section>
 

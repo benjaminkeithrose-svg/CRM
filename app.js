@@ -1102,7 +1102,7 @@ function updateMgrHint(){
 const TITLES = {
   home:['Field CRM',''], account:['New call','Account'], contacts:['New call','Contacts'],
   accounts:['Accounts',''], acct:['Account',''], plan:['Plan',''], today:['Today',''],
-  manuals:['Manuals',''],
+  manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   note:['General note',''], health:['Health check',''], compile:['Compile','']
 };
@@ -1160,6 +1160,8 @@ function showScreen(name){
   if(name==='home') renderHome();
   if(name==='accounts') renderBrowse();
   if(name==='manuals' && window.Manuals) Manuals.render().catch(e=>console.error('manuals', e));
+  if(name==='people') renderPeople();
+  if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
   if(name==='today'){ renderToday(); $('title').textContent = todayView==='today' ? 'Today' : 'This week'; }
   // the plan breaks out of the phone column; everything else stays in it
@@ -4026,6 +4028,189 @@ $('ghSync').addEventListener('click', async ()=>{
   finally { btn.disabled = !ghReady(); }
 });
 
+/* ================= contacts and accounts, outside a call =================
+
+   Everything the app knew about a contact used to be reachable only by starting
+   a call at their account. Ringing someone from the car meant opening a call you
+   did not want, or going to Dynamics. This is the same data with a search box on
+   it and the phone number as a link.
+
+   Search reaches names, roles, job titles, emails, numbers and account names at
+   once, because you do not always know which one you remember. */
+
+function peopleIndex(){
+  const out = [];
+  for(const a of ACCOUNTS){
+    for(let i = 0; i < a.c.length; i++){
+      const c = a.c[i];
+      out.push({c: c, a: a, i: i,
+        hay: [c.n, c.r, c.t, (c.e||[]).join(' '), c.p, a.a, a.sub].filter(Boolean).join(' ').toLowerCase()});
+    }
+  }
+  return out;
+}
+let peView = 'all';
+function renderPeople(){
+  const q = ($('peQ').value || '').trim().toLowerCase();
+  const el = $('peRes');
+  if(!ACCOUNTS.length){
+    $('peHint').textContent = 'Import the CRM export first';
+    el.innerHTML = '<p class="empty">No contacts loaded.</p>';
+    return;
+  }
+  const terms = q.split(/\s+/).filter(Boolean);
+  const hit = h => terms.every(t => h.includes(t));
+
+  const accts = (peView === 'people') ? []
+    : ACCOUNTS.filter(a => !q || hit((a.a + ' ' + (a.sub||'') + ' ' + (effMgr(a)||'')).toLowerCase()));
+  const folk = (peView === 'accounts') ? []
+    : (q ? peopleIndex().filter(p => hit(p.hay)) : []);
+
+  if(!q){
+    $('peHint').textContent = peView === 'people'
+      ? 'Type a name, role, email or number'
+      : ACCOUNTS.length + ' accounts loaded. Type to search people as well.';
+  } else {
+    const bits = [];
+    if(folk.length) bits.push(folk.length + ' ' + (folk.length===1?'person':'people'));
+    if(accts.length) bits.push(accts.length + ' account' + (accts.length===1?'':'s'));
+    $('peHint').textContent = bits.length ? bits.join(', ') : 'Nothing matches that';
+  }
+
+  const P = [];
+  if(folk.length){
+    P.push('<div class="pgroup">People</div>');
+    folk.slice(0, 40).forEach((p, n) => {
+      const c = p.c, email = (c.e && c.e[0]) || '';
+      P.push('<div class="pcard '+FOC_CLS[p.a.foc]+'">'+
+        '<div class="pn">'+esc(c.n)+'</div>'+
+        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+'</div>'+
+        '<div class="pa">'+esc(p.a.a)+(p.a.sub ? ' \u00b7 '+esc(p.a.sub) : '')+'</div>'+
+        '<div class="pl">'+
+          (c.p ? '<a href="tel:'+esc(c.p.replace(/\s/g,''))+'">Call '+esc(c.p)+'</a>'
+               : '<span class="missing">No number on file</span>')+
+          (email ? '<a href="mailto:'+esc(email)+'">Email</a>'
+                 : '<span class="missing">No email</span>')+
+          '<button data-peacct="'+esc(p.a.a)+'">Account</button>'+
+        '</div></div>');
+    });
+    if(folk.length > 40) P.push('<p class="hint">'+(folk.length-40)+' more \u2014 narrow the search</p>');
+  }
+  if(accts.length){
+    P.push('<div class="pgroup">Accounts</div>');
+    const shown = q ? accts.slice(0, 40) : accts.slice(0, 40);
+    shown.forEach(a => {
+      const d = dueState(a);
+      P.push('<div class="pcard '+FOC_CLS[a.foc]+'">'+
+        '<div class="pn">'+esc(a.a)+'</div>'+
+        '<div class="pr">'+esc([a.sub, zoneName(a.z), a.foc, a.c.length+' contact'+(a.c.length===1?'':'s')]
+          .filter(Boolean).join(' \u00b7 '))+'</div>'+
+        '<div class="pa">'+esc(dueLabel(d))+'</div>'+
+        '<div class="pl"><button data-peacct="'+esc(a.a)+'">Open account</button></div></div>');
+    });
+    if(accts.length > 40) P.push('<p class="hint">'+(accts.length-40)+' more \u2014 narrow the search</p>');
+  }
+  el.innerHTML = P.join('') || '<p class="empty">Nothing matches that.</p>';
+  el.querySelectorAll('[data-peacct]').forEach(b =>
+    b.addEventListener('click', ()=>openAccount(b.dataset.peacct)));
+}
+$('peQ').addEventListener('input', renderPeople);
+$('peView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
+  peView = b.dataset.v;
+  $('peView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  renderPeople();
+}));
+function renderPeopleCount(){
+  const el = $('peopleInfo');
+  if(!el) return;
+  if(!ACCOUNTS.length){ el.textContent = 'Nothing loaded'; return; }
+  const n = ACCOUNTS.reduce((t,a) => t + a.c.length, 0);
+  el.textContent = n + ' contacts, ' + ACCOUNTS.length + ' accounts';
+}
+
+/* ================= reports =================
+   Every call, newest first, as something big enough to hit. Searchable by
+   account, by who was seen, and by what was logged - an asset number is often
+   the only thing you remember about a visit six weeks later. */
+
+let rpView = 'all';
+function reportHay(c){
+  if(c._hay) return c._hay;
+  const bits = [c.customer, c.site, c.date, c.type, c.mgr];
+  (c.contacts||[]).forEach(x => bits.push(x.name, x.role));
+  (c.entries||[]).forEach(e => bits.push(e.asset, e.beltdesc, e.series, e.style,
+    e.project, e.status, e.fault, e.htype, e.text, e.topic, e.action, e.next));
+  return (c._hay = bits.filter(Boolean).join(' ').toLowerCase());
+}
+function reportLine(c){
+  const E = t => (c.entries||[]).filter(e => e.type === t).length;
+  const bits = [];
+  if(E('belt')) bits.push(E('belt') + ' belt' + (E('belt')===1?'':'s'));
+  if(E('health')) bits.push(E('health') + ' health');
+  if(E('project')) bits.push(E('project') + ' project' + (E('project')===1?'':'s'));
+  if(E('note')) bits.push(E('note') + ' note' + (E('note')===1?'':'s'));
+  if(!bits.length) bits.push(c.noReport ? 'no report' : 'nothing logged');
+  if(c.site) bits.push(c.site);
+  return bits.join(' \u00b7 ');
+}
+async function renderReports(){
+  const all = (await callsAll()).slice().sort((a,b) => callWhen(b) - callWhen(a));
+  const q = ($('rpQ').value || '').trim().toLowerCase();
+  const terms = q.split(/\s+/).filter(Boolean);
+  let list = all;
+  if(rpView === 'open') list = list.filter(c => !c.closed);
+  else if(rpView === 'done') list = list.filter(c => c.closed);
+  if(terms.length) list = list.filter(c => terms.every(t => reportHay(c).includes(t)));
+
+  const open = all.filter(c => !c.closed).length;
+  $('rpHint').textContent = all.length
+    ? (q || rpView !== 'all'
+        ? list.length + ' of ' + all.length + ' calls'
+        : all.length + ' calls, ' + (open ? open + ' still open' : 'none open'))
+    : 'No calls logged yet';
+
+  const el = $('rpRes');
+  el.innerHTML = list.length
+    ? list.slice(0, 60).map(c => {
+        const st = callStatus(c);
+        return '<button class="rpt'+(c.closed ? '' : ' open')+'" data-rpt="'+esc(c.id)+'">'+
+          '<div class="rt"><span class="rd">'+esc(c.date)+'</span>'+
+          '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
+          '<div class="rn">'+esc(c.customer)+'</div>'+
+          '<div class="rm">'+esc(reportLine(c))+'</div></button>';
+      }).join('') + (list.length > 60 ? '<p class="hint">'+(list.length-60)+' more \u2014 narrow the search</p>' : '')
+    : '<p class="empty">'+(all.length ? 'Nothing matches that.' : 'No calls logged yet.')+'</p>';
+  el.querySelectorAll('[data-rpt]').forEach(b => b.addEventListener('click', async ()=>{
+    const found = (await callsAll()).find(c => c.id === b.dataset.rpt);
+    if(!found){ toast('That call could not be opened'); return; }
+    /* Reopening a finished call to edit it does not un-finish it. The status
+       only moves when you actually change something and close it again. */
+    call = found;
+    call.loose = call.loose || [];
+    go('dash');
+  }));
+}
+$('rpQ').addEventListener('input', ()=>renderReports().catch(reportErr));
+$('rpView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
+  rpView = b.dataset.v;
+  $('rpView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  renderReports().catch(reportErr);
+}));
+async function renderReportsCount(){
+  const el = $('reportsInfo');
+  if(!el) return;
+  const all = await callsAll();
+  const open = all.filter(c => !c.closed).length;
+  el.textContent = all.length
+    ? all.length + ' call' + (all.length===1?'':'s') + (open ? ', ' + open + ' open' : '')
+    : 'No calls yet';
+}
+
+/* Every entry form and the compile screen carry a way back to the call, so you
+   are never relying on the phone's own back gesture to get out of a form. */
+document.querySelectorAll('.backcall').forEach(b =>
+  b.addEventListener('click', ()=>go(call ? 'dash' : 'home')));
+
 /* ---------- home ---------- */
 async function renderHome(){
   const all = await callsAll();
@@ -4033,6 +4218,7 @@ async function renderHome(){
   const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
   $('resumeInfo').textContent = open.length ? open[0].customer : 'None open';
   renderHomeCounts();
+  renderPeopleCount(); renderReportsCount().catch(()=>{});
   const done = all.sort((a,b)=>b.updated-a.updated).slice(0,8);
   const el = $('pastList');
   if(!done.length){ el.innerHTML = '<p class="empty">No saved calls.</p>'; return; }
@@ -4075,6 +4261,11 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'mine'));
     $('abQ').value = '';
     go('accounts');
+  } else if(t==='people'){
+    if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
+    $('peQ').value = ''; go('people');
+  } else if(t==='reports'){
+    $('rpQ').value = ''; go('reports');
   } else if(t==='manuals'){
     if(!window.Manuals){ toast('manuals.js did not load'); return; }
     go('manuals');
