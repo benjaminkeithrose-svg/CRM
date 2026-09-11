@@ -1,0 +1,46 @@
+<!-- ============================================================
+     healthlib.js markup
+     1. Paste the <section> and the overlay just before the closing
+        </div> of the screens container, alongside the other .scr
+        sections (s-manuals is the nearest sibling in shape).
+     2. Add the script tag between manuals.js and app.js.
+     All ids are fl-prefixed. Checked against index.html: no collisions.
+     ============================================================ -->
+
+<!-- ---- library management screen ---- -->
+<section class="scr" id="s-faults">
+  <div class="wrap">
+    <h1>Fault library</h1>
+    <p class="hint" id="flStat"></p>
+
+    <div class="fld">
+      <button type="button" class="ghost" id="flExport">Export library</button>
+      <button type="button" class="ghost" id="flImportBtn">Import library</button>
+      <input type="file" id="flImport" accept="application/json" hidden>
+    </div>
+    <div class="msg" id="flLibMsg"></div>
+
+    <div id="flList"></div>
+  </div>
+</section>
+
+<!-- ---- fault picker overlay ---- -->
+<div class="fl-overlay" id="flOverlay" hidden role="dialog" aria-modal="true"
+     aria-labelledby="flTitle">
+  <header class="fl-head">
+    <button type="button" class="ghost fl-icon" id="flBack" hidden
+            aria-label="Back">&#8592;</button>
+    <h2 id="flTitle">Fault library</h2>
+    <button type="button" class="ghost fl-icon" id="flClose"
+            aria-label="Close">&#10005;</button>
+  </header>
+  <div class="fl-scroll" id="flBody"></div>
+</div>
+
+<!-- ---- script tag: insert between manuals.js and app.js ---- -->
+<!--
+<script src="zones.js"></script>
+<script src="manuals.js"></script>
+<script src="healthlib.js"></script>
+<script src="app.js"></script>
+-->

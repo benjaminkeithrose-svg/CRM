@@ -1,0 +1,106 @@
+/* ============================================================
+   healthlib.js styles
+   Paste at the end of the <style> block in index.html, before </style>.
+   Tokens only - no hard-coded colours, no font declarations.
+   Phone first, 900px breakpoint, 44px touch targets, 16px inputs.
+   ============================================================ */
+
+/* ---- picker overlay ---- */
+.fl-overlay{
+  position:fixed; inset:0; z-index:60;
+  background:var(--surface); display:flex; flex-direction:column;
+}
+.fl-head{
+  display:flex; align-items:center; gap:8px;
+  padding:10px 12px; border-bottom:1px solid var(--line);
+  background:var(--surface); position:sticky; top:0; z-index:1;
+}
+.fl-head h2{
+  margin:0; font-size:17px; font-weight:600; flex:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.fl-head .hint{font-weight:400}
+.fl-icon{
+  min-width:44px; min-height:44px; padding:0;
+  font-size:18px; line-height:1; border-radius:var(--r);
+}
+.fl-scroll{
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:12px; max-width:680px; width:100%; margin:0 auto;
+  padding-bottom:96px;
+}
+.fl-scroll input,.fl-scroll textarea,.fl-scroll select{font-size:16px}
+
+/* ---- category grid ---- */
+.fl-cats{display:flex; flex-direction:column; gap:8px; margin-top:12px}
+.fl-cat{
+  display:flex; align-items:center; gap:10px; width:100%;
+  min-height:52px; text-align:left; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line-2);
+}
+.fl-cat-n{
+  flex:none; width:28px; height:28px; border-radius:var(--r);
+  background:var(--cyan-lt); color:var(--cyan-dk);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700;
+}
+.fl-cat-name{flex:1}
+
+/* ---- check rows ---- */
+.fl-check{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px;
+  width:100%; min-height:52px; text-align:left; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line-2); margin-bottom:8px;
+}
+.fl-row{display:block; margin-bottom:6px; background:var(--surface)}
+.fl-code{
+  flex:none; font-size:12px; font-weight:700; letter-spacing:.02em;
+  color:var(--ink-3); font-variant-numeric:tabular-nums;
+}
+.fl-name{flex:1 1 60%}
+.fl-tags{display:flex; gap:4px; flex-wrap:wrap}
+.fl-h{margin:16px 0 8px; font-size:14px; color:var(--ink-2)}
+
+/* ---- pills ---- */
+.fl-pill{
+  display:inline-block; padding:1px 7px; border-radius:var(--r);
+  font-size:11px; font-weight:600; white-space:nowrap;
+  background:var(--ground); color:var(--ink-2);
+}
+/* Priority is the maintenance work order. Critical reads in Intralox red,
+   the rest step down through orange and cyan rather than a traffic light -
+   the same logic the account focus colours already use. */
+.fl-p-critical{background:var(--red-soft); color:var(--red-dark)}
+.fl-p-high    {background:var(--orange-lt); color:var(--orange-dk)}
+.fl-p-medium  {background:var(--cyan-lt); color:var(--cyan-dk)}
+.fl-p-low     {background:var(--ground); color:var(--ink-3)}
+.fl-s         {background:var(--sunk); color:var(--ink-2); border:1px solid var(--line-2)}
+.fl-state     {background:transparent; color:var(--ink-3); border:1px solid var(--line-2)}
+
+.fl-meta{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px}
+
+/* ---- detail ---- */
+.fl-tech{margin-bottom:12px}
+.fl-thresh{background:var(--cyan-lt); border:1px solid var(--cyan-md)}
+.fl-thresh ul{margin:6px 0 0; padding-left:18px}
+.fl-thresh li{margin:2px 0}
+.fl-causes{background:var(--sunk)}
+.fl-two{display:flex; gap:10px}
+.fl-two > div{flex:1; min-width:0}
+
+/* Four tiers do not fit across a phone in one row. */
+.fl-pri{flex-wrap:wrap}
+.fl-pri button{flex:1 1 46%; min-height:44px}
+
+.fl-actions{
+  display:flex; flex-direction:column; gap:8px; margin-top:16px;
+}
+.fl-actions .big,.fl-actions .ghost{width:100%; min-height:48px}
+
+@media (min-width:900px){
+  .fl-cats{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .fl-pri button{flex:1 1 auto}
+  .fl-actions{flex-direction:row}
+  .fl-actions .big{flex:2}
+  .fl-actions .ghost{flex:1}
+}
