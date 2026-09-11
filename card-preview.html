@@ -1,0 +1,199 @@
+<!doctype html><meta charset=utf-8><style>:root{
+  --link:#0377BA;
+  /* Intralox colour system, carried over from the Zone Call Planner so the two
+     halves of this app look like one tool. Brand Guidelines p14-17, light
+     layout: ~75% white, 10% cyan family, 10% grey family, 5% Intralox red. */
+  --ink:#222222;            /* $ox-text-color                        */
+  --ink-2:#4D4D4F;          /* Dark Gray, Pantone 433                */
+  --ink-3:#77787A;
+  --ground:#E8EAEB;         /* Light Gray, Pantone Cool Gray 1       */
+  --surface:#FFFFFF;
+  --sunk:#F7F8F8;           /* $ox-input-background                  */
+  --line:#CCCCCC;           /* $border-color                         */
+  --line-2:#E3E3E3;         /* $ox-input-border-color                */
+
+  --red:#ED1C24;            /* $intralox-red - primary action        */
+  --red-dark:#9D0A0E;       /* $intralox-red--dark                   */
+  --red-soft:#FDECED;
+
+  --cyan:#479EBC;           /* Cyan, Pantone 2183                    */
+  --cyan-dk:#00708D;        /* Dark Cyan, Pantone 7707               */
+  --cyan-md:#ACD3E1;        /* Medium Cyan, Pantone 636              */
+  --cyan-lt:#E3F0F5;        /* Light Cyan, Pantone 545               */
+
+  --orange:#FFA400;         /* Orange, Pantone 2011                  */
+  --orange-dk:#E36C00;      /* Dark Orange, Pantone 1595             */
+  --orange-lt:#FFF1D9;      /* Light Orange, Pantone 2015            */
+
+  --ok:#237F35;             /* $success-color                        */
+  --ok-lt:#EEF5EF;
+  --warn:#B2232F;           /* $error-color                          */
+
+  /* Account focus. High reads in Intralox red; the rest step down through
+     the orange and cyan families rather than a traffic light. */
+  --high:#ED1C24; --med:#E36C00; --low:#00708D; --none:#8A8C8E;
+
+  --r:3px;
+  font-synthesis-weight:none;
+}body{font-family:Roboto,Arial,sans-serif;font-size:15px;line-height:1.45;background:var(--ground);margin:0;padding:16px;color:var(--ink)}.wrap{max-width:680px;margin:0 auto}/* ============================================================
+   healthlib.js styles
+   Paste at the end of the style block in index.html, just before it closes.
+   Tokens only - no hard-coded colours, no font declarations.
+   Phone first, 900px breakpoint, 44px touch targets, 16px inputs.
+   ============================================================ */
+
+/* ---- picker overlay ---- */
+.fl-overlay{
+  position:fixed; inset:0; z-index:60;
+  background:var(--surface); display:flex; flex-direction:column;
+}
+.fl-head{
+  display:flex; align-items:center; gap:8px;
+  padding:10px 12px; border-bottom:1px solid var(--line);
+  background:var(--surface); position:sticky; top:0; z-index:1;
+}
+.fl-head h2{
+  margin:0; font-size:17px; font-weight:600; flex:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.fl-head .hint{font-weight:400}
+.fl-icon{
+  min-width:44px; min-height:44px; padding:0;
+  font-size:18px; line-height:1; border-radius:var(--r);
+}
+.fl-scroll{
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:12px; max-width:680px; width:100%; margin:0 auto;
+  padding-bottom:96px;
+}
+.fl-scroll input,.fl-scroll textarea,.fl-scroll select{font-size:16px}
+
+/* ---- category grid ---- */
+.fl-cats{display:flex; flex-direction:column; gap:8px; margin-top:12px}
+.fl-cat{
+  display:flex; align-items:center; gap:10px; width:100%;
+  min-height:52px; text-align:left; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line-2);
+}
+.fl-cat-n{
+  flex:none; width:28px; height:28px; border-radius:var(--r);
+  background:var(--cyan-lt); color:var(--cyan-dk);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700;
+}
+.fl-cat-name{flex:1}
+
+/* ---- check rows ---- */
+.fl-check{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px;
+  width:100%; min-height:52px; text-align:left; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line-2); margin-bottom:8px;
+}
+.fl-row{display:block; margin-bottom:6px; background:var(--surface)}
+.fl-code{
+  flex:none; font-size:12px; font-weight:700; letter-spacing:.02em;
+  color:var(--ink-3); font-variant-numeric:tabular-nums;
+}
+.fl-name{flex:1 1 60%}
+.fl-tags{display:flex; gap:4px; flex-wrap:wrap}
+.fl-h{margin:16px 0 8px; font-size:14px; color:var(--ink-2)}
+
+/* ---- pills ---- */
+.fl-pill{
+  display:inline-block; padding:1px 7px; border-radius:var(--r);
+  font-size:11px; font-weight:600; white-space:nowrap;
+  background:var(--ground); color:var(--ink-2);
+}
+/* Priority is the maintenance work order. Critical reads in Intralox red,
+   the rest step down through orange and cyan rather than a traffic light -
+   the same logic the account focus colours already use. */
+.fl-p-critical{background:var(--red-soft); color:var(--red-dark)}
+.fl-p-high    {background:var(--orange-lt); color:var(--orange-dk)}
+.fl-p-medium  {background:var(--cyan-lt); color:var(--cyan-dk)}
+.fl-p-low     {background:var(--ground); color:var(--ink-3)}
+.fl-s         {background:var(--sunk); color:var(--ink-2); border:1px solid var(--line-2)}
+.fl-state     {background:transparent; color:var(--ink-3); border:1px solid var(--line-2)}
+
+.fl-meta{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px}
+
+/* ---- detail ---- */
+.fl-tech{margin-bottom:12px}
+.fl-thresh{background:var(--cyan-lt); border:1px solid var(--cyan-md)}
+.fl-thresh ul{margin:6px 0 0; padding-left:18px}
+.fl-thresh li{margin:2px 0}
+.fl-causes{background:var(--sunk)}
+.fl-two{display:flex; gap:10px}
+.fl-two > div{flex:1; min-width:0}
+
+/* Four tiers do not fit across a phone in one row. */
+.fl-pri{flex-wrap:wrap}
+.fl-pri button{flex:1 1 46%; min-height:44px}
+
+.fl-actions{
+  display:flex; flex-direction:column; gap:8px; margin-top:16px;
+}
+.fl-actions .big,.fl-actions .ghost{width:100%; min-height:48px}
+
+@media (min-width:900px){
+  .fl-cats{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .fl-pri button{flex:1 1 auto}
+  .fl-actions{flex-direction:row}
+  .fl-actions .big{flex:2}
+  .fl-actions .ghost{flex:1}
+}
+
+/* ============================================================
+   Customer card - one block per finding, four-row site visit
+   report shape. Prints one card per page.
+   ============================================================ */
+.hc-card{
+  border:1px solid var(--line); border-radius:var(--r);
+  background:var(--surface); margin:0 0 16px; overflow:hidden;
+  break-inside:avoid; page-break-inside:avoid;
+}
+.hc-top{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:8px 12px; background:var(--cyan-lt);
+  border-bottom:1px solid var(--cyan-md);
+}
+.hc-asset{flex:1; font-weight:700; color:var(--cyan-dk); min-width:0}
+.hc-tags{display:flex; gap:4px}
+.hc-fault{margin:10px 12px 6px; font-size:16px; line-height:1.3}
+.hc-code{font-size:12px; color:var(--ink-3); font-weight:400}
+
+.hc-row{display:flex; border-top:1px solid var(--line-2)}
+.hc-lbl{
+  flex:none; width:34%; max-width:190px; padding:8px 12px;
+  background:var(--sunk); font-size:12px; font-weight:700;
+  color:var(--ink-2); line-height:1.35;
+}
+.hc-val{flex:1; padding:8px 12px; min-width:0}
+.hc-val p{margin:0 0 4px}
+.hc-val ul{margin:0; padding-left:16px}
+.hc-val li{margin:1px 0}
+
+/* Risk of inaction reads in the red family; the gain from acting reads in
+   cyan. The only two colours on the card that carry meaning. */
+.hc-risk li{color:var(--red-dark)}
+.hc-gain{color:var(--cyan-dk); font-weight:600}
+.hc-spec{margin-top:4px}
+.hc-spec li{color:var(--ink-2); font-size:13px}
+.hc-src{margin-top:4px; font-size:11px; color:var(--ink-3)}
+
+.hc-tbl{width:100%; border-collapse:collapse; font-size:13px}
+.hc-tbl th{
+  text-align:left; font-weight:600; color:var(--ink-2);
+  padding:2px 8px 2px 0; white-space:nowrap; vertical-align:top; width:1%;
+}
+.hc-tbl td{padding:2px 0}
+
+@media (max-width:520px){
+  .hc-row{flex-direction:column}
+  .hc-lbl{width:auto; max-width:none; padding:6px 12px 2px; background:transparent}
+  .hc-val{padding-top:0}
+}
+@media print{
+  .hc-card{border-color:var(--line); page-break-after:always}
+  .hc-top{background:var(--cyan-lt) !important; -webkit-print-color-adjust:exact}
+}
+</style><div class=wrap><section class="hc-card"><header class="hc-top"><div class="hc-asset">Boning Room 2 — Case conveyor</div><div class="hc-tags"><span class="fl-pill fl-p-critical">Critical</span><span class="fl-pill fl-s">Urgent</span></div></header><h3 class="hc-fault">Missing, worn or displaced wear strips <span class="hc-code">CW-01</span></h3><div class="hc-row"><div class="hc-lbl">Observations</div><div class="hc-val"><ul><li>Wear strips missing over part of the carryway</li><li>Wear strips loose, broken or displaced</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Risk of no action</div><div class="hc-val"><ul class="hc-risk"><li>Foreign material contamination</li><li>Reduced belt life</li><li>Increased downtime</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Recommendation</div><div class="hc-val"><p>Review and replace all affected wear strips and rollers. Blackening on food contact sides is a product contamination risk; on the underside it wears the belt prematurely and risks breakage.</p></div></div><div class="hc-row"><div class="hc-lbl">Once corrected</div><div class="hc-val"><p class="hc-gain">Reduced foreign material contamination risk and extended belt life.</p></div></div><div class="hc-row"><div class="hc-lbl">Action</div><div class="hc-val"><p>M. Reid &middot; by 2026-10-02</p></div></div></section><section class="hc-card"><header class="hc-top"><div class="hc-asset">PA4192 (C113) — Carton incline</div><div class="hc-tags"><span class="fl-pill fl-p-high">High</span><span class="fl-pill fl-s">Urgent</span></div></header><h3 class="hc-fault">Excessive catenary sag <span class="hc-code">SG-01</span></h3><div class="hc-row"><div class="hc-lbl">Observations</div><div class="hc-val"><ul><li>First sag section deeper than specification</li><li>Belt jumping teeth at the drive</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Risk of no action</div><div class="hc-val"><ul class="hc-risk"><li>Poor sprocket engagement</li><li>Reduced belt life</li><li>Increased belt bounce</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Recommendation</div><div class="hc-val"><p>Reduce sag depth to restore back tension. Additional catenary sag decreases belt tension and can lead to sprocket disengagement. Back tension increases as the sag section length increases and as sag depth decreases.</p><ul class="hc-spec"><li>Sag depth — 1 in to 4 in (25 mm to 102 mm) for each catenary sag section, including the first section after the snub support</li></ul><p class="hc-src">mpb_manual_rev4</p></div></div><div class="hc-row"><div class="hc-lbl">Once corrected</div><div class="hc-val"><p class="hc-gain">Reliable sprocket engagement and extended belt life.</p></div></div></section><section class="hc-card"><header class="hc-top"><div class="hc-asset">CV-114 drive end</div><div class="hc-tags"><span class="fl-pill fl-p-critical">Critical</span><span class="fl-pill fl-s">Urgent</span></div></header><h3 class="hc-fault">Damaged or heavily worn belt edges <span class="hc-code">BC-02</span></h3><div class="hc-row"><div class="hc-lbl">Observations</div><div class="hc-val"><ul><li>Edge modules broken or missing</li><li>Edge shaving or scalloping</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Risk of no action</div><div class="hc-val"><ul class="hc-risk"><li>Foreign material contamination</li><li>Imminent belt failure</li><li>Increased downtime</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Recommendation</div><div class="hc-val"><p>Replace the affected sections and correct the cause. Edge damage is a symptom — the cause is usually tracking, containment, a catch point or running direction.</p></div></div><div class="hc-row"><div class="hc-lbl">Once corrected</div><div class="hc-val"><p class="hc-gain">Reduced foreign material contamination risk and unplanned belt failure avoided.</p></div></div><div class="hc-row"><div class="hc-lbl">Replacement belt specification</div><div class="hc-val"><table class="hc-tbl"><tr><th>Belt</th><td>S2400 Flush Grid Acetal Grey</td></tr><tr><th>Width</th><td>457 mm</td></tr><tr><th>Length</th><td>16.5 m</td></tr><tr><th>Rods</th><td>Acetal</td></tr><tr><th>Sprockets</th><td>S2400 6T 40mm sq</td></tr></table></div></div><div class="hc-row"><div class="hc-lbl">Action</div><div class="hc-val"><p>Plant maintenance &middot; by 2026-09-30</p></div></div></section><section class="hc-card"><header class="hc-top"><div class="hc-asset">Line 3 — Trim belt gearbox</div><div class="hc-tags"><span class="fl-pill fl-p-critical">Critical</span><span class="fl-pill fl-s">Urgent</span></div></header><h3 class="hc-fault">Leaking seals, bearings or gearboxes over product zones <span class="hc-code">FM-13</span></h3><div class="hc-row"><div class="hc-lbl">Observations</div><div class="hc-val"><ul><li>Lubricant leaking above the product zone</li><li>Damaged seal or bearing with visible egress</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Risk of no action</div><div class="hc-val"><ul class="hc-risk"><li>Foreign material contamination</li><li>Increased sanitation risk</li><li>Affected product may require containment</li></ul></div></div><div class="hc-row"><div class="hc-lbl">Recommendation</div><div class="hc-val"><p>Isolate and repair before restart where the leak is over open product, and assess affected product under the site procedure.</p></div></div><div class="hc-row"><div class="hc-lbl">Once corrected</div><div class="hc-val"><p class="hc-gain">Reduced foreign material contamination risk and reduced sanitation risk.</p></div></div></section></div>

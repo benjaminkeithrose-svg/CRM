@@ -180,6 +180,36 @@ function tap(w, sel) {
   eq('legacy entries fall back to severity order', mixed[2].severity, 'Urgent');
   eq('and stay in severity order among themselves', mixed[3].severity, 'Plan');
 
+  console.log('\ncustomer card');
+  const beltEntry = { type:'belt', asset:'CV-114 drive end', series:'S2400',
+    style:'Flush Grid', beltmat:'Acetal', colour:'Grey', width:'457',
+    beltlen:'16.5', rodmat:'Acetal', sprocket:'S2400 6T 40mm sq' };
+  const card = HL.cardHTML(produced, beltEntry);
+  ok('card renders', card.length > 400);
+  ok('shows the asset', card.includes('CV-114 drive end'));
+  ok('has an Observations row', card.includes('Observations'));
+  ok('has a risk-of-no-action row', card.includes('Risk of no action'));
+  ok('has a Recommendation row', card.includes('Recommendation'));
+  ok('has an Once corrected row', card.includes('Once corrected'));
+  ok('pulls the belt spec from the linked entry', card.includes('Replacement belt specification'));
+  ok('belt width rendered from beltRef', card.includes('457 mm'));
+  ok('owner and due printed', card.includes('M. Reid') && card.includes('2026-10-15'));
+  ok('no belt entry degrades gracefully',
+     !HL.cardHTML(produced, null).includes('Replacement belt specification'));
+  ok('escapes user text', !HL.cardHTML(
+     Object.assign({}, produced, {asset:'<script>x</script>'}), null).includes('<script>x'));
+
+  console.log('\nrisk vocabulary');
+  const voc = HL.riskVocab();
+  ok('vocabulary loaded', voc.length >= 15);
+  ok('every fault has risks', HL.list().every(f => f.risks && f.risks.length));
+  ok('every risk id resolves', HL.list().every(f =>
+     f.risks.every(r => voc.some(v => v.id === r))));
+  ok('every fault has a benefit line', HL.list().every(f => f.benefit && f.benefit.length > 10));
+  ok('benefit is the inverse of a risk, not new copy',
+     HL.list().every(f => voc.some(v => f.benefit.toLowerCase().includes(
+       v.benefit.toLowerCase().slice(0, 12)))));
+
   console.log('\nnamespace discipline');
   ok('exactly one global added',
     typeof w.HealthLib === 'object' && typeof w.Faults === 'undefined');

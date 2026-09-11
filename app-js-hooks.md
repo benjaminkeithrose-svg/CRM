@@ -124,3 +124,25 @@ reference data with no customer content, so it ships in the repo and is
 fetched same-origin once on first run. Add it to the service worker precache
 list so the library survives offline. After the first load nothing is fetched
 again.
+
+---
+
+## 8. Customer card in the report — `buildNotesHTML()`
+
+Replace the block that renders each health finding with a call into the module,
+keeping the existing rendering as the fallback:
+
+```js
+p.push(window.HealthLib
+  ? HealthLib.cardHTML(e, e.beltRef != null ? c.entries[e.beltRef] : null)
+  : existingHealthRowHTML(e));
+```
+
+`cardHTML()` returns one self-contained block per finding in the four-row site
+visit report shape — Observations, Risk of no action, Recommendation, Once
+corrected, Replacement belt specification, Action — and pulls the belt spec
+from the linked belt entry through `beltRef`. Each card is `page-break-after:
+always` in print, so the report prints one fault per page and the customer can
+walk a single sheet to the conveyor.
+
+With `healthlib.js` absent the report renders exactly as it does today.

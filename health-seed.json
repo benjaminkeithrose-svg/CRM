@@ -77,12 +77,19 @@
 "thresholds": [
 "Fasteners — Avoid fasteners in the belt path, or keep them out of the path by countersinking"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 1,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"edge",
+"life",
+"fmc"
+],
+"benefit": "Belt edges protected and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ob-02",
@@ -107,12 +114,19 @@
 "Welds — Fully weld connections with a minimum 0.125 in (3 mm) radius; grind all welds flush in product contact areas",
 "Stainless finish — 303/304 stainless with a 2B cold-rolled surface finish provides the lowest friction of any stainless carryway"
 ],
-"source": "td_manual_2026, mpb_manual_rev4",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026); MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"edge",
+"life",
+"fmc"
+],
+"benefit": "Belt edges protected and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ob-03",
@@ -136,12 +150,19 @@
 "thresholds": [
 "Chamfer angle — 45 degrees"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"edge",
+"life",
+"fmc"
+],
+"benefit": "Belt edges protected and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ob-04",
@@ -170,7 +191,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"edge",
+"life"
+],
+"benefit": "Reduced foreign material contamination risk and belt edges protected.",
+"risksReviewed": false
 },
 {
 "id": "cw-01",
@@ -200,7 +228,14 @@
 ],
 "slide": 2,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"life",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "cw-02",
@@ -230,12 +265,19 @@
 "Belt edge clearance — Minimum 0.25 in (6 mm) between belt edge and outer wearstrip",
 "Quantity — Use the Sprocket and Support Quantity Reference table for the selected belt"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"downtime",
+"fmc"
+],
+"benefit": "Extended belt life and reduced unplanned downtime.",
+"risksReviewed": false
 },
 {
 "id": "cw-03",
@@ -263,7 +305,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"downtime",
+"fmc"
+],
+"benefit": "Extended belt life and reduced unplanned downtime.",
+"risksReviewed": false
 },
 {
 "id": "cw-04",
@@ -290,7 +339,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"downtime",
+"fmc"
+],
+"benefit": "Extended belt life and reduced unplanned downtime.",
+"risksReviewed": false
 },
 {
 "id": "cw-05",
@@ -315,14 +371,21 @@
 "Plate thickness — Greater than 25 mm UHMW-PE",
 "Design principle — Consider using a solid UHMW-PE carryway bed at infeed or loading areas to address product impact"
 ],
-"source": "td_manual_2026, mpb_manual_rev4",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026); MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [
 "FM-01"
 ],
 "slide": 3,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"life",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "cw-06",
@@ -349,7 +412,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"downtime",
+"fmc"
+],
+"benefit": "Extended belt life and reduced unplanned downtime.",
+"risksReviewed": false
 },
 {
 "id": "cw-07",
@@ -377,12 +447,19 @@
 "Surface finish — Rails with a smooth surface finish not exceeding Ra125 micro-inches (Ra3.2 µm)",
 "Prohibited — Never use acetal or high-density polyethylene (HDPE) support rails"
 ],
-"source": "td_manual_2026, mpb_manual_rev4",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026); MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"downtime",
+"fmc"
+],
+"benefit": "Extended belt life and reduced unplanned downtime.",
+"risksReviewed": false
 },
 {
 "id": "cw-08",
@@ -410,12 +487,19 @@
 "Rail centreline spacing max — 6.0 in (152 mm)",
 "L rail vertical min — 0.75 in (19 mm) vertical surface on L-shaped containment rails"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 4,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"downtime",
+"fmc"
+],
+"benefit": "Extended belt life and reduced unplanned downtime.",
+"risksReviewed": false
 },
 {
 "id": "rw-01",
@@ -441,12 +525,19 @@
 "Roller diameter min — 2 in (50 mm) for belts up to 1.07 in (27 mm) pitch; 4 in (100 mm) for larger pitch belts",
 "Support spacing — 36 in to 48 in (900 mm to 1,200 mm) apart"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 5,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"tracking",
+"engagement"
+],
+"benefit": "Extended belt life and belt tracks correctly.",
+"risksReviewed": false
 },
 {
 "id": "rw-02",
@@ -474,7 +565,14 @@
 "escalates": [],
 "slide": 6,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"tracking",
+"engagement"
+],
+"benefit": "Extended belt life and belt tracks correctly.",
+"risksReviewed": false
 },
 {
 "id": "rw-03",
@@ -501,7 +599,14 @@
 "escalates": [],
 "slide": 7,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"tracking",
+"engagement"
+],
+"benefit": "Extended belt life and belt tracks correctly.",
+"risksReviewed": false
 },
 {
 "id": "rw-04",
@@ -528,12 +633,19 @@
 "Flange height — 0.5 in (12.7 mm)",
 "Max flanged roller diameter — 5 in (127 mm) and 7 in (178 mm)"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 8,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"tracking",
+"engagement"
+],
+"benefit": "Extended belt life and belt tracks correctly.",
+"risksReviewed": false
 },
 {
 "id": "rw-05",
@@ -563,12 +675,19 @@
 "thermodrive clearance by open span: 6 ft 1.83 m — 15.0 in (381 mm)",
 "Accessories — For belts with flights or sidewalls, add the height of the tallest accessory to the clearance needed"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"life",
+"tracking",
+"engagement"
+],
+"benefit": "Extended belt life and belt tracks correctly.",
+"risksReviewed": false
 },
 {
 "id": "rw-06",
@@ -593,7 +712,7 @@
 "Floor to product contact surface min — 18 in (457 mm)",
 "Floor to lower frame min — 12 in (305 mm)"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [
 "FM-08",
@@ -601,7 +720,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"life",
+"tracking"
+],
+"benefit": "Reduced foreign material contamination risk and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-01",
@@ -625,7 +751,7 @@
 "thresholds": [
 "Sag depth — 1 in to 4 in (25 mm to 102 mm) for each catenary sag section, including the first section after the snub support"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [
 "BC-08",
 "SG-04",
@@ -634,7 +760,14 @@
 "escalates": [],
 "slide": 9,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-02",
@@ -658,12 +791,19 @@
 "thresholds": [
 "Thermodrive principle — Never operate ThermoDrive belting with tension"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-03",
@@ -689,12 +829,19 @@
 "Snub distance from shaft — 9 in to 18 in (229 mm to 457 mm) from the drive and idle shafts",
 "Belt wrap — Between 180 degrees and 210 degrees around the sprockets"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 10,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-04",
@@ -719,12 +866,19 @@
 "Modular belt — 36 in to 48 in (900 mm to 1,200 mm) apart. Certain belt series require different spacing — see Alternative Returnway Support Spacing.",
 "Thermodrive — Include at least one open span between 30 in (762 mm) and 72 in (1,829 mm) in most applications, positioned where deep sag is wanted"
 ],
-"source": "mpb_manual_rev4, td_manual_2026",
+"source": "MPB Engineering Manual 5012156.4 (2026); ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-05",
@@ -749,12 +903,19 @@
 "Expected growth — 0.5% to 1% of total length",
 "Correction — Remove two rows of modules"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 11,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-06",
@@ -783,7 +944,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sg-07",
@@ -810,7 +978,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"bounce"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-01",
@@ -835,12 +1010,19 @@
 "thresholds": [
 "Groove caution — Spring-type rings require grooves cut into the shaft corners, which concentrate stress. Where belt pull is high, use Self-Set or Split Collar rings that require no grooves — see Belt Pull Limits vs Shaft Span for Retainer Ring Grooves."
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 12,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-02",
@@ -867,7 +1049,14 @@
 "escalates": [],
 "slide": 13,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-03",
@@ -894,7 +1083,14 @@
 "escalates": [],
 "slide": 14,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-04",
@@ -921,7 +1117,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-05",
@@ -948,7 +1151,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-06",
@@ -972,12 +1182,19 @@
 "thresholds": [
 "Max deflection — Recommended maximum 0.10 in (2.5 mm) for standard shafts"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "sp-07",
@@ -1009,7 +1226,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"engagement",
+"life",
+"downtime"
+],
+"benefit": "Reliable sprocket engagement and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "tr-01",
@@ -1042,7 +1266,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"tracking",
+"edge"
+],
+"benefit": "Reduced foreign material contamination risk and belt tracks correctly.",
+"risksReviewed": false
 },
 {
 "id": "tr-02",
@@ -1069,7 +1300,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"tracking",
+"edge",
+"life"
+],
+"benefit": "Belt tracks correctly and belt edges protected.",
+"risksReviewed": false
 },
 {
 "id": "tr-03",
@@ -1097,7 +1335,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"tracking",
+"edge",
+"life"
+],
+"benefit": "Belt tracks correctly and belt edges protected.",
+"risksReviewed": false
 },
 {
 "id": "tr-04",
@@ -1124,7 +1369,14 @@
 "escalates": [],
 "slide": 15,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"tracking",
+"edge",
+"life"
+],
+"benefit": "Belt tracks correctly and belt edges protected.",
+"risksReviewed": false
 },
 {
 "id": "tr-05",
@@ -1153,7 +1405,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"tracking",
+"edge",
+"life"
+],
+"benefit": "Belt tracks correctly and belt edges protected.",
+"risksReviewed": false
 },
 {
 "id": "tr-06",
@@ -1183,7 +1442,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"tracking",
+"edge",
+"life"
+],
+"benefit": "Belt tracks correctly and belt edges protected.",
+"risksReviewed": false
 },
 {
 "id": "bc-01",
@@ -1217,7 +1483,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "bc-02",
@@ -1253,7 +1526,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "bc-03",
@@ -1284,7 +1564,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "bc-04",
@@ -1317,7 +1604,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "bc-05",
@@ -1346,7 +1640,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"fmc",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and reduced foreign material contamination risk.",
+"risksReviewed": false
 },
 {
 "id": "bc-06",
@@ -1375,7 +1676,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "bc-07",
@@ -1402,7 +1710,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"fmc",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and reduced foreign material contamination risk.",
+"risksReviewed": false
 },
 {
 "id": "bc-08",
@@ -1434,7 +1749,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"fmc",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and reduced foreign material contamination risk.",
+"risksReviewed": false
 },
 {
 "id": "bc-09",
@@ -1463,7 +1785,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "bc-10",
@@ -1493,7 +1822,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"fmc",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and reduced foreign material contamination risk.",
+"risksReviewed": false
 },
 {
 "id": "bc-11",
@@ -1524,7 +1860,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"downtime"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "ap-01",
@@ -1561,12 +1904,19 @@
 "ChemBlox: Range — 0 °F to 150 °F (-18 °C to 66 °C)",
 "PVDF: Range — 34 °F to 200 °F (1 °C to 93 °C)"
 ],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": 18,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-02",
@@ -1590,12 +1940,19 @@
 "thresholds": [
 "Warning — Do not passivate with nitric acid with any ThermoDrive or other Intralox belt present in the room — nitric acid passivation destroys Intralox polymer belts"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-03",
@@ -1622,7 +1979,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-04",
@@ -1644,14 +2008,21 @@
 "evidence": "observation_only",
 "tech": "modular_plastic_belt",
 "thresholds": [],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [
 "FM-11"
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"beltfail",
+"life"
+],
+"benefit": "Reduced foreign material contamination risk and unplanned belt failure avoided.",
+"risksReviewed": false
 },
 {
 "id": "ap-05",
@@ -1679,7 +2050,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-06",
@@ -1708,7 +2086,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-07",
@@ -1735,7 +2120,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-08",
@@ -1759,12 +2151,19 @@
 "thresholds": [
 "Reference — See the belt data tables in Product Line for minimum bend radius"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-09",
@@ -1793,7 +2192,14 @@
 ],
 "slide": 19,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "ap-10",
@@ -1820,7 +2226,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"beltfail",
+"life",
+"downtime"
+],
+"benefit": "Unplanned belt failure avoided and extended belt life.",
+"risksReviewed": false
 },
 {
 "id": "tx-01",
@@ -1847,7 +2260,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-02",
@@ -1874,7 +2294,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-03",
@@ -1903,7 +2330,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-04",
@@ -1930,7 +2364,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-05",
@@ -1957,7 +2398,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-06",
@@ -1986,7 +2434,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-07",
@@ -2008,12 +2463,19 @@
 "evidence": "photo",
 "tech": "all",
 "thresholds": [],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "tx-08",
@@ -2040,7 +2502,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"throughput",
+"operator",
+"control"
+],
+"benefit": "Throughput restored and less operator intervention.",
+"risksReviewed": false
 },
 {
 "id": "fm-01",
@@ -2073,7 +2542,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-02",
@@ -2102,7 +2578,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-03",
@@ -2129,7 +2612,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-04",
@@ -2156,7 +2646,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-05",
@@ -2179,12 +2676,19 @@
 "evidence": "photo",
 "tech": "all",
 "thresholds": [],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-06",
@@ -2208,12 +2712,19 @@
 "thresholds": [
 "Portable conveyor top plate slope — 0.125–0.250 in (3.2–6.4 mm)"
 ],
-"source": "td_manual_2026",
+"source": "ThermoDrive Engineering Manual 5011939.5 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-07",
@@ -2242,7 +2753,14 @@
 ],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-08",
@@ -2269,7 +2787,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-09",
@@ -2296,7 +2821,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-10",
@@ -2323,7 +2855,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-11",
@@ -2345,12 +2884,19 @@
 "evidence": "observation_only",
 "tech": "all",
 "thresholds": [],
-"source": "mpb_manual_rev4",
+"source": "MPB Engineering Manual 5012156.4 (2026)",
 "causes": [],
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-12",
@@ -2377,7 +2923,14 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
 },
 {
 "id": "fm-13",
@@ -2404,7 +2957,101 @@
 "escalates": [],
 "slide": null,
 "images": [],
-"version": 1
+"version": 1,
+"risks": [
+"fmc",
+"sanitation",
+"contain"
+],
+"benefit": "Reduced foreign material contamination risk and reduced sanitation risk.",
+"risksReviewed": false
+}
+],
+"riskVocab": [
+{
+"id": "fmc",
+"risk": "Foreign material contamination",
+"benefit": "Reduced foreign material contamination risk"
+},
+{
+"id": "contain",
+"risk": "Affected product may require containment",
+"benefit": "No product containment event"
+},
+{
+"id": "beltfail",
+"risk": "Imminent belt failure",
+"benefit": "Unplanned belt failure avoided"
+},
+{
+"id": "life",
+"risk": "Reduced belt life",
+"benefit": "Extended belt life"
+},
+{
+"id": "downtime",
+"risk": "Increased downtime",
+"benefit": "Reduced unplanned downtime"
+},
+{
+"id": "throughput",
+"risk": "Reduced throughput",
+"benefit": "Throughput restored"
+},
+{
+"id": "engagement",
+"risk": "Poor sprocket engagement",
+"benefit": "Reliable sprocket engagement"
+},
+{
+"id": "bounce",
+"risk": "Increased belt bounce",
+"benefit": "Smoother belt running"
+},
+{
+"id": "tracking",
+"risk": "Poor tracking",
+"benefit": "Belt tracks correctly"
+},
+{
+"id": "edge",
+"risk": "Belt edge damage",
+"benefit": "Belt edges protected"
+},
+{
+"id": "sanitation",
+"risk": "Increased sanitation risk",
+"benefit": "Reduced sanitation risk"
+},
+{
+"id": "foodsafe",
+"risk": "Belt at end of food safe life",
+"benefit": "Belt returned to food-safe condition"
+},
+{
+"id": "operator",
+"risk": "Increased operator intervention",
+"benefit": "Less operator intervention"
+},
+{
+"id": "rollback",
+"risk": "Roll back of product",
+"benefit": "Product carried reliably up the incline"
+},
+{
+"id": "control",
+"risk": "Loss of product control",
+"benefit": "Product stays under control"
+},
+{
+"id": "secondary",
+"risk": "Secondary conveyor damage",
+"benefit": "Surrounding equipment protected"
+},
+{
+"id": "asset",
+"risk": "Reduced asset life",
+"benefit": "Extended conveyor asset life"
 }
 ]
 }

@@ -148,7 +148,11 @@
         return a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
       });
       _cats = (r[1] && r[1].v) || [];
-      return _lib;
+      return get('meta', 'riskVocab').then(function (rv) {
+        RISKV = {};
+        ((rv && rv.v) || []).forEach(function (v) { RISKV[v.id] = v; });
+        return _lib;
+      });
     });
   }
 
@@ -165,6 +169,7 @@
             var fs = t.objectStore('faults');
             seed.faults.forEach(function (f) { fs.put(f); });
             t.objectStore('meta').put({ k: 'cats', v: seed.categories });
+            t.objectStore('meta').put({ k: 'riskVocab', v: seed.riskVocab || [] });
             t.objectStore('meta').put({
               k: 'state', seeded: Date.now(),
               schema: seed.schema, catalogue: seed.catalogue
@@ -491,6 +496,8 @@
       what: what,
       leads: val('flLeads'),
       priority: pri,
+      risks: (f.risks || []).slice(),
+      benefit: f.benefit || '',
       thresholds: (f.thresholds || []).slice(),
       source: f.source || '',
       owner: val('flOwner'),
@@ -645,7 +652,7 @@
     return ready().then(function () {
       var payload = {
         schema: 1, exported: Date.now(),
-        categories: _cats, faults: _lib.map(function (f) {
+        categories: _cats, riskVocab: Object.keys(RISKV).map(function (k) { return RISKV[k]; }), faults: _lib.map(function (f) {
           var c = JSON.parse(JSON.stringify(f));
           if (!withImages) c.images = [];
           return c;
@@ -671,6 +678,7 @@
           var fs = t.objectStore('faults');
           data.faults.forEach(function (f) { fs.put(f); });
           if (data.categories) t.objectStore('meta').put({ k: 'cats', v: data.categories });
+          if (data.riskVocab) t.objectStore('meta').put({ k: 'riskVocab', v: data.riskVocab });
           t.oncomplete = res; t.onerror = function () { rej(t.error); };
         });
       });
@@ -719,6 +727,105 @@
     }, cb);
   }
 
+  /* ---------- customer card ----------
+     One block per finding in the four-row shape the site visit reports have
+     always used: Observations, Risks, Recommendations, Replacement Belt
+     Specification - plus the risk of doing nothing and the gain from acting,
+     which is the pair that makes a plant manager move.
+
+     Called from buildNotesHTML() through a single guarded hook. Rendering
+     lives here rather than in app.js so the layout can change without
+     touching the app. */
+
+  var RISKV = {};   // id -> { risk, benefit }, loaded from the seed
+
+  function riskLines(entry) {
+    var ids = entry.risks || (byId(entry.faultId) || {}).risks || [];
+    return ids.map(function (i) { return RISKV[i] && RISKV[i].risk; }).filter(Boolean);
+  }
+
+  function beltSpecRows(belt) {
+    if (!belt) return null;
+    var rows = [
+      ['Belt', [belt.series, belt.style, belt.beltmat, belt.colour].filter(Boolean).join(' ')],
+      ['Width', belt.width ? belt.width + ' mm' : ''],
+      ['Length', belt.beltlen ? belt.beltlen + ' m' : ''],
+      ['Rods', belt.rodmat || ''],
+      ['Flights', belt.flights || ''],
+      ['Sprockets', belt.sprocket || '']
+    ].filter(function (r) { return r[1]; });
+    return rows.length ? rows : null;
+  }
+
+  function cardHTML(entry, belt) {
+    if (!entry) return '';
+    var lib = byId(entry.faultId) || {};
+    var obs = (entry.conditions && entry.conditions.length)
+      ? entry.conditions : (entry.fault ? [entry.fault] : []);
+    var risks = riskLines(entry);
+    var benefit = entry.benefit || lib.benefit || '';
+    var thresholds = entry.thresholds || lib.thresholds || [];
+    var spec = beltSpecRows(belt);
+    var pri = entry.priority || '';
+
+    var h = '<section class="hc-card">';
+
+    h += '<header class="hc-top">' +
+      '<div class="hc-asset">' + esc(entry.asset || 'Unspecified asset') + '</div>' +
+      '<div class="hc-tags">' +
+      (pri ? '<span class="fl-pill fl-p-' + pri.toLowerCase() + '">' + esc(pri) + '</span>' : '') +
+      (entry.severity ? '<span class="fl-pill fl-s">' + esc(entry.severity) + '</span>' : '') +
+      '</div></header>';
+
+    h += '<h3 class="hc-fault">' + esc(entry.htype || entry.fault || '') +
+      (entry.faultCode ? ' <span class="hc-code">' + esc(entry.faultCode) + '</span>' : '') +
+      '</h3>';
+
+    h += row('Observations', '<ul>' + obs.map(function (o) {
+      return '<li>' + esc(o) + '</li>';
+    }).join('') + '</ul>');
+
+    if (risks.length) {
+      h += row('Risk of no action', '<ul class="hc-risk">' + risks.map(function (r) {
+        return '<li>' + esc(r) + '</li>';
+      }).join('') + '</ul>');
+    }
+
+    var rec = '<p>' + esc(entry.action || lib.action || '') + '</p>';
+    if (thresholds.length) {
+      rec += '<ul class="hc-spec">' + thresholds.map(function (t) {
+        return '<li>' + esc(t) + '</li>';
+      }).join('') + '</ul>';
+      if (entry.source || lib.source) {
+        rec += '<p class="hc-src">' + esc(entry.source || lib.source) + '</p>';
+      }
+    }
+    h += row('Recommendation', rec);
+
+    if (benefit) h += row('Once corrected', '<p class="hc-gain">' + esc(benefit) + '</p>');
+
+    if (spec) {
+      h += row('Replacement belt specification', '<table class="hc-tbl">' +
+        spec.map(function (r) {
+          return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>';
+        }).join('') + '</table>');
+    }
+
+    if (entry.owner || entry.due) {
+      h += row('Action', '<p>' +
+        (entry.owner ? esc(entry.owner) : 'Owner not assigned') +
+        (entry.due ? ' &middot; by ' + esc(entry.due) : '') + '</p>');
+    }
+
+    h += '</section>';
+    return h;
+  }
+
+  function row(label, body) {
+    return '<div class="hc-row"><div class="hc-lbl">' + esc(label) + '</div>' +
+      '<div class="hc-val">' + body + '</div></div>';
+  }
+
   /* ---------- public surface ---------- */
 
   window.HealthLib = {
@@ -737,6 +844,8 @@
     addImage: addImage,
     imagesFor: imagesFor,
     techFromSeries: techFromSeries,
+    cardHTML: cardHTML,
+    riskVocab: function () { return Object.keys(RISKV).map(function (k) { return RISKV[k]; }); },
     PRIS: PRIS,
     PRI_MEANS: PRI_MEANS
   };
