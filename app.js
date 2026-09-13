@@ -1146,6 +1146,7 @@ function showScreen(name){
      to close it - otherwise a back gesture changes the screen underneath and the
      viewer stays up, covering it. */
   if(window.Manuals && name !== 'manuals') Manuals.closeViewer();
+  if(window.HealthLib && name !== 'health') HealthLib.closePicker();
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -1160,6 +1161,7 @@ function showScreen(name){
   if(name==='home') renderHome();
   if(name==='accounts') renderBrowse();
   if(name==='manuals' && window.Manuals) Manuals.render().catch(e=>console.error('manuals', e));
+  if(name==='faults' && window.HealthLib) HealthLib.render();
   if(name==='people') renderPeople();
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
@@ -2334,8 +2336,9 @@ function callSummary(c){
       name:e.project, status:e.status, next:e.next, target:e.target, owner:e.owner, notes:e.notes
     })),
     notes: E('note').map(e => ({topic:e.topic, text:e.text})),
-    health: E('health').slice().sort(bySeverity).map(e => ({
-      asset:e.asset, fault:e.fault, htype:e.htype, severity:e.severity, action:e.action
+    health: E('health').slice().sort(byWorkOrder).map(e => ({
+      asset:e.asset, fault:e.fault, htype:e.htype, severity:e.severity, action:e.action,
+      priority:e.priority, owner:e.owner, due:e.due
     })),
     photos: photos,
     file: c.sharedAs || ''
@@ -4269,6 +4272,9 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   } else if(t==='manuals'){
     if(!window.Manuals){ toast('manuals.js did not load'); return; }
     go('manuals');
+  } else if(t==='faults'){
+    if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
+    go('faults');
   } else if(t==='plan'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
     if(!plan.mgr && $('cMgr').value) plan.mgr = $('cMgr').value;
@@ -5184,6 +5190,7 @@ $('bSave').addEventListener('click', async () => {
     qcontact:v('bQc'), photos:[]
   };
   call.entries.push(e);
+  beltJustSaved = call.entries.length - 1;   // index for the health entry's beltRef
   const ctxS = e.series, ctxT = e.series+'|'+e.style, ctxM = ctxT+'|'+e.beltmat;
   bump('series', '', e.series);
   bump('style', ctxS, e.style);
@@ -5331,6 +5338,29 @@ let hSevVal='';
    Matched on the asset field, loosely: CV-114, cv114 and CV 114 drive end are
    the same conveyor as far as this is concerned. */
 const assetKey = v => String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+/* Fields the fault library adds to a health entry, held between the picker
+   closing and the form being saved. */
+let healthExtra = null;
+
+/* Opens the fault library picker and fills the health form from the chosen
+   check. Guarded everywhere, so the button simply does nothing if the module
+   is absent. */
+function openFaultPicker(ctx){
+  if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
+  HealthLib.openPicker(ctx || {asset:$('hAsset').value.trim()}, e => {
+    healthExtra = e;
+    if(e.asset && !$('hAsset').value.trim()) $('hAsset').value = e.asset;
+    $('hFault').value  = e.fault;
+    $('hAction').value = e.action;
+    const opt = Array.from($('hType').options).find(o => o.value === e.htype);
+    if(!opt){ const o = document.createElement('option'); o.value = o.textContent = e.htype; $('hType').appendChild(o); }
+    $('hType').value = e.htype;
+    $('hSev').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === e.severity));
+    $('hSevErr').classList.remove('show');
+    toast(e.faultCode + ' selected');
+  });
+}
+
 function healthHistory(asset){
   const k = assetKey(asset);
   if(k.length < 3 || !call) return [];        // too short to match on
@@ -5418,8 +5448,12 @@ $('hSave').addEventListener('click', async ()=>{
     if($('hSev').scrollIntoView) $('hSev').scrollIntoView({block:'center'});
     return;
   }
-  call.entries.push({type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
-    severity:hSevVal, action:$('hAction').value.trim(), photos:healthShots.slice()});
+  /* Library fields first, form fields second, so a hand-typed edit always wins
+     over a stale library value. */
+  call.entries.push(Object.assign({}, healthExtra || {}, {
+    type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
+    severity:hSevVal, action:$('hAction').value.trim(), photos:healthShots.slice()}));
+  healthExtra = null;
   const n = healthShots.length;
   healthShots = [];
   await saveCall();
@@ -5555,6 +5589,17 @@ function shrink(file, max=1400, q=0.72){
    the meaning rather than the reader having to find it. */
 const SEV_ORDER = {Urgent:0, Plan:1, Monitor:2};
 const bySeverity = (a,b) => (SEV_ORDER[a.severity] ?? 3) - (SEV_ORDER[b.severity] ?? 3);
+/* Priority is the maintenance work order; severity is the condition found.
+   They usually agree. Where they don't the work order wins, because that is the
+   list the maintenance team acts from. Findings with no priority - anything
+   logged before the fault library existed - keep their severity order among
+   themselves and sit below anything prioritised. */
+const PRI_ORDER = {Critical:0, High:1, Medium:2, Low:3};
+const byWorkOrder = (a,b) => {
+  const pa = PRI_ORDER[a.priority], pb = PRI_ORDER[b.priority];
+  if (pa !== undefined || pb !== undefined) return (pa ?? 9) - (pb ?? 9);
+  return bySeverity(a,b);
+};
 
 /* ---------- compile ---------- */
 const DASH_CH = '\u2014';
@@ -5685,15 +5730,24 @@ async function buildNotesHTML(){
     }
   }
 
-  const health = c.entries.filter(e=>e.type==='health').slice().sort(bySeverity);
+  const health = c.entries.filter(e=>e.type==='health').slice().sort(byWorkOrder);
   if(health.length){
     p.push('<h2>Health check</h2>');
     for(let i=0;i<health.length;i++){
       const h = health[i];
-      p.push('<div class="blk"><h3>Item '+(i+1)+' '+DASH_CH+' '+V(h.asset)+'</h3><table>');
-      [['Fault or observation',h.fault],['Type',h.htype],['Severity',h.severity],['Recommended action',h.action]]
-        .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
-      p.push('</table>');
+      /* The fault library renders the four-row customer card - observations,
+         risk of no action, recommendation, gain once corrected, and the
+         replacement belt spec pulled from the linked belt entry. Falls back to
+         the original table when healthlib.js is absent. */
+      if(window.HealthLib && h.faultId){
+        p.push('<div class="blk">');
+        p.push(HealthLib.cardHTML(h, (h.beltRef != null) ? c.entries[h.beltRef] : null));
+      } else {
+        p.push('<div class="blk"><h3>Item '+(i+1)+' '+DASH_CH+' '+V(h.asset)+'</h3><table>');
+        [['Fault or observation',h.fault],['Type',h.htype],['Severity',h.severity],['Recommended action',h.action]]
+          .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
+        p.push('</table>');
+      }
       if(h.photos && h.photos.length) p.push('<div class="ph">'+(await photoImgs(h.photos))+'</div>');
       else if(h.detached) p.push('<p class="sent">'+h.detached.n+' photo'+(h.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(h.detached.at).toLocaleDateString()+
@@ -6062,3 +6116,50 @@ $('rsBtn').addEventListener('click', async ()=>{
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   }
 })();
+
+
+/* ---------- fault library wiring ----------
+   Added by healthlib.js integration. Everything here is guarded; with the
+   module absent the buttons report it and nothing else changes. */
+let beltJustSaved = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const pick = $('hPickFault');
+  if(pick) pick.addEventListener('click', () => openFaultPicker());
+
+  /* Belt spec first, then the fault - the asset and belt series carry across,
+     and the picker filters itself to modular or ThermoDrive off the series so
+     the modular sag advice can never be offered on a ThermoDrive line. */
+  const bf = $('bFault');
+  if(bf) bf.addEventListener('click', () => {
+    if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
+    const idx = beltJustSaved;
+    const belt = (idx != null && call && call.entries) ? call.entries[idx] : null;
+    if(!belt){ toast('Save the belt first'); return; }
+    go('health');
+    $('hAsset').value = belt.asset || '';
+    HealthLib.openFor(belt, idx, e => {
+      healthExtra = e;
+      $('hFault').value  = e.fault;
+      $('hAction').value = e.action;
+      const opt = Array.from($('hType').options).find(o => o.value === e.htype);
+      if(!opt){ const o = document.createElement('option'); o.value = o.textContent = e.htype; $('hType').appendChild(o); }
+      $('hType').value = e.htype;
+      $('hSev').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === e.severity));
+      $('hSevErr').classList.remove('show');
+    });
+  });
+
+  const ex = $('flExport'), ib = $('flImportBtn'), inp = $('flImport');
+  if(ex) ex.addEventListener('click', () => HealthLib.exportLibrary());
+  if(ib && inp){
+    ib.addEventListener('click', () => inp.click());
+    inp.addEventListener('change', async () => {
+      if(!inp.files[0]) return;
+      try { const n = await HealthLib.importLibrary(inp.files[0]);
+            showMsg($('flLibMsg'), 'ok', n + ' checks loaded'); }
+      catch(err){ showMsg($('flLibMsg'), 'warn', 'Could not read that file'); }
+      inp.value = '';
+    });
+  }
+});
