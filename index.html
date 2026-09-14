@@ -530,6 +530,13 @@ body.planning{padding-bottom:0}
 /* Outside business hours, clamped to the edge and marked rather than hidden. */
 .dbody.hours .appt.oob{border-right:3px solid var(--orange)}
 .day .add{margin:6px}
+/* One wide column instead of five narrow ones. Same grid, same drag, more room
+   to read a short call and more room to get a thumb on it. */
+.week.oneday{grid-template-columns:56px 1fr}
+.week.oneday .dh{padding:8px 12px;font-size:13px}
+.week.oneday .dh b{font-size:15px}
+.week.oneday .appt{font-size:12px;padding:4px 8px}
+.week.oneday .appt.tiny .a{font-size:12px}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
   display:flex;flex-direction:column;min-height:190px}
 .day.over{border-color:var(--cyan-dk);box-shadow:inset 0 0 0 1px var(--cyan-dk)}
@@ -853,6 +860,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <p class="stat" id="upStat"></p>
     <button class="ghost" id="upBtn">Get the latest version</button>
     <p class="hint">Checks the server for newer app files and reloads once. Nothing downloads unless you tap it. Your calls, accounts and photos are not affected.</p>
+    <p class="hint" id="appVer"></p>
   </div>
 </section>
 
@@ -1119,6 +1127,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
         <button class="btn" id="pReassign" type="button">Reassign manager</button>
         <h2 id="calTitle"></h2>
         <div class="seg" id="pView">
+          <button type="button" data-v="day">Day</button>
           <button type="button" data-v="week" class="on">Week</button>
           <button type="button" data-v="month">Month</button>
         </div>

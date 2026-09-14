@@ -864,6 +864,10 @@ $('bAsset').addEventListener('input', renderAssetMatch);
    is late for, so it can never be overdue. */
 /* Most calls are short. The invite templates override this when one is picked -
    a health check is two hours whatever the default says. */
+/* Bumped with every release so a device can say which build it is running.
+   Kept in step with the service worker cache name by hand - if these two ever
+   disagree, the app is running files from a cache it did not expect. */
+const APP_BUILD = 'v50';
 const DEF_DUR = 25;
 const CAD = {'High':'P1 Quarterly','Medium':'P2 Half-yearly','Low':'P3 Yearly','No Focus':'P4 No cadence'};
 /* What the old export wrote, so accounts already loaded can be moved across
@@ -1853,17 +1857,22 @@ function renderCalendar(){
     ? APPTS.length+' appointment'+(APPTS.length===1?'':'s')+' planned'
     : 'Click an account, or drag it onto a day.';
 
-  if(plan.view === 'week'){
-    const days = weekDays();
-    $('calTitle').textContent = days[0].getDate()+' '+MONNM[days[0].getMonth()].slice(0,3)+' \u2013 '+
-      days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
-    const grid = document.createElement('div'); grid.className = 'week';
+  if(plan.view === 'week' || plan.view === 'day'){
+    const oneDay = plan.view === 'day';
+    const days = oneDay ? [plan.anchor] : weekDays();
+    $('calTitle').textContent = oneDay
+      ? DAYNM[(days[0].getDay()+6)%7]+' '+days[0].getDate()+' '+
+        MONNM[days[0].getMonth()].slice(0,3)+' '+days[0].getFullYear()
+      : days[0].getDate()+' '+MONNM[days[0].getMonth()].slice(0,3)+' \u2013 '+
+        days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
+    const grid = document.createElement('div');
+    grid.className = 'week' + (oneDay ? ' oneday' : '');
     grid.appendChild(hourGutter());
     days.forEach((d,i)=>{
       const k = iso(d);
       const col = document.createElement('div');
       col.className = 'day' + (k === TODAY ? ' today' : '');
-      col.innerHTML = '<div class="dh"><b>'+DAYNM[i]+'</b><span>'+d.getDate()+' '+
+      col.innerHTML = '<div class="dh"><b>'+DAYNM[oneDay ? (d.getDay()+6)%7 : i]+'</b><span>'+d.getDate()+' '+
         MONNM[d.getMonth()].slice(0,3)+'</span></div>';
       col.dataset.k = k;
       const b = document.createElement('div'); b.className = 'dbody hours';
@@ -1885,7 +1894,7 @@ function renderCalendar(){
            short calls drop to a single line - the account name, which is the
            part you are scanning for. The time is in the tooltip and on the
            card once it is opened. */
-        if(ap.dur * PX_MIN < 36) el.classList.add('tiny');
+        if(!oneDay && ap.dur * PX_MIN < 36) el.classList.add('tiny');
         if(out) el.classList.add('oob');
         el.title = (el.title || '') + (out ? '\nOutside 7am-5pm, shown at the edge' : '');
         makeDraggableAppt(el, ap);
@@ -2121,17 +2130,19 @@ $('pView').querySelectorAll('button').forEach(b => b.addEventListener('click', (
   renderCalendar(); renderTerritory();
 }));
 $('calPrev').addEventListener('click', ()=>{
-  plan.anchor = plan.view === 'week' ? addDays(plan.anchor,-7)
+  plan.anchor = plan.view === 'day' ? addDays(plan.anchor,-1)
+    : plan.view === 'week' ? addDays(plan.anchor,-7)
     : new Date(plan.anchor.getFullYear(), plan.anchor.getMonth()-1, 1);
   renderCalendar(); renderTerritory();
 });
 $('calNext').addEventListener('click', ()=>{
-  plan.anchor = plan.view === 'week' ? addDays(plan.anchor,7)
+  plan.anchor = plan.view === 'day' ? addDays(plan.anchor,1)
+    : plan.view === 'week' ? addDays(plan.anchor,7)
     : new Date(plan.anchor.getFullYear(), plan.anchor.getMonth()+1, 1);
   renderCalendar(); renderTerritory();
 });
 $('calToday').addEventListener('click', ()=>{
-  plan.anchor = plan.view === 'week' ? startOfWeek(new Date()) : new Date();
+  plan.anchor = plan.view === 'week' ? startOfWeek(new Date()) : new Date();   // day and month both want today
   renderCalendar(); renderTerritory();
 });
 
@@ -7189,4 +7200,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const b = e.target.closest('button[data-pane]');
     if(b){ refPane = b.dataset.pane; renderRefPane(); }
   });
+});
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = $('appVer');
+  if(!el) return;
+  el.textContent = 'Build ' + APP_BUILD;
+  /* Ask the worker which cache it is actually serving from. If that disagrees
+     with the build, the files on screen are not the files on the server. */
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    caches.keys().then(ks => {
+      const mine = ks.filter(k => k.startsWith('fieldcrm-'));
+      if(mine.length) el.textContent = 'Build ' + APP_BUILD + ' \u00b7 cache ' + mine.join(', ');
+    }).catch(()=>{});
+  }
 });
