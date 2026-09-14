@@ -719,6 +719,18 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 .homefoot{margin-top:22px; padding-top:14px; border-top:1px solid var(--line)}
 .homefoot .ghost{width:100%}
 .bkold{color:var(--red-dark); font-weight:600}
+/* The call header is a button now, but it must still read as the heading it
+   was rather than as another action tile. */
+.dashhead{display:block; width:100%; text-align:left; font:inherit; color:inherit; cursor:pointer}
+.dashhead:active{background:var(--sunk)}
+.ccrow{display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-top:1px solid var(--line-2)}
+.ccrow:first-child{border-top:0}
+.ccrow .who{flex:1; min-width:0}
+.ccrow .nm{font-weight:600}
+.ccrow .mt{font-size:12px; color:var(--ink-3)}
+.ccrow input[type=checkbox]{width:22px; height:22px; margin:2px 0 0; flex:none}
+.ccrow .x{flex:none; background:none; border:0; color:var(--ink-3); font-size:12px;
+  text-decoration:underline; cursor:pointer; padding:2px 0; width:auto}
 @media (max-width:340px){ .menu.two{grid-template-columns:1fr} }
 
 </style>
@@ -1169,9 +1181,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- DASHBOARD -->
 <section class="scr" id="s-dash">
-  <div class="fld">
-    <p class="stat" id="dashStat"></p>
-  </div>
+  <button type="button" class="fld dashhead" id="dashStat"></button>
   <h2>Add to call</h2>
   <div class="menu">
     <button data-go="belt"><b>Belt</b><span id="cntBelt">0 logged</span></button>
@@ -1451,6 +1461,31 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <p class="hint">These are for handing to the customer. Both leave out general notes, project discovery and the visit history, and the health sheet prints one fault per page so it can go straight to a fitter. Neither marks the call as issued.</p>
   <button class="ghost backcall">Back to the call</button>
   <p class="hint">Share sends the HTML file to the Android share sheet &mdash; pick OneDrive, Outlook or Teams. Download saves it to this phone.</p>
+</section>
+
+<section class="scr" id="s-ccontacts">
+  <h2>People on this call</h2>
+  <p class="hint">Tick who should appear on documents that go to the customer &mdash; the health check and belt requirement sheets. Everyone stays on the call either way, and the full call notes always list all of them.</p>
+  <div class="fld" id="ccOn"></div>
+
+  <h2>Add from the account</h2>
+  <div class="fld"><input type="text" id="ccQ" placeholder="Filter by name or role" autocomplete="off"></div>
+  <div class="fld" id="ccAdd"></div>
+
+  <h2>Contact not listed</h2>
+  <div class="fld">
+    <label>Name</label><input type="text" id="ccName" placeholder="Leave blank if not needed">
+    <div style="height:10px"></div>
+    <label>Role</label><input type="text" id="ccRole">
+    <div style="height:10px"></div>
+    <label>Email</label><input type="email" id="ccEmail">
+    <div style="height:10px"></div>
+    <label>Mobile</label><input type="text" id="ccMob" inputmode="tel">
+    <button class="ghost" id="ccAddNew">Add to the call</button>
+  </div>
+
+  <button class="big" id="ccDone">Done</button>
+  <button class="ghost backcall">Back to the call</button>
 </section>
 
 <section class="scr" id="s-faults">

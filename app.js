@@ -1159,7 +1159,7 @@ const TITLES = {
   accounts:['Accounts',''], acct:['Account',''], plan:['Plan',''], today:['Today',''],
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
-  settings:['Settings',''], faults:['Fault library',''],
+  settings:['Settings',''], faults:['Fault library',''], ccontacts:['People on this call','Call'],
   note:['General note',''], health:['Health check',''], compile:['Compile','']
 };
 /* ---------- navigation ----------
@@ -1218,6 +1218,7 @@ function showScreen(name){
   if(name==='accounts') renderBrowse();
   if(name==='manuals' && window.Manuals) Manuals.render().catch(e=>console.error('manuals', e));
   if(name==='faults' && window.HealthLib) HealthLib.render();
+  if(name==='ccontacts') renderCallContacts();
   if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); }
   if(name==='people') renderPeople();
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
@@ -4558,10 +4559,13 @@ $('openCall').addEventListener('click', async ()=>{
 function renderDash(){
   if(!call) return go('home');
   const c = call;
+  const onDoc = c.contacts.filter(docContact).length;
   $('dashStat').innerHTML =
     '<b>'+esc(c.customer)+'</b><br>'+esc(c.date)+' &middot; '+esc(c.type)+' &middot; '+esc(c.mgr)+
     (c.site?'<br>'+esc(c.site):'')+
-    '<br>'+c.contacts.map(x=>esc(x.name)+(x.crm?'':' <span class="tag">not in CRM</span>')).join(', ');
+    '<br>'+c.contacts.map(x=>esc(x.name)+(x.crm?'':' <span class="tag">not in CRM</span>')).join(', ')+
+    '<br><span class="hint">'+onDoc+' of '+c.contacts.length+
+    ' on customer documents &middot; tap to change</span>';
   const n = t => c.entries.filter(e=>e.type===t).length;
   $('cntBelt').textContent = n('belt')+' logged';
   $('cntProj').textContent = n('project')+' logged';
@@ -5513,6 +5517,62 @@ function openFaultPicker(ctx){
   });
 }
 
+/* ---------- people on the call ----------
+   `doc` marks a contact as appearing on documents that go to the customer. It is
+   absent on every call written before this existed, so absent means included -
+   an old call exports exactly as it always did. */
+function docContact(x){ return x.doc !== false; }
+
+function renderCallContacts(){
+  if(!call) return;
+  const on = $('ccOn');
+  on.innerHTML = call.contacts.length ? call.contacts.map((x,i)=>{
+    const meta = [x.role, x.email, x.mobile].filter(Boolean).map(esc).join(' \u00b7 ');
+    return '<div class="ccrow">' +
+      '<input type="checkbox" data-doc="'+i+'"'+(docContact(x)?' checked':'')+
+      ' aria-label="Include '+esc(x.name)+' on customer documents">' +
+      '<span class="who"><div class="nm">'+esc(x.name)+
+      (x.crm?'':' <span class="tag">not in CRM</span>')+'</div>' +
+      '<div class="mt">'+(meta||'no details on file')+'</div></span>' +
+      '<button type="button" class="x" data-rm="'+i+'">Remove</button></div>';
+  }).join('') : '<p class="empty">Nobody on this call yet.</p>';
+
+  on.querySelectorAll('[data-doc]').forEach(b=>b.addEventListener('change', async ()=>{
+    call.contacts[+b.dataset.doc].doc = b.checked;
+    await saveCall(); renderCallContacts(); renderDash();
+  }));
+  on.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click', async ()=>{
+    const x = call.contacts[+b.dataset.rm];
+    if(!confirm('Remove '+x.name+' from this call? This takes them off the record, not just off the documents.')) return;
+    call.contacts.splice(+b.dataset.rm,1);
+    await saveCall(); renderCallContacts(); renderDash();
+  }));
+
+  /* Only contacts not already on the call are offered, so the same person
+     cannot be added twice. */
+  const acc = ACC_BY_NAME.get(call.customer);
+  const pool = (acc && acc.c) ? acc.c : [];
+  const have = new Set(call.contacts.map(x=>(x.cid!=null?'id:'+x.cid:'nm:'+x.name.toLowerCase())));
+  const q = ($('ccQ').value||'').trim().toLowerCase();
+  const rest = pool.filter(p => !have.has(p.id!=null?'id:'+p.id:'nm:'+String(p.n).toLowerCase()))
+    .filter(p => !q || (p.n+' '+(p.t||p.r||'')).toLowerCase().includes(q));
+  $('ccAdd').innerHTML = rest.length ? rest.map((p,i)=>{
+    const meta = [p.t||p.r, (p.e&&p.e[0])||'', p.p].filter(Boolean).map(esc).join(' \u00b7 ');
+    return '<div class="ccrow"><span class="who"><div class="nm">'+esc(p.n)+'</div>'+
+      '<div class="mt">'+(meta||'no details on file')+'</div></span>'+
+      '<button type="button" class="x" data-add="'+pool.indexOf(p)+'">Add</button></div>';
+  }).join('') : '<p class="empty">'+(pool.length?'Everyone is already on the call.':'No contacts on file for this account.')+'</p>';
+
+  $('ccAdd').querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click', async ()=>{
+    const p = pool[+b.dataset.add];
+    if(!p) return;
+    call.contacts.push({name:p.n, role:p.t||p.r, email:(p.e&&p.e[0])||'', mobile:p.p,
+      crm:true, cid:p.id, doc:true});
+    await saveCall(); renderCallContacts(); renderDash();
+    toast(p.n+' added');
+  }));
+}
+
 function healthHistory(asset){
   const k = assetKey(asset);
   if(k.length < 3 || !call) return [];        // too short to match on
@@ -5883,8 +5943,11 @@ async function buildNotesHTML(scope){
   if(c.manualAccount) p.push('<tr><td class="l">Account status</td><td><span class="flag">Not in CRM &mdash; needs adding to Dynamics</span></td></tr>');
   p.push('</table>');
 
+  /* The full report is the record and lists everyone. A document leaving for
+     the customer lists only who was ticked. */
+  const shownContacts = scope === 'full' ? c.contacts : c.contacts.filter(docContact);
   p.push('<h2>Contacts</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
-  c.contacts.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
+  shownContacts.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
     '</td><td>'+(x.crm?'On file':'<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
   p.push('</table>');
 
@@ -5933,18 +5996,36 @@ async function buildNotesHTML(scope){
          risk of no action, recommendation, gain once corrected, and the
          replacement belt spec pulled from the linked belt entry. Falls back to
          the original table when healthlib.js is absent. */
+      const linkedBelt = (h.beltRef != null) ? c.entries[h.beltRef] : null;
       if(window.HealthLib && h.faultId){
         p.push('<div class="hc">');
-        p.push(HealthLib.cardHTML(h, (h.beltRef != null) ? c.entries[h.beltRef] : null)
-          .replace('class="hc-card"', 'class="hc-inner"'));
+        p.push(HealthLib.cardHTML(h, linkedBelt).replace('class="hc-card"', 'class="hc-inner"'));
       } else {
         p.push('<div class="blk"><h3>Item '+(i+1)+' '+DASH_CH+' '+V(h.asset)+'</h3><table>');
         [['Fault or observation',h.fault],['Type',h.htype],['Severity',h.severity],['Recommended action',h.action]]
           .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
         p.push('</table>');
       }
-      if(h.photos && h.photos.length) p.push('<div class="ph">'+(await photoImgs(h.photos))+'</div>');
-      else if(h.detached) p.push('<p class="sent">'+h.detached.n+' photo'+(h.detached.n===1?'':'s')+
+      if(h.photos && h.photos.length){
+        p.push('<div class="ph">'+(await photoImgs(h.photos))+'</div>');
+      } else if(linkedBelt && linkedBelt.photos && linkedBelt.photos.length){
+        /* A job sheet that says "edge modules broken or missing" with no picture
+           makes a fitter go and find the conveyor before they know what they are
+           looking at. Where the fault has no photo of its own, the linked belt's
+           photos stand in, captioned so nobody mistakes them for the fault.
+
+           In the full report the belt section already carries these images a few
+           pages up, so a pointer goes in instead - embedding them twice would
+           double their bytes in a file that is mostly photographs. */
+        if(scope === 'full'){
+          p.push('<p class="sent">No photo was taken of this fault. Photos of '+
+            V(linkedBelt.asset)+' are in the Belts to quote section.</p>');
+        } else {
+          p.push('<p class="sent">No photo was taken of this fault. Shown below is '+
+            V(linkedBelt.asset)+' from the same visit.</p>');
+          p.push('<div class="ph">'+(await photoImgs(linkedBelt.photos))+'</div>');
+        }
+      } else if(h.detached) p.push('<p class="sent">'+h.detached.n+' photo'+(h.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(h.detached.at).toLocaleDateString()+
         ' and are no longer held on the device.</p>');
       p.push('</div>');
@@ -6805,5 +6886,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if(box) box.addEventListener('click', e => {
     const b = e.target.closest('button[data-tmpl]');
     if(b) fillInvite(b.dataset.tmpl);
+  });
+});
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const head = $('dashStat');
+  if(head) head.addEventListener('click', () => { if(call) go('ccontacts'); });
+  const q = $('ccQ');
+  if(q) q.addEventListener('input', renderCallContacts);
+  const done = $('ccDone');
+  if(done) done.addEventListener('click', () => go('dash'));
+  const add = $('ccAddNew');
+  if(add) add.addEventListener('click', async () => {
+    const n = $('ccName').value.trim();
+    if(!n){ toast('Enter a name first'); return; }
+    call.contacts.push({name:n, role:$('ccRole').value.trim(), email:$('ccEmail').value.trim(),
+      mobile:$('ccMob').value.trim(), crm:false, doc:true});
+    ['ccName','ccRole','ccEmail','ccMob'].forEach(i => $(i).value = '');
+    await saveCall(); renderCallContacts(); renderDash();
+    toast(n + ' added');
   });
 });
