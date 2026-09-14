@@ -1098,7 +1098,16 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <div class="f"><label>Minutes</label>
         <select id="dDur"><option>30</option><option>45</option><option selected>60</option><option>90</option><option>120</option><option>180</option></select></div>
     </div>
-    <div class="f"><label>Agenda</label><textarea id="dAgenda" placeholder="What this call is for"></textarea></div>
+    <div class="f"><label>Agenda</label>
+      <div class="chips" id="dTmpl">
+        <button type="button" data-tmpl="health">Health check</button>
+        <button type="button" data-tmpl="project">Project discussion</button>
+        <button type="button" data-tmpl="pov">Proof of value</button>
+        <button type="button" data-tmpl="survey">Belt survey</button>
+      </div>
+      <textarea id="dAgenda" rows="9" placeholder="What this call is for"></textarea>
+      <p class="note" id="dTmplNote">Pick a template to fill this in, then edit it however you like.</p>
+    </div>
     <div class="f"><label>Who to see</label><div class="cts" id="dCts"></div></div>
     <p class="note" id="dCover"></p>
     <p class="note sync" id="dSync" hidden></p>
@@ -1436,6 +1445,10 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div id="detachWrap"></div>
   <button class="big" id="doShare">Generate and share</button>
   <button class="ghost" id="doDownload">Download instead</button>
+  <h2>Send one part only</h2>
+  <button class="ghost" id="doHealth">Health check only</button>
+  <button class="ghost" id="doBelts">Belt requirements only</button>
+  <p class="hint">These are for handing to the customer. Both leave out general notes, project discovery and the visit history, and the health sheet prints one fault per page so it can go straight to a fitter. Neither marks the call as issued.</p>
   <button class="ghost backcall">Back to the call</button>
   <p class="hint">Share sends the HTML file to the Android share sheet &mdash; pick OneDrive, Outlook or Teams. Download saves it to this phone.</p>
 </section>
