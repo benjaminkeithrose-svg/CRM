@@ -460,7 +460,7 @@ function renderHomeSetup(){
   if(!REF) missing.push('belt reference data');
   if(!missing.length){ el.className = 'msg'; el.innerHTML = ''; return; }
   el.className = 'msg info show';
-  el.innerHTML = 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="home">see Data on the home screen</span>';
+  el.innerHTML = 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="settings">open Settings to import it</span>';
 }
 
 /* ================= the plant audit register =================
@@ -1159,6 +1159,7 @@ const TITLES = {
   accounts:['Accounts',''], acct:['Account',''], plan:['Plan',''], today:['Today',''],
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
+  settings:['Settings',''], faults:['Fault library',''],
   note:['General note',''], health:['Health check',''], compile:['Compile','']
 };
 /* ---------- navigation ----------
@@ -1217,6 +1218,7 @@ function showScreen(name){
   if(name==='accounts') renderBrowse();
   if(name==='manuals' && window.Manuals) Manuals.render().catch(e=>console.error('manuals', e));
   if(name==='faults' && window.HealthLib) HealthLib.render();
+  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); }
   if(name==='people') renderPeople();
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
@@ -4278,7 +4280,13 @@ async function renderHome(){
   renderHomeCounts();
   renderPeopleCount(); renderReportsCount().catch(()=>{});
   const done = all.sort((a,b)=>b.updated-a.updated).slice(0,8);
+  renderOpenCalls(open);
+  renderBackupAge();
+  /* Past calls moved to Reports, which lists the same calls with a search box
+     and an All/Open/Finished filter. The block below is kept and guarded so the
+     list can be put back on any screen by adding the element again. */
   const el = $('pastList');
+  if(!el) return;
   if(!done.length){ el.innerHTML = '<p class="empty">No saved calls.</p>'; return; }
   el.innerHTML = done.map(c=>
     '<div class="card"><div class="hd"><span class="t">'+esc(c.date)+'</span>'+
@@ -4349,6 +4357,7 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   else if(t==='project'){ resetProject(); go('project'); }
   else if(t==='note'){ $('nText').value=''; go('note'); }
   else if(t==='health'){ resetHealth(); go('health'); }
+  else if(t==='settings'){ go('settings'); }
 }));
 
 /* ---------- import wiring ---------- */
@@ -4818,7 +4827,7 @@ function buildBeltRef(){
   if(!REF){
     showMsg(warn, 'info', 'No belt reference data loaded, so the pickers below are empty. ' +
       'The description and measurement fields still work. ' +
-      '<span class="lnk" data-go="data">Import the workbook</span>');
+      '<span class="lnk" data-go="settings">Import the workbook</span>');
   } else {
     showMsg(warn, '', '');
   }
@@ -6257,7 +6266,9 @@ $('rsBtn').addEventListener('click', async ()=>{
     toast('Storage error - ' + dbErr.message);
   }
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    // updateViaCache:'none' stops the browser serving its own stale copy of
+    // sw.js, which would otherwise hide a genuinely new worker for up to a day
+    navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(()=>{});
   }
 })();
 
@@ -6318,3 +6329,112 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+
+/* ---------- get the latest version ----------
+   Deliberately manual. The service worker is cache-first and stays that way, so
+   the app never goes looking for new files on its own - no surprise reload, no
+   fetching while you are mid-call on a bad connection.
+
+   What this does NOT touch: IndexedDB. Calls, accounts, photos and settings are
+   untouched by a refresh or the reload after it. The only thing a reload costs
+   is whatever is typed into a form and not yet saved, which is why an open call
+   gets asked first. */
+async function pullLatestVersion(){
+  const stat = $('upStat');
+  if(!('serviceWorker' in navigator)){
+    showMsg(stat, 'warn', 'This browser has no service worker, so there is nothing to refresh.');
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready.catch(()=>null);
+  const sw = reg && (reg.active || navigator.serviceWorker.controller);
+  if(!sw){
+    showMsg(stat, 'warn', 'The app is not running from its cache yet. Reload once and try again.');
+    return;
+  }
+
+  showMsg(stat, 'info', 'Checking for a newer version...');
+  $('upBtn').disabled = true;
+
+  // ask the worker to re-fetch sw.js itself as well, in case it changed
+  try { await reg.update(); } catch(e){}
+
+  const result = await new Promise(res => {
+    const ch = new MessageChannel();
+    const timer = setTimeout(()=>res({ok:false, reason:'timeout'}), 30000);
+    ch.port1.onmessage = ev => { clearTimeout(timer); res(ev.data || {ok:false, reason:'empty'}); };
+    sw.postMessage({type:'refresh'}, [ch.port2]);
+  });
+
+  $('upBtn').disabled = false;
+
+  if(!result.ok){
+    const why = result.reason === 'offline'
+      ? 'No connection, so nothing was changed. The app is still working from what it already has.'
+      : result.reason === 'timeout'
+        ? 'That took too long, so nothing was changed. Try again on a better connection.'
+        : result.reason === 'status'
+          ? 'The server would not hand over ' + esc(result.failed || 'a file') +
+            ', so nothing was changed.'
+          : 'Something went wrong, so nothing was changed.';
+    showMsg(stat, 'warn', why);
+    return;
+  }
+
+  showMsg(stat, 'ok', result.count + ' files refreshed. Reload to finish.');
+  if(call && !confirm('A call is open.\n\nReloading keeps everything saved, but anything ' +
+       'typed into a form and not yet saved will be lost.\n\nReload now?')){
+    showMsg(stat, 'ok', 'Ready. Tap Reload when you have finished the call.');
+    return;
+  }
+  location.reload();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const b = $('upBtn');
+  if(b) b.addEventListener('click', () => pullLatestVersion().catch(e => {
+    console.error('update', e);
+    showMsg($('upStat'), 'warn', 'Could not check for an update. Nothing was changed.');
+    $('upBtn').disabled = false;
+  }));
+});
+
+
+/* ---------- home: open calls ----------
+   The calls still open, straight on the front page. Resume takes you to the
+   most recent one; these take you to a specific one, which is the difference
+   that matters when three plants are half written up. */
+function renderOpenCalls(open){
+  const el = $('openCalls');
+  if(!el) return;
+  if(!open || !open.length){ el.innerHTML = ''; return; }
+  el.innerHTML = open.slice(0, 6).map(c =>
+    '<button type="button" data-resume="' + esc(c.id) + '">' +
+    '<span class="who">' + esc(c.customer) + (c.site ? ' - ' + esc(c.site) : '') + '</span>' +
+    '<span class="n">' + (c.entries.length ? c.entries.length + ' entries' : 'nothing logged') +
+    '</span></button>').join('');
+  el.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', async () => {
+    const all = await callsAll();
+    call = all.find(x => x.id === b.dataset.resume);
+    if(!call) { toast('That call is no longer here'); return; }
+    call.loose = call.loose || [];
+    go('dash');
+  }));
+}
+
+/* Everything lives on one device and clearing site data takes the lot, so the
+   age of the last backup is worth seeing without going looking for it. */
+function renderBackupAge(){
+  const el = $('bkHomeStat');
+  if(!el) return;
+  const last = +(localStorage.getItem(LS('lastBackup')) || 0);
+  if(!last){
+    el.className = 'stat bkold';
+    el.textContent = 'Never backed up.';
+    return;
+  }
+  const days = Math.floor((Date.now() - last) / 86400000);
+  el.className = 'stat' + (days >= 14 ? ' bkold' : '');
+  el.textContent = days <= 0 ? 'Backed up today.'
+    : 'Last backup ' + days + ' day' + (days === 1 ? '' : 's') + ' ago.';
+}

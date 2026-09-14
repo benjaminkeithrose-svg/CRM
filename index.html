@@ -673,6 +673,27 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   .hc-top{background:var(--cyan-lt) !important; -webkit-print-color-adjust:exact}
 }
 
+
+/* ---- home layout ---- */
+.menu.two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.menu.two button{width:100%}
+.duecount{color:var(--orange-dk); font-weight:600}
+.duecount:empty{display:none}
+.opencalls{display:flex; flex-direction:column; gap:6px; margin:0 0 12px}
+.opencalls:empty{display:none}
+.opencalls button{
+  display:flex; align-items:center; gap:8px; width:100%; min-height:44px;
+  text-align:left; padding:8px 12px; border:1px solid var(--line-2);
+  border-radius:var(--r); background:var(--surface); cursor:pointer;
+}
+.opencalls .who{flex:1; font-weight:600; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.opencalls .n{flex:none; font-size:12px; color:var(--ink-3)}
+.homefoot{margin-top:22px; padding-top:14px; border-top:1px solid var(--line)}
+.homefoot .ghost{width:100%}
+.bkold{color:var(--red-dark); font-weight:600}
+@media (max-width:380px){ .menu.two{grid-template-columns:1fr} }
+
 </style>
 </head>
 <body>
@@ -690,20 +711,45 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- HOME -->
 <section class="scr on" id="s-home">
-  <h2>Start</h2>
   <div class="menu">
     <button data-go="newcall"><b>New call</b><span>Search account</span></button>
     <button data-go="resume"><b>Resume call</b><span id="resumeInfo">None open</span></button>
+  </div>
+
+  <div id="openCalls" class="opencalls"></div>
+
+  <div class="menu">
+    <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span><span id="dueInfo" class="duecount"></span></button>
+  </div>
+
+  <div class="menu two">
     <button data-go="accounts"><b>Accounts</b><span id="acctInfo">Nothing loaded</span></button>
-    <button data-go="due"><b>Overdue</b><span id="dueInfo">Nothing loaded</span></button>
-    <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span></button>
     <button data-go="people"><b>Contacts</b><span id="peopleInfo">Nothing loaded</span></button>
-    <button data-go="reports"><b>Reports</b><span id="reportsInfo">No calls yet</span></button>
+  </div>
+
+  <div class="menu two">
     <button data-go="manuals"><b>Manuals</b><span id="manInfo">Nothing loaded</span></button>
     <button data-go="faults"><b>Fault library</b><span id="flInfo">Conveyor health check</span></button>
   </div>
+
+  <div class="menu">
+    <button data-go="reports"><b>Reports</b><span id="reportsInfo">No calls yet</span></button>
+  </div>
+
   <p class="msg" id="homeSetup"></p>
 
+  <div class="homefoot">
+    <button class="ghost" data-go="settings">Settings, data and backup</button>
+    <p class="stat" id="bkHomeStat"></p>
+    <div class="gap"></div>
+    <p class="stat" id="upStat"></p>
+    <button class="ghost" id="upBtn">Get the latest version</button>
+    <p class="hint">Checks the server for newer app files and reloads once. Nothing downloads unless you tap it. Your calls, accounts and photos are not affected.</p>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section class="scr" id="s-settings">
   <h2>Data</h2>
   <div class="fld">
     <label>Contact database</label>
@@ -823,8 +869,6 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button class="ghost" id="rsBtn">Restore from backup</button>
     <p class="hint">Adds and updates records by id. Nothing already here is deleted.</p>
   </div>
-  <h2>Past calls</h2>
-  <div id="pastList"><p class="empty">No saved calls.</p></div>
 </section>
 
 <!-- ACCOUNT SEARCH -->
