@@ -3901,6 +3901,10 @@ async function ghCheckRepo(){
   return j;
 }
 async function ghGet(){
+  /* The default response puts the file in j.content as base64 - but only up to
+     1 MB. Above that GitHub returns the field EMPTY with no error, so the read
+     appears to succeed and hands back nothing. The raw media type has no such
+     limit up to 100 MB. */
   const r = await fetch(ghUrl()+'?ref='+encodeURIComponent(GH.branch), {headers: ghHeaders()});
   if(r.status === 404){ ghSha = null; return null; }   // nothing pushed yet
   if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading the file');
@@ -6438,3 +6442,202 @@ function renderBackupAge(){
   el.textContent = days <= 0 ? 'Backed up today.'
     : 'Last backup ' + days + ' day' + (days === 1 ? '' : 's') + ' ago.';
 }
+
+
+/* ================= file store =================
+   Two functions between the sync and wherever the bytes actually live. GitHub
+   implements them now. If an Entra app registration ever appears, OneDrive
+   implements the same two and everything below this comment is unchanged. */
+
+function ghPathFor(rel){
+  const dir = GH.path.indexOf('/') >= 0 ? GH.path.slice(0, GH.path.lastIndexOf('/')) : '';
+  return (dir ? dir + '/' : '') + rel;
+}
+function ghContentsUrl(path){
+  return 'https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
+    encodeURIComponent(GH.repo)+'/contents/'+path.split('/').map(encodeURIComponent).join('/');
+}
+
+/* Text read. Uses the raw media type so a file over 1 MB comes back whole
+   rather than as an empty content field. */
+async function getFile(path){
+  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
+    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.raw'})});
+  if(r.status === 404) return null;
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading ' + path);
+  return await r.text();
+}
+async function getBlob(path){
+  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
+    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.raw'})});
+  if(r.status === 404) return null;
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading ' + path);
+  return await r.blob();
+}
+/* The sha of what is already there, needed to overwrite it. Kept separate from
+   the read so a push does not have to download a file it is about to replace. */
+async function getSha(path){
+  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
+    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.object'})});
+  if(r.status === 404) return null;
+  if(!r.ok) return null;
+  const j = await r.json();
+  return j.sha || null;
+}
+async function putFile(path, b64, message){
+  const sha = await getSha(path);
+  const body = {message: message || ('field crm: ' + path), content: b64, branch: GH.branch};
+  if(sha) body.sha = sha;
+  const r = await fetch(ghContentsUrl(path), {method:'PUT',
+    headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+    body: JSON.stringify(body)});
+  if(r.status === 409 || r.status === 422) return false;   // moved under us
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' writing ' + path);
+  return true;
+}
+async function listDir(path){
+  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
+    {headers: ghHeaders()});
+  if(r.status === 404) return [];
+  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' listing ' + path);
+  const j = await r.json();
+  return Array.isArray(j) ? j : [];
+}
+
+/* base64 for binary. b64encode() runs text through TextEncoder, which would
+   mangle JPEG bytes, so photos need their own path. */
+async function blobToB64(blob){
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = '';
+  const CH = 0x8000;   // btoa in one go blows the stack on a large photo
+  for(let i = 0; i < buf.length; i += CH){
+    bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
+  }
+  return btoa(bin);
+}
+
+/* ================= call sync =================
+   Photos go up at 800px rather than the 1400px held on the device. The synced
+   copy is for reading a report on a laptop, where the difference is invisible,
+   and it takes a call with fifteen photos from several megabytes to under one. */
+const SYNC_PX = 800, SYNC_Q = 0.6;
+const GHC_KIND = 'field-crm-call', GHC_VER = 1;
+
+function callDir(){ return ghPathFor('calls'); }
+function photoDir(id){ return ghPathFor('photos/' + id); }
+
+/* The call as it travels: everything except the photo Blobs, which go as their
+   own files and are referenced by path. */
+function slimCall(c){
+  const out = JSON.parse(JSON.stringify(c, (k, v) => (k === 'photos' || k === 'loose') ? undefined : v));
+  out.kind = GHC_KIND; out.version = GHC_VER;
+  out.device = isPhone() ? 'phone' : 'desktop';
+  out.photoMap = {};
+  (c.entries || []).forEach((e, i) => {
+    if(e.photos && e.photos.length) out.photoMap[i] = e.photos.length;
+  });
+  if(c.loose && c.loose.length) out.photoMap.loose = c.loose.length;
+  return out;
+}
+
+async function pushCall(c, note){
+  const slim = slimCall(c);
+  let sent = 0;
+  for(const [key, n] of Object.entries(slim.photoMap)){
+    const list = key === 'loose' ? (c.loose || []) : ((c.entries[+key] || {}).photos || []);
+    for(let j = 0; j < list.length; j++){
+      const path = photoDir(c.id) + '/' + key + '-' + j + '.jpg';
+      // already there from a previous sync - photos never change once taken
+      if(await getSha(path)) continue;
+      let small;
+      try { small = await shrink(list[j], SYNC_PX, SYNC_Q); }
+      catch(e){ continue; }   // a photo that will not re-encode must not stop the call
+      if(await putFile(path, await blobToB64(small), 'call photo')) sent++;
+    }
+  }
+  await putFile(callDir() + '/' + c.id + '.json',
+    b64encode(JSON.stringify(slim, null, 1)), note || ('call: ' + c.customer));
+  return sent;
+}
+
+async function pullCall(name){
+  const txt = await getFile(callDir() + '/' + name);
+  if(!txt) return null;
+  let doc;
+  try { doc = JSON.parse(txt); } catch(e){ return null; }
+  if(!doc || doc.kind !== GHC_KIND || !doc.id) return null;
+
+  const existing = (await callsAll()).find(x => x.id === doc.id);
+  /* Last writer wins, by the timestamp the app already keeps. A call edited
+     here since the remote copy was written is not overwritten by it. */
+  if(existing && (existing.updated || 0) >= (doc.updated || 0)) return 'kept';
+
+  const incoming = Object.assign({}, doc);
+  delete incoming.kind; delete incoming.version; delete incoming.device;
+  delete incoming.photoMap;
+  incoming.entries = incoming.entries || [];
+  incoming.loose = [];
+
+  for(const [key, n] of Object.entries(doc.photoMap || {})){
+    const bucket = [];
+    for(let j = 0; j < n; j++){
+      const b = await getBlob(photoDir(doc.id) + '/' + key + '-' + j + '.jpg').catch(()=>null);
+      if(b) bucket.push(b);
+    }
+    if(key === 'loose') incoming.loose = bucket;
+    else if(incoming.entries[+key]) incoming.entries[+key].photos = bucket;
+  }
+  /* Photos arriving here are the 800px copies. The device that took them still
+     holds the originals, so this is marked rather than passed off as the real
+     thing. */
+  incoming.syncedPhotos = true;
+  await callsPut(incoming);
+  return existing ? 'updated' : 'added';
+}
+
+async function syncCalls(){
+  if(!ghReady()) throw new Error('set the repository and token first');
+  if(!navigator.onLine) throw new Error('no connection - try again when you have signal');
+
+  const local = await callsAll();
+  const lastPush = JSON.parse(localStorage.getItem(LS('callPush')) || '{}');
+  let pushed = 0, photos = 0;
+  for(const c of local){
+    if((lastPush[c.id] || 0) >= (c.updated || 0)) continue;   // unchanged since last time
+    photos += await pushCall(c);
+    lastPush[c.id] = c.updated || Date.now();
+    pushed++;
+  }
+  localStorage.setItem(LS('callPush'), JSON.stringify(lastPush));
+
+  const remote = (await listDir(callDir())).filter(f => f.type === 'file' && /\.json$/.test(f.name));
+  let added = 0, updated = 0;
+  for(const f of remote){
+    const r = await pullCall(f.name).catch(()=>null);
+    if(r === 'added') added++;
+    else if(r === 'updated') updated++;
+  }
+  localStorage.setItem(LS('callSync'), String(Date.now()));
+  await renderHome();
+  return 'Sent ' + pushed + ' call' + (pushed===1?'':'s') +
+    (photos ? ' and ' + photos + ' photo' + (photos===1?'':'s') : '') +
+    '. Brought in ' + added + ' new, ' + updated + ' updated';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const b = $('ghCalls');
+  if(!b) return;
+  b.addEventListener('click', async () => {
+    b.disabled = true;
+    showMsg($('ghCallStat'), 'info', 'Syncing calls...');
+    try {
+      /* The public-repo refusal is already written and is the one rule this
+         project has held from the first day, so calls go through it too. */
+      await ghCheckRepo();
+      showMsg($('ghCallStat'), 'ok', await syncCalls());
+    } catch(e){
+      console.error('call sync', e);
+      showMsg($('ghCallStat'), 'warn', 'Call sync failed: ' + esc(e.message));
+    } finally { b.disabled = false; }
+  });
+});
