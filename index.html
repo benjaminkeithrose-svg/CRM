@@ -18,9 +18,9 @@
   /* The ground was Light Gray, which put grey cards on a grey page. A wash
      pulled from the cyan family gives the white surfaces something to sit on
      without leaving the light layout - still ~75% white overall. */
-  --ground:#F1F6F8;
+  --ground:#E1EAF0;
   --surface:#FFFFFF;
-  --sunk:#F5F8FA;           /* $ox-input-background                  */
+  --sunk:#F2F7FA;           /* $ox-input-background                  */
   --line:#CCCCCC;           /* $border-color                         */
   --line-2:#E3E3E3;         /* $ox-input-border-color                */
 
@@ -52,8 +52,13 @@
   --r-pill:999px;
   /* Soft, low-contrast, cyan-tinted rather than black - a grey shadow on a
      tinted ground goes muddy. */
-  --lift:0 1px 2px rgba(0,40,60,.05), 0 2px 8px rgba(0,40,60,.05);
-  --lift-2:0 1px 3px rgba(0,40,60,.07), 0 4px 14px rgba(0,40,60,.06);
+  /* White surfaces on a near-white ground need a drawn edge - a soft shadow
+     alone is invisible at this contrast and adjacent tiles merge into one
+     another. A hairline in the cyan-grey family defines them without the
+     weight of the old #CCCCCC outline. */
+  --edge:#C6D7E0;
+  --lift:0 1px 2px rgba(0,40,60,.06), 0 2px 6px rgba(0,40,60,.07);
+  --lift-2:0 2px 4px rgba(0,40,60,.09), 0 6px 16px rgba(0,40,60,.09);
   font-synthesis-weight:none;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -110,14 +115,14 @@ input:focus,select:focus,textarea:focus{outline:none;background:var(--surface);
   border-color:var(--cyan-dk);box-shadow:0 0 0 3px var(--cyan-lt)}
 input:disabled{color:var(--ink-3);background:var(--sunk);border-color:var(--line-2)}
 textarea{min-height:88px;resize:vertical}
-.fld{background:var(--surface);border:1px solid transparent;border-radius:var(--r);
+.fld{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);
   padding:14px;margin-bottom:14px;box-shadow:var(--lift)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .na{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);margin-top:6px}
 .na input{width:17px;height:17px;accent-color:var(--cyan-dk)}
 
 /* ---------- segmented control ---------- */
-.seg{display:flex;border:1px solid var(--line-2);border-radius:var(--r-sm);
+.seg{display:flex;border:1px solid var(--edge);border-radius:var(--r-sm);
   overflow:hidden;background:var(--sunk)}
 .seg button{flex:1;background:transparent;border:0;border-left:1px solid var(--line-2);padding:11px 6px;color:var(--ink-2);cursor:pointer}
 .seg button:first-child{border-left:0}
@@ -134,13 +139,14 @@ button.big{
 }
 button.big:active{background:var(--red-dark);border-color:var(--red-dark)}
 button.ghost{
-  width:100%;padding:13px 0;border:1px solid var(--line);border-radius:var(--r-sm);
+  width:100%;padding:13px 0;border:1px solid var(--edge);border-radius:var(--r-sm);
+  box-shadow:var(--lift);
   background:var(--surface);color:var(--ink);font-size:14px;font-weight:700;margin-top:8px;cursor:pointer;
 }
 button.ghost:active{border-color:var(--ink-2)}
 .menu{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
 .menu button{
-  padding:16px 14px;border:1px solid transparent;border-left:3px solid var(--cyan);
+  padding:16px 14px;border:1px solid var(--edge);border-left:3px solid var(--cyan);
   border-radius:var(--r);background:var(--surface);color:var(--ink);
   font-size:13px;text-align:left;line-height:1.35;cursor:pointer;
   box-shadow:var(--lift);transition:box-shadow .12s,transform .12s;
@@ -150,7 +156,7 @@ button.ghost:active{border-color:var(--ink-2)}
 .menu button span{font-size:11px;color:var(--ink-3)}
 .res button{
   width:100%;text-align:left;padding:12px 13px;background:var(--surface);
-  border:1px solid transparent;border-radius:var(--r-sm);color:var(--ink);
+  border:1px solid var(--edge);border-radius:var(--r-sm);color:var(--ink);
   font-size:13.5px;margin-bottom:7px;line-height:1.35;cursor:pointer;box-shadow:var(--lift);
 }
 .res button:active{background:var(--sunk)}
@@ -180,7 +186,7 @@ ul.rep li{margin-bottom:2px}
   border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
   color:var(--link);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer}
 .pcard .pl .missing{color:var(--ink-3);font-weight:400;border-style:dashed;cursor:default}
-button.rpt{display:block;width:100%;text-align:left;background:var(--surface);
+button.rpt{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
 button.rpt:active{background:var(--sunk)}
@@ -195,7 +201,7 @@ button.backcall{margin-top:14px}
 .carrybox.show{display:block}
 .carrylab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
   font-weight:700;margin-bottom:6px}
-button.carry{display:block;width:100%;text-align:left;background:var(--surface);
+button.carry{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:10px 11px;margin-bottom:7px;cursor:pointer;color:var(--ink)}
 button.carry b{display:block;font-size:14px;font-weight:700}
@@ -214,7 +220,7 @@ button.carry.new{border-left-color:var(--line);color:var(--ink-3);font-size:13px
   border-radius:2px;padding:0 4px;margin-left:5px;vertical-align:1px}
 .auto.off{background:var(--sunk);color:var(--ink-3);border-color:var(--line-2)}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
-.chips button{padding:9px 13px;border:1px solid var(--line);border-radius:99px;background:var(--surface);
+.chips button{padding:9px 13px;border:1px solid var(--edge);border-radius:var(--r-pill);background:var(--surface);
   color:var(--ink);font-size:13px;cursor:pointer}
 .chips button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);font-weight:700}
 .chips button.top{border-color:var(--cyan);color:var(--cyan-dk)}
@@ -326,7 +332,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 /* The cyan edge is the app's signature and stays. It now follows the corner
    radius instead of squaring off the left side. */
 .card{
-  background:var(--surface);border:1px solid transparent;border-left:3px solid var(--cyan);
+  background:var(--surface);border:1px solid var(--edge);border-left:3px solid var(--cyan);
   border-radius:var(--r);padding:13px 14px;margin-bottom:10px;box-shadow:var(--lift);
 }
 .card .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
@@ -339,7 +345,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .thumbs img{width:66px;height:66px;object-fit:cover;border-radius:var(--r);border:1px solid var(--line)}
 .cardbar{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-2)}
-.cardbar button{padding:8px 13px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
+.cardbar button{padding:8px 13px;border:1px solid var(--edge);border-radius:var(--r-pill);background:var(--surface);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
 .cardbar button:active{border-color:var(--ink-2)}
 .cardbar .phc{margin-left:auto;font-size:11px;color:var(--ink-3)}
 .tag{
@@ -363,7 +369,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   padding:9px 12px calc(9px + max(18px, env(safe-area-inset-bottom)));
   display:flex;gap:8px;z-index:30;
 }
-.bar button{flex:1;padding:12px 2px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
+.bar button{flex:1;padding:12px 2px;border-radius:var(--r-sm);border:1px solid var(--edge);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
 .bar button.pri{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
 .bar button.pri:active{background:var(--red-dark);border-color:var(--red-dark)}
 
@@ -404,7 +410,7 @@ body.planning{padding-bottom:0}
 .scope button{margin-left:auto;background:none;border:0;color:var(--cyan-dk);text-decoration:underline;
   cursor:pointer;font-size:11px;padding:0}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
-.chip{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-pill);padding:3px 11px;
+.chip{border:1px solid var(--edge);background:var(--surface);border-radius:var(--r-pill);padding:3px 11px;
   font-size:11.5px;cursor:pointer;display:flex;gap:5px;align-items:center}
 .chip .n{color:var(--ink-3);font-variant-numeric:tabular-nums}
 .chip[aria-pressed=true]{background:var(--sunk);border-color:currentColor}
@@ -708,7 +714,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 .opencalls:empty{display:none}
 .opencalls button{
   display:flex; align-items:center; gap:8px; width:100%; min-height:46px;
-  text-align:left; padding:10px 14px; border:1px solid transparent;
+  text-align:left; padding:10px 14px; border:1px solid var(--edge);
   border-left:3px solid var(--cyan-md);
   border-radius:var(--r); background:var(--surface); cursor:pointer;
   box-shadow:var(--lift);
