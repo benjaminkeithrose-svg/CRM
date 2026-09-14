@@ -867,7 +867,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Bumped with every release so a device can say which build it is running.
    Kept in step with the service worker cache name by hand - if these two ever
    disagree, the app is running files from a cache it did not expect. */
-const APP_BUILD = 'v50';
+const APP_BUILD = 'v51';
 const DEF_DUR = 25;
 const CAD = {'High':'P1 Quarterly','Medium':'P2 Half-yearly','Low':'P3 Yearly','No Focus':'P4 No cadence'};
 /* What the old export wrote, so accounts already loaded can be moved across
@@ -1838,6 +1838,10 @@ function makeDraggableAppt(el, ap){
     el.classList.remove('dragging');
     try { el.releasePointerCapture(e.pointerId); } catch(_){}
     if(!moved) return;                              // a hold that never moved
+    /* A click event follows the pointer sequence. Without this the dialog opens
+       for the call you have just finished dragging. */
+    el.addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); },
+      {capture:true, once:true});
     const ns = el.dataset.newStart, nd = el.dataset.newDate;
     if((ns && ns !== ap.start) || (nd && nd !== ap.date)){
       if(ns) ap.start = ns;
@@ -1894,6 +1898,10 @@ function renderCalendar(){
            short calls drop to a single line - the account name, which is the
            part you are scanning for. The time is in the tooltip and on the
            card once it is opened. */
+        /* Native drag has to go, or the browser swallows the pointer stream the
+           moment the mouse moves and the time never changes. Moving between days
+           is handled by the pointer drag instead. */
+        el.draggable = false;
         if(!oneDay && ap.dur * PX_MIN < 36) el.classList.add('tiny');
         if(out) el.classList.add('oob');
         el.title = (el.title || '') + (out ? '\nOutside 7am-5pm, shown at the edge' : '');

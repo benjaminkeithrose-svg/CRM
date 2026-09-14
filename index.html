@@ -47,9 +47,13 @@
      want, not one that is on fire. Red leaves the account cards entirely and
      stays on the primary action button, which is the one place the guidelines
      and this app already agree on it. */
-  --high:#237F35;           /* green  - High                          */
-  --med:#00708D;            /* cyan   - Medium                        */
-  --low:#E36C00;            /* orange - Low                           */
+  /* Three distinct hues rather than a traffic light. The old Low was a
+     desaturated amber, and amber at tint strength goes khaki - which is the one
+     thing these must not be. Green, blue, violet: nothing muddy, and each is
+     obvious at a glance in a long list. */
+  --high:#1E7A4B;           /* green  - High                          */
+  --med:#0F6FA8;            /* blue   - Medium                        */
+  --low:#6B4E9B;            /* violet - Low                           */
   --none:#8A9BA8;           /* blue-grey - No Focus, no cadence       */
 
   /* One radius for everything is what read as boxy. Three, by role: surfaces,
@@ -239,6 +243,16 @@ button.carry.new{border-left-color:var(--line);color:var(--ink-3);font-size:13px
   border-radius:2px;padding:0 4px;margin-left:5px;vertical-align:1px}
 .auto.off{background:var(--sunk);color:var(--ink-3);border-color:var(--line-2)}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
+/* The focus filters sit directly above the list they filter, so they carry the
+   same colour as the rows they will show. */
+#pChips button[aria-pressed="true"].high{background:#C6E9D5;border-color:var(--high);color:#14532C}
+#pChips button[aria-pressed="true"].med {background:#C3DDF5;border-color:var(--med); color:#0B4C73}
+#pChips button[aria-pressed="true"].low {background:#DCCBF0;border-color:var(--low); color:#4A3570}
+#pChips button[aria-pressed="true"].none{background:var(--sunk);border-color:var(--none);color:var(--ink-2)}
+#pChips button[disabled]{opacity:.4}
+#pChips button .n{font-variant-numeric:tabular-nums;opacity:.7;margin-left:5px}
+#pChips button{min-height:40px;font-weight:600}
+.chip.due{min-height:40px;width:100%;justify-content:center;font-weight:600}
 .chips button{padding:9px 13px;border:1px solid var(--edge);border-radius:var(--r-pill);background:var(--surface);
   color:var(--ink);font-size:13px;cursor:pointer}
 .chips button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);font-weight:700}
@@ -440,27 +454,31 @@ body.planning{padding-bottom:0}
 .chip:disabled{opacity:.45;cursor:default}
 .cov{font-size:11px;color:var(--ink-3)}
 .list{overflow:auto;flex:1;min-height:0}
-.acct{display:grid;grid-template-columns:4px 1fr auto;gap:0 9px;align-items:center;
-  padding:7px 12px 7px 0;border-bottom:1px solid var(--line-2);cursor:grab}
+/* Rows were table-like: full-bleed, separated by hairlines, square. They now
+   read as the same object as everything else in the app - a rounded card with
+   an edge and a lift, spaced apart rather than ruled apart. */
+.acct{display:grid;grid-template-columns:4px 1fr auto;gap:0 10px;align-items:center;
+  padding:10px 12px 10px 0;margin:0 10px 7px;border:1px solid var(--edge);
+  border-radius:var(--r);box-shadow:var(--lift);cursor:grab;overflow:hidden;
+  transition:box-shadow .12s, transform .12s}
+.acct:active{box-shadow:var(--lift-2);transform:translateY(1px)}
+.list{padding-top:8px}
 /* The whole row is toned by focus, not just the edge bar. Scanning a long list
    for a colour is faster than reading a column of dots, which is the point of
    the list - deciding who to concentrate on. No Focus stays white so the rows
    that matter are the ones carrying colour. */
-/* Stronger than the standard light tints. Measured, the brand tints sat 13
-   units apart between High and Medium - both are pale blue-greens and at a
-   glance on a phone they read as the same row. These are pulled from the same
-   hues, just far enough apart to tell apart without looking. Text still reads
-   at better than 11:1 on all three. */
-.acct.high{background:#CDE8D3}
-.acct.med {background:#C2DFEE}
-.acct.low {background:#F8D9A8}
+/* Tints of the three focus hues, far enough apart to tell at a glance without
+   any of them going muddy. Text reads at better than 11:1 on all three. */
+.acct.high{background:#C6E9D5}
+.acct.med {background:#C3DDF5}
+.acct.low {background:#DCCBF0}
 .acct.none{background:var(--surface)}
 /* Declared after the tints so hover still reads on a toned row. */
 .acct:hover{background:var(--sunk)}
-.acct.high:hover{background:#BCDFC4}
-.acct.med:hover {background:#AFD4E8}
-.acct.low:hover {background:#F3CD91}
-.acct .bar-c{align-self:stretch;border-radius:0 2px 2px 0}
+.acct.high:hover{background:#B5E1C5}
+.acct.med:hover {background:#AFD2EE}
+.acct.low:hover {background:#CBB8E7}
+.acct .bar-c{align-self:stretch}
 .acct.high .bar-c{background:var(--high)} .acct.med .bar-c{background:var(--med)}
 .acct.low .bar-c{background:var(--low)}  .acct.none .bar-c{background:var(--none)}
 .acct .nm{font-size:12.5px;font-weight:600;line-height:1.3}
