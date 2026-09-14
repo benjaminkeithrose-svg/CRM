@@ -43,7 +43,14 @@
 
   /* Account focus. High reads in Intralox red; the rest step down through
      the orange and cyan families rather than a traffic light. */
-  --high:#ED1C24; --med:#E36C00; --low:#00708D; --none:#8A8C8E;
+  /* Account focus reads as standing, not urgency: a High account is one you
+     want, not one that is on fire. Red leaves the account cards entirely and
+     stays on the primary action button, which is the one place the guidelines
+     and this app already agree on it. */
+  --high:#237F35;           /* green  - High                          */
+  --med:#00708D;            /* cyan   - Medium                        */
+  --low:#E36C00;            /* orange - Low                           */
+  --none:#8A9BA8;           /* blue-grey - No Focus, no cadence       */
 
   /* One radius for everything is what read as boxy. Three, by role: surfaces,
      controls, and chips. */
@@ -91,7 +98,10 @@ header .redbox img{width:100%; height:auto; display:block}
 header .hdt{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:7px 0 7px 12px}
 header h1{font-size:14px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .sub{font-size:11px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.back{background:none;border:0;color:var(--ink-2);font-size:26px;padding:0 6px 0 10px;cursor:pointer;line-height:1;flex:none;align-self:center}
+.back{background:none;border:0;color:var(--ink-2);font-size:30px;cursor:pointer;line-height:1;
+  flex:none;align-self:stretch;min-width:52px;padding:0 8px 0 12px;
+  display:flex;align-items:center;justify-content:center}
+.back:active{background:var(--sunk)}
 
 /* ---------- type ---------- */
 /* The rule under every heading was doing the same job as the gap above it.
@@ -163,7 +173,16 @@ button.ghost:active{border-color:var(--ink-2)}
 .res button .mt{font-size:11px;color:var(--ink-3);margin-top:2px;line-height:1.35}
 /* Account focus. High reads in Intralox red; the rest step down through the
    orange and cyan families rather than a traffic light. */
-.fd{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:1px}
+/* Focus is a filled dot; due is a hollow ring. Two signals the same shape in
+   different colours read as one thing with a confusing palette. */
+.fd{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:1px}
+/* No empty gap where the meta line used to sit. */
+.mt:empty{display:none}
+.pip{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:8px;
+  vertical-align:1px;border:2px solid var(--none);background:transparent}
+.pip.due{border-color:var(--low)}
+.pip.never{border-color:var(--low);background:var(--low)}
+.pip.booked{border-color:var(--med);background:var(--cyan-lt)}
 .fd.high{background:var(--high)} .fd.med{background:var(--med)}
 .fd.low{background:var(--low)}  .fd.none{background:var(--none)}
 ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line-height:1.6}
@@ -421,9 +440,26 @@ body.planning{padding-bottom:0}
 .chip:disabled{opacity:.45;cursor:default}
 .cov{font-size:11px;color:var(--ink-3)}
 .list{overflow:auto;flex:1;min-height:0}
-.acct{display:grid;grid-template-columns:3px 1fr auto;gap:0 9px;align-items:center;
+.acct{display:grid;grid-template-columns:4px 1fr auto;gap:0 9px;align-items:center;
   padding:7px 12px 7px 0;border-bottom:1px solid var(--line-2);cursor:grab}
+/* The whole row is toned by focus, not just the edge bar. Scanning a long list
+   for a colour is faster than reading a column of dots, which is the point of
+   the list - deciding who to concentrate on. No Focus stays white so the rows
+   that matter are the ones carrying colour. */
+/* Stronger than the standard light tints. Measured, the brand tints sat 13
+   units apart between High and Medium - both are pale blue-greens and at a
+   glance on a phone they read as the same row. These are pulled from the same
+   hues, just far enough apart to tell apart without looking. Text still reads
+   at better than 11:1 on all three. */
+.acct.high{background:#CDE8D3}
+.acct.med {background:#C2DFEE}
+.acct.low {background:#F8D9A8}
+.acct.none{background:var(--surface)}
+/* Declared after the tints so hover still reads on a toned row. */
 .acct:hover{background:var(--sunk)}
+.acct.high:hover{background:#BCDFC4}
+.acct.med:hover {background:#AFD4E8}
+.acct.low:hover {background:#F3CD91}
 .acct .bar-c{align-self:stretch;border-radius:0 2px 2px 0}
 .acct.high .bar-c{background:var(--high)} .acct.med .bar-c{background:var(--med)}
 .acct.low .bar-c{background:var(--low)}  .acct.none .bar-c{background:var(--none)}
@@ -474,9 +510,21 @@ body.planning{padding-bottom:0}
 .btn:hover{border-color:var(--ink-2)}
 .btn.key{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
-.week{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:stretch}
+/* A gutter of hour labels, then the five days. */
+.week{display:grid;grid-template-columns:46px repeat(5,1fr);gap:8px;align-items:start}
+.gut{padding-top:30px}          /* clears the day header */
+.gh{font-size:10.5px;color:var(--ink-3);text-align:right;padding-right:6px;
+  line-height:1;position:relative;top:-5px}
+.dbody.hours{display:block;position:relative;padding:0;overflow:hidden}
+.hl{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--line-2)}
+.dbody.hours .appt{position:absolute;left:4px;right:4px;margin:0;overflow:hidden;
+  touch-action:none;cursor:grab;font-size:11px;padding:3px 5px}
+.dbody.hours .appt.dragging{cursor:grabbing;z-index:5;box-shadow:var(--lift-2);opacity:.94}
+/* Outside business hours, clamped to the edge and marked rather than hidden. */
+.dbody.hours .appt.oob{border-right:3px solid var(--orange)}
+.day .add{margin:6px}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  display:flex;flex-direction:column;min-height:190px}
+  display:flex;flex-direction:column}
 .day.over{border-color:var(--cyan-dk);box-shadow:inset 0 0 0 1px var(--cyan-dk)}
 .day.today .dh{background:var(--cyan-lt)}
 .dh{padding:5px 9px;border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;
@@ -1088,7 +1136,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <div class="f"><label>Date</label><input type="date" id="dDate"></div>
       <div class="f"><label>Start</label><input type="time" id="dTime"></div>
       <div class="f"><label>Minutes</label>
-        <select id="dDur"><option>30</option><option>45</option><option selected>60</option><option>90</option><option>120</option><option>180</option></select></div>
+        <select id="dDur"><option selected>25</option><option>30</option><option>45</option><option>60</option><option>90</option><option>120</option><option>180</option></select></div>
     </div>
     <label class="ct" id="dHoldWrap"><input type="checkbox" id="dHold">
       <div><div class="cn">Placeholder only</div>

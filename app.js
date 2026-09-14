@@ -860,8 +860,20 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Planner schema, call-log dedupe. .xlsx goes through SheetJS, .csv through the
    parser below; both land in the same array of header-keyed rows and take the
    same path from there. */
-const CAD = {'High':'P1 Monthly','Medium':'P2 Quarterly','Low':'P3 Half-yearly','No Focus':'P4 Validate & rate'};
+/* Four, two and one a year. No Focus carries no cadence - there is nothing it
+   is late for, so it can never be overdue. */
+/* Most calls are short. The invite templates override this when one is picked -
+   a health check is two hours whatever the default says. */
+const DEF_DUR = 25;
+const CAD = {'High':'P1 Quarterly','Medium':'P2 Half-yearly','Low':'P3 Yearly','No Focus':'P4 No cadence'};
+/* What the old export wrote, so accounts already loaded can be moved across
+   without a re-import. */
+const CAD_OLD = {'P1 Monthly':'P1 Quarterly','P2 Quarterly':'P2 Half-yearly',
+                 'P3 Half-yearly':'P3 Yearly','P4 Validate & rate':'P4 No cadence'};
 const FOCUS_RANK = {'High':0,'Medium':1,'Low':2,'No Focus':3};
+/* Category names written into the ICS. They have to match what is set up in
+   Outlook character for character, so they are defined once, here. */
+const FOCUS_CAT = {'High':'Focus High','Medium':'Focus Medium','Low':'Focus Low','No Focus':'Focus None'};
 
 /* Column names as they appear in the ANZ Active Food Contacts view. Matching is
    case-insensitive, whitespace-tolerant, and accepts the '(Account Name) (Account)'
@@ -1016,6 +1028,13 @@ function acctKey(name){
 }
 let KEY_TO_ACCT = new Map();
 function indexAccounts(list){
+  /* Accounts imported before the cadences changed carry the old label, which is
+     no longer in CAD_DAYS and would read as no cadence at all. Moved across on
+     load rather than on import, so it also fixes a device restored from an old
+     backup. */
+  let moved = 0;
+  list.forEach(a => { if(CAD_OLD[a.cad]){ a.cad = CAD_OLD[a.cad]; moved++; } });
+  if(moved) console.log('[cadence] moved '+moved+' accounts to the new cadences');
   ACCOUNTS = list;
   ACC_BY_NAME = new Map(list.map(a => [a.a, a]));
   KEY_TO_ACCT = new Map(list.map(a => [acctKey(a.a), a.a]));
@@ -1279,7 +1298,7 @@ function renderHomeCounts(){
    own visits where there are any, and falls back to the CRM date where there are
    none - otherwise every account you have not yet visited would read as overdue
    on day one. */
-const CAD_DAYS = {'P1 Monthly':30, 'P2 Quarterly':91, 'P3 Half-yearly':182, 'P4 Validate & rate':365};
+const CAD_DAYS = {'P1 Quarterly':91, 'P2 Half-yearly':182, 'P3 Yearly':365, 'P4 No cadence':null};
 let CALLS_BY_ACCT = new Map();
 
 function indexCalls(all){
@@ -1325,7 +1344,11 @@ function nextBooked(name){
      due      past it, nothing planned
      never    no visit and no CRM activity to go on */
 function dueState(a){
-  const target = CAD_DAYS[a.cad] || CAD_DAYS['P4 Validate & rate'];
+  const target = CAD_DAYS[a.cad];
+  /* No cadence means nothing is outstanding. Returning 'covered' keeps every
+     caller working without a special case at each one. */
+  if(target == null) return {days:null, over:false, basis:'none', target:null,
+                             booked:nextBooked(a.a), state:'covered'};
   const booked = nextBooked(a.a);
   const lv = lastVisit(a.a);
   let days = null, basis = 'never', over = true;
@@ -1407,13 +1430,15 @@ function renderBrowse(){
     : 'No matches') + cover;
   el.innerHTML = out.slice(0,40).map(a=>{
     const d = dueState(a);
-    const meta = [a.sub, zoneName(a.z), a.cad].filter(Boolean).map(esc).join(' &middot; ');
+    /* Suburb is already in the account name and a day count is a number to
+       decode, so both go. What is left is the name, who owns it if not you, and
+       two coloured signals. */
     return '<button data-acct="'+esc(a.a)+'">'+
-      '<span class="fd '+FOC_CLS[a.foc]+'"></span>'+esc(a.a)+
+      '<span class="fd '+FOC_CLS[a.foc]+'" title="'+esc(a.foc||'No Focus')+' focus"></span>'+esc(a.a)+
       (a.mgr===mgr ? '' : '<span class="tag">'+esc(a.mgr||'no manager')+'</span>')+
-      (d.state === 'covered' ? '' : '<span class="st '+DUE_CLS[d.state]+'">'+
-        (d.state === 'never' ? 'never' : d.state)+'</span>')+
-      '<div class="mt">'+meta+' &middot; '+esc(dueLabel(d))+'</div></button>';
+      (d.state === 'covered' ? '' :
+        '<span class="pip '+d.state+'" title="'+esc(dueLabel(d))+'"></span>')+
+      '</button>';
   }).join('');
   el.querySelectorAll('[data-acct]').forEach(b =>
     b.addEventListener('click', ()=>openAccount(b.dataset.acct)));
@@ -1692,9 +1717,18 @@ function renderRail(){
     mb.draggable = false;
     mb.addEventListener('click', ev => { ev.stopPropagation(); openReassign({account:a.a}); });
     el.querySelector('.nm').appendChild(mb);
+    /* Nothing goes under the name. Suburb is already in the account name, the
+       contact count is not a reason to call anyone, and a day count is a number
+       to decode. Focus is what decides how a call is approached, and that is the
+       dot - so a tier line underneath was saying nothing the dot did not. */
     const mt = el.querySelector('.mt');
-    mt.textContent = [a.sub || 'no suburb', a.tier || 'no tier',
-      a.c.length+(a.c.length===1?' contact':' contacts'), dueLabel(d)].join(' \u00b7 ');
+    mt.textContent = '';
+    if(d.state !== 'covered'){
+      const pip = document.createElement('span');
+      pip.className = 'pip ' + d.state;
+      pip.title = dueLabel(d);
+      el.querySelector('.nm').appendChild(pip);
+    }
     // Tag hits that sit outside the zone on screen, so a search result is never
     // mistaken for something on this trip.
     if(searching() && a.z !== plan.zone){
@@ -1719,6 +1753,99 @@ function weekDays(){ const s = startOfWeek(plan.anchor); return [0,1,2,3,4].map(
 function apptsOn(dISO){ return APPTS.filter(a => a.date === dISO).sort((x,y)=>x.start.localeCompare(y.start)); }
 function apptFocusCls(ap){ const a = ACC_BY_NAME.get(ap.acct); return a ? FOC_CLS[a.foc] : 'none'; }
 
+/* ---------- hour grid ----------
+   Business hours only. Everything else is a band you cannot drop into, so the
+   usable area of the column is the part of the day you actually work. */
+const DAY_FROM = 7, DAY_TO = 17;            // 7am to 5pm
+const PX_MIN = 0.8;                          // 48px an hour
+const SNAP = 5;                              // minutes
+const GRID_H = (DAY_TO - DAY_FROM) * 60 * PX_MIN;
+
+function minOf(hhmm){
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
+  return m ? (+m[1]) * 60 + (+m[2]) : DAY_FROM * 60;
+}
+function hhmm(mins){
+  mins = Math.max(0, Math.min(24 * 60 - 1, Math.round(mins)));
+  return String(Math.floor(mins / 60)).padStart(2, '0') + ':' +
+         String(mins % 60).padStart(2, '0');
+}
+function topFor(ap){ return (minOf(ap.start) - DAY_FROM * 60) * PX_MIN; }
+
+function hourGutter(){
+  const g = document.createElement('div');
+  g.className = 'gut';
+  for(let hgt = DAY_FROM; hgt < DAY_TO; hgt++){
+    const s = document.createElement('div');
+    s.className = 'gh';
+    s.style.height = (60 * PX_MIN) + 'px';
+    s.textContent = (hgt > 12 ? hgt - 12 : hgt) + (hgt < 12 ? 'am' : 'pm');
+    g.appendChild(s);
+  }
+  return g;
+}
+
+/* Pointer drag. Vertical moves the time, horizontal moves the day, and the
+   label updates as it goes so the time is read off the thing being moved rather
+   than guessed from where it sits. */
+function makeDraggableAppt(el, ap){
+  let dragging = false, holdT = null, startY = 0, startTop = 0, moved = false;
+  const coarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+
+  function begin(e){
+    dragging = true; moved = false;
+    startY = e.clientY;
+    startTop = parseFloat(el.style.top) || 0;
+    el.classList.add('dragging');
+    el.setPointerCapture(e.pointerId);
+  }
+  el.addEventListener('pointerdown', e => {
+    if(e.button != null && e.button !== 0) return;
+    if(coarse){
+      /* Half a second before it lifts. Short enough not to feel slow, long
+         enough that a scroll never picks a call up. */
+      holdT = setTimeout(() => { holdT = null; begin(e); }, 450);
+    } else {
+      begin(e);
+    }
+  });
+  el.addEventListener('pointermove', e => {
+    if(holdT){ clearTimeout(holdT); holdT = null; return; }   // it was a scroll
+    if(!dragging) return;
+    e.preventDefault();
+    moved = true;
+    const raw = startTop + (e.clientY - startY);
+    const mins = DAY_FROM * 60 + raw / PX_MIN;
+    const snapped = Math.round(mins / SNAP) * SNAP;
+    const clamped = Math.max(DAY_FROM * 60, Math.min(DAY_TO * 60 - ap.dur, snapped));
+    el.style.top = ((clamped - DAY_FROM * 60) * PX_MIN) + 'px';
+    el.dataset.newStart = hhmm(clamped);
+    const lab = el.querySelector('.t span');
+    if(lab) lab.textContent = el.dataset.newStart + ' \u00b7 ' + ap.dur + ' min';
+    /* Which column is under the finger decides the day. */
+    const col = document.elementFromPoint(e.clientX, e.clientY);
+    const day = col && col.closest ? col.closest('.day') : null;
+    if(day && day.dataset.k) el.dataset.newDate = day.dataset.k;
+  });
+  async function end(e){
+    if(holdT){ clearTimeout(holdT); holdT = null; }
+    if(!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    try { el.releasePointerCapture(e.pointerId); } catch(_){}
+    if(!moved) return;                              // a hold that never moved
+    const ns = el.dataset.newStart, nd = el.dataset.newDate;
+    if((ns && ns !== ap.start) || (nd && nd !== ap.date)){
+      if(ns) ap.start = ns;
+      if(nd) ap.date = nd;
+      await saveAppt(ap);
+      renderPlan();
+    }
+  }
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
 function renderCalendar(){
   const body = $('calBody'), TODAY = todayISOdate();
   body.innerHTML = '';
@@ -1731,19 +1858,45 @@ function renderCalendar(){
     $('calTitle').textContent = days[0].getDate()+' '+MONNM[days[0].getMonth()].slice(0,3)+' \u2013 '+
       days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
     const grid = document.createElement('div'); grid.className = 'week';
+    grid.appendChild(hourGutter());
     days.forEach((d,i)=>{
       const k = iso(d);
       const col = document.createElement('div');
       col.className = 'day' + (k === TODAY ? ' today' : '');
       col.innerHTML = '<div class="dh"><b>'+DAYNM[i]+'</b><span>'+d.getDate()+' '+
         MONNM[d.getMonth()].slice(0,3)+'</span></div>';
-      const b = document.createElement('div'); b.className = 'dbody';
-      apptsOn(k).forEach(ap => b.appendChild(apptEl(ap,false)));
+      col.dataset.k = k;
+      const b = document.createElement('div'); b.className = 'dbody hours';
+      b.style.height = GRID_H + 'px';
+      for(let hgt = DAY_FROM + 1; hgt < DAY_TO; hgt++){
+        const ln = document.createElement('div');
+        ln.className = 'hl';
+        ln.style.top = ((hgt - DAY_FROM) * 60 * PX_MIN) + 'px';
+        b.appendChild(ln);
+      }
+      apptsOn(k).forEach(ap => {
+        const el = apptEl(ap, false);
+        const start = minOf(ap.start);
+        const out = start < DAY_FROM * 60 || start >= DAY_TO * 60;
+        el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(ap))) + 'px';
+        el.style.height = Math.max(18, ap.dur * PX_MIN) + 'px';
+        if(out) el.classList.add('oob');
+        el.title = (el.title || '') + (out ? '\nOutside 7am-5pm, shown at the edge' : '');
+        makeDraggableAppt(el, ap);
+        b.appendChild(el);
+      });
+      /* Clicking empty space books at the time that was clicked, which is the
+         whole point of having an hour axis. */
+      b.addEventListener('dblclick', e => {
+        if(e.target !== b) return;
+        const mins = DAY_FROM * 60 + (e.offsetY / PX_MIN);
+        openDialog(null, {date:k, start:hhmm(Math.round(mins / 15) * 15)});
+      });
+      col.appendChild(b);
       const add = document.createElement('button');
       add.className = 'add'; add.type = 'button'; add.textContent = '+ Add call';
       add.onclick = ()=>openDialog(null, {date:k});
-      b.appendChild(add);
-      col.appendChild(b);
+      col.appendChild(add);
       makeDrop(col, k);
       grid.appendChild(col);
     });
@@ -1835,7 +1988,7 @@ function openDialog(id, seed){
     if(!acct){ toast('Pick an account first'); return; }
     const a = ACC_BY_NAME.get(acct);
     ap = {id:null, acct:acct, type:'Intralox site visit',
-          date: seed.date || iso(weekDays()[0]), start:'09:00', dur:60, agenda:'',
+          date: seed.date || iso(weekDays()[0]), start:seed.start || '09:00', dur:DEF_DUR, agenda:'',
           contacts: (a && a.c ? a.c.map((_,i)=>i) : [])};
     editingAppt = null;
   }
@@ -1907,7 +2060,7 @@ async function saveDialog(){
   ap.type = $('dType').value;
   ap.date = $('dDate').value;
   ap.start = $('dTime').value || '09:00';
-  ap.dur = parseInt($('dDur').value,10) || 60;
+  ap.dur = parseInt($('dDur').value,10) || DEF_DUR;
   ap.agenda = $('dAgenda').value;
   ap.hold = $('dHold').checked;
   ap.contacts = [...$('dCts').querySelectorAll('input:checked')].map(x => +x.dataset.i);
@@ -2730,7 +2883,12 @@ function buildIcs(list){
     }
     L.push('DESCRIPTION:'+icsEsc(p.txt));
     L.push('X-ALT-DESC;FMTTYPE=text/html:'+icsEsc(p.html));
-    L.push('CATEGORIES:'+icsEsc(a.z+','+a.foc));
+    /* Outlook colours a calendar item from its own category list, matching on
+       name - the file can only carry the name. Focus goes first so it is the
+       one that colours the item, and the names are explicit rather than a bare
+       "High", which would collide with anything else already categorised that
+       way. Creating these three once in Outlook is a one-off. */
+    L.push('CATEGORIES:'+icsEsc(FOCUS_CAT[ap._foc || (a && a.foc)] || 'Focus None') + ',' + icsEsc(a.z));
     // a site visit is time out of the office; a planned phone call is not
     L.push('X-MICROSOFT-CDO-BUSYSTATUS:'+(ap.type === 'Intralox site visit' ? 'OOF' : 'BUSY'));
     L.push('TRANSP:OPAQUE');
@@ -3085,7 +3243,7 @@ async function bookUnplanned(c, acc){
     type: c.type === 'Phone call' ? 'Planned phone call' : 'Intralox site visit',
     date: isoFromDdmmyyyy(c.date) || todayISOdate(),
     start: String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
-    dur: 60,
+    dur: DEF_DUR,
     agenda: '',
     contacts: (c.contacts||[]).map(x => acc.c.findIndex(y => y.n === x.name)).filter(i => i >= 0),
     /* origin marks it as made on this device and not yet seen by the other one.
@@ -3193,7 +3351,7 @@ async function bookVisitFor(name){
   const ap = {
     id: 'ap' + Date.now().toString(36) + (plan.seq++),
     acct: acc.a, type: 'Intralox site visit',
-    date: todayISOdate(), start: '09:00', dur: 60, agenda: '',
+    date: todayISOdate(), start: '09:00', dur: DEF_DUR, agenda: '',
     contacts: acc.c.map((_, i) => i).slice(0, 6),
     origin: isPhone() ? 'phone' : 'desktop', acked: false,
     status: 'planned'
