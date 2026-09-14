@@ -1887,6 +1887,7 @@ function openDialog(id, seed){
   } else {
     sync.hidden = true;
   }
+  $('dHold').checked = !!ap.hold;
   $('dDel').hidden = !id;
   dlgAppt = ap;
   const dlg = $('dlg');
@@ -1909,6 +1910,7 @@ async function saveDialog(){
   ap.start = $('dTime').value || '09:00';
   ap.dur = parseInt($('dDur').value,10) || 60;
   ap.agenda = $('dAgenda').value;
+  ap.hold = $('dHold').checked;
   ap.contacts = [...$('dCts').querySelectorAll('input:checked')].map(x => +x.dataset.i);
   // a call dropped on a weekend moves to the Monday rather than sitting there unseen
   const d = parseIso(ap.date);
@@ -2710,6 +2712,23 @@ function buildIcs(list){
     L.push('DTEND;TZID='+p.tz+':'+dtLocal(ap.date, ap.start, ap.dur));
     L.push('SUMMARY:'+icsEsc(apptTitle(ap)));
     L.push('LOCATION:'+icsEsc([a.sub, a.a].filter(Boolean).join(', ')));
+    /* A placeholder is time blocked for you, so nobody is written as an
+       attendee. Otherwise the contacts ticked on the appointment go on, and the
+       organiser is you - Outlook needs an organiser before it will treat the
+       import as a meeting rather than a bare appointment. */
+    const myEmail = (localStorage.getItem(LS('email')) || '').trim();
+    if(!ap.hold && myEmail){
+      const invitees = (ap.contacts||[]).map(i => a.c[i]).filter(Boolean)
+        .map(c => ({name: c.n, email: (c.e && c.e[0]) || ''}))
+        .filter(c => c.email);
+      if(invitees.length){
+        L.push('ORGANIZER;CN='+icsEsc(localStorage.getItem(LS('mgr')) || myEmail)+
+               ':MAILTO:'+myEmail);
+        invitees.forEach(c => L.push(
+          'ATTENDEE;CN='+icsEsc(c.name)+';ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE'+
+          ':MAILTO:'+c.email));
+      }
+    }
     L.push('DESCRIPTION:'+icsEsc(p.txt));
     L.push('X-ALT-DESC;FMTTYPE=text/html:'+icsEsc(p.html));
     L.push('CATEGORIES:'+icsEsc(a.z+','+a.foc));
@@ -6839,8 +6858,23 @@ const INVITE_TMPL = {
      inventing how you pitch, which is not mine to guess at. */
   pov: { name: 'Proof of value', mins: 60, stub: true, body:
 "Hi {customer},\n\n\n\n{mgr}" },
-  survey: { name: 'Belt survey', mins: 120, stub: true, body:
-"Hi {customer},\n\n\n\n{mgr}" }
+  survey: {
+    name: 'Belt survey',
+    mins: 120,
+    body:
+"Hi {customer},\n\n" +
+"Thanks for taking the time to speak with me.\n\n" +
+"The purpose of this visit is to continue documenting the belts across the plant, " +
+"building a complete record of what is installed, where it runs, and what condition " +
+"it is in.\n\n" +
+"While I'm there, if there are any conveyors causing downtime, reliability issues, or " +
+"elevated maintenance requirements, please feel free to make the most of my time on " +
+"site and we can review them together.\n\n" +
+"Please feel free to share the meeting invitation with the team if they have any " +
+"conveyor related needs.\n\n" +
+"Thanks again, and I look forward to meeting you.\n\n" +
+"{mgr}"
+  }
 };
 
 function fillInvite(key){
@@ -6906,5 +6940,34 @@ document.addEventListener('DOMContentLoaded', () => {
     ['ccName','ccRole','ccEmail','ccMob'].forEach(i => $(i).value = '');
     await saveCall(); renderCallContacts(); renderDash();
     toast(n + ' added');
+  });
+});
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const e = $('setEmail');
+  if(e){
+    e.value = localStorage.getItem(LS('email')) || '';
+    e.addEventListener('change', () => {
+      localStorage.setItem(LS('email'), e.value.trim());
+      toast(e.value.trim() ? 'Saved' : 'Cleared');
+    });
+  }
+  /* Ticking placeholder makes the invitee list moot, so the dialog says so
+     rather than leaving the contact ticks looking like they still apply. */
+  const hold = $('dHold');
+  if(hold) hold.addEventListener('change', () => {
+    const cover = $('dCover');
+    if(cover && hold.checked){
+      cover.textContent = 'Placeholder - the time is blocked for you and nobody is invited.';
+      cover.className = 'note';
+    } else if(cover && dlgAppt){
+      const a = ACC_BY_NAME.get(dlgAppt.acct);
+      const cs = (a && a.c) ? a.c : [];
+      const withP = cs.filter(c => c.p).length;
+      cover.textContent = withP+' of '+cs.length+' contacts have a phone number on file. '+
+        'Missing numbers are marked in the invite.';
+      cover.className = 'note' + (withP === 0 ? ' warn' : '');
+    }
   });
 });

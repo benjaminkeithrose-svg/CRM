@@ -788,6 +788,13 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- SETTINGS -->
 <section class="scr" id="s-settings">
+  <h2>Your details</h2>
+  <div class="fld">
+    <label>Your email address</label>
+    <input type="email" id="setEmail" placeholder="you@intralox.com" autocomplete="email">
+    <p class="hint">Used as the organiser on calendar invites. Without it Outlook has nobody to send from, so invitees are left off.</p>
+  </div>
+
   <h2>Data</h2>
   <div class="fld">
     <label>Contact database</label>
@@ -1110,6 +1117,9 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <div class="f"><label>Minutes</label>
         <select id="dDur"><option>30</option><option>45</option><option selected>60</option><option>90</option><option>120</option><option>180</option></select></div>
     </div>
+    <label class="ct" id="dHoldWrap"><input type="checkbox" id="dHold">
+      <div><div class="cn">Placeholder only</div>
+      <div class="cr">Blocks the time for you. Nobody is added as an invitee.</div></div></label>
     <div class="f"><label>Agenda</label>
       <div class="chips" id="dTmpl">
         <button type="button" data-tmpl="health">Health check</button>
