@@ -1159,7 +1159,8 @@ const TITLES = {
   accounts:['Accounts',''], acct:['Account',''], plan:['Plan',''], today:['Today',''],
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
-  settings:['Settings',''], faults:['Fault library',''], ccontacts:['People on this call','Call'],
+  settings:['Settings',''], directory:['Directory',''], reference:['Reference',''],
+  ccontacts:['People on this call','Call'],
   note:['General note',''], health:['Health check',''], compile:['Compile','']
 };
 /* ---------- navigation ----------
@@ -1215,12 +1216,10 @@ function showScreen(name){
   if(name==='dash') renderDash();
   if(name==='compile') renderCompileStat();
   if(name==='home') renderHome();
-  if(name==='accounts') renderBrowse();
-  if(name==='manuals' && window.Manuals) Manuals.render().catch(e=>console.error('manuals', e));
-  if(name==='faults' && window.HealthLib) HealthLib.render();
+  if(name==='directory') renderDirPane();
+  if(name==='reference') renderRefPane();
   if(name==='ccontacts') renderCallContacts();
   if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); }
-  if(name==='people') renderPeople();
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
   if(name==='today'){ renderToday(); $('title').textContent = todayView==='today' ? 'Today' : 'This week'; }
@@ -4349,18 +4348,18 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     browseScope = 'mine';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'mine'));
     $('abQ').value = '';
-    go('accounts');
+    showDir('acc');
   } else if(t==='people'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
-    $('peQ').value = ''; go('people');
+    $('peQ').value = ''; showDir('ppl');
   } else if(t==='reports'){
     $('rpQ').value = ''; go('reports');
   } else if(t==='manuals'){
     if(!window.Manuals){ toast('manuals.js did not load'); return; }
-    go('manuals');
+    showRef('man');
   } else if(t==='faults'){
     if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
-    go('faults');
+    showRef('flt');
   } else if(t==='plan'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
     if(!plan.mgr && $('cMgr').value) plan.mgr = $('cMgr').value;
@@ -4370,7 +4369,7 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     browseScope = 'due';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'due'));
     $('abQ').value = '';
-    go('accounts');
+    showDir('acc');
   } else if(t==='resume'){
     const all = await callsAll();
     const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
@@ -4385,6 +4384,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   else if(t==='note'){ $('nText').value=''; go('note'); }
   else if(t==='health'){ resetHealth(); go('health'); }
   else if(t==='settings'){ go('settings'); }
+  else if(t==='directory'){ showDir('acc'); }
+  else if(t==='reference'){ showRef('man'); }
 }));
 
 /* ---------- import wiring ---------- */
@@ -6982,5 +6983,46 @@ document.addEventListener('DOMContentLoaded', () => {
         'Missing numbers are marked in the invite.';
       cover.className = 'note' + (withP === 0 ? ' warn' : '');
     }
+  });
+});
+
+
+/* ---------- merged screens ----------
+   The panes are the original screens' own markup, so every render function
+   below writes into the elements it always did. Only which pane is visible
+   changes. */
+let dirPane = 'acc', refPane = 'man';
+
+function showDir(p){ dirPane = p || dirPane; go('directory'); renderDirPane(); }
+function showRef(p){ refPane = p || refPane; go('reference'); renderRefPane(); }
+
+function renderDirPane(){
+  const acc = dirPane === 'acc';
+  $('paneAcc').hidden = !acc;
+  $('panePpl').hidden = acc;
+  document.querySelectorAll('#dirTabs button').forEach(b =>
+    b.classList.toggle('on', b.dataset.pane === dirPane));
+  if(acc) renderBrowse(); else renderPeople();
+}
+function renderRefPane(){
+  const man = refPane === 'man';
+  $('paneMan').hidden = !man;
+  $('paneFlt').hidden = man;
+  document.querySelectorAll('#refTabs button').forEach(b =>
+    b.classList.toggle('on', b.dataset.pane === refPane));
+  if(man){ if(window.Manuals) Manuals.render().catch(e=>console.error('manuals', e)); }
+  else { if(window.HealthLib) HealthLib.render(); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const dt = $('dirTabs');
+  if(dt) dt.addEventListener('click', e => {
+    const b = e.target.closest('button[data-pane]');
+    if(b){ dirPane = b.dataset.pane; renderDirPane(); }
+  });
+  const rt = $('refTabs');
+  if(rt) rt.addEventListener('click', e => {
+    const b = e.target.closest('button[data-pane]');
+    if(b){ refPane = b.dataset.pane; renderRefPane(); }
   });
 });

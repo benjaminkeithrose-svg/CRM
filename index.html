@@ -702,6 +702,31 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 }
 
 
+/* ---- icon tiles ----
+   Six equal targets, icon over label, no count line. The subtitles were useful
+   while setting the app up and became noise once everything was loaded. */
+.tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:8px 0 0}
+.tiles button{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; min-height:96px; padding:14px 6px; cursor:pointer;
+  background:var(--surface); border:1px solid var(--edge); border-radius:var(--r);
+  box-shadow:var(--lift); color:var(--ink); font:inherit;
+  transition:box-shadow .12s, transform .12s;
+}
+.tiles button:active{background:var(--sunk); box-shadow:var(--lift-2); transform:translateY(1px)}
+.tiles b{font-size:12.5px; font-weight:600; text-align:center; line-height:1.2}
+/* Standards: icons take the accent colour or Dark Gray, never red. */
+.tw{
+  display:flex; align-items:center; justify-content:center;
+  width:44px; height:44px; border-radius:var(--r-sm);
+  background:var(--cyan-lt); color:var(--cyan-dk);
+}
+.ic{width:22px; height:22px; display:block}
+.ghost .ic{width:16px; height:16px; display:inline-block; vertical-align:-3px; margin-right:6px}
+.tabs{margin:0 0 12px}
+.tabs button{font-weight:600}
+@media (max-width:340px){ .tiles{grid-template-columns:repeat(2,1fr)} }
+
 /* ---- home layout ---- */
 .menu.two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
 /* A menu with a single tile should span the row rather than leave a hole
@@ -750,34 +775,18 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- HOME -->
 <section class="scr on" id="s-home">
-  <div class="menu">
-    <button data-go="newcall"><b>New call</b><span>Search account</span></button>
-    <button data-go="resume"><b>Resume call</b><span id="resumeInfo">None open</span></button>
-  </div>
-
-
-  <div class="menu one">
-    <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span><span id="dueInfo" class="duecount"></span></button>
-  </div>
-
-  <div class="menu two">
-    <button data-go="accounts"><b>Accounts</b><span id="acctInfo">Nothing loaded</span></button>
-    <button data-go="people"><b>Contacts</b><span id="peopleInfo">Nothing loaded</span></button>
-  </div>
-
-  <div class="menu two">
-    <button data-go="manuals"><b>Manuals</b><span id="manInfo">Nothing loaded</span></button>
-    <button data-go="faults"><b>Fault library</b><span id="flInfo">Conveyor health check</span></button>
-  </div>
-
-  <div class="menu one">
-    <button data-go="reports"><b>Reports</b><span id="reportsInfo">No calls yet</span></button>
-  </div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New call</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
+  <!-- The tiles no longer carry a count line. These keep the existing render
+       code working without a guard on every assignment. -->
+  <span hidden id="resumeInfo"></span><span hidden id="planInfo"></span>
+  <span hidden id="dueInfo"></span><span hidden id="acctInfo"></span>
+  <span hidden id="peopleInfo"></span><span hidden id="manInfo"></span>
+  <span hidden id="flInfo"></span><span hidden id="reportsInfo"></span>
 
   <div class="homefoot">
-    <button class="ghost" data-go="settings">Settings, data and backup</button>
+    <button class="ghost" data-go="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> Settings, data and backup</button>
     <p class="stat" id="bkHomeStat"></p>
     <div class="gap"></div>
     <p class="stat" id="upStat"></p>
@@ -990,19 +999,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 </section>
 
 <!-- CONTACTS AND ACCOUNTS -->
-<section class="scr" id="s-people">
-  <div class="fld">
-    <input type="search" id="peQ" placeholder="Name, account, role, email or number" autocomplete="off">
-    <p class="hint" id="peHint"></p>
-  </div>
-  <div class="seg" id="peView">
-    <button type="button" data-v="all" class="on">Everything</button>
-    <button type="button" data-v="people">People</button>
-    <button type="button" data-v="accounts">Accounts</button>
-  </div>
-  <div style="height:10px"></div>
-  <div id="peRes"></div>
-</section>
+
 
 <!-- REPORTS -->
 <section class="scr" id="s-reports">
@@ -1020,40 +1017,10 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 </section>
 
 <!-- MANUALS -->
-<section class="scr" id="s-manuals">
-  <div class="fld">
-    <label>Search</label>
-    <input type="search" id="mQ" placeholder="Series number, or any term" autocomplete="off">
-    <p class="hint" id="mHint"></p>
-  </div>
-  <div class="seg" id="mSeg">
-    <button type="button" data-seg="search" class="on">Search</button>
-    <button type="button" data-seg="browse">All series</button>
-  </div>
-  <p class="msg" id="mMsg"></p>
-  <div id="mBody"></div>
-  <div class="fld" id="mSelBar" style="display:none">
-    <p class="stat" id="mSelN"></p>
-    <button class="big" id="mShare">Share selected sections</button>
-    <button class="ghost" id="mClear">Clear selection</button>
-  </div>
-</section>
+
 
 <!-- ACCOUNT BROWSE -->
-<section class="scr" id="s-accounts">
-  <div class="fld">
-    <label>Search</label>
-    <input type="text" id="abQ" placeholder="Account or suburb" autocomplete="off">
-    <p class="hint" id="abHint"></p>
-  </div>
-  <div class="seg" id="abScope">
-    <button type="button" data-v="mine" class="on">Mine</button>
-    <button type="button" data-v="all">Everyone</button>
-    <button type="button" data-v="due">Due</button>
-  </div>
-  <div style="height:10px"></div>
-  <div class="res" id="abRes"></div>
-</section>
+
 
 <!-- ACCOUNT VIEW -->
 <section class="scr" id="s-acct">
@@ -1473,6 +1440,81 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <p class="hint">Share sends the HTML file to the Android share sheet &mdash; pick OneDrive, Outlook or Teams. Download saves it to this phone.</p>
 </section>
 
+
+<section class="scr" id="s-directory">
+  <div class="seg tabs" id="dirTabs">
+    <button type="button" data-pane="acc" class="on">Accounts</button>
+    <button type="button" data-pane="ppl">Contacts</button>
+  </div>
+  <div class="pane" id="paneAcc">
+  <div class="fld">
+    <label>Search</label>
+    <input type="text" id="abQ" placeholder="Account or suburb" autocomplete="off">
+    <p class="hint" id="abHint"></p>
+  </div>
+  <div class="seg" id="abScope">
+    <button type="button" data-v="mine" class="on">Mine</button>
+    <button type="button" data-v="all">Everyone</button>
+    <button type="button" data-v="due">Due</button>
+  </div>
+  <div style="height:10px"></div>
+  <div class="res" id="abRes"></div>
+</div>
+  <div class="pane" id="panePpl" hidden>
+  <div class="fld">
+    <input type="search" id="peQ" placeholder="Name, account, role, email or number" autocomplete="off">
+    <p class="hint" id="peHint"></p>
+  </div>
+  <div class="seg" id="peView">
+    <button type="button" data-v="all" class="on">Everything</button>
+    <button type="button" data-v="people">People</button>
+    <button type="button" data-v="accounts">Accounts</button>
+  </div>
+  <div style="height:10px"></div>
+  <div id="peRes"></div>
+</div>
+</section>
+
+<section class="scr" id="s-reference">
+  <div class="seg tabs" id="refTabs">
+    <button type="button" data-pane="man" class="on">Manuals</button>
+    <button type="button" data-pane="flt">Fault library</button>
+  </div>
+  <div class="pane" id="paneMan">
+  <div class="fld">
+    <label>Search</label>
+    <input type="search" id="mQ" placeholder="Series number, or any term" autocomplete="off">
+    <p class="hint" id="mHint"></p>
+  </div>
+  <div class="seg" id="mSeg">
+    <button type="button" data-seg="search" class="on">Search</button>
+    <button type="button" data-seg="browse">All series</button>
+  </div>
+  <p class="msg" id="mMsg"></p>
+  <div id="mBody"></div>
+  <div class="fld" id="mSelBar" style="display:none">
+    <p class="stat" id="mSelN"></p>
+    <button class="big" id="mShare">Share selected sections</button>
+    <button class="ghost" id="mClear">Clear selection</button>
+  </div>
+</div>
+  <div class="pane" id="paneFlt" hidden>
+  <div class="wrap">
+    <h1>Fault library</h1>
+    <p class="hint" id="flStat"></p>
+
+    <div class="fld">
+      <button type="button" class="ghost" id="flExport">Export library</button>
+      <button type="button" class="ghost" id="flImportBtn">Import library</button>
+      <input type="file" id="flImport" accept="application/json" hidden>
+    </div>
+    <div class="msg" id="flLibMsg"></div>
+
+    <div id="flList"></div>
+  </div>
+</div>
+</section>
+
 <section class="scr" id="s-ccontacts">
   <h2>People on this call</h2>
   <p class="hint">Tick who should appear on documents that go to the customer &mdash; the health check and belt requirement sheets. Everyone stays on the call either way, and the full call notes always list all of them.</p>
@@ -1498,21 +1540,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <button class="ghost backcall">Back to the call</button>
 </section>
 
-<section class="scr" id="s-faults">
-  <div class="wrap">
-    <h1>Fault library</h1>
-    <p class="hint" id="flStat"></p>
 
-    <div class="fld">
-      <button type="button" class="ghost" id="flExport">Export library</button>
-      <button type="button" class="ghost" id="flImportBtn">Import library</button>
-      <input type="file" id="flImport" accept="application/json" hidden>
-    </div>
-    <div class="msg" id="flLibMsg"></div>
-
-    <div id="flList"></div>
-  </div>
-</section>
 
 <div class="fl-overlay" id="flOverlay" hidden role="dialog" aria-modal="true"
      aria-labelledby="flTitle">
