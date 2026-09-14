@@ -56,7 +56,7 @@
      alone is invisible at this contrast and adjacent tiles merge into one
      another. A hairline in the cyan-grey family defines them without the
      weight of the old #CCCCCC outline. */
-  --edge:#C6D7E0;
+  --edge:#A6BDCB;
   --lift:0 1px 2px rgba(0,40,60,.06), 0 2px 6px rgba(0,40,60,.07);
   --lift-2:0 2px 4px rgba(0,40,60,.09), 0 6px 16px rgba(0,40,60,.09);
   font-synthesis-weight:none;
@@ -710,18 +710,12 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 .menu.two button{width:100%}
 .duecount{color:var(--orange-dk); font-weight:600}
 .duecount:empty{display:none}
-.opencalls{display:flex; flex-direction:column; gap:6px; margin:0 0 12px}
-.opencalls:empty{display:none}
-.opencalls button{
-  display:flex; align-items:center; gap:8px; width:100%; min-height:46px;
-  text-align:left; padding:10px 14px; border:1px solid var(--edge);
-  border-left:3px solid var(--cyan-md);
-  border-radius:var(--r); background:var(--surface); cursor:pointer;
-  box-shadow:var(--lift);
-}
-.opencalls .who{flex:1; font-weight:600; min-width:0;
+/* Open calls live behind the Resume tile now - the front page was getting
+   busy and the list only matters at the moment you are choosing one. */
+#openList button .who{flex:1; font-weight:600; min-width:0;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.opencalls .n{flex:none; font-size:12px; color:var(--ink-3)}
+#openList button{display:flex; align-items:center; gap:8px}
+#openList .n{flex:none; font-size:12px; color:var(--ink-3)}
 .homefoot{margin-top:22px; padding-top:14px; border-top:1px solid var(--line)}
 .homefoot .ghost{width:100%}
 .bkold{color:var(--red-dark); font-weight:600}
@@ -749,7 +743,6 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button data-go="resume"><b>Resume call</b><span id="resumeInfo">None open</span></button>
   </div>
 
-  <div id="openCalls" class="opencalls"></div>
 
   <div class="menu one">
     <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span><span id="dueInfo" class="duecount"></span></button>
@@ -1138,6 +1131,12 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div class="dlg-h"><b id="mvTitle"></b><div id="mvDlgSub"></div></div>
   <div class="dlg-b"><div class="res" id="mvDays"></div></div>
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="mvCancel" type="button">Cancel</button></div>
+</dialog>
+
+<dialog id="opendlg">
+  <div class="dlg-h"><b>Resume a call</b><div id="openSub"></div></div>
+  <div class="dlg-b"><div class="res" id="openList"></div></div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="openCancel" type="button">Cancel</button></div>
 </dialog>
 
 <dialog id="rdlg">

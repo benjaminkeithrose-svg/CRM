@@ -1175,7 +1175,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -4284,7 +4284,6 @@ async function renderHome(){
   renderHomeCounts();
   renderPeopleCount(); renderReportsCount().catch(()=>{});
   const done = all.sort((a,b)=>b.updated-a.updated).slice(0,8);
-  renderOpenCalls(open);
   renderBackupAge();
   /* Past calls moved to Reports, which lists the same calls with a search box
      and an All/Open/Finished filter. The block below is kept and guarded so the
@@ -4356,7 +4355,11 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     const all = await callsAll();
     const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
     if(!open.length){ toast('No open call'); return; }
-    call = open[0]; call.loose = call.loose || []; go('dash');
+    /* One open call is the common case and asking which would be noise. More
+       than one, and picking the most recent silently is how you end up writing
+       into the wrong plant. */
+    if(open.length === 1){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
+    showOpenPicker(open);
   } else if(t==='belt'){ resetBelt(); go('belt'); }
   else if(t==='project'){ resetProject(); go('project'); }
   else if(t==='note'){ $('nText').value=''; go('note'); }
@@ -6404,26 +6407,38 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-/* ---------- home: open calls ----------
-   The calls still open, straight on the front page. Resume takes you to the
-   most recent one; these take you to a specific one, which is the difference
-   that matters when three plants are half written up. */
-function renderOpenCalls(open){
-  const el = $('openCalls');
-  if(!el) return;
-  if(!open || !open.length){ el.innerHTML = ''; return; }
-  el.innerHTML = open.slice(0, 6).map(c =>
+/* ---------- resume picker ----------
+   Opened from the Resume tile when more than one call is still open. It used to
+   be a list of chips on the front page, which made the first thing you see busy
+   for something you need only at the moment of choosing. */
+function showOpenPicker(open){
+  const dlg = $('opendlg'), el = $('openList');
+  if(!dlg || !el){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
+  $('openSub').textContent = open.length + ' calls still open';
+  el.innerHTML = open.map(c =>
     '<button type="button" data-resume="' + esc(c.id) + '">' +
     '<span class="who">' + esc(c.customer) + (c.site ? ' - ' + esc(c.site) : '') + '</span>' +
     '<span class="n">' + (c.entries.length ? c.entries.length + ' entries' : 'nothing logged') +
     '</span></button>').join('');
   el.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', async () => {
     const all = await callsAll();
-    call = all.find(x => x.id === b.dataset.resume);
-    if(!call) { toast('That call is no longer here'); return; }
-    call.loose = call.loose || [];
+    const picked = all.find(x => x.id === b.dataset.resume);
+    closeOpenPicker();
+    if(!picked){ toast('That call is no longer here'); return; }
+    call = picked; call.loose = call.loose || [];
     go('dash');
   }));
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
+  pushDialog('opendlg');
+}
+/* Closed through history so the entry pushDialog added is consumed, exactly as
+   the appointment dialog does. Otherwise a back gesture after the dialog closes
+   eats a screen instead of the dialog. */
+function closeOpenPicker(){
+  const dlg = $('opendlg');
+  if(!dlg || !dlg.hasAttribute('open')) return;
+  if(history.state && history.state.dialog === 'opendlg'){ history.back(); return; }
+  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
 }
 
 /* Everything lives on one device and clearing site data takes the lot, so the
@@ -6640,4 +6655,10 @@ document.addEventListener('DOMContentLoaded', () => {
       showMsg($('ghCallStat'), 'warn', 'Call sync failed: ' + esc(e.message));
     } finally { b.disabled = false; }
   });
+});
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const c = $('openCancel');
+  if(c) c.addEventListener('click', closeOpenPicker);
 });
