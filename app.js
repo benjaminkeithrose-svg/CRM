@@ -867,7 +867,24 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Bumped with every release so a device can say which build it is running.
    Kept in step with the service worker cache name by hand - if these two ever
    disagree, the app is running files from a cache it did not expect. */
-const APP_BUILD = 'v51';
+const APP_BUILD = 'v53';
+/* Feather icons, inline. Same set as the home tiles - one place to change if
+   the icon language ever moves. */
+const ICONS = {
+  edit:   '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'+
+          '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>',
+  trash:  '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'+
+          '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
+  camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>'+
+          '<circle cx="12" cy="13" r="4"/>',
+  image:  '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>'+
+          '<path d="M21 15l-5-5L5 21"/>'
+};
+function icon(k){
+  return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    ICONS[k] + '</svg>';
+}
 const DEF_DUR = 25;
 const CAD = {'High':'P1 Quarterly','Medium':'P2 Half-yearly','Low':'P3 Yearly','No Focus':'P4 No cadence'};
 /* What the old export wrote, so accounts already loaded can be moved across
@@ -1199,7 +1216,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1662,8 +1679,8 @@ function renderChips(){
   pool.forEach(a => by[a.foc] = (by[a.foc]||0)+1);
   $('pChips').innerHTML = LEVELS.map(([lvl,cls])=>
     '<button type="button" class="chip '+cls+'" data-lvl="'+lvl+'" aria-pressed="'+
-    plan.focus.has(lvl)+'"'+(by[lvl]?'':' disabled')+'>'+lvl+
-    '<span class="n">'+(by[lvl]||0)+'</span></button>').join('');
+    plan.focus.has(lvl)+'"'+(by[lvl]?'':' disabled')+
+    ' title="'+(by[lvl]||0)+' accounts">'+lvl+'</button>').join('');
   $('pChips').querySelectorAll('[data-lvl]').forEach(b => b.addEventListener('click', ()=>{
     const l = b.dataset.lvl;
     if(plan.focus.has(l)) plan.focus.delete(l); else plan.focus.add(l);
@@ -4790,14 +4807,19 @@ function renderDash(){
     const gone = e.detached
       ? '<p class="meta"><span class="tag">'+e.detached.n+' photo'+(e.detached.n===1?'':'s')+
         ' sent '+new Date(e.detached.at).toLocaleDateString()+', dropped from this phone</span></p>' : '';
-    return '<div class="card"><div class="hd"><span class="t">'+esc(head)+'</span>'+
-      '<button data-edit="'+i+'">Edit</button>'+
-      '<button class="x" data-del="'+i+'">Remove</button></div>'+
+    /* One row of controls, in the same place on every card. Edit and Remove used
+       to sit on the title line - Edit as an unstyled default button - which put
+       two interactive things somewhere nothing else was interactive. */
+    return '<div class="card"><div class="hd"><span class="t">'+esc(head)+'</span></div>'+
       '<p class="meta">'+body+'</p>'+ gone +
       (th?'<div class="thumbs">'+th+'</div>':'')+
-      '<div class="cardbar"><button data-cam="'+i+'">Camera</button>'+
-      '<button data-gal="'+i+'">Photos</button>'+
-      '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span></div></div>';
+      '<div class="cardbar">'+
+      '<button data-cam="'+i+'" title="Take a photo" aria-label="Take a photo">'+icon('camera')+'</button>'+
+      '<button data-gal="'+i+'" title="Add from photos" aria-label="Add from photos">'+icon('image')+'</button>'+
+      '<button data-edit="'+i+'" title="Edit this entry" aria-label="Edit this entry">'+icon('edit')+'</button>'+
+      '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span>'+
+      '<button class="bin" data-del="'+i+'" title="Remove this entry" aria-label="Remove this entry">'+icon('trash')+'</button>'+
+      '</div></div>';
   }).join('');
   el.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
     if(!confirm('Remove this entry and its photos?')) return;
@@ -4867,8 +4889,9 @@ function renderLoose(){
   el.innerHTML = '<div class="card"><div class="hd"><span class="t">Not tied to an entry</span></div>'+
     '<p class="meta">These come out at the end of the notes, after the health check.</p>'+ gone +
     (th?'<div class="thumbs">'+th+'</div>':'')+
-    '<div class="cardbar"><button id="looseCam">Camera</button>'+
-    '<button id="looseGal">Photos</button>'+
+    '<div class="cardbar">'+
+    '<button id="looseCam" title="Take a photo" aria-label="Take a photo">'+icon('camera')+'</button>'+
+    '<button id="looseGal" title="Add from photos" aria-label="Add from photos">'+icon('image')+'</button>'+
     '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span></div></div>';
   $('looseCam').addEventListener('click', ()=>{ photoTarget='loose'; $('camInput').value=''; $('camInput').click(); });
   $('looseGal').addEventListener('click', ()=>{ photoTarget='loose'; $('galInput').value=''; $('galInput').click(); });
@@ -6058,7 +6081,7 @@ function renderDetach(){
   el.innerHTML = '<div class="card"><div class="hd"><span class="t">Photos still on this phone</span></div>'+
     '<p class="meta">These notes were shared '+new Date(call.shared).toLocaleString()+'. '+
     'The photos went with the file, and this phone is holding a second copy of '+humanSize(bytes)+'.</p>'+
-    '<div class="cardbar"><button id="detachBtn">Drop the photos, keep the record</button></div></div>';
+    '<div class="cardbar wide"><button id="detachBtn">Drop the photos, keep the record</button></div></div>';
   $('detachBtn').addEventListener('click', detachPhotos);
 }
 async function detachPhotos(){
@@ -7223,4 +7246,57 @@ document.addEventListener('DOMContentLoaded', () => {
       if(mine.length) el.textContent = 'Build ' + APP_BUILD + ' \u00b7 cache ' + mine.join(', ');
     }).catch(()=>{});
   }
+});
+
+
+/* ---------- plan menu ----------
+   Everything that is not navigation lives behind one button. The manager is set
+   once and other people's accounts are still reachable through the search box,
+   so it belongs here rather than taking a permanent slot in the rail.
+
+   The controls in here are proxies: each one clicks the original hidden button,
+   so none of the existing handlers had to move or be rewritten. */
+function openPlanMenu(){
+  const dlg = $('planmenu');
+  if(!dlg) return;
+  /* Mirror the manager select rather than moving it, so whatever populates the
+     original keeps working. */
+  const src = $('pMgr'), dst = $('pmMgr');
+  dst.innerHTML = src.innerHTML;
+  dst.value = src.value;
+  $('pmHint').textContent = $('calHint').textContent || '';
+  $('pmSub').textContent = $('zTitle').textContent || '';
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
+  pushDialog('planmenu');
+}
+function closePlanMenu(){
+  const dlg = $('planmenu');
+  if(!dlg || !dlg.hasAttribute('open')) return;
+  if(history.state && history.state.dialog === 'planmenu'){ history.back(); return; }
+  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const more = $('planMore');
+  if(more) more.addEventListener('click', openPlanMenu);
+  const close = $('pmClose');
+  if(close) close.addEventListener('click', closePlanMenu);
+
+  const mgr = $('pmMgr');
+  if(mgr) mgr.addEventListener('change', () => {
+    $('pMgr').value = mgr.value;
+    $('pMgr').dispatchEvent(new Event('change'));
+  });
+
+  /* Download leaves the menu open - it reports what it did and you often do the
+     other one straight after. The rest close, because they take you elsewhere. */
+  [['pmExport','pExport',false],['pmExportAll','pExportAll',false],
+   ['pmToday','pToday2',true],['pmReassign','pReassign',true]].forEach(([from,to,shut]) => {
+    const b = $(from);
+    if(b) b.addEventListener('click', () => {
+      if(shut) closePlanMenu();
+      $(to).click();
+      if(!shut) setTimeout(() => { $('pmHint').textContent = $('calHint').textContent || ''; }, 60);
+    });
+  });
 });
