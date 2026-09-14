@@ -867,7 +867,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Bumped with every release so a device can say which build it is running.
    Kept in step with the service worker cache name by hand - if these two ever
    disagree, the app is running files from a cache it did not expect. */
-const APP_BUILD = 'v53';
+const APP_BUILD = 'v54';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1998,6 +1998,20 @@ function apptEl(ap, pill){
   el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.stopPropagation(); openDialog(ap.id); } });
   return el;
 }
+/* Where in the column something was dropped, as a time. Returns null in month
+   view, where a cell is a whole day and a vertical position means nothing. */
+function dropTime(el, e){
+  const grid = el.querySelector('.dbody.hours');
+  if(!grid) return null;
+  const r = grid.getBoundingClientRect();
+  if(r.height <= 0) return null;
+  const mins = DAY_FROM * 60 + ((e.clientY - r.top) / PX_MIN);
+  /* Quarter hours, because a drop is a coarser gesture than a drag - nobody
+     aims for 13:05 with a dragged account. */
+  const q = Math.round(mins / 15) * 15;
+  return hhmm(Math.max(DAY_FROM * 60, Math.min(DAY_TO * 60 - DEF_DUR, q)));
+}
+
 function makeDrop(el, k){
   el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('over'); });
   el.addEventListener('dragleave', ()=>el.classList.remove('over'));
@@ -2006,10 +2020,18 @@ function makeDrop(el, k){
     let p; try { p = JSON.parse(e.dataTransfer.getData('text/plain')); } catch(_){ return; }
     if(p.kind === 'appt'){
       const ap = APPTS.find(x => x.id === p.id);
-      // moving it to another day is an edit, so it goes back to changed
-      if(ap && ap.date !== k){ ap.date = k; await saveAppt(ap); renderPlan(); }
+      const t = dropTime(el, e);
+      /* Dropping onto a time moves the time as well as the day, which is what
+         the gesture looks like it should do. */
+      const moved = ap && (ap.date !== k || (t && t !== ap.start));
+      if(moved){
+        ap.date = k;
+        if(t) ap.start = t;
+        await saveAppt(ap); renderPlan();
+      }
     } else if(p.kind === 'acct'){
-      openDialog(null, {acct:p.acct, date:k});
+      const t = dropTime(el, e);
+      openDialog(null, Object.assign({acct:p.acct, date:k}, t ? {start:t} : {}));
     }
   });
 }
