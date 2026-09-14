@@ -682,7 +682,8 @@ function renderAssetMatch(){
     applyAssetRecord(withData[+b.dataset.usea]);
   }));
 }
-function applyAssetRecord(r){
+function applyAssetRecord(r, opts){
+  opts = opts || {};
   const setVal = (id, v) => { const f = $(id); if(f && v) f.value = v; };
   const missed = [];
 
@@ -782,11 +783,65 @@ function applyAssetRecord(r){
         esc(missed.join(', ')) + '.';
     }
   }
+  if(opts.quiet){
+    showMsg($('bAssetHit'), missed.length ? 'warn' : '', missed.length ? why : '');
+    return;
+  }
   showMsg($('bAssetHit'), missed.length ? 'warn' : 'ok',
     missed.length ? 'Filled from the register. ' + why
                   : 'Filled from the register. Add the condition and photos.');
   toast('Filled from ' + r.no);
 }
+/* Reopening a logged belt reuses applyAssetRecord rather than duplicating it.
+   That function already solves the awkward parts - the series cascade, matching
+   a pitch diameter on millimetres and tooth count, falling back to the Other
+   box when a value is not in the catalogue - and a second copy would drift from
+   it the first time either is fixed. Entry field names are mapped onto the
+   register names it expects. */
+function fillBeltFromEntry(e){
+  $('bAsset').value = e.asset || '';
+  applyAssetRecord({
+    no: e.asset, series: e.series, style: e.style, material: e.beltmat,
+    colour: e.colour, rod: e.rodmat, cvlen: e.clength, frame: e.frame,
+    width: e.width, beltlen: e.beltlen, notch: e.cnotch, indent: e.findent,
+    sprbore: e.sprbore, sprpd: e.sprpd, sprmat: e.sprmat, sprdesc: e.sprocket,
+    sprpn: e.sprpn, sprdrive: e.sprdrive, spridle: e.spridle,
+    fltype: e.fstyle, flmat: e.flmat, flheight: e.fheight, flspacing: e.fspacing,
+    sgtype: e.sgtype, sgmat: e.sgmat, sgheight: e.sgheight, desc: e.beltdesc
+  }, {quiet:true});
+
+  /* Fields applyAssetRecord does not carry, because the register has no column
+     for them. */
+  $('bDesc').value = e.beltdesc || '';
+  $('bQc').value = e.qcontact || '';
+  bRetroVal = e.retrofit || '';
+  document.querySelectorAll('#bRetro button').forEach(x =>
+    x.classList.toggle('on', !!bRetroVal && x.dataset.v === bRetroVal));
+
+  const hasSpr = !!(e.sprbore || e.sprpd || e.sprocket);
+  $('bSkipSpr').checked = !hasSpr;
+  $('bSprBody').classList.toggle('hide', !hasSpr);
+  $('bSprSpacers').checked = !!e.sprspacers;
+  $('bSprHdRet').checked = !!e.sprhdret;
+  try { updateSprExtras(); } catch(err){}
+  if(e.sprvar && !$('bSprVarWrap').classList.contains('hide')) $('bSprVar').value = e.sprvar;
+
+  const hasAcc = !!(e.fstyle || e.flmat || e.fheight || e.sgtype || e.sgmat);
+  $('bSkipAcc').checked = !hasAcc;
+  $('bAccBody').classList.toggle('hide', !hasAcc);
+  $('bFlRows').value = e.frows || '';
+
+  /* The description and part number are derived by the sprocket pickers, so they
+     are written last and flagged as touched - otherwise the next change to an
+     adjacent field silently overwrites what was logged. */
+  if(e.sprocket){ $('bSprDesc').value = e.sprocket; sprDescTouched = true; $('bSprDescAuto').classList.add('off'); }
+  if(e.sprpn){ $('bSprPn').value = e.sprpn; sprPnTouched = true; $('bSprPnAuto').classList.add('off'); }
+  if(e.sprdrive){ $('bSprDrive').value = e.sprdrive; sprDriveTouched = true; $('bSprDrvAuto').classList.add('off'); }
+  if(e.spridle){ $('bSprIdle').value = e.spridle; sprIdleTouched = true; $('bSprIdlAuto').classList.add('off'); }
+  if(e.beltlen){ $('bLen').value = e.beltlen; lenTouched = true; $('bLenAuto').classList.add('off'); }
+  if(e.flmat){ $('bFlMat').value = e.flmat; flMatTouched = true; $('bFlMatAuto').classList.add('off'); }
+}
+
 // selects are matched case- and punctuation-insensitively, because the register
 // and the reference workbook are maintained by different hands
 function setSelLoose(id, v){
@@ -4513,6 +4568,7 @@ function renderDash(){
       ? '<p class="meta"><span class="tag">'+e.detached.n+' photo'+(e.detached.n===1?'':'s')+
         ' sent '+new Date(e.detached.at).toLocaleDateString()+', dropped from this phone</span></p>' : '';
     return '<div class="card"><div class="hd"><span class="t">'+esc(head)+'</span>'+
+      '<button data-edit="'+i+'">Edit</button>'+
       '<button class="x" data-del="'+i+'">Remove</button></div>'+
       '<p class="meta">'+body+'</p>'+ gone +
       (th?'<div class="thumbs">'+th+'</div>':'')+
@@ -4524,6 +4580,45 @@ function renderDash(){
     if(!confirm('Remove this entry and its photos?')) return;
     (call.entries[+b.dataset.del].photos||[]).forEach(releasePhoto);
     call.entries.splice(+b.dataset.del,1); await saveCall(); renderDash();
+  }));
+  el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>{
+    const i = +b.dataset.edit, e = call.entries[i];
+    if(!e) return;
+    editingIdx = i;
+    if(e.type==='belt'){
+      resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
+      fillBeltFromEntry(e);
+      go('belt');
+    } else if(e.type==='note'){
+      $('nTopic').value = e.topic || ''; $('nText').value = e.text || '';
+      $('nErr').classList.remove('show');
+      go('note');
+    } else if(e.type==='health'){
+      resetHealth(); editingIdx = i;
+      $('hAsset').value = e.asset || ''; $('hFault').value = e.fault || '';
+      $('hAction').value = e.action || '';
+      const opt = Array.from($('hType').options).find(o => o.value === e.htype);
+      if(!opt && e.htype){ const o=document.createElement('option'); o.value=o.textContent=e.htype; $('hType').appendChild(o); }
+      if(e.htype) $('hType').value = e.htype;
+      hSevVal = e.severity || '';
+      document.querySelectorAll('#hSev button').forEach(x=>x.classList.toggle('on', x.dataset.v===hSevVal));
+      /* The fault library fields ride along untouched, so editing the wording
+         does not strip the priority, risks or the link to the belt entry. */
+      healthExtra = {};
+      ['faultId','faultCode','libVersion','category','conditions','what','leads',
+       'priority','thresholds','source','owner','due','refImages','beltRef','beltSeries',
+       'risks','benefit'].forEach(k => { if(e[k] !== undefined) healthExtra[k] = e[k]; });
+      go('health');
+    } else if(e.type==='project'){
+      $('pName').value = e.project || ''; $('pStat').value = e.status || '';
+      $('pNext').value = e.next || ''; $('pTarg').value = e.target || '';
+      $('pOwner').value = e.owner || ''; $('pNotes').value = e.notes || '';
+      editingProject = {key: projKey(e.project), inThisCall: true, fromStatus: e.fromStatus || ''};
+      editingIdx = null;                // project replaces through its own path
+      $('pErr').classList.remove('show');
+      go('project');
+    }
+    toast('Editing - save to update');
   }));
   el.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click', ()=>{
     photoTarget = +b.dataset.cam; $('camInput').value=''; $('camInput').click();
@@ -5126,6 +5221,34 @@ $('bCopy').addEventListener('change', () => {
 });
 
 /* ---------- reset and save ---------- */
+/* ---------- editing a logged entry ----------
+   Entries used to be push-only: a typo in a belt spec meant deleting the entry
+   and re-keying 38 fields. editingIdx holds the position in call.entries being
+   edited, or null when adding. Save branches on it.
+
+   Usage counters are deliberately NOT bumped on an edit. They rank the pickers
+   by what gets used most, and re-saving one belt three times while correcting
+   it would tell the ranking that belt is three times as common as it is. */
+let editingIdx = null;
+
+function clearEditing(){ editingIdx = null; }
+
+/* Commits the form to call.entries and returns the index, without leaving the
+   screen. Used by save, and by the fault button so a belt never has to be
+   saved by hand first. */
+function commitEntry(entry, keepPhotos){
+  if(editingIdx != null && call.entries[editingIdx]){
+    const prev = call.entries[editingIdx];
+    if(keepPhotos !== false) entry.photos = prev.photos || [];
+    if(prev.detached) entry.detached = prev.detached;
+    call.entries[editingIdx] = entry;
+    return editingIdx;
+  }
+  call.entries.push(entry);
+  editingIdx = call.entries.length - 1;
+  return editingIdx;
+}
+
 function resetBelt(){
   try { showMsg($('bAssetHit'), '', ''); } catch(e){}
   ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn','bSprDrive','bSprIdle',
@@ -5145,6 +5268,7 @@ function resetBelt(){
   $('bSprSpacers').checked = false; $('bSprHdRet').checked = false; updateSprExtras();
   $('bSkipAcc').checked = true;  $('bAccBody').classList.add('hide');
   $('bFlType').value = ''; $('bFlMat').value = ''; $('bSgType').value = ''; $('bSgMat').value = '';
+  clearEditing();
   $('bErr').classList.remove('show');
   $('bFrame').classList.remove('alert'); $('bWidth').classList.remove('alert');
   showMsg($('bWidthMsg'), '', ''); showMsg($('bFrameMsg'), '', '');
@@ -5153,7 +5277,12 @@ function resetBelt(){
   refreshBeltCopy();
 }
 
+/* Set by the fault button so the belt is committed without the toast and the
+   jump to the dashboard. Read into a local immediately, because the handler
+   awaits and the flag would otherwise be cleared before it is used. */
+let beltSaveSilent = false;
 $('bSave').addEventListener('click', async () => {
+  const silent = beltSaveSilent; beltSaveSilent = false;
   const a = $('bAsset').value.trim();
   if(!a){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
   const skipSpr = $('bSkipSpr').checked, skipAcc = $('bSkipAcc').checked;
@@ -5189,9 +5318,10 @@ $('bSave').addEventListener('click', async () => {
     sgheight:skipAcc ? '' : v('bSgHeight'),
     qcontact:v('bQc'), photos:[]
   };
-  call.entries.push(e);
-  beltJustSaved = call.entries.length - 1;   // index for the health entry's beltRef
+  const wasEdit = editingIdx != null;
+  beltJustSaved = commitEntry(e);
   const ctxS = e.series, ctxT = e.series+'|'+e.style, ctxM = ctxT+'|'+e.beltmat;
+  if(!wasEdit){
   bump('series', '', e.series);
   bump('style', ctxS, e.style);
   bump('material', ctxT, e.beltmat);
@@ -5207,8 +5337,12 @@ $('bSave').addEventListener('click', async () => {
     bump('sgtype', '', e.sgtype);   bump('sgmat', '', e.sgmat);
     bump('indent', ctxT, e.findent);
   }
-  await Promise.all([saveCall(), saveUse()]);
-  toast('Belt '+a+' logged - add a photo if you want one');
+  }
+  /* Ranking is what the pickers sort by, so an edit must not vote again. */
+  await Promise.all([saveCall(), wasEdit ? Promise.resolve() : saveUse()]);
+  clearEditing();
+  if(silent) return;
+  toast(wasEdit ? ('Belt '+a+' updated') : ('Belt '+a+' logged - add a photo if you want one'));
   go('dash');
 });
 
@@ -5321,8 +5455,10 @@ $('pSave').addEventListener('click', async ()=>{
 $('nSave').addEventListener('click', async ()=>{
   const t = $('nText').value.trim();
   if(!t){ $('nErr').classList.add('show'); $('nText').focus(); return; }
-  call.entries.push({type:'note', topic:$('nTopic').value, text:t, photos:[]});
-  await saveCall(); toast('Note logged'); go('dash');
+  const wasEdit = editingIdx != null;
+  commitEntry({type:'note', topic:$('nTopic').value, text:t, photos:[]});
+  clearEditing();
+  await saveCall(); toast(wasEdit ? 'Note updated' : 'Note logged'); go('dash');
 });
 
 /* ---------- entry: health ---------- */
@@ -5427,7 +5563,8 @@ $('hGal').addEventListener('click', ()=>{ $('hGalIn').value=''; $('hGalIn').clic
 $('hCamIn').addEventListener('change', e => addHealthShots([...e.target.files]));
 $('hGalIn').addEventListener('change', e => addHealthShots([...e.target.files]));
 
-function resetHealth(){ ['hAsset','hFault','hAction'].forEach(i=>$(i).value=''); hSevVal='';
+function resetHealth(){ clearEditing(); healthExtra = null;
+  ['hAsset','hFault','hAction'].forEach(i=>$(i).value=''); hSevVal='';
   document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
   $('hErr').classList.remove('show'); $('hSevErr').classList.remove('show');
   healthShots.forEach(releasePhoto); healthShots = []; renderHealthShots();
@@ -5450,14 +5587,21 @@ $('hSave').addEventListener('click', async ()=>{
   }
   /* Library fields first, form fields second, so a hand-typed edit always wins
      over a stale library value. */
-  call.entries.push(Object.assign({}, healthExtra || {}, {
+  const wasEdit = editingIdx != null;
+  /* On an edit the photos already on the entry are kept and anything newly shot
+     is added, rather than the form's list replacing what is stored. */
+  const kept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
+  commitEntry(Object.assign({}, (wasEdit ? call.entries[editingIdx] : null) || {}, healthExtra || {}, {
     type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
-    severity:hSevVal, action:$('hAction').value.trim(), photos:healthShots.slice()}));
+    severity:hSevVal, action:$('hAction').value.trim(),
+    photos: kept.concat(healthShots)}), false);
   healthExtra = null;
   const n = healthShots.length;
   healthShots = [];
+  clearEditing();
   await saveCall();
-  toast(n ? ('Fault logged with '+n+' photo'+(n===1?'':'s')) : 'Fault logged');
+  toast(wasEdit ? 'Fault updated'
+                : (n ? ('Fault logged with '+n+' photo'+(n===1?'':'s')) : 'Fault logged'));
   go('dash');
 });
 
@@ -6133,9 +6277,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const bf = $('bFault');
   if(bf) bf.addEventListener('click', () => {
     if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
-    const idx = beltJustSaved;
-    const belt = (idx != null && call && call.entries) ? call.entries[idx] : null;
-    if(!belt){ toast('Save the belt first'); return; }
+    /* Commit whatever is on the form first. A belt logged against a fault is
+       often barely filled in - asset and series and little else - and the detail
+       and photos get added later, so demanding a completed save first was wrong.
+       Only the asset is required, because the fault needs something to hang on. */
+    const asset = $('bAsset').value.trim();
+    if(!asset){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
+    let idx = beltJustSaved, belt = (idx != null && call && call.entries) ? call.entries[idx] : null;
+    if(!belt || belt.asset !== asset){
+      beltSaveSilent = true;
+      $('bSave').click();   // commitEntry runs before the first await, so the index is set
+      idx = beltJustSaved;
+      belt = call.entries[idx];
+    }
+    if(!belt){ toast('Could not save the belt'); return; }
     go('health');
     $('hAsset').value = belt.asset || '';
     HealthLib.openFor(belt, idx, e => {
