@@ -515,16 +515,23 @@ body.planning{padding-bottom:0}
 .gut{padding-top:30px}          /* clears the day header */
 .gh{font-size:10.5px;color:var(--ink-3);text-align:right;padding-right:6px;
   line-height:1;position:relative;top:-5px}
-.dbody.hours{display:block;position:relative;padding:0;overflow:hidden}
+/* flex:none matters. .dbody carries flex:1, which means flex-basis:0, and in a
+   column flex parent that beats the explicit height - the body collapses to
+   nothing and overflow:hidden clips every appointment out of sight. */
+.dbody.hours{display:block;position:relative;padding:0;overflow:hidden;flex:none}
 .hl{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--line-2)}
 .dbody.hours .appt{position:absolute;left:4px;right:4px;margin:0;overflow:hidden;
   touch-action:none;cursor:grab;font-size:11px;padding:3px 5px}
 .dbody.hours .appt.dragging{cursor:grabbing;z-index:5;box-shadow:var(--lift-2);opacity:.94}
+/* Too short to fit three lines, so show the one that matters. */
+.dbody.hours .appt.tiny{display:flex;align-items:center;padding:0 5px}
+.dbody.hours .appt.tiny .t,.dbody.hours .appt.tiny .k{display:none}
+.dbody.hours .appt.tiny .a{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Outside business hours, clamped to the edge and marked rather than hidden. */
 .dbody.hours .appt.oob{border-right:3px solid var(--orange)}
 .day .add{margin:6px}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  display:flex;flex-direction:column}
+  display:flex;flex-direction:column;min-height:190px}
 .day.over{border-color:var(--cyan-dk);box-shadow:inset 0 0 0 1px var(--cyan-dk)}
 .day.today .dh{background:var(--cyan-lt)}
 .dh{padding:5px 9px;border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;

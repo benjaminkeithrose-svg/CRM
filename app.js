@@ -1880,6 +1880,12 @@ function renderCalendar(){
         const out = start < DAY_FROM * 60 || start >= DAY_TO * 60;
         el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(ap))) + 'px';
         el.style.height = Math.max(18, ap.dur * PX_MIN) + 'px';
+        /* A 25 minute call is 20px tall, and the card wants about 40 for its
+           three lines. Rather than stretch the box and lie about the duration,
+           short calls drop to a single line - the account name, which is the
+           part you are scanning for. The time is in the tooltip and on the
+           card once it is opened. */
+        if(ap.dur * PX_MIN < 36) el.classList.add('tiny');
         if(out) el.classList.add('oob');
         el.title = (el.title || '') + (out ? '\nOutside 7am-5pm, shown at the edge' : '');
         makeDraggableAppt(el, ap);
