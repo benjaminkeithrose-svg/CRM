@@ -15,9 +15,12 @@
   --ink:#222222;            /* $ox-text-color                        */
   --ink-2:#4D4D4F;          /* Dark Gray, Pantone 433                */
   --ink-3:#77787A;
-  --ground:#E8EAEB;         /* Light Gray, Pantone Cool Gray 1       */
+  /* The ground was Light Gray, which put grey cards on a grey page. A wash
+     pulled from the cyan family gives the white surfaces something to sit on
+     without leaving the light layout - still ~75% white overall. */
+  --ground:#F1F6F8;
   --surface:#FFFFFF;
-  --sunk:#F7F8F8;           /* $ox-input-background                  */
+  --sunk:#F5F8FA;           /* $ox-input-background                  */
   --line:#CCCCCC;           /* $border-color                         */
   --line-2:#E3E3E3;         /* $ox-input-border-color                */
 
@@ -42,7 +45,15 @@
      the orange and cyan families rather than a traffic light. */
   --high:#ED1C24; --med:#E36C00; --low:#00708D; --none:#8A8C8E;
 
-  --r:3px;
+  /* One radius for everything is what read as boxy. Three, by role: surfaces,
+     controls, and chips. */
+  --r:12px;                 /* cards, fields, menu tiles             */
+  --r-sm:8px;               /* inputs, small buttons                 */
+  --r-pill:999px;
+  /* Soft, low-contrast, cyan-tinted rather than black - a grey shadow on a
+     tinted ground goes muddy. */
+  --lift:0 1px 2px rgba(0,40,60,.05), 0 2px 8px rgba(0,40,60,.05);
+  --lift-2:0 1px 3px rgba(0,40,60,.07), 0 4px 14px rgba(0,40,60,.06);
   font-synthesis-weight:none;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -64,7 +75,7 @@ button,input,select,textarea{font:inherit;color:inherit}
    per Brand Guidelines p7. First instance. */
 header{
   position:sticky; top:0; z-index:20; background:var(--surface);
-  border-bottom:1px solid var(--line); display:flex; align-items:stretch;
+  border-bottom:1px solid var(--line-2); box-shadow:var(--lift); display:flex; align-items:stretch;
   min-height:54px; padding-right:12px;
 }
 header .redbox{
@@ -78,7 +89,10 @@ header .sub{font-size:11px;color:var(--ink-3);margin-top:1px;white-space:nowrap;
 .back{background:none;border:0;color:var(--ink-2);font-size:26px;padding:0 6px 0 10px;cursor:pointer;line-height:1;flex:none;align-self:center}
 
 /* ---------- type ---------- */
-h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--ink-2);margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line-2)}
+/* The rule under every heading was doing the same job as the gap above it.
+   Dropping it and letting the space group things is most of the declutter. */
+h2{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;
+  color:var(--ink-3);margin:28px 0 10px;padding-bottom:0}
 label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .hint{font-size:11.5px;color:var(--ink-3);margin:6px 0;line-height:1.5}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
@@ -87,21 +101,25 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 
 /* ---------- inputs ---------- */
 input,select,textarea{
-  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  padding:9px 8px;color:var(--ink);font-size:16px;
+  width:100%;background:var(--sunk);border:1px solid var(--line-2);border-radius:var(--r-sm);
+  padding:11px 12px;color:var(--ink);font-size:16px;
+  transition:border-color .12s, background .12s;
 }
 input::placeholder,textarea::placeholder{color:var(--ink-3)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--cyan-dk)}
+input:focus,select:focus,textarea:focus{outline:none;background:var(--surface);
+  border-color:var(--cyan-dk);box-shadow:0 0 0 3px var(--cyan-lt)}
 input:disabled{color:var(--ink-3);background:var(--sunk);border-color:var(--line-2)}
 textarea{min-height:88px;resize:vertical}
-.fld{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:11px;margin-bottom:9px}
+.fld{background:var(--surface);border:1px solid transparent;border-radius:var(--r);
+  padding:14px;margin-bottom:14px;box-shadow:var(--lift)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .na{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);margin-top:6px}
 .na input{width:17px;height:17px;accent-color:var(--cyan-dk)}
 
 /* ---------- segmented control ---------- */
-.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.seg button{flex:1;background:var(--surface);border:0;border-left:1px solid var(--line);padding:10px 6px;color:var(--ink-2);cursor:pointer}
+.seg{display:flex;border:1px solid var(--line-2);border-radius:var(--r-sm);
+  overflow:hidden;background:var(--sunk)}
+.seg button{flex:1;background:transparent;border:0;border-left:1px solid var(--line-2);padding:11px 6px;color:var(--ink-2);cursor:pointer}
 .seg button:first-child{border-left:0}
 .seg button.on{background:var(--ink-2);color:#fff;font-weight:700}
 
@@ -110,28 +128,30 @@ textarea{min-height:88px;resize:vertical}
    Log used #00287B and kept red off buttons entirely; that is the one visual
    rule this app deliberately reverses, and it is applied everywhere. */
 button.big{
-  width:100%;padding:13px 0;border:1px solid var(--red);border-radius:var(--r);
-  background:var(--red);color:#fff;font-size:15px;font-weight:700;margin-top:6px;cursor:pointer;
+  width:100%;padding:15px 0;border:1px solid var(--red);border-radius:var(--r-sm);
+  background:var(--red);color:#fff;font-size:15px;font-weight:700;margin-top:8px;cursor:pointer;
+  box-shadow:var(--lift);
 }
 button.big:active{background:var(--red-dark);border-color:var(--red-dark)}
 button.ghost{
-  width:100%;padding:11px 0;border:1px solid var(--line);border-radius:var(--r);
+  width:100%;padding:13px 0;border:1px solid var(--line);border-radius:var(--r-sm);
   background:var(--surface);color:var(--ink);font-size:14px;font-weight:700;margin-top:8px;cursor:pointer;
 }
 button.ghost:active{border-color:var(--ink-2)}
-.menu{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
 .menu button{
-  padding:15px 11px;border:1px solid var(--line);border-left:3px solid var(--cyan);
-  border-radius:0 var(--r) var(--r) 0;background:var(--surface);color:var(--ink);
+  padding:16px 14px;border:1px solid transparent;border-left:3px solid var(--cyan);
+  border-radius:var(--r);background:var(--surface);color:var(--ink);
   font-size:13px;text-align:left;line-height:1.35;cursor:pointer;
+  box-shadow:var(--lift);transition:box-shadow .12s,transform .12s;
 }
-.menu button:active{background:var(--sunk)}
+.menu button:active{background:var(--sunk);box-shadow:var(--lift-2);transform:translateY(1px)}
 .menu button b{display:block;font-size:14px;margin-bottom:2px;font-weight:700}
 .menu button span{font-size:11px;color:var(--ink-3)}
 .res button{
-  width:100%;text-align:left;padding:10px 11px;background:var(--surface);
-  border:1px solid var(--line-2);border-radius:var(--r);color:var(--ink);
-  font-size:13.5px;margin-bottom:6px;line-height:1.35;cursor:pointer;
+  width:100%;text-align:left;padding:12px 13px;background:var(--surface);
+  border:1px solid transparent;border-radius:var(--r-sm);color:var(--ink);
+  font-size:13.5px;margin-bottom:7px;line-height:1.35;cursor:pointer;box-shadow:var(--lift);
 }
 .res button:active{background:var(--sunk)}
 .res button .mt{font-size:11px;color:var(--ink-3);margin-top:2px;line-height:1.35}
@@ -303,9 +323,11 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .pick .mt{font-size:11.5px;color:var(--ink-3);margin-top:2px;word-break:break-word;line-height:1.4}
 
 /* ---------- cards ---------- */
+/* The cyan edge is the app's signature and stays. It now follows the corner
+   radius instead of squaring off the left side. */
 .card{
-  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan);
-  border-radius:0 var(--r) var(--r) 0;padding:11px;margin-bottom:9px;
+  background:var(--surface);border:1px solid transparent;border-left:3px solid var(--cyan);
+  border-radius:var(--r);padding:13px 14px;margin-bottom:10px;box-shadow:var(--lift);
 }
 .card .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
 .card .t{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase}
@@ -317,7 +339,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .thumbs img{width:66px;height:66px;object-fit:cover;border-radius:var(--r);border:1px solid var(--line)}
 .cardbar{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-2)}
-.cardbar button{padding:7px 11px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
+.cardbar button{padding:8px 13px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
 .cardbar button:active{border-color:var(--ink-2)}
 .cardbar .phc{margin-left:auto;font-size:11px;color:var(--ink-3)}
 .tag{
@@ -341,7 +363,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   padding:9px 12px calc(9px + max(18px, env(safe-area-inset-bottom)));
   display:flex;gap:8px;z-index:30;
 }
-.bar button{flex:1;padding:11px 2px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
+.bar button{flex:1;padding:12px 2px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
 .bar button.pri{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
 .bar button.pri:active{background:var(--red-dark);border-color:var(--red-dark)}
 
@@ -382,7 +404,7 @@ body.planning{padding-bottom:0}
 .scope button{margin-left:auto;background:none;border:0;color:var(--cyan-dk);text-decoration:underline;
   cursor:pointer;font-size:11px;padding:0}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
-.chip{border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:2px 9px;
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-pill);padding:3px 11px;
   font-size:11.5px;cursor:pointer;display:flex;gap:5px;align-items:center}
 .chip .n{color:var(--ink-3);font-variant-numeric:tabular-nums}
 .chip[aria-pressed=true]{background:var(--sunk);border-color:currentColor}
@@ -594,7 +616,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 /* ---- detail ---- */
 .fl-tech{margin-bottom:12px}
-.fl-thresh{background:var(--cyan-lt); border:1px solid var(--cyan-md)}
+.fl-thresh{background:var(--cyan-lt); border:1px solid var(--cyan-md); border-radius:var(--r)}
 .fl-thresh ul{margin:6px 0 0; padding-left:18px}
 .fl-thresh li{margin:2px 0}
 .fl-causes{background:var(--sunk)}
@@ -676,15 +698,20 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 /* ---- home layout ---- */
 .menu.two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+/* A menu with a single tile should span the row rather than leave a hole
+   where its neighbour would be. */
+.menu.one{grid-template-columns:1fr}
 .menu.two button{width:100%}
 .duecount{color:var(--orange-dk); font-weight:600}
 .duecount:empty{display:none}
 .opencalls{display:flex; flex-direction:column; gap:6px; margin:0 0 12px}
 .opencalls:empty{display:none}
 .opencalls button{
-  display:flex; align-items:center; gap:8px; width:100%; min-height:44px;
-  text-align:left; padding:8px 12px; border:1px solid var(--line-2);
+  display:flex; align-items:center; gap:8px; width:100%; min-height:46px;
+  text-align:left; padding:10px 14px; border:1px solid transparent;
+  border-left:3px solid var(--cyan-md);
   border-radius:var(--r); background:var(--surface); cursor:pointer;
+  box-shadow:var(--lift);
 }
 .opencalls .who{flex:1; font-weight:600; min-width:0;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -692,7 +719,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 .homefoot{margin-top:22px; padding-top:14px; border-top:1px solid var(--line)}
 .homefoot .ghost{width:100%}
 .bkold{color:var(--red-dark); font-weight:600}
-@media (max-width:380px){ .menu.two{grid-template-columns:1fr} }
+@media (max-width:340px){ .menu.two{grid-template-columns:1fr} }
 
 </style>
 </head>
@@ -718,7 +745,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
   <div id="openCalls" class="opencalls"></div>
 
-  <div class="menu">
+  <div class="menu one">
     <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span><span id="dueInfo" class="duecount"></span></button>
   </div>
 
@@ -732,7 +759,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button data-go="faults"><b>Fault library</b><span id="flInfo">Conveyor health check</span></button>
   </div>
 
-  <div class="menu">
+  <div class="menu one">
     <button data-go="reports"><b>Reports</b><span id="reportsInfo">No calls yet</span></button>
   </div>
 
