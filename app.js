@@ -5921,6 +5921,11 @@ async function buildNotesHTML(scope){
     'th{background:#E3F0F5;text-align:left;padding:6px 8px;border:1px solid #ACD3E1;font-weight:bold;color:#222222}'+
     'td{padding:6px 8px;border:1px solid #CCCCCC;vertical-align:top}'+
     'td.l{background:#F7F8F8;width:38%;font-weight:bold}.flag{color:#B2232F;font-weight:bold}'+
+    /* Belt specs run two fields to a row. A belt logged quickly on site fills
+       about five of twelve fields, and one field per row turned that into a
+       column of dashes taller than the information in it. Nothing is dropped -
+       an empty field still reads as "looked at, nothing there". */
+    'table.two td{padding:5px 8px}table.two td.l{width:22%;white-space:nowrap}'+
     '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
     '.blk{page-break-inside:avoid}.ph{margin:6px 0 14px}.ph img{max-width:420px;border:1px solid #CCCCCC;margin:0 8px 8px 0}'+
     '.ft{background:#363738;color:#FFFFFF;font-size:8.5pt;letter-spacing:.02em;padding:7px 18px;margin:26px 0 0}'+
@@ -5990,13 +5995,21 @@ async function buildNotesHTML(scope){
     p.push('<h2>Belts to quote</h2>');
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
-      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table>');
-      [['Belt description',b.beltdesc],['Belt width (mm)',b.width],['Belt material',b.beltmat],
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
+      const bf = [['Belt description',b.beltdesc],['Belt width (mm)',b.width],['Belt material',b.beltmat],
        ['Rod material',b.rodmat],['Retrofit',b.retrofit],['Centre line length (m)',b.clength],
        ['Sprocket details',b.sprocket],['Flight spacing',b.fspacing],['Flight indent',b.findent],
-       ['Centre notch',b.cnotch],['Flight height',b.fheight],['Flight style',b.fstyle]]
-        .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
-      if(b.qcontact && scope === 'full') p.push('<tr><td class="l">Quote contact</td><td>'+V(b.qcontact)+'</td></tr>');
+       ['Centre notch',b.cnotch],['Flight height',b.fheight],['Flight style',b.fstyle]];
+      if(b.qcontact && scope === 'full') bf.push(['Quote contact',b.qcontact]);
+      for(let k=0;k<bf.length;k+=2){
+        p.push('<tr>');
+        p.push('<td class="l">'+bf[k][0]+'</td><td>'+V(bf[k][1])+'</td>');
+        /* An odd count leaves a hole rather than a stretched last cell, so the
+           column edges stay aligned down the whole table. */
+        p.push(bf[k+1] ? '<td class="l">'+bf[k+1][0]+'</td><td>'+V(bf[k+1][1])+'</td>'
+                       : '<td class="l"></td><td></td>');
+        p.push('</tr>');
+      }
       p.push('</table>');
       if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos))+'</div>');
       else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
