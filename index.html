@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ED1C24">
-<!-- Must match BUILD in app.js and CACHE in sw.js. All three are uploaded
-     together; the app checks they agree and says so on the home screen. -->
-<meta name="build" content="v28">
+<!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
+     version of its own, which is why uploading it and not the others - or the
+     others and not it - could not be detected. -->
+<meta name="build" content="v54">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -18,9 +19,12 @@
   --ink:#222222;            /* $ox-text-color                        */
   --ink-2:#4D4D4F;          /* Dark Gray, Pantone 433                */
   --ink-3:#77787A;
-  --ground:#E8EAEB;         /* Light Gray, Pantone Cool Gray 1       */
+  /* The ground was Light Gray, which put grey cards on a grey page. A wash
+     pulled from the cyan family gives the white surfaces something to sit on
+     without leaving the light layout - still ~75% white overall. */
+  --ground:#E1EAF0;
   --surface:#FFFFFF;
-  --sunk:#F7F8F8;           /* $ox-input-background                  */
+  --sunk:#F2F7FA;           /* $ox-input-background                  */
   --line:#CCCCCC;           /* $border-color                         */
   --line-2:#E3E3E3;         /* $ox-input-border-color                */
 
@@ -43,9 +47,33 @@
 
   /* Account focus. High reads in Intralox red; the rest step down through
      the orange and cyan families rather than a traffic light. */
-  --high:#ED1C24; --med:#E36C00; --low:#00708D; --none:#8A8C8E;
+  /* Account focus reads as standing, not urgency: a High account is one you
+     want, not one that is on fire. Red leaves the account cards entirely and
+     stays on the primary action button, which is the one place the guidelines
+     and this app already agree on it. */
+  /* Three distinct hues rather than a traffic light. The old Low was a
+     desaturated amber, and amber at tint strength goes khaki - which is the one
+     thing these must not be. Green, blue, violet: nothing muddy, and each is
+     obvious at a glance in a long list. */
+  --high:#1E7A4B;           /* green  - High                          */
+  --med:#0F6FA8;            /* blue   - Medium                        */
+  --low:#6B4E9B;            /* violet - Low                           */
+  --none:#8A9BA8;           /* blue-grey - No Focus, no cadence       */
 
-  --r:3px;
+  /* One radius for everything is what read as boxy. Three, by role: surfaces,
+     controls, and chips. */
+  --r:12px;                 /* cards, fields, menu tiles             */
+  --r-sm:8px;               /* inputs, small buttons                 */
+  --r-pill:999px;
+  /* Soft, low-contrast, cyan-tinted rather than black - a grey shadow on a
+     tinted ground goes muddy. */
+  /* White surfaces on a near-white ground need a drawn edge - a soft shadow
+     alone is invisible at this contrast and adjacent tiles merge into one
+     another. A hairline in the cyan-grey family defines them without the
+     weight of the old #CCCCCC outline. */
+  --edge:#A6BDCB;
+  --lift:0 1px 2px rgba(0,40,60,.06), 0 2px 6px rgba(0,40,60,.07);
+  --lift-2:0 2px 4px rgba(0,40,60,.09), 0 6px 16px rgba(0,40,60,.09);
   font-synthesis-weight:none;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -67,7 +95,7 @@ button,input,select,textarea{font:inherit;color:inherit}
    per Brand Guidelines p7. First instance. */
 header{
   position:sticky; top:0; z-index:20; background:var(--surface);
-  border-bottom:1px solid var(--line); display:flex; align-items:stretch;
+  border-bottom:1px solid var(--line-2); box-shadow:var(--lift); display:flex; align-items:stretch;
   min-height:54px; padding-right:12px;
 }
 header .redbox{
@@ -78,10 +106,16 @@ header .redbox img{width:100%; height:auto; display:block}
 header .hdt{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:7px 0 7px 12px}
 header h1{font-size:14px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .sub{font-size:11px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.back{background:none;border:0;color:var(--ink-2);font-size:26px;padding:0 6px 0 10px;cursor:pointer;line-height:1;flex:none;align-self:center}
+.back{background:none;border:0;color:var(--ink-2);font-size:30px;cursor:pointer;line-height:1;
+  flex:none;align-self:stretch;min-width:52px;padding:0 8px 0 12px;
+  display:flex;align-items:center;justify-content:center}
+.back:active{background:var(--sunk)}
 
 /* ---------- type ---------- */
-h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--ink-2);margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line-2)}
+/* The rule under every heading was doing the same job as the gap above it.
+   Dropping it and letting the space group things is most of the declutter. */
+h2{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;
+  color:var(--ink-3);margin:28px 0 10px;padding-bottom:0}
 label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .hint{font-size:11.5px;color:var(--ink-3);margin:6px 0;line-height:1.5}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
@@ -90,21 +124,25 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 
 /* ---------- inputs ---------- */
 input,select,textarea{
-  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  padding:9px 8px;color:var(--ink);font-size:16px;
+  width:100%;background:var(--sunk);border:1px solid var(--line-2);border-radius:var(--r-sm);
+  padding:11px 12px;color:var(--ink);font-size:16px;
+  transition:border-color .12s, background .12s;
 }
 input::placeholder,textarea::placeholder{color:var(--ink-3)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--cyan-dk)}
+input:focus,select:focus,textarea:focus{outline:none;background:var(--surface);
+  border-color:var(--cyan-dk);box-shadow:0 0 0 3px var(--cyan-lt)}
 input:disabled{color:var(--ink-3);background:var(--sunk);border-color:var(--line-2)}
 textarea{min-height:88px;resize:vertical}
-.fld{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:11px;margin-bottom:9px}
+.fld{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);
+  padding:14px;margin-bottom:14px;box-shadow:var(--lift)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .na{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);margin-top:6px}
 .na input{width:17px;height:17px;accent-color:var(--cyan-dk)}
 
 /* ---------- segmented control ---------- */
-.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.seg button{flex:1;background:var(--surface);border:0;border-left:1px solid var(--line);padding:10px 6px;color:var(--ink-2);cursor:pointer}
+.seg{display:flex;border:1px solid var(--edge);border-radius:var(--r-sm);
+  overflow:hidden;background:var(--sunk)}
+.seg button{flex:1;background:transparent;border:0;border-left:1px solid var(--line-2);padding:11px 6px;color:var(--ink-2);cursor:pointer}
 .seg button:first-child{border-left:0}
 .seg button.on{background:var(--ink-2);color:#fff;font-weight:700}
 
@@ -113,34 +151,46 @@ textarea{min-height:88px;resize:vertical}
    Log used #00287B and kept red off buttons entirely; that is the one visual
    rule this app deliberately reverses, and it is applied everywhere. */
 button.big{
-  width:100%;padding:13px 0;border:1px solid var(--red);border-radius:var(--r);
-  background:var(--red);color:#fff;font-size:15px;font-weight:700;margin-top:6px;cursor:pointer;
+  width:100%;padding:15px 0;border:1px solid var(--red);border-radius:var(--r-sm);
+  background:var(--red);color:#fff;font-size:15px;font-weight:700;margin-top:8px;cursor:pointer;
+  box-shadow:var(--lift);
 }
 button.big:active{background:var(--red-dark);border-color:var(--red-dark)}
 button.ghost{
-  width:100%;padding:11px 0;border:1px solid var(--line);border-radius:var(--r);
+  width:100%;padding:13px 0;border:1px solid var(--edge);border-radius:var(--r-sm);
+  box-shadow:var(--lift);
   background:var(--surface);color:var(--ink);font-size:14px;font-weight:700;margin-top:8px;cursor:pointer;
 }
 button.ghost:active{border-color:var(--ink-2)}
-.menu{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
 .menu button{
-  padding:15px 11px;border:1px solid var(--line);border-left:3px solid var(--cyan);
-  border-radius:0 var(--r) var(--r) 0;background:var(--surface);color:var(--ink);
+  padding:16px 14px;border:1px solid var(--edge);border-left:3px solid var(--cyan);
+  border-radius:var(--r);background:var(--surface);color:var(--ink);
   font-size:13px;text-align:left;line-height:1.35;cursor:pointer;
+  box-shadow:var(--lift);transition:box-shadow .12s,transform .12s;
 }
-.menu button:active{background:var(--sunk)}
+.menu button:active{background:var(--sunk);box-shadow:var(--lift-2);transform:translateY(1px)}
 .menu button b{display:block;font-size:14px;margin-bottom:2px;font-weight:700}
 .menu button span{font-size:11px;color:var(--ink-3)}
 .res button{
-  width:100%;text-align:left;padding:10px 11px;background:var(--surface);
-  border:1px solid var(--line-2);border-radius:var(--r);color:var(--ink);
-  font-size:13.5px;margin-bottom:6px;line-height:1.35;cursor:pointer;
+  width:100%;text-align:left;padding:12px 13px;background:var(--surface);
+  border:1px solid var(--edge);border-radius:var(--r-sm);color:var(--ink);
+  font-size:13.5px;margin-bottom:7px;line-height:1.35;cursor:pointer;box-shadow:var(--lift);
 }
 .res button:active{background:var(--sunk)}
 .res button .mt{font-size:11px;color:var(--ink-3);margin-top:2px;line-height:1.35}
 /* Account focus. High reads in Intralox red; the rest step down through the
    orange and cyan families rather than a traffic light. */
-.fd{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:1px}
+/* Focus is a filled dot; due is a hollow ring. Two signals the same shape in
+   different colours read as one thing with a confusing palette. */
+.fd{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:1px}
+/* No empty gap where the meta line used to sit. */
+.mt:empty{display:none}
+.pip{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:8px;
+  vertical-align:1px;border:2px solid var(--none);background:transparent}
+.pip.due{border-color:var(--low)}
+.pip.never{border-color:var(--low);background:var(--low)}
+.pip.booked{border-color:var(--med);background:var(--cyan-lt)}
 .fd.high{background:var(--high)} .fd.med{background:var(--med)}
 .fd.low{background:var(--low)}  .fd.none{background:var(--none)}
 ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line-height:1.6}
@@ -163,7 +213,7 @@ ul.rep li{margin-bottom:2px}
   border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
   color:var(--link);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer}
 .pcard .pl .missing{color:var(--ink-3);font-weight:400;border-style:dashed;cursor:default}
-button.rpt{display:block;width:100%;text-align:left;background:var(--surface);
+button.rpt{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
 button.rpt:active{background:var(--sunk)}
@@ -178,7 +228,7 @@ button.backcall{margin-top:14px}
 .carrybox.show{display:block}
 .carrylab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
   font-weight:700;margin-bottom:6px}
-button.carry{display:block;width:100%;text-align:left;background:var(--surface);
+button.carry{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:10px 11px;margin-bottom:7px;cursor:pointer;color:var(--ink)}
 button.carry b{display:block;font-size:14px;font-weight:700}
@@ -197,7 +247,17 @@ button.carry.new{border-left-color:var(--line);color:var(--ink-3);font-size:13px
   border-radius:2px;padding:0 4px;margin-left:5px;vertical-align:1px}
 .auto.off{background:var(--sunk);color:var(--ink-3);border-color:var(--line-2)}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
-.chips button{padding:9px 13px;border:1px solid var(--line);border-radius:99px;background:var(--surface);
+/* The focus filters sit directly above the list they filter, so they carry the
+   same colour as the rows they will show. */
+#pChips button[aria-pressed="true"].high{background:#C6E9D5;border-color:var(--high);color:#14532C}
+#pChips button[aria-pressed="true"].med {background:#C3DDF5;border-color:var(--med); color:#0B4C73}
+#pChips button[aria-pressed="true"].low {background:#DCCBF0;border-color:var(--low); color:#4A3570}
+#pChips button[aria-pressed="true"].none{background:var(--sunk);border-color:var(--none);color:var(--ink-2)}
+#pChips button[disabled]{opacity:.4}
+#pChips button .n{font-variant-numeric:tabular-nums;opacity:.7;margin-left:5px}
+#pChips button{min-height:40px;font-weight:600}
+.chip.due{min-height:40px;width:100%;justify-content:center;font-weight:600}
+.chips button{padding:9px 13px;border:1px solid var(--edge);border-radius:var(--r-pill);background:var(--surface);
   color:var(--ink);font-size:13px;cursor:pointer}
 .chips button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);font-weight:700}
 .chips button.top{border-color:var(--cyan);color:var(--cyan-dk)}
@@ -306,11 +366,14 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .pick .mt{font-size:11.5px;color:var(--ink-3);margin-top:2px;word-break:break-word;line-height:1.4}
 
 /* ---------- cards ---------- */
+/* The cyan edge is the app's signature and stays. It now follows the corner
+   radius instead of squaring off the left side. */
 .card{
-  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan);
-  border-radius:0 var(--r) var(--r) 0;padding:11px;margin-bottom:9px;
+  background:var(--surface);border:1px solid var(--edge);border-left:3px solid var(--cyan);
+  border-radius:var(--r);padding:13px 14px;margin-bottom:10px;box-shadow:var(--lift);
 }
 .card .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.card .hd .t{font-weight:700}
 .card .t{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase}
 .card .x{background:none;border:none;color:var(--cyan-dk);font-size:12px;font-weight:700;padding:4px 2px;cursor:pointer}
 .card .acts{display:flex;gap:14px;align-items:baseline;flex:none}
@@ -320,8 +383,20 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .thumbs img{width:66px;height:66px;object-fit:cover;border-radius:var(--r);border:1px solid var(--line)}
 .cardbar{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-2)}
-.cardbar button{padding:7px 11px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer}
-.cardbar button:active{border-color:var(--ink-2)}
+/* Icon buttons on a 40px target. The photo count takes the space between the
+   additive actions on the left and the destructive one on the right, so Remove
+   is never next to the thing you were actually reaching for. */
+.cardbar button{display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;padding:0;border:1px solid var(--edge);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--ink-2);cursor:pointer}
+.cardbar button:active{border-color:var(--ink-2);background:var(--sunk)}
+.cardbar .ic{width:18px;height:18px}
+.cardbar .phc{margin-left:auto;margin-right:auto;font-size:11.5px;color:var(--ink-3)}
+/* The only red on the card, and only on the one action that destroys something. */
+.cardbar button.bin{color:var(--warn);border-color:#E4C4C6}
+.cardbar button.bin:active{background:#FBEFEF}
+/* Some card bars carry one wide labelled action rather than icons. */
+.cardbar.wide button{width:auto;height:auto;padding:9px 14px;font-size:12px;font-weight:700;color:var(--ink)}
 .cardbar .phc{margin-left:auto;font-size:11px;color:var(--ink-3)}
 .tag{
   display:inline-block;font-size:10px;font-weight:700;letter-spacing:.02em;
@@ -344,7 +419,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   padding:9px 12px calc(9px + max(18px, env(safe-area-inset-bottom)));
   display:flex;gap:8px;z-index:30;
 }
-.bar button{flex:1;padding:11px 2px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
+.bar button{flex:1;padding:12px 2px;border-radius:var(--r-sm);border:1px solid var(--edge);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
 .bar button.pri{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
 .bar button.pri:active{background:var(--red-dark);border-color:var(--red-dark)}
 
@@ -385,7 +460,7 @@ body.planning{padding-bottom:0}
 .scope button{margin-left:auto;background:none;border:0;color:var(--cyan-dk);text-decoration:underline;
   cursor:pointer;font-size:11px;padding:0}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
-.chip{border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:2px 9px;
+.chip{border:1px solid var(--edge);background:var(--surface);border-radius:var(--r-pill);padding:3px 11px;
   font-size:11.5px;cursor:pointer;display:flex;gap:5px;align-items:center}
 .chip .n{color:var(--ink-3);font-variant-numeric:tabular-nums}
 .chip[aria-pressed=true]{background:var(--sunk);border-color:currentColor}
@@ -396,10 +471,31 @@ body.planning{padding-bottom:0}
 .chip:disabled{opacity:.45;cursor:default}
 .cov{font-size:11px;color:var(--ink-3)}
 .list{overflow:auto;flex:1;min-height:0}
-.acct{display:grid;grid-template-columns:3px 1fr auto;gap:0 9px;align-items:center;
-  padding:7px 12px 7px 0;border-bottom:1px solid var(--line-2);cursor:grab}
+/* Rows were table-like: full-bleed, separated by hairlines, square. They now
+   read as the same object as everything else in the app - a rounded card with
+   an edge and a lift, spaced apart rather than ruled apart. */
+.acct{display:grid;grid-template-columns:4px 1fr auto;gap:0 10px;align-items:center;
+  padding:10px 12px 10px 0;margin:0 10px 7px;border:1px solid var(--edge);
+  border-radius:var(--r);box-shadow:var(--lift);cursor:grab;overflow:hidden;
+  transition:box-shadow .12s, transform .12s}
+.acct:active{box-shadow:var(--lift-2);transform:translateY(1px)}
+.list{padding-top:8px}
+/* The whole row is toned by focus, not just the edge bar. Scanning a long list
+   for a colour is faster than reading a column of dots, which is the point of
+   the list - deciding who to concentrate on. No Focus stays white so the rows
+   that matter are the ones carrying colour. */
+/* Tints of the three focus hues, far enough apart to tell at a glance without
+   any of them going muddy. Text reads at better than 11:1 on all three. */
+.acct.high{background:#C6E9D5}
+.acct.med {background:#C3DDF5}
+.acct.low {background:#DCCBF0}
+.acct.none{background:var(--surface)}
+/* Declared after the tints so hover still reads on a toned row. */
 .acct:hover{background:var(--sunk)}
-.acct .bar-c{align-self:stretch;border-radius:0 2px 2px 0}
+.acct.high:hover{background:#B5E1C5}
+.acct.med:hover {background:#AFD2EE}
+.acct.low:hover {background:#CBB8E7}
+.acct .bar-c{align-self:stretch}
 .acct.high .bar-c{background:var(--high)} .acct.med .bar-c{background:var(--med)}
 .acct.low .bar-c{background:var(--low)}  .acct.none .bar-c{background:var(--none)}
 .acct .nm{font-size:12.5px;font-weight:600;line-height:1.3}
@@ -449,7 +545,45 @@ body.planning{padding-bottom:0}
 .btn:hover{border-color:var(--ink-2)}
 .btn.key{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
-.week{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:stretch}
+/* A gutter of hour labels, then the five days. */
+.week{display:grid;grid-template-columns:46px repeat(5,1fr);gap:8px;align-items:start}
+.gut{padding-top:30px}          /* clears the day header */
+.gh{font-size:10.5px;color:var(--ink-3);text-align:right;padding-right:6px;
+  line-height:1;position:relative;top:-5px}
+/* flex:none matters. .dbody carries flex:1, which means flex-basis:0, and in a
+   column flex parent that beats the explicit height - the body collapses to
+   nothing and overflow:hidden clips every appointment out of sight. */
+.dbody.hours{display:block;position:relative;padding:0;overflow:hidden;flex:none}
+.hl{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--line-2)}
+.dbody.hours .appt{position:absolute;left:4px;right:4px;margin:0;overflow:hidden;
+  touch-action:none;cursor:grab;font-size:11px;padding:3px 5px}
+.dbody.hours .appt.dragging{cursor:grabbing;z-index:5;box-shadow:var(--lift-2);opacity:.94}
+/* Too short to fit three lines, so show the one that matters. */
+.dbody.hours .appt.tiny{display:flex;align-items:center;padding:0 5px}
+.dbody.hours .appt.tiny .t,.dbody.hours .appt.tiny .k{display:none}
+.dbody.hours .appt.tiny .a{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Outside business hours, clamped to the edge and marked rather than hidden. */
+.dbody.hours .appt.oob{border-right:3px solid var(--orange)}
+.day .add{margin:6px}
+/* Pills on a four-up filter row looked like sweets. */
+#pChips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#pChips button{border-radius:var(--r-sm);justify-content:center}
+.cal-head .more{margin-left:6px;min-width:40px;font-size:18px;line-height:1}
+.terrwrap{border-top:1px solid var(--line-2);background:var(--surface);flex:none}
+.terrwrap>summary{padding:10px 12px;font-size:12px;font-weight:700;color:var(--ink-2);
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
+.terrwrap>summary::-webkit-details-marker{display:none}
+.terrwrap>summary::after{content:"\25B8";margin-left:auto;color:var(--ink-3)}
+.terrwrap[open]>summary::after{content:"\25BE"}
+.terrwrap .terr{padding:0 12px 12px;max-height:34vh;overflow:auto}
+#planmenu .big,#planmenu .ghost{width:100%}
+/* One wide column instead of five narrow ones. Same grid, same drag, more room
+   to read a short call and more room to get a thumb on it. */
+.week.oneday{grid-template-columns:56px 1fr}
+.week.oneday .dh{padding:8px 12px;font-size:13px}
+.week.oneday .dh b{font-size:15px}
+.week.oneday .appt{font-size:12px;padding:4px 8px}
+.week.oneday .appt.tiny .a{font-size:12px}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
   display:flex;flex-direction:column;min-height:190px}
 .day.over{border-color:var(--cyan-dk);box-shadow:inset 0 0 0 1px var(--cyan-dk)}
@@ -513,6 +647,232 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   .week,.month{grid-template-columns:1fr}
   .mh{display:none}
 }
+
+/* ============================================================
+   healthlib.js styles
+   Paste at the end of the style block in index.html, just before it closes.
+   Tokens only - no hard-coded colours, no font declarations.
+   Phone first, 900px breakpoint, 44px touch targets, 16px inputs.
+   ============================================================ */
+
+/* ---- picker overlay ---- */
+.fl-overlay{
+  position:fixed; inset:0; z-index:60;
+  background:var(--surface); display:flex; flex-direction:column;
+}
+.fl-head{
+  display:flex; align-items:center; gap:8px;
+  padding:10px 12px; border-bottom:1px solid var(--line);
+  background:var(--surface); position:sticky; top:0; z-index:1;
+}
+.fl-head h2{
+  margin:0; font-size:17px; font-weight:600; flex:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.fl-head .hint{font-weight:400}
+.fl-icon{
+  min-width:44px; min-height:44px; padding:0;
+  font-size:18px; line-height:1; border-radius:var(--r);
+}
+.fl-scroll{
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:12px; max-width:680px; width:100%; margin:0 auto;
+  padding-bottom:96px;
+}
+.fl-scroll input,.fl-scroll textarea,.fl-scroll select{font-size:16px}
+
+/* ---- category grid ---- */
+.fl-cats{display:flex; flex-direction:column; gap:8px; margin-top:12px}
+.fl-cat{
+  display:flex; align-items:center; gap:10px; width:100%;
+  min-height:52px; text-align:left; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line-2);
+}
+.fl-cat-n{
+  flex:none; width:28px; height:28px; border-radius:var(--r);
+  background:var(--cyan-lt); color:var(--cyan-dk);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700;
+}
+.fl-cat-name{flex:1}
+
+/* ---- check rows ---- */
+.fl-check{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px;
+  width:100%; min-height:52px; text-align:left; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line-2); margin-bottom:8px;
+}
+.fl-row{display:block; margin-bottom:6px; background:var(--surface)}
+.fl-code{
+  flex:none; font-size:12px; font-weight:700; letter-spacing:.02em;
+  color:var(--ink-3); font-variant-numeric:tabular-nums;
+}
+.fl-name{flex:1 1 60%}
+.fl-tags{display:flex; gap:4px; flex-wrap:wrap}
+.fl-h{margin:16px 0 8px; font-size:14px; color:var(--ink-2)}
+
+/* ---- pills ---- */
+.fl-pill{
+  display:inline-block; padding:1px 7px; border-radius:var(--r);
+  font-size:11px; font-weight:600; white-space:nowrap;
+  background:var(--ground); color:var(--ink-2);
+}
+/* Priority is the maintenance work order. Critical reads in Intralox red,
+   the rest step down through orange and cyan rather than a traffic light -
+   the same logic the account focus colours already use. */
+.fl-p-critical{background:var(--red-soft); color:var(--red-dark)}
+.fl-p-high    {background:var(--orange-lt); color:var(--orange-dk)}
+.fl-p-medium  {background:var(--cyan-lt); color:var(--cyan-dk)}
+.fl-p-low     {background:var(--ground); color:var(--ink-3)}
+.fl-s         {background:var(--sunk); color:var(--ink-2); border:1px solid var(--line-2)}
+.fl-state     {background:transparent; color:var(--ink-3); border:1px solid var(--line-2)}
+
+.fl-meta{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px}
+
+/* ---- detail ---- */
+.fl-tech{margin-bottom:12px}
+.fl-thresh{background:var(--cyan-lt); border:1px solid var(--cyan-md); border-radius:var(--r)}
+.fl-thresh ul{margin:6px 0 0; padding-left:18px}
+.fl-thresh li{margin:2px 0}
+.fl-causes{background:var(--sunk)}
+.fl-two{display:flex; gap:10px}
+.fl-two > div{flex:1; min-width:0}
+
+/* Four tiers do not fit across a phone in one row. */
+.fl-pri{flex-wrap:wrap}
+.fl-pri button{flex:1 1 46%; min-height:44px}
+
+.fl-actions{
+  display:flex; flex-direction:column; gap:8px; margin-top:16px;
+}
+.fl-actions .big,.fl-actions .ghost{width:100%; min-height:48px}
+
+@media (min-width:900px){
+  .fl-cats{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .fl-pri button{flex:1 1 auto}
+  .fl-actions{flex-direction:row}
+  .fl-actions .big{flex:2}
+  .fl-actions .ghost{flex:1}
+}
+
+/* ============================================================
+   Customer card - one block per finding, four-row site visit
+   report shape. Prints one card per page.
+   ============================================================ */
+.hc-card{
+  border:1px solid var(--line); border-radius:var(--r);
+  background:var(--surface); margin:0 0 16px; overflow:hidden;
+  break-inside:avoid; page-break-inside:avoid;
+}
+.hc-top{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:8px 12px; background:var(--cyan-lt);
+  border-bottom:1px solid var(--cyan-md);
+}
+.hc-asset{flex:1; font-weight:700; color:var(--cyan-dk); min-width:0}
+.hc-tags{display:flex; gap:4px}
+.hc-fault{margin:10px 12px 6px; font-size:16px; line-height:1.3}
+.hc-code{font-size:12px; color:var(--ink-3); font-weight:400}
+
+.hc-row{display:flex; border-top:1px solid var(--line-2)}
+.hc-lbl{
+  flex:none; width:34%; max-width:190px; padding:8px 12px;
+  background:var(--sunk); font-size:12px; font-weight:700;
+  color:var(--ink-2); line-height:1.35;
+}
+.hc-val{flex:1; padding:8px 12px; min-width:0}
+.hc-val p{margin:0 0 4px}
+.hc-val ul{margin:0; padding-left:16px}
+.hc-val li{margin:1px 0}
+
+/* Risk of inaction reads in the red family; the gain from acting reads in
+   cyan. The only two colours on the card that carry meaning. */
+.hc-risk li{color:var(--red-dark)}
+.hc-gain{color:var(--cyan-dk); font-weight:600}
+.hc-spec{margin-top:4px}
+.hc-spec li{color:var(--ink-2); font-size:13px}
+.hc-src{margin-top:4px; font-size:11px; color:var(--ink-3)}
+
+.hc-tbl{width:100%; border-collapse:collapse; font-size:13px}
+.hc-tbl th{
+  text-align:left; font-weight:600; color:var(--ink-2);
+  padding:2px 8px 2px 0; white-space:nowrap; vertical-align:top; width:1%;
+}
+.hc-tbl td{padding:2px 0}
+
+@media (max-width:520px){
+  .hc-row{flex-direction:column}
+  .hc-lbl{width:auto; max-width:none; padding:6px 12px 2px; background:transparent}
+  .hc-val{padding-top:0}
+}
+@media print{
+  .hc-card{border-color:var(--line); page-break-after:always}
+  .hc-top{background:var(--cyan-lt) !important; -webkit-print-color-adjust:exact}
+}
+
+
+/* ---- icon tiles ----
+   Six equal targets, icon over label, no count line. The subtitles were useful
+   while setting the app up and became noise once everything was loaded. */
+.tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:8px 0 0}
+.tiles button{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; min-height:96px; padding:14px 6px; cursor:pointer;
+  background:var(--surface); border:1px solid var(--edge); border-radius:var(--r);
+  box-shadow:var(--lift); color:var(--ink); font:inherit;
+  transition:box-shadow .12s, transform .12s;
+}
+.tiles button:active{background:var(--sunk); box-shadow:var(--lift-2); transform:translateY(1px)}
+.tiles b{font-size:12.5px; font-weight:600; text-align:center; line-height:1.2}
+/* Standards: icons take the accent colour or Dark Gray, never red. */
+.tw{
+  display:flex; align-items:center; justify-content:center;
+  width:44px; height:44px; border-radius:var(--r-sm);
+  background:var(--cyan-lt); color:var(--cyan-dk);
+}
+.ic{width:22px; height:22px; display:block}
+.ghost .ic{width:16px; height:16px; display:inline-block; vertical-align:-3px; margin-right:6px}
+.tabs{margin:0 0 12px}
+.tabs button{font-weight:600}
+/* Four items read better as a square than as three plus a widow. */
+.tiles.four{grid-template-columns:repeat(2,1fr)}
+/* Belt and health carry a count; project and note do not, so the label sits
+   centred on its own and the rows still line up. */
+.tiles .cnt{display:block; font-size:11px; color:var(--ink-3); line-height:1.2}
+.tiles.four button{min-height:104px}
+@media (max-width:340px){ .tiles{grid-template-columns:repeat(2,1fr)} }
+
+/* ---- home layout ---- */
+.menu.two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+/* A menu with a single tile should span the row rather than leave a hole
+   where its neighbour would be. */
+.menu.one{grid-template-columns:1fr}
+.menu.two button{width:100%}
+.duecount{color:var(--orange-dk); font-weight:600}
+.duecount:empty{display:none}
+/* Open calls live behind the Resume tile now - the front page was getting
+   busy and the list only matters at the moment you are choosing one. */
+#openList button .who{flex:1; font-weight:600; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#openList button{display:flex; align-items:center; gap:8px}
+#openList .n{flex:none; font-size:12px; color:var(--ink-3)}
+.homefoot{margin-top:22px; padding-top:14px; border-top:1px solid var(--line)}
+.homefoot .ghost{width:100%}
+.bkold{color:var(--red-dark); font-weight:600}
+/* The call header is a button now, but it must still read as the heading it
+   was rather than as another action tile. */
+.dashhead{display:block; width:100%; text-align:left; font:inherit; color:inherit; cursor:pointer}
+.dashhead:active{background:var(--sunk)}
+.ccrow{display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-top:1px solid var(--line-2)}
+.ccrow:first-child{border-top:0}
+.ccrow .who{flex:1; min-width:0}
+.ccrow .nm{font-weight:600}
+.ccrow .mt{font-size:12px; color:var(--ink-3)}
+.ccrow input[type=checkbox]{width:22px; height:22px; margin:2px 0 0; flex:none}
+.ccrow .x{flex:none; background:none; border:0; color:var(--ink-3); font-size:12px;
+  text-decoration:underline; cursor:pointer; padding:2px 0; width:auto}
+@media (max-width:340px){ .menu.two{grid-template-columns:1fr} }
+
 </style>
 </head>
 <body>
@@ -530,19 +890,36 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- HOME -->
 <section class="scr on" id="s-home">
-  <h2>Start</h2>
-  <div class="menu">
-    <button data-go="newcall"><b>New call</b><span>Search account</span></button>
-    <button data-go="resume"><b>Resume call</b><span id="resumeInfo">None open</span></button>
-    <button data-go="accounts"><b>Accounts</b><span id="acctInfo">Nothing loaded</span></button>
-    <button data-go="due"><b>Overdue</b><span id="dueInfo">Nothing loaded</span></button>
-    <button data-go="plan"><b>Plan</b><span id="planInfo">Nothing planned</span></button>
-    <button data-go="people"><b>Contacts</b><span id="peopleInfo">Nothing loaded</span></button>
-    <button data-go="reports"><b>Reports</b><span id="reportsInfo">No calls yet</span></button>
-    <button data-go="manuals"><b>Manuals</b><span id="manInfo">Nothing loaded</span></button>
-  </div>
-  <p class="msg" id="homeSetup"></p>
   <p class="msg" id="buildStat"></p>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New call</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
+
+  <p class="msg" id="homeSetup"></p>
+  <!-- The tiles no longer carry a count line. These keep the existing render
+       code working without a guard on every assignment. -->
+  <span hidden id="resumeInfo"></span><span hidden id="planInfo"></span>
+  <span hidden id="dueInfo"></span><span hidden id="acctInfo"></span>
+  <span hidden id="peopleInfo"></span><span hidden id="manInfo"></span>
+  <span hidden id="flInfo"></span><span hidden id="reportsInfo"></span>
+
+  <div class="homefoot">
+    <button class="ghost" data-go="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> Settings, data and backup</button>
+    <p class="stat" id="bkHomeStat"></p>
+    <div class="gap"></div>
+    <p class="stat" id="upStat"></p>
+    <button class="ghost" id="upBtn">Get the latest version</button>
+    <p class="hint">Checks the server for newer app files and reloads once. Nothing downloads unless you tap it. Your calls, accounts and photos are not affected.</p>
+    <p class="hint" id="appVer"></p>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section class="scr" id="s-settings">
+  <h2>Your details</h2>
+  <div class="fld">
+    <label>Your email address</label>
+    <input type="email" id="setEmail" placeholder="you@intralox.com" autocomplete="email">
+    <p class="hint">Used as the organiser on calendar invites. Without it Outlook has nobody to send from, so invitees are left off.</p>
+  </div>
 
   <h2>Data</h2>
   <div class="fld">
@@ -628,6 +1005,12 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button class="ghost" id="ghTest">Test the connection</button>
     <button class="big" id="ghSync">Sync appointments now</button>
     <p class="hint">What goes up: account key, date, time, duration, contact numbers, status, and your agenda line. What never goes up: account names, contact names, phone numbers, emails, call notes, photos.</p>
+    <div class="gap"></div>
+    <label>Call reports</label>
+    <p class="stat" id="ghCallStat"></p>
+    <button class="big" id="ghCalls">Sync call reports now</button>
+    <p class="hint">Sends your calls and their photos to the same private repository, and brings back any written on the other device &mdash; so a report written on the phone can be reviewed on the PC. Photos go up at a reduced size, readable on screen but much smaller; the device that took them keeps the originals. <b>This does send account names, contact names and call notes</b>, unlike the appointment sync above. Anything pushed stays in the repository's history even after it is deleted.</p>
+    
   </div>
 
   <div class="fld">
@@ -663,8 +1046,6 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button class="ghost" id="rsBtn">Restore from backup</button>
     <p class="hint">Adds and updates records by id. Nothing already here is deleted.</p>
   </div>
-  <h2>Past calls</h2>
-  <div id="pastList"><p class="empty">No saved calls.</p></div>
 </section>
 
 <!-- ACCOUNT SEARCH -->
@@ -735,19 +1116,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 </section>
 
 <!-- CONTACTS AND ACCOUNTS -->
-<section class="scr" id="s-people">
-  <div class="fld">
-    <input type="search" id="peQ" placeholder="Name, account, role, email or number" autocomplete="off">
-    <p class="hint" id="peHint"></p>
-  </div>
-  <div class="seg" id="peView">
-    <button type="button" data-v="all" class="on">Everything</button>
-    <button type="button" data-v="people">People</button>
-    <button type="button" data-v="accounts">Accounts</button>
-  </div>
-  <div style="height:10px"></div>
-  <div id="peRes"></div>
-</section>
+
 
 <!-- REPORTS -->
 <section class="scr" id="s-reports">
@@ -765,40 +1134,10 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 </section>
 
 <!-- MANUALS -->
-<section class="scr" id="s-manuals">
-  <div class="fld">
-    <label>Search</label>
-    <input type="search" id="mQ" placeholder="Series number, or any term" autocomplete="off">
-    <p class="hint" id="mHint"></p>
-  </div>
-  <div class="seg" id="mSeg">
-    <button type="button" data-seg="search" class="on">Search</button>
-    <button type="button" data-seg="browse">All series</button>
-  </div>
-  <p class="msg" id="mMsg"></p>
-  <div id="mBody"></div>
-  <div class="fld" id="mSelBar" style="display:none">
-    <p class="stat" id="mSelN"></p>
-    <button class="big" id="mShare">Share selected sections</button>
-    <button class="ghost" id="mClear">Clear selection</button>
-  </div>
-</section>
+
 
 <!-- ACCOUNT BROWSE -->
-<section class="scr" id="s-accounts">
-  <div class="fld">
-    <label>Search</label>
-    <input type="text" id="abQ" placeholder="Account or suburb" autocomplete="off">
-    <p class="hint" id="abHint"></p>
-  </div>
-  <div class="seg" id="abScope">
-    <button type="button" data-v="mine" class="on">Mine</button>
-    <button type="button" data-v="all">Everyone</button>
-    <button type="button" data-v="due">Due</button>
-  </div>
-  <div style="height:10px"></div>
-  <div class="res" id="abRes"></div>
-</section>
+
 
 <!-- ACCOUNT VIEW -->
 <section class="scr" id="s-acct">
@@ -816,35 +1155,36 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <div class="rail">
       <div class="rail-top">
         <input type="search" id="pQ" placeholder="Search the whole account book" autocomplete="off">
-        <div class="row">
-          <div class="f"><label>Manager</label><select id="pMgr"></select></div>
-          <div class="f"><label>Zone</label><select id="pZone"></select></div>
-        </div>
-        <div class="zone-head"><b id="zTitle"></b><span id="zHub"></span></div>
+        <div class="f"><label>Zone</label><select id="pZone"></select></div>
         <div class="scope" id="pScope" hidden></div>
         <div class="chips" id="pChips"></div>
-        <button type="button" class="chip due" id="pDueOnly" aria-pressed="false"></button>
+        <!-- Kept in the DOM, out of sight. The manager is set once and lives in
+             the plan menu now; the rest are written to from app.js in several
+             places and hiding them is cheaper than guarding every write. -->
+        <div hidden><select id="pMgr"></select>
+          <b id="zTitle"></b><span id="zHub"></span>
+          <button type="button" id="pDueOnly" aria-pressed="false"></button></div>
       </div>
       <div class="list" id="pList"></div>
+      <!-- Territory sits under the list, collapsed. It competes with the list
+           for height, and the list is the thing actually worked from. -->
+      <details class="terrwrap" id="terrWrap">
+        <summary>Territory this week</summary>
+        <div class="terr" id="terr"></div>
+      </details>
     </div>
     <div class="cal">
       <div class="cal-head">
         <button class="btn" id="calPrev" type="button">&#8249;</button>
         <button class="btn" id="calToday" type="button">Today</button>
         <button class="btn" id="calNext" type="button">&#8250;</button>
-        <button class="btn" id="pToday2" type="button">Today's list</button>
-        <button class="btn" id="pReassign" type="button">Reassign manager</button>
         <h2 id="calTitle"></h2>
         <div class="seg" id="pView">
+          <button type="button" data-v="day">Day</button>
           <button type="button" data-v="week" class="on">Week</button>
           <button type="button" data-v="month">Month</button>
         </div>
-      </div>
-      <div class="terr" id="terr"></div>
-      <div class="exp">
-        <button class="btn key" id="pExport" type="button">Download to Outlook</button>
-        <button class="btn" id="pExportAll" type="button">Re-download everything shown</button>
-        <span class="hint" id="calHint"></span>
+        <button class="btn more" id="planMore" type="button" aria-label="More">&#8943;</button>
       </div>
       <div id="calBody"></div>
     </div>
@@ -860,9 +1200,21 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <div class="f"><label>Date</label><input type="date" id="dDate"></div>
       <div class="f"><label>Start</label><input type="time" id="dTime"></div>
       <div class="f"><label>Minutes</label>
-        <select id="dDur"><option>30</option><option>45</option><option selected>60</option><option>90</option><option>120</option><option>180</option></select></div>
+        <select id="dDur"><option selected>25</option><option>30</option><option>45</option><option>60</option><option>90</option><option>120</option><option>180</option></select></div>
     </div>
-    <div class="f"><label>Agenda</label><textarea id="dAgenda" placeholder="What this call is for"></textarea></div>
+    <label class="ct" id="dHoldWrap"><input type="checkbox" id="dHold">
+      <div><div class="cn">Placeholder only</div>
+      <div class="cr">Blocks the time for you. Nobody is added as an invitee.</div></div></label>
+    <div class="f"><label>Agenda</label>
+      <div class="chips" id="dTmpl">
+        <button type="button" data-tmpl="health">Health check</button>
+        <button type="button" data-tmpl="project">Project discussion</button>
+        <button type="button" data-tmpl="pov">Proof of value</button>
+        <button type="button" data-tmpl="survey">Belt survey</button>
+      </div>
+      <textarea id="dAgenda" rows="9" placeholder="What this call is for"></textarea>
+      <p class="note" id="dTmplNote">Pick a template to fill this in, then edit it however you like.</p>
+    </div>
     <div class="f"><label>Who to see</label><div class="cts" id="dCts"></div></div>
     <p class="note" id="dCover"></p>
     <p class="note sync" id="dSync" hidden></p>
@@ -897,6 +1249,35 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="mvCancel" type="button">Cancel</button></div>
 </dialog>
 
+<dialog id="planmenu">
+  <div class="dlg-h"><b>Plan</b><div id="pmSub"></div></div>
+  <div class="dlg-b">
+    <div class="f"><label>Account manager</label><select id="pmMgr"></select>
+      <p class="note">Set once. Other people's accounts can still be found with the search box.</p></div>
+    <button class="big" id="pmExport" type="button">Download to Outlook</button>
+    <button class="ghost" id="pmExportAll" type="button">Re-download everything shown</button>
+    <button class="ghost" id="pmToday" type="button">Today's list</button>
+    <button class="ghost" id="pmReassign" type="button">Reassign manager</button>
+    <p class="note" id="pmHint"></p>
+  </div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="pmClose" type="button">Close</button></div>
+</dialog>
+
+<!-- The originals stay, hidden, so every existing handler keeps its element. -->
+<div hidden>
+  <button id="pToday2" type="button"></button>
+  <button id="pReassign" type="button"></button>
+  <button id="pExport" type="button"></button>
+  <button id="pExportAll" type="button"></button>
+  <span id="calHint"></span>
+</div>
+
+<dialog id="opendlg">
+  <div class="dlg-h"><b>Resume a call</b><div id="openSub"></div></div>
+  <div class="dlg-b"><div class="res" id="openList"></div></div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="openCancel" type="button">Cancel</button></div>
+</dialog>
+
 <dialog id="rdlg">
   <div class="dlg-h"><b>Reassign manager</b><div>Changes who owns the account here. The CRM is not touched.</div></div>
   <div class="dlg-b">
@@ -918,21 +1299,18 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- DASHBOARD -->
 <section class="scr" id="s-dash">
-  <div class="fld">
-    <p class="stat" id="dashStat"></p>
-  </div>
+  <button type="button" class="fld dashhead" id="dashStat"></button>
   <h2>Add to call</h2>
-  <div class="menu">
-    <button data-go="belt"><b>Belt</b><span id="cntBelt">0 logged</span></button>
-    <button data-go="project"><b>Project</b><span id="cntProj">0 logged</span></button>
-    <button data-go="note"><b>General note</b><span id="cntNote">0 logged</span></button>
-    <button data-go="health"><b>Health check</b><span id="cntHealth">0 logged</span></button>
+  <div class="tiles four">
+    <button data-go="belt"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></span><b>Belt</b><span class="cnt" id="cntBelt">0 logged</span></button>
+    <button data-go="project"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span><b>Project</b></button>
+    <button data-go="note"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span><b>Note</b></button>
+    <button data-go="health"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><b>Health check</b><span class="cnt" id="cntHealth">0 logged</span></button>
   </div>
+  <!-- Project and note counts are still assigned in a few places; keeping the
+       elements avoids guarding every one of those assignments. -->
+  <span hidden id="cntProj"></span><span hidden id="cntNote"></span>
   <h2>Call log</h2>
-  <h2>Seen on this visit</h2>
-  <div class="fld" id="seenList"></div>
-  <p class="hint">Untick anyone you did not actually see. Only the ticked ones go into the report, the CSV and the Outlook invite.</p>
-
   <div id="logList"></div>
   <h2>Loose photos</h2>
   <div id="looseWrap"></div>
@@ -1112,6 +1490,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <input type="text" id="bQc" placeholder="Leave blank to use call contacts">
   </div>
   <button class="big" id="bSave">Add belt to call log</button>
+    <button type="button" class="ghost" id="bFault">Log a fault on this belt</button>
   <button class="ghost backcall">Back to the call without saving</button>
 </section>
 
@@ -1175,6 +1554,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
   <div class="fld">
     <label>Type</label>
+    <button type="button" class="ghost" id="hPickFault">Choose from fault library</button>
     <select id="hType"><option>Belt wear</option><option>Sprocket wear</option><option>Tracking</option><option>Frame or wear strip</option><option>Drive or shaft</option><option>Hygiene</option><option>Other</option></select>
   </div>
   <div class="fld">
@@ -1196,9 +1576,128 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div id="detachWrap"></div>
   <button class="big" id="doShare">Generate and share</button>
   <button class="ghost" id="doDownload">Download instead</button>
+  <h2>Send one part only</h2>
+  <button class="ghost" id="doHealth">Health check only</button>
+  <button class="ghost" id="doBelts">Belt requirements only</button>
+  <p class="hint">These are for handing to the customer. Both leave out general notes, project discovery and the visit history, and the health sheet prints one fault per page so it can go straight to a fitter. Neither marks the call as issued.</p>
   <button class="ghost backcall">Back to the call</button>
   <p class="hint">Share sends the HTML file to the Android share sheet &mdash; pick OneDrive, Outlook or Teams. Download saves it to this phone.</p>
 </section>
+
+
+<section class="scr" id="s-directory">
+  <div class="seg tabs" id="dirTabs">
+    <button type="button" data-pane="acc" class="on">Accounts</button>
+    <button type="button" data-pane="ppl">Contacts</button>
+  </div>
+  <div class="pane" id="paneAcc">
+  <div class="fld">
+    <label>Search</label>
+    <input type="text" id="abQ" placeholder="Account or suburb" autocomplete="off">
+    <p class="hint" id="abHint"></p>
+  </div>
+  <div class="seg" id="abScope">
+    <button type="button" data-v="mine" class="on">Mine</button>
+    <button type="button" data-v="all">Everyone</button>
+    <button type="button" data-v="due">Due</button>
+  </div>
+  <div style="height:10px"></div>
+  <div class="res" id="abRes"></div>
+</div>
+  <div class="pane" id="panePpl" hidden>
+  <div class="fld">
+    <input type="search" id="peQ" placeholder="Name, account, role, email or number" autocomplete="off">
+    <p class="hint" id="peHint"></p>
+  </div>
+  <div class="seg" id="peView">
+    <button type="button" data-v="all" class="on">Everything</button>
+    <button type="button" data-v="people">People</button>
+    <button type="button" data-v="accounts">Accounts</button>
+  </div>
+  <div style="height:10px"></div>
+  <div id="peRes"></div>
+</div>
+</section>
+
+<section class="scr" id="s-reference">
+  <div class="seg tabs" id="refTabs">
+    <button type="button" data-pane="man" class="on">Manuals</button>
+    <button type="button" data-pane="flt">Fault library</button>
+  </div>
+  <div class="pane" id="paneMan">
+  <div class="fld">
+    <label>Search</label>
+    <input type="search" id="mQ" placeholder="Series number, or any term" autocomplete="off">
+    <p class="hint" id="mHint"></p>
+  </div>
+  <div class="seg" id="mSeg">
+    <button type="button" data-seg="search" class="on">Search</button>
+    <button type="button" data-seg="browse">All series</button>
+  </div>
+  <p class="msg" id="mMsg"></p>
+  <div id="mBody"></div>
+  <div class="fld" id="mSelBar" style="display:none">
+    <p class="stat" id="mSelN"></p>
+    <button class="big" id="mShare">Share selected sections</button>
+    <button class="ghost" id="mClear">Clear selection</button>
+  </div>
+</div>
+  <div class="pane" id="paneFlt" hidden>
+  <div class="wrap">
+    <h1>Fault library</h1>
+    <p class="hint" id="flStat"></p>
+
+    <div class="fld">
+      <button type="button" class="ghost" id="flExport">Export library</button>
+      <button type="button" class="ghost" id="flImportBtn">Import library</button>
+      <input type="file" id="flImport" accept="application/json" hidden>
+    </div>
+    <div class="msg" id="flLibMsg"></div>
+
+    <div id="flList"></div>
+  </div>
+</div>
+</section>
+
+<section class="scr" id="s-ccontacts">
+  <h2>People on this call</h2>
+  <p class="hint">Tick who should appear on documents that go to the customer &mdash; the health check and belt requirement sheets. Everyone stays on the call either way, and the full call notes always list all of them.</p>
+  <div class="fld" id="ccOn"></div>
+
+  <h2>Add from the account</h2>
+  <div class="fld"><input type="text" id="ccQ" placeholder="Filter by name or role" autocomplete="off"></div>
+  <div class="fld" id="ccAdd"></div>
+
+  <h2>Contact not listed</h2>
+  <div class="fld">
+    <label>Name</label><input type="text" id="ccName" placeholder="Leave blank if not needed">
+    <div style="height:10px"></div>
+    <label>Role</label><input type="text" id="ccRole">
+    <div style="height:10px"></div>
+    <label>Email</label><input type="email" id="ccEmail">
+    <div style="height:10px"></div>
+    <label>Mobile</label><input type="text" id="ccMob" inputmode="tel">
+    <button class="ghost" id="ccAddNew">Add to the call</button>
+  </div>
+
+  <button class="big" id="ccDone">Done</button>
+  <button class="ghost backcall">Back to the call</button>
+</section>
+
+
+
+<div class="fl-overlay" id="flOverlay" hidden role="dialog" aria-modal="true"
+     aria-labelledby="flTitle">
+  <header class="fl-head">
+    <button type="button" class="ghost fl-icon" id="flBack" hidden
+            aria-label="Back">&#8592;</button>
+    <h2 id="flTitle">Fault library</h2>
+    <button type="button" class="ghost fl-icon" id="flClose"
+            aria-label="Close">&#10005;</button>
+  </header>
+  <div class="fl-scroll" id="flBody"></div>
+</div>
+
 
 </div>
 
@@ -1219,6 +1718,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="zones.js"></script>
 <script src="manuals.js"></script>
+<script src="healthlib.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
