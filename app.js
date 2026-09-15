@@ -7,6 +7,13 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
+/* The build this file belongs to. index.html carries the same string in a meta
+   tag and sw.js carries it in CACHE. All three are uploaded together and all
+   three must agree - when they do not, the app is a mix of versions and behaves
+   like neither. That has been hard to spot from the outside, so it is now
+   checked at boot and stated on the home screen. */
+const BUILD = 'v28';
+
 const DB_NAME = 'fieldcrm', DB_VER = 3;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
@@ -4216,6 +4223,54 @@ async function renderReportsCount(){
 document.querySelectorAll('.backcall').forEach(b =>
   b.addEventListener('click', ()=>go(call ? 'dash' : 'home')));
 
+/* ---------- which build is actually running ----------
+   Three files are uploaded by hand and any of them can be missed. Miss
+   index.html and the app looks like the old version while behaving like the new
+   one. Miss sw.js and the phone keeps serving the whole of the old build from
+   cache, so a fix looks like it did nothing.
+
+   The page version comes from a meta tag, the code version from this file, and
+   the running cache from the Cache API - which is what the phone is actually
+   serving, not what is sitting in the repository. */
+async function buildStatus(){
+  const meta = document.querySelector('meta[name="build"]');
+  const page = meta ? meta.getAttribute('content') : null;
+  let cache = null;
+  try {
+    if(typeof caches !== 'undefined'){
+      const keys = await caches.keys();
+      const mine = keys.filter(k => /^fieldcrm-v\d+$/.test(k))
+        .sort((a,b) => Number(b.split('-v')[1]) - Number(a.split('-v')[1]));
+      if(mine.length) cache = 'v' + mine[0].split('-v')[1];
+    }
+  } catch(e){}
+  return {code: BUILD, page: page, cache: cache};
+}
+function renderBuild(st){
+  const el = $('buildStat');
+  if(!el) return;
+  const bad = [];
+  if(st.page && st.page !== st.code) bad.push('index.html');
+  if(st.cache && st.cache !== st.code) bad.push('sw.js');
+  if(!st.page) bad.push('index.html (no build marker - it is an old copy)');
+
+  if(!bad.length){
+    el.className = 'msg';
+    el.innerHTML = '<span class="cov">Build ' + esc(st.code) +
+      (st.cache ? ' \u00b7 cache ' + esc(st.cache) : '') + '</span>';
+    return;
+  }
+  el.className = 'msg warn show';
+  el.innerHTML = '<b>This app is a mix of versions.</b> app.js is <b>' + esc(st.code) +
+    '</b>, index.html is <b>' + esc(st.page || 'older than ' + st.code) + '</b>' +
+    (st.cache ? ', the running cache is <b>' + esc(st.cache) + '</b>' : '') +
+    '.<br>Re-upload ' + esc(bad.join(' and ')) + ' from the same set as app.js, then close the ' +
+    'app completely and open it again.' +
+    (bad.includes('sw.js')
+      ? '<br>Until the cache matches, the phone is serving the older build whatever is in the repository.'
+      : '');
+}
+
 /* ---------- home ---------- */
 async function renderHome(){
   const all = await callsAll();
@@ -6158,6 +6213,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   try { resetBelt(); } catch(e){ console.error('belt form', e); }
   try { history.replaceState({screen:'home'}, '', location.href); } catch(e){}
   try { await renderHome(); } catch(e){ console.error('home', e); }
+  try { renderBuild(await buildStatus()); } catch(e){ console.error('build check', e); }
   try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
   if(dbErr){
     $('dbStat').textContent = 'Storage error - ' + dbErr.message;
