@@ -460,7 +460,7 @@ function renderHomeSetup(){
   if(!REF) missing.push('belt reference data');
   if(!missing.length){ el.className = 'msg'; el.innerHTML = ''; return; }
   el.className = 'msg info show';
-  el.innerHTML = 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="settings">open Settings to import it</span>';
+  el.innerHTML = 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="home">see Data on the home screen</span>';
 }
 
 /* ================= the plant audit register =================
@@ -682,8 +682,7 @@ function renderAssetMatch(){
     applyAssetRecord(withData[+b.dataset.usea]);
   }));
 }
-function applyAssetRecord(r, opts){
-  opts = opts || {};
+function applyAssetRecord(r){
   const setVal = (id, v) => { const f = $(id); if(f && v) f.value = v; };
   const missed = [];
 
@@ -783,65 +782,11 @@ function applyAssetRecord(r, opts){
         esc(missed.join(', ')) + '.';
     }
   }
-  if(opts.quiet){
-    showMsg($('bAssetHit'), missed.length ? 'warn' : '', missed.length ? why : '');
-    return;
-  }
   showMsg($('bAssetHit'), missed.length ? 'warn' : 'ok',
     missed.length ? 'Filled from the register. ' + why
                   : 'Filled from the register. Add the condition and photos.');
   toast('Filled from ' + r.no);
 }
-/* Reopening a logged belt reuses applyAssetRecord rather than duplicating it.
-   That function already solves the awkward parts - the series cascade, matching
-   a pitch diameter on millimetres and tooth count, falling back to the Other
-   box when a value is not in the catalogue - and a second copy would drift from
-   it the first time either is fixed. Entry field names are mapped onto the
-   register names it expects. */
-function fillBeltFromEntry(e){
-  $('bAsset').value = e.asset || '';
-  applyAssetRecord({
-    no: e.asset, series: e.series, style: e.style, material: e.beltmat,
-    colour: e.colour, rod: e.rodmat, cvlen: e.clength, frame: e.frame,
-    width: e.width, beltlen: e.beltlen, notch: e.cnotch, indent: e.findent,
-    sprbore: e.sprbore, sprpd: e.sprpd, sprmat: e.sprmat, sprdesc: e.sprocket,
-    sprpn: e.sprpn, sprdrive: e.sprdrive, spridle: e.spridle,
-    fltype: e.fstyle, flmat: e.flmat, flheight: e.fheight, flspacing: e.fspacing,
-    sgtype: e.sgtype, sgmat: e.sgmat, sgheight: e.sgheight, desc: e.beltdesc
-  }, {quiet:true});
-
-  /* Fields applyAssetRecord does not carry, because the register has no column
-     for them. */
-  $('bDesc').value = e.beltdesc || '';
-  $('bQc').value = e.qcontact || '';
-  bRetroVal = e.retrofit || '';
-  document.querySelectorAll('#bRetro button').forEach(x =>
-    x.classList.toggle('on', !!bRetroVal && x.dataset.v === bRetroVal));
-
-  const hasSpr = !!(e.sprbore || e.sprpd || e.sprocket);
-  $('bSkipSpr').checked = !hasSpr;
-  $('bSprBody').classList.toggle('hide', !hasSpr);
-  $('bSprSpacers').checked = !!e.sprspacers;
-  $('bSprHdRet').checked = !!e.sprhdret;
-  try { updateSprExtras(); } catch(err){}
-  if(e.sprvar && !$('bSprVarWrap').classList.contains('hide')) $('bSprVar').value = e.sprvar;
-
-  const hasAcc = !!(e.fstyle || e.flmat || e.fheight || e.sgtype || e.sgmat);
-  $('bSkipAcc').checked = !hasAcc;
-  $('bAccBody').classList.toggle('hide', !hasAcc);
-  $('bFlRows').value = e.frows || '';
-
-  /* The description and part number are derived by the sprocket pickers, so they
-     are written last and flagged as touched - otherwise the next change to an
-     adjacent field silently overwrites what was logged. */
-  if(e.sprocket){ $('bSprDesc').value = e.sprocket; sprDescTouched = true; $('bSprDescAuto').classList.add('off'); }
-  if(e.sprpn){ $('bSprPn').value = e.sprpn; sprPnTouched = true; $('bSprPnAuto').classList.add('off'); }
-  if(e.sprdrive){ $('bSprDrive').value = e.sprdrive; sprDriveTouched = true; $('bSprDrvAuto').classList.add('off'); }
-  if(e.spridle){ $('bSprIdle').value = e.spridle; sprIdleTouched = true; $('bSprIdlAuto').classList.add('off'); }
-  if(e.beltlen){ $('bLen').value = e.beltlen; lenTouched = true; $('bLenAuto').classList.add('off'); }
-  if(e.flmat){ $('bFlMat').value = e.flmat; flMatTouched = true; $('bFlMatAuto').classList.add('off'); }
-}
-
 // selects are matched case- and punctuation-insensitively, because the register
 // and the reference workbook are maintained by different hands
 function setSelLoose(id, v){
@@ -860,41 +805,8 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Planner schema, call-log dedupe. .xlsx goes through SheetJS, .csv through the
    parser below; both land in the same array of header-keyed rows and take the
    same path from there. */
-/* Four, two and one a year. No Focus carries no cadence - there is nothing it
-   is late for, so it can never be overdue. */
-/* Most calls are short. The invite templates override this when one is picked -
-   a health check is two hours whatever the default says. */
-/* Bumped with every release so a device can say which build it is running.
-   Kept in step with the service worker cache name by hand - if these two ever
-   disagree, the app is running files from a cache it did not expect. */
-const APP_BUILD = 'v54';
-/* Feather icons, inline. Same set as the home tiles - one place to change if
-   the icon language ever moves. */
-const ICONS = {
-  edit:   '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'+
-          '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>',
-  trash:  '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'+
-          '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
-  camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>'+
-          '<circle cx="12" cy="13" r="4"/>',
-  image:  '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>'+
-          '<path d="M21 15l-5-5L5 21"/>'
-};
-function icon(k){
-  return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    ICONS[k] + '</svg>';
-}
-const DEF_DUR = 25;
-const CAD = {'High':'P1 Quarterly','Medium':'P2 Half-yearly','Low':'P3 Yearly','No Focus':'P4 No cadence'};
-/* What the old export wrote, so accounts already loaded can be moved across
-   without a re-import. */
-const CAD_OLD = {'P1 Monthly':'P1 Quarterly','P2 Quarterly':'P2 Half-yearly',
-                 'P3 Half-yearly':'P3 Yearly','P4 Validate & rate':'P4 No cadence'};
+const CAD = {'High':'P1 Monthly','Medium':'P2 Quarterly','Low':'P3 Half-yearly','No Focus':'P4 Validate & rate'};
 const FOCUS_RANK = {'High':0,'Medium':1,'Low':2,'No Focus':3};
-/* Category names written into the ICS. They have to match what is set up in
-   Outlook character for character, so they are defined once, here. */
-const FOCUS_CAT = {'High':'Focus High','Medium':'Focus Medium','Low':'Focus Low','No Focus':'Focus None'};
 
 /* Column names as they appear in the ANZ Active Food Contacts view. Matching is
    case-insensitive, whitespace-tolerant, and accepts the '(Account Name) (Account)'
@@ -1049,13 +961,6 @@ function acctKey(name){
 }
 let KEY_TO_ACCT = new Map();
 function indexAccounts(list){
-  /* Accounts imported before the cadences changed carry the old label, which is
-     no longer in CAD_DAYS and would read as no cadence at all. Moved across on
-     load rather than on import, so it also fixes a device restored from an old
-     backup. */
-  let moved = 0;
-  list.forEach(a => { if(CAD_OLD[a.cad]){ a.cad = CAD_OLD[a.cad]; moved++; } });
-  if(moved) console.log('[cadence] moved '+moved+' accounts to the new cadences');
   ACCOUNTS = list;
   ACC_BY_NAME = new Map(list.map(a => [a.a, a]));
   KEY_TO_ACCT = new Map(list.map(a => [acctKey(a.a), a.a]));
@@ -1199,8 +1104,6 @@ const TITLES = {
   accounts:['Accounts',''], acct:['Account',''], plan:['Plan',''], today:['Today',''],
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
-  settings:['Settings',''], directory:['Directory',''], reference:['Reference',''],
-  ccontacts:['People on this call','Call'],
   note:['General note',''], health:['Health check',''], compile:['Compile','']
 };
 /* ---------- navigation ----------
@@ -1216,7 +1119,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu'];
+const DIALOGS = ['dlg','mvdlg','rdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1243,7 +1146,6 @@ function showScreen(name){
      to close it - otherwise a back gesture changes the screen underneath and the
      viewer stays up, covering it. */
   if(window.Manuals && name !== 'manuals') Manuals.closeViewer();
-  if(window.HealthLib && name !== 'health') HealthLib.closePicker();
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -1256,10 +1158,9 @@ function showScreen(name){
   if(name==='dash') renderDash();
   if(name==='compile') renderCompileStat();
   if(name==='home') renderHome();
-  if(name==='directory') renderDirPane();
-  if(name==='reference') renderRefPane();
-  if(name==='ccontacts') renderCallContacts();
-  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); }
+  if(name==='accounts') renderBrowse();
+  if(name==='manuals' && window.Manuals) Manuals.render().catch(e=>console.error('manuals', e));
+  if(name==='people') renderPeople();
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
   if(name==='today'){ renderToday(); $('title').textContent = todayView==='today' ? 'Today' : 'This week'; }
@@ -1319,7 +1220,7 @@ function renderHomeCounts(){
    own visits where there are any, and falls back to the CRM date where there are
    none - otherwise every account you have not yet visited would read as overdue
    on day one. */
-const CAD_DAYS = {'P1 Quarterly':91, 'P2 Half-yearly':182, 'P3 Yearly':365, 'P4 No cadence':null};
+const CAD_DAYS = {'P1 Monthly':30, 'P2 Quarterly':91, 'P3 Half-yearly':182, 'P4 Validate & rate':365};
 let CALLS_BY_ACCT = new Map();
 
 function indexCalls(all){
@@ -1365,11 +1266,7 @@ function nextBooked(name){
      due      past it, nothing planned
      never    no visit and no CRM activity to go on */
 function dueState(a){
-  const target = CAD_DAYS[a.cad];
-  /* No cadence means nothing is outstanding. Returning 'covered' keeps every
-     caller working without a special case at each one. */
-  if(target == null) return {days:null, over:false, basis:'none', target:null,
-                             booked:nextBooked(a.a), state:'covered'};
+  const target = CAD_DAYS[a.cad] || CAD_DAYS['P4 Validate & rate'];
   const booked = nextBooked(a.a);
   const lv = lastVisit(a.a);
   let days = null, basis = 'never', over = true;
@@ -1451,15 +1348,13 @@ function renderBrowse(){
     : 'No matches') + cover;
   el.innerHTML = out.slice(0,40).map(a=>{
     const d = dueState(a);
-    /* Suburb is already in the account name and a day count is a number to
-       decode, so both go. What is left is the name, who owns it if not you, and
-       two coloured signals. */
+    const meta = [a.sub, zoneName(a.z), a.cad].filter(Boolean).map(esc).join(' &middot; ');
     return '<button data-acct="'+esc(a.a)+'">'+
-      '<span class="fd '+FOC_CLS[a.foc]+'" title="'+esc(a.foc||'No Focus')+' focus"></span>'+esc(a.a)+
+      '<span class="fd '+FOC_CLS[a.foc]+'"></span>'+esc(a.a)+
       (a.mgr===mgr ? '' : '<span class="tag">'+esc(a.mgr||'no manager')+'</span>')+
-      (d.state === 'covered' ? '' :
-        '<span class="pip '+d.state+'" title="'+esc(dueLabel(d))+'"></span>')+
-      '</button>';
+      (d.state === 'covered' ? '' : '<span class="st '+DUE_CLS[d.state]+'">'+
+        (d.state === 'never' ? 'never' : d.state)+'</span>')+
+      '<div class="mt">'+meta+' &middot; '+esc(dueLabel(d))+'</div></button>';
   }).join('');
   el.querySelectorAll('[data-acct]').forEach(b =>
     b.addEventListener('click', ()=>openAccount(b.dataset.acct)));
@@ -1679,8 +1574,8 @@ function renderChips(){
   pool.forEach(a => by[a.foc] = (by[a.foc]||0)+1);
   $('pChips').innerHTML = LEVELS.map(([lvl,cls])=>
     '<button type="button" class="chip '+cls+'" data-lvl="'+lvl+'" aria-pressed="'+
-    plan.focus.has(lvl)+'"'+(by[lvl]?'':' disabled')+
-    ' title="'+(by[lvl]||0)+' accounts">'+lvl+'</button>').join('');
+    plan.focus.has(lvl)+'"'+(by[lvl]?'':' disabled')+'>'+lvl+
+    '<span class="n">'+(by[lvl]||0)+'</span></button>').join('');
   $('pChips').querySelectorAll('[data-lvl]').forEach(b => b.addEventListener('click', ()=>{
     const l = b.dataset.lvl;
     if(plan.focus.has(l)) plan.focus.delete(l); else plan.focus.add(l);
@@ -1738,18 +1633,9 @@ function renderRail(){
     mb.draggable = false;
     mb.addEventListener('click', ev => { ev.stopPropagation(); openReassign({account:a.a}); });
     el.querySelector('.nm').appendChild(mb);
-    /* Nothing goes under the name. Suburb is already in the account name, the
-       contact count is not a reason to call anyone, and a day count is a number
-       to decode. Focus is what decides how a call is approached, and that is the
-       dot - so a tier line underneath was saying nothing the dot did not. */
     const mt = el.querySelector('.mt');
-    mt.textContent = '';
-    if(d.state !== 'covered'){
-      const pip = document.createElement('span');
-      pip.className = 'pip ' + d.state;
-      pip.title = dueLabel(d);
-      el.querySelector('.nm').appendChild(pip);
-    }
+    mt.textContent = [a.sub || 'no suburb', a.tier || 'no tier',
+      a.c.length+(a.c.length===1?' contact':' contacts'), dueLabel(d)].join(' \u00b7 ');
     // Tag hits that sit outside the zone on screen, so a search result is never
     // mistaken for something on this trip.
     if(searching() && a.z !== plan.zone){
@@ -1774,103 +1660,6 @@ function weekDays(){ const s = startOfWeek(plan.anchor); return [0,1,2,3,4].map(
 function apptsOn(dISO){ return APPTS.filter(a => a.date === dISO).sort((x,y)=>x.start.localeCompare(y.start)); }
 function apptFocusCls(ap){ const a = ACC_BY_NAME.get(ap.acct); return a ? FOC_CLS[a.foc] : 'none'; }
 
-/* ---------- hour grid ----------
-   Business hours only. Everything else is a band you cannot drop into, so the
-   usable area of the column is the part of the day you actually work. */
-const DAY_FROM = 7, DAY_TO = 17;            // 7am to 5pm
-const PX_MIN = 0.8;                          // 48px an hour
-const SNAP = 5;                              // minutes
-const GRID_H = (DAY_TO - DAY_FROM) * 60 * PX_MIN;
-
-function minOf(hhmm){
-  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
-  return m ? (+m[1]) * 60 + (+m[2]) : DAY_FROM * 60;
-}
-function hhmm(mins){
-  mins = Math.max(0, Math.min(24 * 60 - 1, Math.round(mins)));
-  return String(Math.floor(mins / 60)).padStart(2, '0') + ':' +
-         String(mins % 60).padStart(2, '0');
-}
-function topFor(ap){ return (minOf(ap.start) - DAY_FROM * 60) * PX_MIN; }
-
-function hourGutter(){
-  const g = document.createElement('div');
-  g.className = 'gut';
-  for(let hgt = DAY_FROM; hgt < DAY_TO; hgt++){
-    const s = document.createElement('div');
-    s.className = 'gh';
-    s.style.height = (60 * PX_MIN) + 'px';
-    s.textContent = (hgt > 12 ? hgt - 12 : hgt) + (hgt < 12 ? 'am' : 'pm');
-    g.appendChild(s);
-  }
-  return g;
-}
-
-/* Pointer drag. Vertical moves the time, horizontal moves the day, and the
-   label updates as it goes so the time is read off the thing being moved rather
-   than guessed from where it sits. */
-function makeDraggableAppt(el, ap){
-  let dragging = false, holdT = null, startY = 0, startTop = 0, moved = false;
-  const coarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
-
-  function begin(e){
-    dragging = true; moved = false;
-    startY = e.clientY;
-    startTop = parseFloat(el.style.top) || 0;
-    el.classList.add('dragging');
-    el.setPointerCapture(e.pointerId);
-  }
-  el.addEventListener('pointerdown', e => {
-    if(e.button != null && e.button !== 0) return;
-    if(coarse){
-      /* Half a second before it lifts. Short enough not to feel slow, long
-         enough that a scroll never picks a call up. */
-      holdT = setTimeout(() => { holdT = null; begin(e); }, 450);
-    } else {
-      begin(e);
-    }
-  });
-  el.addEventListener('pointermove', e => {
-    if(holdT){ clearTimeout(holdT); holdT = null; return; }   // it was a scroll
-    if(!dragging) return;
-    e.preventDefault();
-    moved = true;
-    const raw = startTop + (e.clientY - startY);
-    const mins = DAY_FROM * 60 + raw / PX_MIN;
-    const snapped = Math.round(mins / SNAP) * SNAP;
-    const clamped = Math.max(DAY_FROM * 60, Math.min(DAY_TO * 60 - ap.dur, snapped));
-    el.style.top = ((clamped - DAY_FROM * 60) * PX_MIN) + 'px';
-    el.dataset.newStart = hhmm(clamped);
-    const lab = el.querySelector('.t span');
-    if(lab) lab.textContent = el.dataset.newStart + ' \u00b7 ' + ap.dur + ' min';
-    /* Which column is under the finger decides the day. */
-    const col = document.elementFromPoint(e.clientX, e.clientY);
-    const day = col && col.closest ? col.closest('.day') : null;
-    if(day && day.dataset.k) el.dataset.newDate = day.dataset.k;
-  });
-  async function end(e){
-    if(holdT){ clearTimeout(holdT); holdT = null; }
-    if(!dragging) return;
-    dragging = false;
-    el.classList.remove('dragging');
-    try { el.releasePointerCapture(e.pointerId); } catch(_){}
-    if(!moved) return;                              // a hold that never moved
-    /* A click event follows the pointer sequence. Without this the dialog opens
-       for the call you have just finished dragging. */
-    el.addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); },
-      {capture:true, once:true});
-    const ns = el.dataset.newStart, nd = el.dataset.newDate;
-    if((ns && ns !== ap.start) || (nd && nd !== ap.date)){
-      if(ns) ap.start = ns;
-      if(nd) ap.date = nd;
-      await saveAppt(ap);
-      renderPlan();
-    }
-  }
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
-}
-
 function renderCalendar(){
   const body = $('calBody'), TODAY = todayISOdate();
   body.innerHTML = '';
@@ -1878,65 +1667,24 @@ function renderCalendar(){
     ? APPTS.length+' appointment'+(APPTS.length===1?'':'s')+' planned'
     : 'Click an account, or drag it onto a day.';
 
-  if(plan.view === 'week' || plan.view === 'day'){
-    const oneDay = plan.view === 'day';
-    const days = oneDay ? [plan.anchor] : weekDays();
-    $('calTitle').textContent = oneDay
-      ? DAYNM[(days[0].getDay()+6)%7]+' '+days[0].getDate()+' '+
-        MONNM[days[0].getMonth()].slice(0,3)+' '+days[0].getFullYear()
-      : days[0].getDate()+' '+MONNM[days[0].getMonth()].slice(0,3)+' \u2013 '+
-        days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
-    const grid = document.createElement('div');
-    grid.className = 'week' + (oneDay ? ' oneday' : '');
-    grid.appendChild(hourGutter());
+  if(plan.view === 'week'){
+    const days = weekDays();
+    $('calTitle').textContent = days[0].getDate()+' '+MONNM[days[0].getMonth()].slice(0,3)+' \u2013 '+
+      days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
+    const grid = document.createElement('div'); grid.className = 'week';
     days.forEach((d,i)=>{
       const k = iso(d);
       const col = document.createElement('div');
       col.className = 'day' + (k === TODAY ? ' today' : '');
-      col.innerHTML = '<div class="dh"><b>'+DAYNM[oneDay ? (d.getDay()+6)%7 : i]+'</b><span>'+d.getDate()+' '+
+      col.innerHTML = '<div class="dh"><b>'+DAYNM[i]+'</b><span>'+d.getDate()+' '+
         MONNM[d.getMonth()].slice(0,3)+'</span></div>';
-      col.dataset.k = k;
-      const b = document.createElement('div'); b.className = 'dbody hours';
-      b.style.height = GRID_H + 'px';
-      for(let hgt = DAY_FROM + 1; hgt < DAY_TO; hgt++){
-        const ln = document.createElement('div');
-        ln.className = 'hl';
-        ln.style.top = ((hgt - DAY_FROM) * 60 * PX_MIN) + 'px';
-        b.appendChild(ln);
-      }
-      apptsOn(k).forEach(ap => {
-        const el = apptEl(ap, false);
-        const start = minOf(ap.start);
-        const out = start < DAY_FROM * 60 || start >= DAY_TO * 60;
-        el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(ap))) + 'px';
-        el.style.height = Math.max(18, ap.dur * PX_MIN) + 'px';
-        /* A 25 minute call is 20px tall, and the card wants about 40 for its
-           three lines. Rather than stretch the box and lie about the duration,
-           short calls drop to a single line - the account name, which is the
-           part you are scanning for. The time is in the tooltip and on the
-           card once it is opened. */
-        /* Native drag has to go, or the browser swallows the pointer stream the
-           moment the mouse moves and the time never changes. Moving between days
-           is handled by the pointer drag instead. */
-        el.draggable = false;
-        if(!oneDay && ap.dur * PX_MIN < 36) el.classList.add('tiny');
-        if(out) el.classList.add('oob');
-        el.title = (el.title || '') + (out ? '\nOutside 7am-5pm, shown at the edge' : '');
-        makeDraggableAppt(el, ap);
-        b.appendChild(el);
-      });
-      /* Clicking empty space books at the time that was clicked, which is the
-         whole point of having an hour axis. */
-      b.addEventListener('dblclick', e => {
-        if(e.target !== b) return;
-        const mins = DAY_FROM * 60 + (e.offsetY / PX_MIN);
-        openDialog(null, {date:k, start:hhmm(Math.round(mins / 15) * 15)});
-      });
-      col.appendChild(b);
+      const b = document.createElement('div'); b.className = 'dbody';
+      apptsOn(k).forEach(ap => b.appendChild(apptEl(ap,false)));
       const add = document.createElement('button');
       add.className = 'add'; add.type = 'button'; add.textContent = '+ Add call';
       add.onclick = ()=>openDialog(null, {date:k});
-      col.appendChild(add);
+      b.appendChild(add);
+      col.appendChild(b);
       makeDrop(col, k);
       grid.appendChild(col);
     });
@@ -1998,20 +1746,6 @@ function apptEl(ap, pill){
   el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.stopPropagation(); openDialog(ap.id); } });
   return el;
 }
-/* Where in the column something was dropped, as a time. Returns null in month
-   view, where a cell is a whole day and a vertical position means nothing. */
-function dropTime(el, e){
-  const grid = el.querySelector('.dbody.hours');
-  if(!grid) return null;
-  const r = grid.getBoundingClientRect();
-  if(r.height <= 0) return null;
-  const mins = DAY_FROM * 60 + ((e.clientY - r.top) / PX_MIN);
-  /* Quarter hours, because a drop is a coarser gesture than a drag - nobody
-     aims for 13:05 with a dragged account. */
-  const q = Math.round(mins / 15) * 15;
-  return hhmm(Math.max(DAY_FROM * 60, Math.min(DAY_TO * 60 - DEF_DUR, q)));
-}
-
 function makeDrop(el, k){
   el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('over'); });
   el.addEventListener('dragleave', ()=>el.classList.remove('over'));
@@ -2020,18 +1754,10 @@ function makeDrop(el, k){
     let p; try { p = JSON.parse(e.dataTransfer.getData('text/plain')); } catch(_){ return; }
     if(p.kind === 'appt'){
       const ap = APPTS.find(x => x.id === p.id);
-      const t = dropTime(el, e);
-      /* Dropping onto a time moves the time as well as the day, which is what
-         the gesture looks like it should do. */
-      const moved = ap && (ap.date !== k || (t && t !== ap.start));
-      if(moved){
-        ap.date = k;
-        if(t) ap.start = t;
-        await saveAppt(ap); renderPlan();
-      }
+      // moving it to another day is an edit, so it goes back to changed
+      if(ap && ap.date !== k){ ap.date = k; await saveAppt(ap); renderPlan(); }
     } else if(p.kind === 'acct'){
-      const t = dropTime(el, e);
-      openDialog(null, Object.assign({acct:p.acct, date:k}, t ? {start:t} : {}));
+      openDialog(null, {acct:p.acct, date:k});
     }
   });
 }
@@ -2050,8 +1776,12 @@ function openDialog(id, seed){
     if(!acct){ toast('Pick an account first'); return; }
     const a = ACC_BY_NAME.get(acct);
     ap = {id:null, acct:acct, type:'Intralox site visit',
-          date: seed.date || iso(weekDays()[0]), start:seed.start || '09:00', dur:DEF_DUR, agenda:'',
-          contacts: (a && a.c ? a.c.map((_,i)=>i) : [])};
+          date: seed.date || iso(weekDays()[0]), start:'09:00', dur:60, agenda:'',
+          /* The contact list is already role-ranked, so the first few are the
+             people a belt call is actually for. Listing all fourteen on a large
+             account put all fourteen into the report of any visit started from
+             the appointment. */
+          contacts: (a && a.c ? a.c.map((_,i)=>i).slice(0, 3) : [])};
     editingAppt = null;
   }
   const a = ACC_BY_NAME.get(ap.acct);
@@ -2101,7 +1831,6 @@ function openDialog(id, seed){
   } else {
     sync.hidden = true;
   }
-  $('dHold').checked = !!ap.hold;
   $('dDel').hidden = !id;
   dlgAppt = ap;
   const dlg = $('dlg');
@@ -2122,9 +1851,8 @@ async function saveDialog(){
   ap.type = $('dType').value;
   ap.date = $('dDate').value;
   ap.start = $('dTime').value || '09:00';
-  ap.dur = parseInt($('dDur').value,10) || DEF_DUR;
+  ap.dur = parseInt($('dDur').value,10) || 60;
   ap.agenda = $('dAgenda').value;
-  ap.hold = $('dHold').checked;
   ap.contacts = [...$('dCts').querySelectorAll('input:checked')].map(x => +x.dataset.i);
   // a call dropped on a weekend moves to the Monday rather than sitting there unseen
   const d = parseIso(ap.date);
@@ -2177,19 +1905,17 @@ $('pView').querySelectorAll('button').forEach(b => b.addEventListener('click', (
   renderCalendar(); renderTerritory();
 }));
 $('calPrev').addEventListener('click', ()=>{
-  plan.anchor = plan.view === 'day' ? addDays(plan.anchor,-1)
-    : plan.view === 'week' ? addDays(plan.anchor,-7)
+  plan.anchor = plan.view === 'week' ? addDays(plan.anchor,-7)
     : new Date(plan.anchor.getFullYear(), plan.anchor.getMonth()-1, 1);
   renderCalendar(); renderTerritory();
 });
 $('calNext').addEventListener('click', ()=>{
-  plan.anchor = plan.view === 'day' ? addDays(plan.anchor,1)
-    : plan.view === 'week' ? addDays(plan.anchor,7)
+  plan.anchor = plan.view === 'week' ? addDays(plan.anchor,7)
     : new Date(plan.anchor.getFullYear(), plan.anchor.getMonth()+1, 1);
   renderCalendar(); renderTerritory();
 });
 $('calToday').addEventListener('click', ()=>{
-  plan.anchor = plan.view === 'week' ? startOfWeek(new Date()) : new Date();   // day and month both want today
+  plan.anchor = plan.view === 'week' ? startOfWeek(new Date()) : new Date();
   renderCalendar(); renderTerritory();
 });
 
@@ -2597,7 +2323,8 @@ function callSummary(c){
     date: c.date, type: c.type, site: c.site || '',
     status: c.status || (c.closed ? 'done' : 'in progress'),
     noReport: !!c.noReport && !(c.entries||[]).length,
-    contacts: (c.contacts||[]).map(x => ({n:x.name, r:x.role||'', crm:x.crm !== false})),
+    contacts: (c.contacts||[]).filter(x => x.seen !== false)
+                .map(x => ({n:x.name, r:x.role||'', crm:x.crm !== false})),
     belts: E('belt').map(e => ({
       asset:e.asset, desc:e.beltdesc, series:e.series, style:e.style,
       width:e.width, clen:e.clength, frame:e.frame, beltlen:e.beltlen,
@@ -2612,9 +2339,8 @@ function callSummary(c){
       name:e.project, status:e.status, next:e.next, target:e.target, owner:e.owner, notes:e.notes
     })),
     notes: E('note').map(e => ({topic:e.topic, text:e.text})),
-    health: E('health').slice().sort(byWorkOrder).map(e => ({
-      asset:e.asset, fault:e.fault, htype:e.htype, severity:e.severity, action:e.action,
-      priority:e.priority, owner:e.owner, due:e.due
+    health: E('health').slice().sort(bySeverity).map(e => ({
+      asset:e.asset, fault:e.fault, htype:e.htype, severity:e.severity, action:e.action
     })),
     photos: photos,
     file: c.sharedAs || ''
@@ -2928,31 +2654,9 @@ function buildIcs(list){
     L.push('DTEND;TZID='+p.tz+':'+dtLocal(ap.date, ap.start, ap.dur));
     L.push('SUMMARY:'+icsEsc(apptTitle(ap)));
     L.push('LOCATION:'+icsEsc([a.sub, a.a].filter(Boolean).join(', ')));
-    /* A placeholder is time blocked for you, so nobody is written as an
-       attendee. Otherwise the contacts ticked on the appointment go on, and the
-       organiser is you - Outlook needs an organiser before it will treat the
-       import as a meeting rather than a bare appointment. */
-    const myEmail = (localStorage.getItem(LS('email')) || '').trim();
-    if(!ap.hold && myEmail){
-      const invitees = (ap.contacts||[]).map(i => a.c[i]).filter(Boolean)
-        .map(c => ({name: c.n, email: (c.e && c.e[0]) || ''}))
-        .filter(c => c.email);
-      if(invitees.length){
-        L.push('ORGANIZER;CN='+icsEsc(localStorage.getItem(LS('mgr')) || myEmail)+
-               ':MAILTO:'+myEmail);
-        invitees.forEach(c => L.push(
-          'ATTENDEE;CN='+icsEsc(c.name)+';ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE'+
-          ':MAILTO:'+c.email));
-      }
-    }
     L.push('DESCRIPTION:'+icsEsc(p.txt));
     L.push('X-ALT-DESC;FMTTYPE=text/html:'+icsEsc(p.html));
-    /* Outlook colours a calendar item from its own category list, matching on
-       name - the file can only carry the name. Focus goes first so it is the
-       one that colours the item, and the names are explicit rather than a bare
-       "High", which would collide with anything else already categorised that
-       way. Creating these three once in Outlook is a one-off. */
-    L.push('CATEGORIES:'+icsEsc(FOCUS_CAT[ap._foc || (a && a.foc)] || 'Focus None') + ',' + icsEsc(a.z));
+    L.push('CATEGORIES:'+icsEsc(a.z+','+a.foc));
     // a site visit is time out of the office; a planned phone call is not
     L.push('X-MICROSOFT-CDO-BUSYSTATUS:'+(ap.type === 'Intralox site visit' ? 'OOF' : 'BUSY'));
     L.push('TRANSP:OPAQUE');
@@ -3307,7 +3011,7 @@ async function bookUnplanned(c, acc){
     type: c.type === 'Phone call' ? 'Planned phone call' : 'Intralox site visit',
     date: isoFromDdmmyyyy(c.date) || todayISOdate(),
     start: String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
-    dur: DEF_DUR,
+    dur: 60,
     agenda: '',
     contacts: (c.contacts||[]).map(x => acc.c.findIndex(y => y.n === x.name)).filter(i => i >= 0),
     /* origin marks it as made on this device and not yet seen by the other one.
@@ -3415,8 +3119,8 @@ async function bookVisitFor(name){
   const ap = {
     id: 'ap' + Date.now().toString(36) + (plan.seq++),
     acct: acc.a, type: 'Intralox site visit',
-    date: todayISOdate(), start: '09:00', dur: DEF_DUR, agenda: '',
-    contacts: acc.c.map((_, i) => i).slice(0, 6),
+    date: todayISOdate(), start: '09:00', dur: 60, agenda: '',
+    contacts: acc.c.map((_, i) => i).slice(0, 3),
     origin: isPhone() ? 'phone' : 'desktop', acked: false,
     status: 'planned'
   };
@@ -4142,10 +3846,6 @@ async function ghCheckRepo(){
   return j;
 }
 async function ghGet(){
-  /* The default response puts the file in j.content as base64 - but only up to
-     1 MB. Above that GitHub returns the field EMPTY with no error, so the read
-     appears to succeed and hands back nothing. The raw media type has no such
-     limit up to 100 MB. */
   const r = await fetch(ghUrl()+'?ref='+encodeURIComponent(GH.branch), {headers: ghHeaders()});
   if(r.status === 404){ ghSha = null; return null; }   // nothing pushed yet
   if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading the file');
@@ -4525,12 +4225,7 @@ async function renderHome(){
   renderHomeCounts();
   renderPeopleCount(); renderReportsCount().catch(()=>{});
   const done = all.sort((a,b)=>b.updated-a.updated).slice(0,8);
-  renderBackupAge();
-  /* Past calls moved to Reports, which lists the same calls with a search box
-     and an All/Open/Finished filter. The block below is kept and guarded so the
-     list can be put back on any screen by adding the element again. */
   const el = $('pastList');
-  if(!el) return;
   if(!done.length){ el.innerHTML = '<p class="empty">No saved calls.</p>'; return; }
   el.innerHTML = done.map(c=>
     '<div class="card"><div class="hd"><span class="t">'+esc(c.date)+'</span>'+
@@ -4570,18 +4265,15 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     browseScope = 'mine';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'mine'));
     $('abQ').value = '';
-    showDir('acc');
+    go('accounts');
   } else if(t==='people'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
-    $('peQ').value = ''; showDir('ppl');
+    $('peQ').value = ''; go('people');
   } else if(t==='reports'){
     $('rpQ').value = ''; go('reports');
   } else if(t==='manuals'){
     if(!window.Manuals){ toast('manuals.js did not load'); return; }
-    showRef('man');
-  } else if(t==='faults'){
-    if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
-    showRef('flt');
+    go('manuals');
   } else if(t==='plan'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
     if(!plan.mgr && $('cMgr').value) plan.mgr = $('cMgr').value;
@@ -4591,23 +4283,16 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     browseScope = 'due';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'due'));
     $('abQ').value = '';
-    showDir('acc');
+    go('accounts');
   } else if(t==='resume'){
     const all = await callsAll();
     const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
     if(!open.length){ toast('No open call'); return; }
-    /* One open call is the common case and asking which would be noise. More
-       than one, and picking the most recent silently is how you end up writing
-       into the wrong plant. */
-    if(open.length === 1){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
-    showOpenPicker(open);
+    call = open[0]; call.loose = call.loose || []; go('dash');
   } else if(t==='belt'){ resetBelt(); go('belt'); }
   else if(t==='project'){ resetProject(); go('project'); }
   else if(t==='note'){ $('nText').value=''; go('note'); }
   else if(t==='health'){ resetHealth(); go('health'); }
-  else if(t==='settings'){ go('settings'); }
-  else if(t==='directory'){ showDir('acc'); }
-  else if(t==='reference'){ showRef('man'); }
 }));
 
 /* ---------- import wiring ---------- */
@@ -4801,13 +4486,15 @@ $('openCall').addEventListener('click', async ()=>{
 function renderDash(){
   if(!call) return go('home');
   const c = call;
-  const onDoc = c.contacts.filter(docContact).length;
+  const seenN = c.contacts.filter(x => x.seen !== false).length;
   $('dashStat').innerHTML =
     '<b>'+esc(c.customer)+'</b><br>'+esc(c.date)+' &middot; '+esc(c.type)+' &middot; '+esc(c.mgr)+
     (c.site?'<br>'+esc(c.site):'')+
-    '<br>'+c.contacts.map(x=>esc(x.name)+(x.crm?'':' <span class="tag">not in CRM</span>')).join(', ')+
-    '<br><span class="hint">'+onDoc+' of '+c.contacts.length+
-    ' on customer documents &middot; tap to change</span>';
+    (c.contacts.length
+      ? '<br>'+seenN+' of '+c.contacts.length+' contact'+(c.contacts.length===1?'':'s')+
+        ' seen on this visit'
+      : '');
+  renderSeen();
   const n = t => c.entries.filter(e=>e.type===t).length;
   $('cntBelt').textContent = n('belt')+' logged';
   $('cntProj').textContent = n('project')+' logged';
@@ -4829,63 +4516,18 @@ function renderDash(){
     const gone = e.detached
       ? '<p class="meta"><span class="tag">'+e.detached.n+' photo'+(e.detached.n===1?'':'s')+
         ' sent '+new Date(e.detached.at).toLocaleDateString()+', dropped from this phone</span></p>' : '';
-    /* One row of controls, in the same place on every card. Edit and Remove used
-       to sit on the title line - Edit as an unstyled default button - which put
-       two interactive things somewhere nothing else was interactive. */
-    return '<div class="card"><div class="hd"><span class="t">'+esc(head)+'</span></div>'+
+    return '<div class="card"><div class="hd"><span class="t">'+esc(head)+'</span>'+
+      '<button class="x" data-del="'+i+'">Remove</button></div>'+
       '<p class="meta">'+body+'</p>'+ gone +
       (th?'<div class="thumbs">'+th+'</div>':'')+
-      '<div class="cardbar">'+
-      '<button data-cam="'+i+'" title="Take a photo" aria-label="Take a photo">'+icon('camera')+'</button>'+
-      '<button data-gal="'+i+'" title="Add from photos" aria-label="Add from photos">'+icon('image')+'</button>'+
-      '<button data-edit="'+i+'" title="Edit this entry" aria-label="Edit this entry">'+icon('edit')+'</button>'+
-      '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span>'+
-      '<button class="bin" data-del="'+i+'" title="Remove this entry" aria-label="Remove this entry">'+icon('trash')+'</button>'+
-      '</div></div>';
+      '<div class="cardbar"><button data-cam="'+i+'">Camera</button>'+
+      '<button data-gal="'+i+'">Photos</button>'+
+      '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span></div></div>';
   }).join('');
   el.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
     if(!confirm('Remove this entry and its photos?')) return;
     (call.entries[+b.dataset.del].photos||[]).forEach(releasePhoto);
     call.entries.splice(+b.dataset.del,1); await saveCall(); renderDash();
-  }));
-  el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>{
-    const i = +b.dataset.edit, e = call.entries[i];
-    if(!e) return;
-    editingIdx = i;
-    if(e.type==='belt'){
-      resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
-      fillBeltFromEntry(e);
-      go('belt');
-    } else if(e.type==='note'){
-      $('nTopic').value = e.topic || ''; $('nText').value = e.text || '';
-      $('nErr').classList.remove('show');
-      go('note');
-    } else if(e.type==='health'){
-      resetHealth(); editingIdx = i;
-      $('hAsset').value = e.asset || ''; $('hFault').value = e.fault || '';
-      $('hAction').value = e.action || '';
-      const opt = Array.from($('hType').options).find(o => o.value === e.htype);
-      if(!opt && e.htype){ const o=document.createElement('option'); o.value=o.textContent=e.htype; $('hType').appendChild(o); }
-      if(e.htype) $('hType').value = e.htype;
-      hSevVal = e.severity || '';
-      document.querySelectorAll('#hSev button').forEach(x=>x.classList.toggle('on', x.dataset.v===hSevVal));
-      /* The fault library fields ride along untouched, so editing the wording
-         does not strip the priority, risks or the link to the belt entry. */
-      healthExtra = {};
-      ['faultId','faultCode','libVersion','category','conditions','what','leads',
-       'priority','thresholds','source','owner','due','refImages','beltRef','beltSeries',
-       'risks','benefit'].forEach(k => { if(e[k] !== undefined) healthExtra[k] = e[k]; });
-      go('health');
-    } else if(e.type==='project'){
-      $('pName').value = e.project || ''; $('pStat').value = e.status || '';
-      $('pNext').value = e.next || ''; $('pTarg').value = e.target || '';
-      $('pOwner').value = e.owner || ''; $('pNotes').value = e.notes || '';
-      editingProject = {key: projKey(e.project), inThisCall: true, fromStatus: e.fromStatus || ''};
-      editingIdx = null;                // project replaces through its own path
-      $('pErr').classList.remove('show');
-      go('project');
-    }
-    toast('Editing - save to update');
   }));
   el.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click', ()=>{
     photoTarget = +b.dataset.cam; $('camInput').value=''; $('camInput').click();
@@ -4911,9 +4553,8 @@ function renderLoose(){
   el.innerHTML = '<div class="card"><div class="hd"><span class="t">Not tied to an entry</span></div>'+
     '<p class="meta">These come out at the end of the notes, after the health check.</p>'+ gone +
     (th?'<div class="thumbs">'+th+'</div>':'')+
-    '<div class="cardbar">'+
-    '<button id="looseCam" title="Take a photo" aria-label="Take a photo">'+icon('camera')+'</button>'+
-    '<button id="looseGal" title="Add from photos" aria-label="Add from photos">'+icon('image')+'</button>'+
+    '<div class="cardbar"><button id="looseCam">Camera</button>'+
+    '<button id="looseGal">Photos</button>'+
     '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span></div></div>';
   $('looseCam').addEventListener('click', ()=>{ photoTarget='loose'; $('camInput').value=''; $('camInput').click(); });
   $('looseGal').addEventListener('click', ()=>{ photoTarget='loose'; $('galInput').value=''; $('galInput').click(); });
@@ -5086,7 +4727,7 @@ function buildBeltRef(){
   if(!REF){
     showMsg(warn, 'info', 'No belt reference data loaded, so the pickers below are empty. ' +
       'The description and measurement fields still work. ' +
-      '<span class="lnk" data-go="settings">Import the workbook</span>');
+      '<span class="lnk" data-go="data">Import the workbook</span>');
   } else {
     showMsg(warn, '', '');
   }
@@ -5489,34 +5130,6 @@ $('bCopy').addEventListener('change', () => {
 });
 
 /* ---------- reset and save ---------- */
-/* ---------- editing a logged entry ----------
-   Entries used to be push-only: a typo in a belt spec meant deleting the entry
-   and re-keying 38 fields. editingIdx holds the position in call.entries being
-   edited, or null when adding. Save branches on it.
-
-   Usage counters are deliberately NOT bumped on an edit. They rank the pickers
-   by what gets used most, and re-saving one belt three times while correcting
-   it would tell the ranking that belt is three times as common as it is. */
-let editingIdx = null;
-
-function clearEditing(){ editingIdx = null; }
-
-/* Commits the form to call.entries and returns the index, without leaving the
-   screen. Used by save, and by the fault button so a belt never has to be
-   saved by hand first. */
-function commitEntry(entry, keepPhotos){
-  if(editingIdx != null && call.entries[editingIdx]){
-    const prev = call.entries[editingIdx];
-    if(keepPhotos !== false) entry.photos = prev.photos || [];
-    if(prev.detached) entry.detached = prev.detached;
-    call.entries[editingIdx] = entry;
-    return editingIdx;
-  }
-  call.entries.push(entry);
-  editingIdx = call.entries.length - 1;
-  return editingIdx;
-}
-
 function resetBelt(){
   try { showMsg($('bAssetHit'), '', ''); } catch(e){}
   ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn','bSprDrive','bSprIdle',
@@ -5536,7 +5149,6 @@ function resetBelt(){
   $('bSprSpacers').checked = false; $('bSprHdRet').checked = false; updateSprExtras();
   $('bSkipAcc').checked = true;  $('bAccBody').classList.add('hide');
   $('bFlType').value = ''; $('bFlMat').value = ''; $('bSgType').value = ''; $('bSgMat').value = '';
-  clearEditing();
   $('bErr').classList.remove('show');
   $('bFrame').classList.remove('alert'); $('bWidth').classList.remove('alert');
   showMsg($('bWidthMsg'), '', ''); showMsg($('bFrameMsg'), '', '');
@@ -5545,12 +5157,7 @@ function resetBelt(){
   refreshBeltCopy();
 }
 
-/* Set by the fault button so the belt is committed without the toast and the
-   jump to the dashboard. Read into a local immediately, because the handler
-   awaits and the flag would otherwise be cleared before it is used. */
-let beltSaveSilent = false;
 $('bSave').addEventListener('click', async () => {
-  const silent = beltSaveSilent; beltSaveSilent = false;
   const a = $('bAsset').value.trim();
   if(!a){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
   const skipSpr = $('bSkipSpr').checked, skipAcc = $('bSkipAcc').checked;
@@ -5586,10 +5193,8 @@ $('bSave').addEventListener('click', async () => {
     sgheight:skipAcc ? '' : v('bSgHeight'),
     qcontact:v('bQc'), photos:[]
   };
-  const wasEdit = editingIdx != null;
-  beltJustSaved = commitEntry(e);
+  call.entries.push(e);
   const ctxS = e.series, ctxT = e.series+'|'+e.style, ctxM = ctxT+'|'+e.beltmat;
-  if(!wasEdit){
   bump('series', '', e.series);
   bump('style', ctxS, e.style);
   bump('material', ctxT, e.beltmat);
@@ -5605,12 +5210,8 @@ $('bSave').addEventListener('click', async () => {
     bump('sgtype', '', e.sgtype);   bump('sgmat', '', e.sgmat);
     bump('indent', ctxT, e.findent);
   }
-  }
-  /* Ranking is what the pickers sort by, so an edit must not vote again. */
-  await Promise.all([saveCall(), wasEdit ? Promise.resolve() : saveUse()]);
-  clearEditing();
-  if(silent) return;
-  toast(wasEdit ? ('Belt '+a+' updated') : ('Belt '+a+' logged - add a photo if you want one'));
+  await Promise.all([saveCall(), saveUse()]);
+  toast('Belt '+a+' logged - add a photo if you want one');
   go('dash');
 });
 
@@ -5723,10 +5324,8 @@ $('pSave').addEventListener('click', async ()=>{
 $('nSave').addEventListener('click', async ()=>{
   const t = $('nText').value.trim();
   if(!t){ $('nErr').classList.add('show'); $('nText').focus(); return; }
-  const wasEdit = editingIdx != null;
-  commitEntry({type:'note', topic:$('nTopic').value, text:t, photos:[]});
-  clearEditing();
-  await saveCall(); toast(wasEdit ? 'Note updated' : 'Note logged'); go('dash');
+  call.entries.push({type:'note', topic:$('nTopic').value, text:t, photos:[]});
+  await saveCall(); toast('Note logged'); go('dash');
 });
 
 /* ---------- entry: health ---------- */
@@ -5742,85 +5341,6 @@ let hSevVal='';
    Matched on the asset field, loosely: CV-114, cv114 and CV 114 drive end are
    the same conveyor as far as this is concerned. */
 const assetKey = v => String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-/* Fields the fault library adds to a health entry, held between the picker
-   closing and the form being saved. */
-let healthExtra = null;
-
-/* Opens the fault library picker and fills the health form from the chosen
-   check. Guarded everywhere, so the button simply does nothing if the module
-   is absent. */
-function openFaultPicker(ctx){
-  if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
-  HealthLib.openPicker(ctx || {asset:$('hAsset').value.trim()}, e => {
-    healthExtra = e;
-    if(e.asset && !$('hAsset').value.trim()) $('hAsset').value = e.asset;
-    $('hFault').value  = e.fault;
-    $('hAction').value = e.action;
-    const opt = Array.from($('hType').options).find(o => o.value === e.htype);
-    if(!opt){ const o = document.createElement('option'); o.value = o.textContent = e.htype; $('hType').appendChild(o); }
-    $('hType').value = e.htype;
-    $('hSev').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === e.severity));
-    $('hSevErr').classList.remove('show');
-    toast(e.faultCode + ' selected');
-  });
-}
-
-/* ---------- people on the call ----------
-   `doc` marks a contact as appearing on documents that go to the customer. It is
-   absent on every call written before this existed, so absent means included -
-   an old call exports exactly as it always did. */
-function docContact(x){ return x.doc !== false; }
-
-function renderCallContacts(){
-  if(!call) return;
-  const on = $('ccOn');
-  on.innerHTML = call.contacts.length ? call.contacts.map((x,i)=>{
-    const meta = [x.role, x.email, x.mobile].filter(Boolean).map(esc).join(' \u00b7 ');
-    return '<div class="ccrow">' +
-      '<input type="checkbox" data-doc="'+i+'"'+(docContact(x)?' checked':'')+
-      ' aria-label="Include '+esc(x.name)+' on customer documents">' +
-      '<span class="who"><div class="nm">'+esc(x.name)+
-      (x.crm?'':' <span class="tag">not in CRM</span>')+'</div>' +
-      '<div class="mt">'+(meta||'no details on file')+'</div></span>' +
-      '<button type="button" class="x" data-rm="'+i+'">Remove</button></div>';
-  }).join('') : '<p class="empty">Nobody on this call yet.</p>';
-
-  on.querySelectorAll('[data-doc]').forEach(b=>b.addEventListener('change', async ()=>{
-    call.contacts[+b.dataset.doc].doc = b.checked;
-    await saveCall(); renderCallContacts(); renderDash();
-  }));
-  on.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click', async ()=>{
-    const x = call.contacts[+b.dataset.rm];
-    if(!confirm('Remove '+x.name+' from this call? This takes them off the record, not just off the documents.')) return;
-    call.contacts.splice(+b.dataset.rm,1);
-    await saveCall(); renderCallContacts(); renderDash();
-  }));
-
-  /* Only contacts not already on the call are offered, so the same person
-     cannot be added twice. */
-  const acc = ACC_BY_NAME.get(call.customer);
-  const pool = (acc && acc.c) ? acc.c : [];
-  const have = new Set(call.contacts.map(x=>(x.cid!=null?'id:'+x.cid:'nm:'+x.name.toLowerCase())));
-  const q = ($('ccQ').value||'').trim().toLowerCase();
-  const rest = pool.filter(p => !have.has(p.id!=null?'id:'+p.id:'nm:'+String(p.n).toLowerCase()))
-    .filter(p => !q || (p.n+' '+(p.t||p.r||'')).toLowerCase().includes(q));
-  $('ccAdd').innerHTML = rest.length ? rest.map((p,i)=>{
-    const meta = [p.t||p.r, (p.e&&p.e[0])||'', p.p].filter(Boolean).map(esc).join(' \u00b7 ');
-    return '<div class="ccrow"><span class="who"><div class="nm">'+esc(p.n)+'</div>'+
-      '<div class="mt">'+(meta||'no details on file')+'</div></span>'+
-      '<button type="button" class="x" data-add="'+pool.indexOf(p)+'">Add</button></div>';
-  }).join('') : '<p class="empty">'+(pool.length?'Everyone is already on the call.':'No contacts on file for this account.')+'</p>';
-
-  $('ccAdd').querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click', async ()=>{
-    const p = pool[+b.dataset.add];
-    if(!p) return;
-    call.contacts.push({name:p.n, role:p.t||p.r, email:(p.e&&p.e[0])||'', mobile:p.p,
-      crm:true, cid:p.id, doc:true});
-    await saveCall(); renderCallContacts(); renderDash();
-    toast(p.n+' added');
-  }));
-}
-
 function healthHistory(asset){
   const k = assetKey(asset);
   if(k.length < 3 || !call) return [];        // too short to match on
@@ -5887,8 +5407,7 @@ $('hGal').addEventListener('click', ()=>{ $('hGalIn').value=''; $('hGalIn').clic
 $('hCamIn').addEventListener('change', e => addHealthShots([...e.target.files]));
 $('hGalIn').addEventListener('change', e => addHealthShots([...e.target.files]));
 
-function resetHealth(){ clearEditing(); healthExtra = null;
-  ['hAsset','hFault','hAction'].forEach(i=>$(i).value=''); hSevVal='';
+function resetHealth(){ ['hAsset','hFault','hAction'].forEach(i=>$(i).value=''); hSevVal='';
   document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
   $('hErr').classList.remove('show'); $('hSevErr').classList.remove('show');
   healthShots.forEach(releasePhoto); healthShots = []; renderHealthShots();
@@ -5909,23 +5428,12 @@ $('hSave').addEventListener('click', async ()=>{
     if($('hSev').scrollIntoView) $('hSev').scrollIntoView({block:'center'});
     return;
   }
-  /* Library fields first, form fields second, so a hand-typed edit always wins
-     over a stale library value. */
-  const wasEdit = editingIdx != null;
-  /* On an edit the photos already on the entry are kept and anything newly shot
-     is added, rather than the form's list replacing what is stored. */
-  const kept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
-  commitEntry(Object.assign({}, (wasEdit ? call.entries[editingIdx] : null) || {}, healthExtra || {}, {
-    type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
-    severity:hSevVal, action:$('hAction').value.trim(),
-    photos: kept.concat(healthShots)}), false);
-  healthExtra = null;
+  call.entries.push({type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
+    severity:hSevVal, action:$('hAction').value.trim(), photos:healthShots.slice()});
   const n = healthShots.length;
   healthShots = [];
-  clearEditing();
   await saveCall();
-  toast(wasEdit ? 'Fault updated'
-                : (n ? ('Fault logged with '+n+' photo'+(n===1?'':'s')) : 'Fault logged'));
+  toast(n ? ('Fault logged with '+n+' photo'+(n===1?'':'s')) : 'Fault logged');
   go('dash');
 });
 
@@ -6057,23 +5565,52 @@ function shrink(file, max=1400, q=0.72){
    the meaning rather than the reader having to find it. */
 const SEV_ORDER = {Urgent:0, Plan:1, Monitor:2};
 const bySeverity = (a,b) => (SEV_ORDER[a.severity] ?? 3) - (SEV_ORDER[b.severity] ?? 3);
-/* Priority is the maintenance work order; severity is the condition found.
-   They usually agree. Where they don't the work order wins, because that is the
-   list the maintenance team acts from. Findings with no priority - anything
-   logged before the fault library existed - keep their severity order among
-   themselves and sit below anything prioritised. */
-const PRI_ORDER = {Critical:0, High:1, Medium:2, Low:3};
-const byWorkOrder = (a,b) => {
-  const pa = PRI_ORDER[a.priority], pb = PRI_ORDER[b.priority];
-  if (pa !== undefined || pb !== undefined) return (pa ?? 9) - (pb ?? 9);
-  return bySeverity(a,b);
-};
+
+/* ---------- who you actually saw ----------
+   A visit started from a planned appointment arrives with whoever the
+   appointment listed. Those are the people you meant to see, which is not the
+   same as the people you saw - and the report was printing all of them, so a
+   large account produced a page of names before anything useful.
+
+   Everyone is ticked to begin with, because that is usually right and this
+   should cost nothing. Untick anyone who was not there and the report, the CSV
+   and the Outlook invite all drop them together. */
+function renderSeen(){
+  const el = $('seenList');
+  if(!el || !call) return;
+  if(!call.contacts.length){
+    el.innerHTML = '<p class="empty">Nobody recorded on this call.</p>';
+    return;
+  }
+  el.innerHTML = call.contacts.map((x,i) =>
+    '<label class="pick"><input type="checkbox" data-seen="'+i+'"'+
+    (x.seen !== false ? ' checked' : '')+'>'+
+    '<span><div class="nm">'+esc(x.name)+
+      (x.crm ? '' : '<span class="tag">not in CRM</span>')+'</div>'+
+    '<div class="mt">'+esc([x.role, x.email, x.mobile].filter(Boolean).join(' \u00b7 ') ||
+      'no details on file')+'</div></span></label>').join('');
+  el.querySelectorAll('[data-seen]').forEach(b => b.addEventListener('change', async ()=>{
+    call.contacts[+b.dataset.seen].seen = b.checked;
+    await saveCall();
+    renderDash();
+  }));
+}
 
 /* ---------- compile ---------- */
 const DASH_CH = '\u2014';
 const V = v => { v = (v==null?'':String(v)).trim(); return (v===''||v==='N/A') ? DASH_CH : esc(v); };
 // Blobs become base64 here and nowhere else, so the output file is byte-for-byte
 // what it was when photos were stored as data URIs.
+/* rows are [label, value, required]. A required row always prints, with an em
+   dash when empty, because a missing width is information. An optional row that
+   was never filled is dropped - the whole table goes if nothing in it was. */
+function beltTable(caption, rows){
+  const show = rows.filter(r => r[2] || (r[1] !== '' && r[1] != null && r[1] !== false));
+  if(!show.length) return '';
+  return (caption ? '<p class="grp">'+esc(caption)+'</p>' : '') + '<table>' +
+    show.map(r => '<tr><td class="l">'+esc(r[0])+'</td><td>'+V(r[1])+'</td></tr>').join('') +
+    '</table>';
+}
 async function photoImgs(list){
   const out = [];
   for(const p of list) out.push('<img src="'+(await photoDataURL(p))+'">');
@@ -6103,7 +5640,7 @@ function renderDetach(){
   el.innerHTML = '<div class="card"><div class="hd"><span class="t">Photos still on this phone</span></div>'+
     '<p class="meta">These notes were shared '+new Date(call.shared).toLocaleString()+'. '+
     'The photos went with the file, and this phone is holding a second copy of '+humanSize(bytes)+'.</p>'+
-    '<div class="cardbar wide"><button id="detachBtn">Drop the photos, keep the record</button></div></div>';
+    '<div class="cardbar"><button id="detachBtn">Drop the photos, keep the record</button></div></div>';
   $('detachBtn').addEventListener('click', detachPhotos);
 }
 async function detachPhotos(){
@@ -6128,17 +5665,8 @@ async function detachPhotos(){
   renderCompileStat();
   toast(humanSize(bytes)+' freed - the record and the photo count are kept');
 }
-async function buildNotesHTML(scope){
+async function buildNotesHTML(){
   const c = call;
-  /* 'full' is the call record. 'health' and 'belts' are documents that leave
-     for a customer, so general notes and project discovery are excluded from
-     both - they carry commercial and internal context. */
-  scope = scope || 'full';
-  const wantNotes  = scope === 'full';
-  const wantProj   = scope === 'full';
-  const wantBelts  = scope === 'full' || scope === 'belts';
-  const wantHealth = scope === 'full' || scope === 'health';
-  const TITLE = {full:'Call notes', health:'Conveyor health check', belts:'Belt requirements'}[scope];
   const css = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:11pt;color:#222222;margin:0;padding:0 0 0 0}'+
     '.pg{padding:0 18px 18px}'+
     '.mast{background:#ED1C24;padding:13px 18px;margin:0 0 18px}'+
@@ -6150,44 +5678,17 @@ async function buildNotesHTML(scope){
     'th{background:#E3F0F5;text-align:left;padding:6px 8px;border:1px solid #ACD3E1;font-weight:bold;color:#222222}'+
     'td{padding:6px 8px;border:1px solid #CCCCCC;vertical-align:top}'+
     'td.l{background:#F7F8F8;width:38%;font-weight:bold}.flag{color:#B2232F;font-weight:bold}'+
-    /* Belt specs run two fields to a row. A belt logged quickly on site fills
-       about five of twelve fields, and one field per row turned that into a
-       column of dashes taller than the information in it. Nothing is dropped -
-       an empty field still reads as "looked at, nothing there". */
-    'table.two td{padding:5px 8px}table.two td.l{width:22%;white-space:nowrap}'+
     '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
+    '.grp{font-size:8.5pt;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;'+
+      'color:#00708D;margin:12px 0 4px}'+
+    'table+table{margin-top:0}'+
     '.blk{page-break-inside:avoid}.ph{margin:6px 0 14px}.ph img{max-width:420px;border:1px solid #CCCCCC;margin:0 8px 8px 0}'+
-    '.ft{background:#363738;color:#FFFFFF;font-size:8.5pt;letter-spacing:.02em;padding:7px 18px;margin:26px 0 0}'+
-    /* Fault cards. The app stylesheet is not available here, so the rules are
-       repeated with print in mind: one finding per page, so the sheet handed to
-       a fitter covers one job and nothing else. */
-    '.hc{border:1px solid #CCCCCC;margin:0 0 16px;page-break-inside:avoid}'+
-    '.hc + .hc{page-break-before:always}'+
-    '.hc-top{background:#E3F0F5;border-bottom:1px solid #ACD3E1;padding:8px 12px;overflow:hidden}'+
-    '.hc-asset{float:left;font-weight:bold;color:#00708D;font-size:12pt}'+
-    '.hc-tags{float:right}'+
-    '.fl-pill{display:inline-block;padding:1px 8px;margin-left:4px;font-size:8.5pt;font-weight:bold;border:1px solid #CCCCCC}'+
-    '.fl-p-critical{background:#FBE7E8;color:#B2232F;border-color:#B2232F}'+
-    '.fl-p-high{background:#FBEFE2;color:#B35100}.fl-p-medium{background:#E3F0F5;color:#00708D}'+
-    '.fl-p-low{background:#F7F8F8;color:#77787A}.fl-s{background:#FFFFFF;color:#4D4D4F}'+
-    '.fl-state{background:#FFFFFF;color:#77787A}'+
-    '.hc-fault{margin:10px 12px 6px;font-size:12pt;font-weight:bold}'+
-    '.hc-code{font-size:9pt;color:#77787A;font-weight:normal}'+
-    '.hc-row{border-top:1px solid #E6E6E6;overflow:hidden}'+
-    '.hc-lbl{float:left;width:32%;padding:7px 12px;background:#F7F8F8;font-size:9pt;font-weight:bold;color:#4D4D4F}'+
-    '.hc-val{margin-left:32%;padding:7px 12px;overflow:hidden}'+
-    '.hc-val p{margin:0 0 4px}.hc-val ul{margin:0;padding-left:16px}'+
-    '.hc-risk li{color:#B2232F}.hc-gain{color:#00708D;font-weight:bold}'+
-    '.hc-spec li{color:#4D4D4F;font-size:9.5pt}'+
-    '.hc-src{margin-top:4px;font-size:8pt;color:#77787A}'+
-    '.hc-tbl{width:100%;border-collapse:collapse;font-size:9.5pt;margin:0}'+
-    '.hc-tbl th{background:transparent;border:0;padding:2px 8px 2px 0;text-align:left;white-space:nowrap;width:1%;color:#4D4D4F}'+
-    '.hc-tbl td{border:0;padding:2px 0}';
+    '.ft{background:#363738;color:#FFFFFF;font-size:8.5pt;letter-spacing:.02em;padding:7px 18px;margin:26px 0 0}';
   const LOGO = 'data:image/png;base64,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';
   const p = [];
-  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</title><style>'+css+'</style></head><body>');
+  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Call notes '+esc(c.customer)+'</title><style>'+css+'</style></head><body>');
   p.push('<div class="mast"><img src="'+LOGO+'" alt="Intralox"></div><div class="pg">');
-  p.push('<h1>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</h1>');
+  p.push('<h1>Call notes '+DASH_CH+' '+esc(c.customer)+'</h1>');
   p.push('<p class="sub">'+[c.site,c.type,c.date].filter(Boolean).map(esc).join(' &middot; ')+'</p>');
 
   p.push('<h2>Call details</h2><table>');
@@ -6196,22 +5697,30 @@ async function buildNotesHTML(scope){
   if(c.manualAccount) p.push('<tr><td class="l">Account status</td><td><span class="flag">Not in CRM &mdash; needs adding to Dynamics</span></td></tr>');
   p.push('</table>');
 
-  /* The full report is the record and lists everyone. A document leaving for
-     the customer lists only who was ticked. */
-  const shownContacts = scope === 'full' ? c.contacts : c.contacts.filter(docContact);
-  p.push('<h2>Contacts</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
-  shownContacts.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
-    '</td><td>'+(x.crm?'On file':'<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
-  p.push('</table>');
+  /* Only the people actually seen. A visit started from a planned appointment
+     used to carry every contact the appointment listed straight into the report,
+     which on a large account meant a page of names before anything useful.
+     seen === false is the untick; anything else counts, so calls logged before
+     this existed still read correctly. */
+  const seen = c.contacts.filter(x => x.seen !== false);
+  const notSeen = c.contacts.length - seen.length;
+  if(seen.length){
+    p.push('<h2>Seen on this visit</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
+    seen.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
+      '</td><td>'+(x.crm?'On file':'<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
+    p.push('</table>');
+    if(notSeen) p.push('<p class="sent">'+notSeen+' other contact'+(notSeen===1?'':'s')+
+      ' at this account were not seen on this visit.</p>');
+  }
 
-  const notes = wantNotes ? c.entries.filter(e=>e.type==='note') : [];
+  const notes = c.entries.filter(e=>e.type==='note');
   if(notes.length){
     p.push('<h2>General notes</h2><table><tr><th>Topic</th><th>Note</th></tr>');
     notes.forEach(n=>p.push('<tr><td>'+V(n.topic)+'</td><td>'+V(n.text)+'</td></tr>'));
     p.push('</table>');
   }
 
-  const projects = wantProj ? c.entries.filter(e=>e.type==='project') : [];
+  const projects = c.entries.filter(e=>e.type==='project');
   if(projects.length){
     p.push('<h2>Project discovery</h2><table><tr><th>Project or site</th><th>Status</th><th>Next action</th><th>Target</th><th>Owner</th><th>Notes</th></tr>');
     projects.forEach(x=>p.push('<tr><td>'+V(x.project)+'</td><td>'+V(x.status)+'</td><td>'+V(x.next)+
@@ -6219,27 +5728,60 @@ async function buildNotesHTML(scope){
     p.push('</table>');
   }
 
-  const belts = wantBelts ? c.entries.filter(e=>e.type==='belt') : [];
+  const belts = c.entries.filter(e=>e.type==='belt');
   if(belts.length){
     p.push('<h2>Belts to quote</h2>');
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
-      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
-      const bf = [['Belt description',b.beltdesc],['Belt width (mm)',b.width],['Belt material',b.beltmat],
-       ['Rod material',b.rodmat],['Retrofit',b.retrofit],['Centre line length (m)',b.clength],
-       ['Sprocket details',b.sprocket],['Flight spacing',b.fspacing],['Flight indent',b.findent],
-       ['Centre notch',b.cnotch],['Flight height',b.fheight],['Flight style',b.fstyle]];
-      if(b.qcontact && scope === 'full') bf.push(['Quote contact',b.qcontact]);
-      for(let k=0;k<bf.length;k+=2){
-        p.push('<tr>');
-        p.push('<td class="l">'+bf[k][0]+'</td><td>'+V(bf[k][1])+'</td>');
-        /* An odd count leaves a hole rather than a stretched last cell, so the
-           column edges stay aligned down the whole table. */
-        p.push(bf[k+1] ? '<td class="l">'+bf[k+1][0]+'</td><td>'+V(bf[k+1][1])+'</td>'
-                       : '<td class="l"></td><td></td>');
-        p.push('</tr>');
-      }
-      p.push('</table>');
+      /* This block was still printing the Belt Call Log v8 field set - twelve
+         fields, half of which the form no longer writes - so series, style,
+         colour, inside frame width, belt length, sprocket part number and the
+         quantities never reached the report. Customer service was being sent an
+         incomplete spec and there was nothing on the page to say so.
+
+         Grouped into the three things a quote actually needs, and a row that was
+         never filled is left out rather than printed as an em dash. A page of
+         dashes is what made this look unfinished. The fields that must be there
+         to quote at all still show a dash when blank, so a gap is visible. */
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3>');
+      p.push(beltTable('Belt', [
+        ['Line / description', b.beltdesc, 0],
+        ['Series',             b.series,   1],
+        ['Style / surface',    b.style,    1],
+        ['Belt material',      b.beltmat,  1],
+        ['Colour',             b.colour,   0],
+        ['Rod material',       b.rodmat,   1],
+        ['Belt width (mm)',    b.width,    1],
+        ['Belt length (m)',    b.beltlen,  0],
+        ['Conveyor length (m)',b.clength,  0],
+        ['Inside frame width (mm)', b.frame, 0],
+        ['Retrofit',           b.retrofit, 0]
+      ]));
+      p.push(beltTable('Sprockets', [
+        ['Description',   b.sprocket, 0],
+        ['Part number',   b.sprpn,    0],
+        ['Bore',          b.sprbore,  0],
+        ['Pitch diameter',b.sprpd,    0],
+        ['Material',      b.sprmat,   0],
+        ['Variant',       b.sprvar,   0],
+        ['Drive quantity',b.sprdrive, 0],
+        ['Idle quantity', b.spridle,  0],
+        ['Spacers',       b.sprspacers ? 'Yes' : '', 0],
+        ['Heavy duty retainers', b.sprhdret ? ('Yes' + (b.sprhdretqty ? ' \u00d7 '+b.sprhdretqty : '')) : '', 0]
+      ]));
+      p.push(beltTable('Flights and sideguards', [
+        ['Flight type',        b.fstyle,   0],
+        ['Flight material',    b.flmat,    0],
+        ['Flight height (mm)', b.fheight,  0],
+        ['Every N rows',       b.frows,    0],
+        ['Flight spacing (mm)',b.fspacing, 0],
+        ['Indent (mm)',        b.findent,  0],
+        ['Centre notch (mm)',  b.cnotch,   0],
+        ['Sideguard type',     b.sgtype,   0],
+        ['Sideguard material', b.sgmat,    0],
+        ['Sideguard height (mm)', b.sgheight, 0]
+      ]));
+      if(b.qcontact) p.push(beltTable('', [['Quote contact', b.qcontact, 1]]));
       if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos))+'</div>');
       else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(b.detached.at).toLocaleDateString()+
@@ -6248,52 +5790,24 @@ async function buildNotesHTML(scope){
     }
   }
 
-  const health = wantHealth ? c.entries.filter(e=>e.type==='health').slice().sort(byWorkOrder) : [];
+  const health = c.entries.filter(e=>e.type==='health').slice().sort(bySeverity);
   if(health.length){
     p.push('<h2>Health check</h2>');
     for(let i=0;i<health.length;i++){
       const h = health[i];
-      /* The fault library renders the four-row customer card - observations,
-         risk of no action, recommendation, gain once corrected, and the
-         replacement belt spec pulled from the linked belt entry. Falls back to
-         the original table when healthlib.js is absent. */
-      const linkedBelt = (h.beltRef != null) ? c.entries[h.beltRef] : null;
-      if(window.HealthLib && h.faultId){
-        p.push('<div class="hc">');
-        p.push(HealthLib.cardHTML(h, linkedBelt).replace('class="hc-card"', 'class="hc-inner"'));
-      } else {
-        p.push('<div class="blk"><h3>Item '+(i+1)+' '+DASH_CH+' '+V(h.asset)+'</h3><table>');
-        [['Fault or observation',h.fault],['Type',h.htype],['Severity',h.severity],['Recommended action',h.action]]
-          .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
-        p.push('</table>');
-      }
-      if(h.photos && h.photos.length){
-        p.push('<div class="ph">'+(await photoImgs(h.photos))+'</div>');
-      } else if(linkedBelt && linkedBelt.photos && linkedBelt.photos.length){
-        /* A job sheet that says "edge modules broken or missing" with no picture
-           makes a fitter go and find the conveyor before they know what they are
-           looking at. Where the fault has no photo of its own, the linked belt's
-           photos stand in, captioned so nobody mistakes them for the fault.
-
-           In the full report the belt section already carries these images a few
-           pages up, so a pointer goes in instead - embedding them twice would
-           double their bytes in a file that is mostly photographs. */
-        if(scope === 'full'){
-          p.push('<p class="sent">No photo was taken of this fault. Photos of '+
-            V(linkedBelt.asset)+' are in the Belts to quote section.</p>');
-        } else {
-          p.push('<p class="sent">No photo was taken of this fault. Shown below is '+
-            V(linkedBelt.asset)+' from the same visit.</p>');
-          p.push('<div class="ph">'+(await photoImgs(linkedBelt.photos))+'</div>');
-        }
-      } else if(h.detached) p.push('<p class="sent">'+h.detached.n+' photo'+(h.detached.n===1?'':'s')+
+      p.push('<div class="blk"><h3>Item '+(i+1)+' '+DASH_CH+' '+V(h.asset)+'</h3><table>');
+      [['Fault or observation',h.fault],['Type',h.htype],['Severity',h.severity],['Recommended action',h.action]]
+        .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
+      p.push('</table>');
+      if(h.photos && h.photos.length) p.push('<div class="ph">'+(await photoImgs(h.photos))+'</div>');
+      else if(h.detached) p.push('<p class="sent">'+h.detached.n+' photo'+(h.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(h.detached.at).toLocaleDateString()+
         ' and are no longer held on the device.</p>');
       p.push('</div>');
     }
   }
 
-  if(scope === 'full' && c.loose && c.loose.length){
+  if(c.loose && c.loose.length){
     p.push('<h2>Additional photos</h2>');
     p.push('<div class="ph">'+(await photoImgs(c.loose))+'</div>');
   } else if(c.looseDetached){
@@ -6303,7 +5817,7 @@ async function buildNotesHTML(scope){
       ' and are no longer held on the device.</p>');
   }
 
-  if(scope === 'full') p.push(historyBlock(c));
+  p.push(historyBlock(c));
 
   p.push('</div><p class="ft">Compiled from site call notes. Final belt selection subject to Intralox review.</p></body></html>');
   return p.join('');
@@ -6376,50 +5890,38 @@ function historyBlock(c){
   }
   return p.join('');
 }
-function fileName(scope){
-  if(scope && scope !== 'full'){
-    const tag = scope === 'health' ? 'health_check' : 'belt_requirements';
-    const cust = (call.customer||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
-    const site = call.site ? '_'+call.site.replace(/[^A-Za-z0-9]+/g,'_') : '';
-    return cust+site+'_'+tag+'_'+(call.date||'').replace(/\//g,'-')+'.html';
-  }
+function fileName(){
   const cust = call.customer.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
   const site = call.site ? '_'+call.site.replace(/[^A-Za-z0-9]+/g,'_') : '';
   return cust+site+'_call_notes_'+call.date.replace(/\//g,'-')+'.html';
 }
-async function sendNotes(scope){
-  toast('Building...');
+$('doShare').addEventListener('click', async ()=>{
+  toast('Building notes...');
   let html;
-  try { html = await buildNotesHTML(scope); }
+  try { html = await buildNotesHTML(); }
   catch(e){ console.error(e); toast('Could not build the notes: '+e.message); return; }
-  const name = fileName(scope);
+  const name = fileName();
   const file = new File([html], name, {type:'text/html'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
-      await navigator.share({files:[file], title:(scope==='health'?'Health check ':scope==='belts'?'Belt requirements ':'Call notes ')+call.customer});
+      await navigator.share({files:[file], title:'Call notes '+call.customer});
       // Only a share that came back without throwing counts as confirmed. An
       // AbortError means it was dismissed, and nothing left the phone.
-      if(scope === 'full') await markShared(name);
+      await markShared(name);
       toast('Shared');
     }catch(e){ if(e.name!=='AbortError') { console.error(e); toast('Share failed - try Download'); } }
   } else {
     toast('Sharing not supported here - downloading instead');
-    download(html, name);
+    download(html);
     await markShared(name);
   }
-}
-/* Only the full call record counts as the call having been issued. A health
-   sheet handed to a fitter is not the call report, so it must not mark the call
-   compiled or detach its photos. */
-$('doShare').addEventListener('click', () => sendNotes('full'));
-$('doHealth').addEventListener('click', () => sendNotes('health'));
-$('doBelts').addEventListener('click', () => sendNotes('belts'));
+});
 $('doDownload').addEventListener('click', async ()=>{
   toast('Building notes...');
   try {
-    const html = await buildNotesHTML('full');
-    download(html, fileName('full'));
-    await markShared(fileName('full'));
+    const html = await buildNotesHTML();
+    download(html);
+    await markShared(fileName());
   } catch(e){ console.error(e); toast('Could not build the notes: '+e.message); }
 });
 async function markShared(name){
@@ -6445,9 +5947,9 @@ async function syncApptFromCall(c){
   if(sum) ap.callSummary = sum;
   await saveAppt(ap);
 }
-function download(html, name){
+function download(html){
   const url = URL.createObjectURL(new Blob([html], {type:'text/html'}));
-  const a = document.createElement('a'); a.href = url; a.download = name || fileName();
+  const a = document.createElement('a'); a.href = url; a.download = fileName();
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
   toast('Saved to Downloads');
@@ -6662,663 +6164,6 @@ $('rsBtn').addEventListener('click', async ()=>{
     toast('Storage error - ' + dbErr.message);
   }
   if('serviceWorker' in navigator){
-    // updateViaCache:'none' stops the browser serving its own stale copy of
-    // sw.js, which would otherwise hide a genuinely new worker for up to a day
-    navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(()=>{});
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
   }
 })();
-
-
-/* ---------- fault library wiring ----------
-   Added by healthlib.js integration. Everything here is guarded; with the
-   module absent the buttons report it and nothing else changes. */
-let beltJustSaved = null;
-
-document.addEventListener('DOMContentLoaded', () => {
-  const pick = $('hPickFault');
-  if(pick) pick.addEventListener('click', () => openFaultPicker());
-
-  /* Belt spec first, then the fault - the asset and belt series carry across,
-     and the picker filters itself to modular or ThermoDrive off the series so
-     the modular sag advice can never be offered on a ThermoDrive line. */
-  const bf = $('bFault');
-  if(bf) bf.addEventListener('click', () => {
-    if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
-    /* Commit whatever is on the form first. A belt logged against a fault is
-       often barely filled in - asset and series and little else - and the detail
-       and photos get added later, so demanding a completed save first was wrong.
-       Only the asset is required, because the fault needs something to hang on. */
-    const asset = $('bAsset').value.trim();
-    if(!asset){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
-    let idx = beltJustSaved, belt = (idx != null && call && call.entries) ? call.entries[idx] : null;
-    if(!belt || belt.asset !== asset){
-      beltSaveSilent = true;
-      $('bSave').click();   // commitEntry runs before the first await, so the index is set
-      idx = beltJustSaved;
-      belt = call.entries[idx];
-    }
-    if(!belt){ toast('Could not save the belt'); return; }
-    go('health');
-    $('hAsset').value = belt.asset || '';
-    HealthLib.openFor(belt, idx, e => {
-      healthExtra = e;
-      $('hFault').value  = e.fault;
-      $('hAction').value = e.action;
-      const opt = Array.from($('hType').options).find(o => o.value === e.htype);
-      if(!opt){ const o = document.createElement('option'); o.value = o.textContent = e.htype; $('hType').appendChild(o); }
-      $('hType').value = e.htype;
-      $('hSev').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === e.severity));
-      $('hSevErr').classList.remove('show');
-    });
-  });
-
-  const ex = $('flExport'), ib = $('flImportBtn'), inp = $('flImport');
-  if(ex) ex.addEventListener('click', () => HealthLib.exportLibrary());
-  if(ib && inp){
-    ib.addEventListener('click', () => inp.click());
-    inp.addEventListener('change', async () => {
-      if(!inp.files[0]) return;
-      try { const n = await HealthLib.importLibrary(inp.files[0]);
-            showMsg($('flLibMsg'), 'ok', n + ' checks loaded'); }
-      catch(err){ showMsg($('flLibMsg'), 'warn', 'Could not read that file'); }
-      inp.value = '';
-    });
-  }
-});
-
-
-/* ---------- get the latest version ----------
-   Deliberately manual. The service worker is cache-first and stays that way, so
-   the app never goes looking for new files on its own - no surprise reload, no
-   fetching while you are mid-call on a bad connection.
-
-   What this does NOT touch: IndexedDB. Calls, accounts, photos and settings are
-   untouched by a refresh or the reload after it. The only thing a reload costs
-   is whatever is typed into a form and not yet saved, which is why an open call
-   gets asked first. */
-async function pullLatestVersion(){
-  const stat = $('upStat');
-  if(!('serviceWorker' in navigator)){
-    showMsg(stat, 'warn', 'This browser has no service worker, so there is nothing to refresh.');
-    return;
-  }
-  const reg = await navigator.serviceWorker.ready.catch(()=>null);
-  const sw = reg && (reg.active || navigator.serviceWorker.controller);
-  if(!sw){
-    showMsg(stat, 'warn', 'The app is not running from its cache yet. Reload once and try again.');
-    return;
-  }
-
-  showMsg(stat, 'info', 'Checking for a newer version...');
-  $('upBtn').disabled = true;
-
-  // ask the worker to re-fetch sw.js itself as well, in case it changed
-  try { await reg.update(); } catch(e){}
-
-  const result = await new Promise(res => {
-    const ch = new MessageChannel();
-    const timer = setTimeout(()=>res({ok:false, reason:'timeout'}), 30000);
-    ch.port1.onmessage = ev => { clearTimeout(timer); res(ev.data || {ok:false, reason:'empty'}); };
-    sw.postMessage({type:'refresh'}, [ch.port2]);
-  });
-
-  $('upBtn').disabled = false;
-
-  if(!result.ok){
-    const why = result.reason === 'offline'
-      ? 'No connection, so nothing was changed. The app is still working from what it already has.'
-      : result.reason === 'timeout'
-        ? 'That took too long, so nothing was changed. Try again on a better connection.'
-        : result.reason === 'status'
-          ? 'The server would not hand over ' + esc(result.failed || 'a file') +
-            ', so nothing was changed.'
-          : 'Something went wrong, so nothing was changed.';
-    showMsg(stat, 'warn', why);
-    return;
-  }
-
-  showMsg(stat, 'ok', result.count + ' files refreshed. Reload to finish.');
-  if(call && !confirm('A call is open.\n\nReloading keeps everything saved, but anything ' +
-       'typed into a form and not yet saved will be lost.\n\nReload now?')){
-    showMsg(stat, 'ok', 'Ready. Tap Reload when you have finished the call.');
-    return;
-  }
-  location.reload();
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const b = $('upBtn');
-  if(b) b.addEventListener('click', () => pullLatestVersion().catch(e => {
-    console.error('update', e);
-    showMsg($('upStat'), 'warn', 'Could not check for an update. Nothing was changed.');
-    $('upBtn').disabled = false;
-  }));
-});
-
-
-/* ---------- resume picker ----------
-   Opened from the Resume tile when more than one call is still open. It used to
-   be a list of chips on the front page, which made the first thing you see busy
-   for something you need only at the moment of choosing. */
-function showOpenPicker(open){
-  const dlg = $('opendlg'), el = $('openList');
-  if(!dlg || !el){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
-  $('openSub').textContent = open.length + ' calls still open';
-  el.innerHTML = open.map(c =>
-    '<button type="button" data-resume="' + esc(c.id) + '">' +
-    '<span class="who">' + esc(c.customer) + (c.site ? ' - ' + esc(c.site) : '') + '</span>' +
-    '<span class="n">' + (c.entries.length ? c.entries.length + ' entries' : 'nothing logged') +
-    '</span></button>').join('');
-  el.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', async () => {
-    const all = await callsAll();
-    const picked = all.find(x => x.id === b.dataset.resume);
-    closeOpenPicker();
-    if(!picked){ toast('That call is no longer here'); return; }
-    call = picked; call.loose = call.loose || [];
-    go('dash');
-  }));
-  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
-  pushDialog('opendlg');
-}
-/* Closed through history so the entry pushDialog added is consumed, exactly as
-   the appointment dialog does. Otherwise a back gesture after the dialog closes
-   eats a screen instead of the dialog. */
-function closeOpenPicker(){
-  const dlg = $('opendlg');
-  if(!dlg || !dlg.hasAttribute('open')) return;
-  if(history.state && history.state.dialog === 'opendlg'){ history.back(); return; }
-  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
-}
-
-/* Everything lives on one device and clearing site data takes the lot, so the
-   age of the last backup is worth seeing without going looking for it. */
-function renderBackupAge(){
-  const el = $('bkHomeStat');
-  if(!el) return;
-  const last = +(localStorage.getItem(LS('lastBackup')) || 0);
-  if(!last){
-    el.className = 'stat bkold';
-    el.textContent = 'Never backed up.';
-    return;
-  }
-  const days = Math.floor((Date.now() - last) / 86400000);
-  el.className = 'stat' + (days >= 14 ? ' bkold' : '');
-  el.textContent = days <= 0 ? 'Backed up today.'
-    : 'Last backup ' + days + ' day' + (days === 1 ? '' : 's') + ' ago.';
-}
-
-
-/* ================= file store =================
-   Two functions between the sync and wherever the bytes actually live. GitHub
-   implements them now. If an Entra app registration ever appears, OneDrive
-   implements the same two and everything below this comment is unchanged. */
-
-function ghPathFor(rel){
-  const dir = GH.path.indexOf('/') >= 0 ? GH.path.slice(0, GH.path.lastIndexOf('/')) : '';
-  return (dir ? dir + '/' : '') + rel;
-}
-function ghContentsUrl(path){
-  return 'https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
-    encodeURIComponent(GH.repo)+'/contents/'+path.split('/').map(encodeURIComponent).join('/');
-}
-
-/* Text read. Uses the raw media type so a file over 1 MB comes back whole
-   rather than as an empty content field. */
-async function getFile(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.raw'})});
-  if(r.status === 404) return null;
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading ' + path);
-  return await r.text();
-}
-async function getBlob(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.raw'})});
-  if(r.status === 404) return null;
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading ' + path);
-  return await r.blob();
-}
-/* The sha of what is already there, needed to overwrite it. Kept separate from
-   the read so a push does not have to download a file it is about to replace. */
-async function getSha(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.object'})});
-  if(r.status === 404) return null;
-  if(!r.ok) return null;
-  const j = await r.json();
-  return j.sha || null;
-}
-async function putFile(path, b64, message){
-  const sha = await getSha(path);
-  const body = {message: message || ('field crm: ' + path), content: b64, branch: GH.branch};
-  if(sha) body.sha = sha;
-  const r = await fetch(ghContentsUrl(path), {method:'PUT',
-    headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
-    body: JSON.stringify(body)});
-  if(r.status === 409 || r.status === 422) return false;   // moved under us
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' writing ' + path);
-  return true;
-}
-async function listDir(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: ghHeaders()});
-  if(r.status === 404) return [];
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' listing ' + path);
-  const j = await r.json();
-  return Array.isArray(j) ? j : [];
-}
-
-/* base64 for binary. b64encode() runs text through TextEncoder, which would
-   mangle JPEG bytes, so photos need their own path. */
-async function blobToB64(blob){
-  const buf = new Uint8Array(await blob.arrayBuffer());
-  let bin = '';
-  const CH = 0x8000;   // btoa in one go blows the stack on a large photo
-  for(let i = 0; i < buf.length; i += CH){
-    bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
-  }
-  return btoa(bin);
-}
-
-/* ================= call sync =================
-   Photos go up at 800px rather than the 1400px held on the device. The synced
-   copy is for reading a report on a laptop, where the difference is invisible,
-   and it takes a call with fifteen photos from several megabytes to under one. */
-const SYNC_PX = 800, SYNC_Q = 0.6;
-const GHC_KIND = 'field-crm-call', GHC_VER = 1;
-
-function callDir(){ return ghPathFor('calls'); }
-function photoDir(id){ return ghPathFor('photos/' + id); }
-
-/* The call as it travels: everything except the photo Blobs, which go as their
-   own files and are referenced by path. */
-function slimCall(c){
-  const out = JSON.parse(JSON.stringify(c, (k, v) => (k === 'photos' || k === 'loose') ? undefined : v));
-  out.kind = GHC_KIND; out.version = GHC_VER;
-  out.device = isPhone() ? 'phone' : 'desktop';
-  out.photoMap = {};
-  (c.entries || []).forEach((e, i) => {
-    if(e.photos && e.photos.length) out.photoMap[i] = e.photos.length;
-  });
-  if(c.loose && c.loose.length) out.photoMap.loose = c.loose.length;
-  return out;
-}
-
-async function pushCall(c, note){
-  const slim = slimCall(c);
-  let sent = 0;
-  for(const [key, n] of Object.entries(slim.photoMap)){
-    const list = key === 'loose' ? (c.loose || []) : ((c.entries[+key] || {}).photos || []);
-    for(let j = 0; j < list.length; j++){
-      const path = photoDir(c.id) + '/' + key + '-' + j + '.jpg';
-      // already there from a previous sync - photos never change once taken
-      if(await getSha(path)) continue;
-      let small;
-      try { small = await shrink(list[j], SYNC_PX, SYNC_Q); }
-      catch(e){ continue; }   // a photo that will not re-encode must not stop the call
-      if(await putFile(path, await blobToB64(small), 'call photo')) sent++;
-    }
-  }
-  await putFile(callDir() + '/' + c.id + '.json',
-    b64encode(JSON.stringify(slim, null, 1)), note || ('call: ' + c.customer));
-  return sent;
-}
-
-async function pullCall(name){
-  const txt = await getFile(callDir() + '/' + name);
-  if(!txt) return null;
-  let doc;
-  try { doc = JSON.parse(txt); } catch(e){ return null; }
-  if(!doc || doc.kind !== GHC_KIND || !doc.id) return null;
-
-  const existing = (await callsAll()).find(x => x.id === doc.id);
-  /* Last writer wins, by the timestamp the app already keeps. A call edited
-     here since the remote copy was written is not overwritten by it. */
-  if(existing && (existing.updated || 0) >= (doc.updated || 0)) return 'kept';
-
-  const incoming = Object.assign({}, doc);
-  delete incoming.kind; delete incoming.version; delete incoming.device;
-  delete incoming.photoMap;
-  incoming.entries = incoming.entries || [];
-  incoming.loose = [];
-
-  for(const [key, n] of Object.entries(doc.photoMap || {})){
-    const bucket = [];
-    for(let j = 0; j < n; j++){
-      const b = await getBlob(photoDir(doc.id) + '/' + key + '-' + j + '.jpg').catch(()=>null);
-      if(b) bucket.push(b);
-    }
-    if(key === 'loose') incoming.loose = bucket;
-    else if(incoming.entries[+key]) incoming.entries[+key].photos = bucket;
-  }
-  /* Photos arriving here are the 800px copies. The device that took them still
-     holds the originals, so this is marked rather than passed off as the real
-     thing. */
-  incoming.syncedPhotos = true;
-  await callsPut(incoming);
-  return existing ? 'updated' : 'added';
-}
-
-async function syncCalls(){
-  if(!ghReady()) throw new Error('set the repository and token first');
-  if(!navigator.onLine) throw new Error('no connection - try again when you have signal');
-
-  const local = await callsAll();
-  const lastPush = JSON.parse(localStorage.getItem(LS('callPush')) || '{}');
-  let pushed = 0, photos = 0;
-  for(const c of local){
-    if((lastPush[c.id] || 0) >= (c.updated || 0)) continue;   // unchanged since last time
-    photos += await pushCall(c);
-    lastPush[c.id] = c.updated || Date.now();
-    pushed++;
-  }
-  localStorage.setItem(LS('callPush'), JSON.stringify(lastPush));
-
-  const remote = (await listDir(callDir())).filter(f => f.type === 'file' && /\.json$/.test(f.name));
-  let added = 0, updated = 0;
-  for(const f of remote){
-    const r = await pullCall(f.name).catch(()=>null);
-    if(r === 'added') added++;
-    else if(r === 'updated') updated++;
-  }
-  localStorage.setItem(LS('callSync'), String(Date.now()));
-  await renderHome();
-  return 'Sent ' + pushed + ' call' + (pushed===1?'':'s') +
-    (photos ? ' and ' + photos + ' photo' + (photos===1?'':'s') : '') +
-    '. Brought in ' + added + ' new, ' + updated + ' updated';
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const b = $('ghCalls');
-  if(!b) return;
-  b.addEventListener('click', async () => {
-    b.disabled = true;
-    showMsg($('ghCallStat'), 'info', 'Syncing calls...');
-    try {
-      /* The public-repo refusal is already written and is the one rule this
-         project has held from the first day, so calls go through it too. */
-      await ghCheckRepo();
-      showMsg($('ghCallStat'), 'ok', await syncCalls());
-    } catch(e){
-      console.error('call sync', e);
-      showMsg($('ghCallStat'), 'warn', 'Call sync failed: ' + esc(e.message));
-    } finally { b.disabled = false; }
-  });
-});
-
-
-document.addEventListener('DOMContentLoaded', () => {
-  const c = $('openCancel');
-  if(c) c.addEventListener('click', closeOpenPicker);
-});
-
-
-/* ---------- standard meeting invites ----------
-   These land in the Agenda field, which becomes the ICS DESCRIPTION and so the
-   body of the Outlook invite. Filling the field rather than storing a template
-   reference means every invite stays editable and nothing changes under an
-   appointment that was already sent.
-
-   {customer} and {mgr} fill from the appointment and settings. {project} cannot
-   be known, so the project template asks. */
-const INVITE_TMPL = {
-  health: {
-    name: 'Health check',
-    mins: 120,
-    body:
-"Hi {customer},\n\n" +
-"Thanks for taking the time to speak with me.\n\n" +
-"The purpose of this visit is to conduct a high-level health check of the conveyor " +
-"systems and discuss any upcoming projects, challenges, or opportunities at the site.\n\n" +
-"While I'm there, if there are any conveyors causing downtime, reliability issues, or " +
-"elevated maintenance requirements, please feel free to make the most of my time on " +
-"site and we can review them together.\n\n" +
-"Please feel free to share the meeting invitation with the team if they have any " +
-"conveyor related needs.\n\n" +
-"Thanks again, and I look forward to meeting you.\n\n" +
-"{mgr}"
-  },
-  project: {
-    name: 'Project discussion',
-    mins: 60,
-    asks: 'project',
-    body:
-"Hi {customer},\n\n" +
-"Thanks for taking the time to speak with me.\n\n" +
-"The purpose of this visit is to discuss {project} \u2014 where it currently sits, what " +
-"the requirements are, and how we can best support you through it.\n\n" +
-"If it suits, I am happy to also carry out a high-level health check of the conveyor " +
-"systems while I am on site. If there are any conveyors causing downtime, reliability " +
-"issues, or elevated maintenance requirements, we can review them together at the same " +
-"time.\n\n" +
-"Please feel free to share the meeting invitation with the team if they have any " +
-"conveyor related needs.\n\n" +
-"Thanks again, and I look forward to meeting you.\n\n" +
-"{mgr}"
-  },
-  /* Left deliberately as a skeleton. Writing the body for these would be me
-     inventing how you pitch, which is not mine to guess at. */
-  pov: { name: 'Proof of value', mins: 60, stub: true, body:
-"Hi {customer},\n\n\n\n{mgr}" },
-  survey: {
-    name: 'Belt survey',
-    mins: 120,
-    body:
-"Hi {customer},\n\n" +
-"Thanks for taking the time to speak with me.\n\n" +
-"The purpose of this visit is to continue documenting the belts across the plant, " +
-"building a complete record of what is installed, where it runs, and what condition " +
-"it is in.\n\n" +
-"While I'm there, if there are any conveyors causing downtime, reliability issues, or " +
-"elevated maintenance requirements, please feel free to make the most of my time on " +
-"site and we can review them together.\n\n" +
-"Please feel free to share the meeting invitation with the team if they have any " +
-"conveyor related needs.\n\n" +
-"Thanks again, and I look forward to meeting you.\n\n" +
-"{mgr}"
-  }
-};
-
-function fillInvite(key){
-  const t = INVITE_TMPL[key];
-  if(!t) return;
-  const note = $('dTmplNote');
-  /* ap.acct carries the account name straight on the appointment; the ak map is
-     the fallback for one written on another device. */
-  const customer = (dlgAppt && (dlgAppt.acct ||
-    (dlgAppt.ak && KEY_TO_ACCT.get(dlgAppt.ak)))) || '';
-  const mgr = localStorage.getItem(LS('mgr')) || '';
-
-  let project = '';
-  if(t.asks === 'project'){
-    project = (prompt('Project name') || '').trim();
-    if(!project) return;                 // cancelled - leave the agenda alone
-  }
-
-  const body = t.body
-    .replace(/\{customer\}/g, customer || 'there')
-    .replace(/\{project\}/g, project)
-    .replace(/\{mgr\}/g, mgr);
-
-  const ta = $('dAgenda');
-  if(ta.value.trim() && !confirm('Replace what is already in the agenda?')) return;
-  ta.value = body;
-
-  const dur = $('dDur');
-  if(dur && t.mins){
-    const opt = Array.from(dur.options).find(o => +o.value === t.mins);
-    if(opt) dur.value = String(t.mins);
-  }
-  document.querySelectorAll('#dTmpl button').forEach(b =>
-    b.classList.toggle('on', b.dataset.tmpl === key));
-  if(note) note.textContent = t.stub
-    ? t.name + ' is a blank template - type the body in.'
-    : t.name + ' filled in. Edit it however you like before saving.';
-  if(t.stub){ ta.focus(); ta.setSelectionRange(body.indexOf('\n\n') + 2, body.indexOf('\n\n') + 2); }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const box = $('dTmpl');
-  if(box) box.addEventListener('click', e => {
-    const b = e.target.closest('button[data-tmpl]');
-    if(b) fillInvite(b.dataset.tmpl);
-  });
-});
-
-
-document.addEventListener('DOMContentLoaded', () => {
-  const head = $('dashStat');
-  if(head) head.addEventListener('click', () => { if(call) go('ccontacts'); });
-  const q = $('ccQ');
-  if(q) q.addEventListener('input', renderCallContacts);
-  const done = $('ccDone');
-  if(done) done.addEventListener('click', () => go('dash'));
-  const add = $('ccAddNew');
-  if(add) add.addEventListener('click', async () => {
-    const n = $('ccName').value.trim();
-    if(!n){ toast('Enter a name first'); return; }
-    call.contacts.push({name:n, role:$('ccRole').value.trim(), email:$('ccEmail').value.trim(),
-      mobile:$('ccMob').value.trim(), crm:false, doc:true});
-    ['ccName','ccRole','ccEmail','ccMob'].forEach(i => $(i).value = '');
-    await saveCall(); renderCallContacts(); renderDash();
-    toast(n + ' added');
-  });
-});
-
-
-document.addEventListener('DOMContentLoaded', () => {
-  const e = $('setEmail');
-  if(e){
-    e.value = localStorage.getItem(LS('email')) || '';
-    e.addEventListener('change', () => {
-      localStorage.setItem(LS('email'), e.value.trim());
-      toast(e.value.trim() ? 'Saved' : 'Cleared');
-    });
-  }
-  /* Ticking placeholder makes the invitee list moot, so the dialog says so
-     rather than leaving the contact ticks looking like they still apply. */
-  const hold = $('dHold');
-  if(hold) hold.addEventListener('change', () => {
-    const cover = $('dCover');
-    if(cover && hold.checked){
-      cover.textContent = 'Placeholder - the time is blocked for you and nobody is invited.';
-      cover.className = 'note';
-    } else if(cover && dlgAppt){
-      const a = ACC_BY_NAME.get(dlgAppt.acct);
-      const cs = (a && a.c) ? a.c : [];
-      const withP = cs.filter(c => c.p).length;
-      cover.textContent = withP+' of '+cs.length+' contacts have a phone number on file. '+
-        'Missing numbers are marked in the invite.';
-      cover.className = 'note' + (withP === 0 ? ' warn' : '');
-    }
-  });
-});
-
-
-/* ---------- merged screens ----------
-   The panes are the original screens' own markup, so every render function
-   below writes into the elements it always did. Only which pane is visible
-   changes. */
-let dirPane = 'acc', refPane = 'man';
-
-function showDir(p){ dirPane = p || dirPane; go('directory'); renderDirPane(); }
-function showRef(p){ refPane = p || refPane; go('reference'); renderRefPane(); }
-
-function renderDirPane(){
-  const acc = dirPane === 'acc';
-  $('paneAcc').hidden = !acc;
-  $('panePpl').hidden = acc;
-  document.querySelectorAll('#dirTabs button').forEach(b =>
-    b.classList.toggle('on', b.dataset.pane === dirPane));
-  if(acc) renderBrowse(); else renderPeople();
-}
-function renderRefPane(){
-  const man = refPane === 'man';
-  $('paneMan').hidden = !man;
-  $('paneFlt').hidden = man;
-  document.querySelectorAll('#refTabs button').forEach(b =>
-    b.classList.toggle('on', b.dataset.pane === refPane));
-  if(man){ if(window.Manuals) Manuals.render().catch(e=>console.error('manuals', e)); }
-  else { if(window.HealthLib) HealthLib.render(); }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const dt = $('dirTabs');
-  if(dt) dt.addEventListener('click', e => {
-    const b = e.target.closest('button[data-pane]');
-    if(b){ dirPane = b.dataset.pane; renderDirPane(); }
-  });
-  const rt = $('refTabs');
-  if(rt) rt.addEventListener('click', e => {
-    const b = e.target.closest('button[data-pane]');
-    if(b){ refPane = b.dataset.pane; renderRefPane(); }
-  });
-});
-
-
-document.addEventListener('DOMContentLoaded', () => {
-  const el = $('appVer');
-  if(!el) return;
-  el.textContent = 'Build ' + APP_BUILD;
-  /* Ask the worker which cache it is actually serving from. If that disagrees
-     with the build, the files on screen are not the files on the server. */
-  if(navigator.serviceWorker && navigator.serviceWorker.controller){
-    caches.keys().then(ks => {
-      const mine = ks.filter(k => k.startsWith('fieldcrm-'));
-      if(mine.length) el.textContent = 'Build ' + APP_BUILD + ' \u00b7 cache ' + mine.join(', ');
-    }).catch(()=>{});
-  }
-});
-
-
-/* ---------- plan menu ----------
-   Everything that is not navigation lives behind one button. The manager is set
-   once and other people's accounts are still reachable through the search box,
-   so it belongs here rather than taking a permanent slot in the rail.
-
-   The controls in here are proxies: each one clicks the original hidden button,
-   so none of the existing handlers had to move or be rewritten. */
-function openPlanMenu(){
-  const dlg = $('planmenu');
-  if(!dlg) return;
-  /* Mirror the manager select rather than moving it, so whatever populates the
-     original keeps working. */
-  const src = $('pMgr'), dst = $('pmMgr');
-  dst.innerHTML = src.innerHTML;
-  dst.value = src.value;
-  $('pmHint').textContent = $('calHint').textContent || '';
-  $('pmSub').textContent = $('zTitle').textContent || '';
-  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
-  pushDialog('planmenu');
-}
-function closePlanMenu(){
-  const dlg = $('planmenu');
-  if(!dlg || !dlg.hasAttribute('open')) return;
-  if(history.state && history.state.dialog === 'planmenu'){ history.back(); return; }
-  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const more = $('planMore');
-  if(more) more.addEventListener('click', openPlanMenu);
-  const close = $('pmClose');
-  if(close) close.addEventListener('click', closePlanMenu);
-
-  const mgr = $('pmMgr');
-  if(mgr) mgr.addEventListener('change', () => {
-    $('pMgr').value = mgr.value;
-    $('pMgr').dispatchEvent(new Event('change'));
-  });
-
-  /* Download leaves the menu open - it reports what it did and you often do the
-     other one straight after. The rest close, because they take you elsewhere. */
-  [['pmExport','pExport',false],['pmExportAll','pExportAll',false],
-   ['pmToday','pToday2',true],['pmReassign','pReassign',true]].forEach(([from,to,shut]) => {
-    const b = $(from);
-    if(b) b.addEventListener('click', () => {
-      if(shut) closePlanMenu();
-      $(to).click();
-      if(!shut) setTimeout(() => { $('pmHint').textContent = $('calHint').textContent || ''; }, 60);
-    });
-  });
-});

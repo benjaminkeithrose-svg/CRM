@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v54';
+const CACHE = 'fieldcrm-v28';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -13,8 +13,7 @@ const SHARE_KEY = './shared-file';
 
 // Local files first. If one of these fails the app still installs, but note the warning.
 const ASSETS = [
-  './', './index.html', './app.js', './zones.js', './manuals.js', './healthlib.js',
-  './health-seed.json', './manifest.webmanifest',
+  './', './index.html', './app.js', './zones.js', './manuals.js', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
@@ -69,40 +68,6 @@ async function stashShared(request) {
   }
   return Response.redirect('./index.html?shared=1', 303);
 }
-
-/* ---------- manual refresh ----------
-   The page asks for this; nothing here runs on its own. Every asset is fetched
-   with cache:'no-store' so GitHub Pages cannot hand back its own cached copy,
-   and the results are held until all of them have landed. Only then is the live
-   cache written. A refresh that fails partway leaves the app exactly as it was,
-   which matters when the failure mode is standing in a plant with one bar.
-
-   The versioned CACHE name is untouched, so this does not interact with the
-   install/activate cycle at all. */
-async function refreshAssets() {
-  const local = ASSETS.filter(a => !a.startsWith('http'));
-  const staged = [];
-  for (const path of local) {
-    let res;
-    try {
-      res = await fetch(new Request(path, { cache: 'no-store' }));
-    } catch (err) {
-      return { ok: false, reason: 'offline', failed: path };
-    }
-    if (!res || !res.ok) return { ok: false, reason: 'status', failed: path, status: res && res.status };
-    staged.push([path, res]);
-  }
-  const c = await caches.open(CACHE);
-  for (const [path, res] of staged) await c.put(path, res);
-  return { ok: true, count: staged.length };
-}
-
-self.addEventListener('message', e => {
-  if (!e.data || e.data.type !== 'refresh') return;
-  const reply = port => refreshAssets().then(r => port.postMessage(r))
-    .catch(err => port.postMessage({ ok: false, reason: 'error', message: String(err) }));
-  if (e.ports && e.ports[0]) reply(e.ports[0]);
-});
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
