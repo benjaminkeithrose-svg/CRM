@@ -1453,11 +1453,11 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
     </select>
     <div class="gap"></div>
+    <!-- Options are filled by renderOutDest(): a phone leads with the share
+         sheet, a PC leads with Open, and Share is only offered where the
+         browser says it can actually do it. -->
     <label>Send to</label>
-    <select id="outDest">
-      <option value="share">Share sheet</option>
-      <option value="download">Save to this phone</option>
-    </select>
+    <select id="outDest"></select>
   </div>
   <button class="big" id="doOutput">Create and share</button>
   <p class="hint" id="outHint"></p>

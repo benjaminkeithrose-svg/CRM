@@ -7122,6 +7122,13 @@ async function sendNotes(scope, dest, mode){
      call compiled or offer to detach its photos. A quote request is its own
      record and marks itself issued. */
   const marks = (scope === 'full' || scope === 'rfq');
+  /* Open is a preview: the file is rendered in a tab and nothing has left the
+     device, so it deliberately does not mark the call issued and does not
+     trigger the offer to drop the photos. Print to PDF from the tab. */
+  if(dest === 'open'){
+    openInTab(html, name);
+    return;
+  }
   if(dest === 'download'){
     download(html, name);
     if(marks) await markShared(name);
@@ -7157,9 +7164,31 @@ function currentOutScope(){
   const v = el ? el.value : '';
   return opts.includes(v) ? v : opts[0];
 }
+/* The share sheet is an Android thing. On a PC it either is not there at all or
+   hands the file to something useless, and what you actually want is to read it
+   or print it to PDF. So the destinations differ by device: the phone leads with
+   Share, the PC leads with Open and never offers Share unless the browser says
+   it can. */
+function outDestOptions(){
+  const phone = isPhone();
+  const canShare = !!(navigator.canShare && navigator.share);
+  const open = ['open', phone ? 'Open in a new tab' : 'Open in a new tab'];
+  const save = ['download', phone ? 'Save to this phone' : 'Download to this PC'];
+  const share = ['share', 'Share sheet'];
+  if(phone) return canShare ? [share, save, open] : [save, open];
+  return canShare ? [open, save, share] : [open, save];
+}
+function renderOutDest(){
+  const sel = $('outDest');
+  if(!sel) return;
+  const opts = outDestOptions(), prev = sel.value;
+  sel.innerHTML = opts.map(([v,l]) => '<option value="'+v+'">'+l+'</option>').join('');
+  if(opts.some(o => o[0] === prev)) sel.value = prev;
+}
 function renderOutControls(){
   const sel = $('outScope');
   if(!sel) return;
+  renderOutDest();
   const opts = outScopeOptions(), prev = sel.value;
   sel.innerHTML = opts.map(([v,l]) => '<option value="'+v+'">'+l+'</option>').join('');
   if(opts.some(o => o[0] === prev)) sel.value = prev;
@@ -7174,19 +7203,23 @@ function renderOutHint(){
   const btn = $('doOutput'), hint = $('outHint');
   if(!btn) return;
   const dest = $('outDest') ? $('outDest').value : 'share';
-  btn.textContent = dest === 'download' ? 'Create and save' : 'Create and share';
+  btn.textContent = dest === 'open' ? 'Create and open'
+                  : dest === 'download' ? 'Create and save'
+                  : 'Create and share';
   if(!hint) return;
   const scope = currentOutScope();
   const bits = [];
-  bits.push(dest === 'download'
-    ? 'Saves the file to this phone.'
+  bits.push(dest === 'open'
+    ? 'Renders the file in a new tab so you can read it or print it to PDF. Nothing leaves this device, and the call is not marked issued.'
+    : dest === 'download'
+    ? (isPhone() ? 'Saves the file to this phone.' : 'Saves the file to your Downloads folder.')
     : 'Sends the file to the Android share sheet \u2014 pick OneDrive, Outlook or Teams.');
   if(scope === 'health' || scope === 'belts'){
     bits.push('This is for handing to the customer. It leaves out general notes, '+
       'project discovery and the visit history'+
       (scope === 'health' ? ', and prints one fault per page so it can go straight to a fitter' : '')+
       '. It does not mark the call as issued.');
-  } else if(scope === 'full'){
+  } else if(scope === 'full' && dest !== 'open'){
     bits.push('Marks the call as issued.');
   }
   const mode = $('outImg') ? $('outImg').value : 'full';
@@ -7216,6 +7249,22 @@ async function syncApptFromCall(c){
   ap.status = next;
   if(sum) ap.callSummary = sum;
   await saveAppt(ap);
+}
+/* Blob URL in a new tab. Chrome on the desktop renders an HTML blob; some
+   Android builds download it instead, which is why this is offered rather than
+   made the default on a phone. The URL is held for a while because revoking it
+   immediately can blank a tab that has not finished loading. */
+function openInTab(html, name){
+  const url = URL.createObjectURL(new Blob([html], {type:'text/html'}));
+  const win = window.open(url, '_blank');
+  if(!win){
+    URL.revokeObjectURL(url);
+    toast('The browser blocked the new tab - allow pop-ups, or use Download');
+    return;
+  }
+  try { win.document.title = name; } catch(e){ /* cross-origin blob, not important */ }
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  toast('Opened in a new tab - print to PDF from there');
 }
 function download(html, name){
   const url = URL.createObjectURL(new Blob([html], {type:'text/html'}));
