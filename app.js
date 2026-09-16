@@ -6186,7 +6186,7 @@ function renderCallContacts(){
     const meta = [x.role, x.email, x.mobile].filter(Boolean).map(esc).join(' \u00b7 ');
     return '<div class="ccrow">' +
       '<input type="checkbox" data-doc="'+i+'"'+(docContact(x)?' checked':'')+
-      ' aria-label="Include '+esc(x.name)+' on customer documents">' +
+      ' aria-label="Include '+esc(x.name)+' on compiled documents">' +
       '<span class="who"><div class="nm">'+esc(x.name)+
       (x.crm?'':' <span class="tag">not in CRM</span>')+'</div>' +
       '<div class="mt">'+(meta||'no details on file')+'</div></span>' +
@@ -6885,13 +6885,22 @@ async function buildNotesHTML(scope, mode){
   if(c.manualAccount) p.push('<tr><td class="l">Account status</td><td><span class="flag">Not in CRM &mdash; needs adding to Dynamics</span></td></tr>');
   p.push('</table>');
 
-  /* The full report is the record and lists everyone. A document leaving for
-     the customer lists only who was ticked. */
-  const shownContacts = scope === 'full' ? c.contacts : c.contacts.filter(docContact);
-  p.push('<h2>Contacts</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
-  shownContacts.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
-    '</td><td>'+(x.crm?'On file':'<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
-  p.push('</table>');
+  /* The tick on the Contacts screen governs every document, the full notes
+     included. It used to list everyone on the call on the grounds that the full
+     report is the record - but the record is the stored call, which still holds
+     all of them and still goes into the backup. What the document needs is the
+     people the reader cares about, and a dozen rows of everyone who happened to
+     be on site buries the two who matter.
+
+     Unticking hides a contact from the page. It never removes them from the
+     call. */
+  const shownContacts = c.contacts.filter(docContact);
+  if(shownContacts.length){
+    p.push('<h2>Contacts</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
+    shownContacts.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
+      '</td><td>'+(x.crm?'On file':'<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
+    p.push('</table>');
+  }
 
   const notes = wantNotes ? c.entries.filter(e=>e.type==='note') : [];
   if(notes.length){
@@ -7027,9 +7036,12 @@ async function buildRFQHTML(mode){
     '<span class="flag">Not in CRM &mdash; needs adding to Dynamics</span></td></tr>');
   p.push('</table>');
 
-  if(c.contacts && c.contacts.length){
+  // same tick as the call notes - customer service wants who to talk to, not
+  // everyone who was on the phone
+  const rfqContacts = (c.contacts || []).filter(docContact);
+  if(rfqContacts.length){
     p.push('<h2>Requested by</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
-    c.contacts.forEach(x => p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+
+    rfqContacts.forEach(x => p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+
       '</td><td>'+V(x.mobile)+'</td><td>'+(x.crm ? 'On file'
         : '<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
     p.push('</table>');
