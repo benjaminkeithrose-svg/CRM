@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v56">
+<meta name="build" content="v57">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -953,7 +953,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New call</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New call</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="newquote"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span><b>Quote request</b></button><button data-go="resumequote" hidden><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 13l2 2 4-4"/></svg></span><b>Resume request</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- The tiles no longer carry a count line. These keep the existing render
@@ -962,6 +962,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <span hidden id="dueInfo"></span><span hidden id="acctInfo"></span>
   <span hidden id="peopleInfo"></span><span hidden id="manInfo"></span>
   <span hidden id="flInfo"></span><span hidden id="reportsInfo"></span>
+  <span hidden id="quoteInfo"></span>
 
   <div class="homefoot">
     <button class="ghost" data-go="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> Settings, data and backup</button>
@@ -980,6 +981,15 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div class="fld">
     <label>Your email address</label>
     <input type="email" id="setEmail" placeholder="you@intralox.com" autocomplete="email">
+    <div class="gap"></div>
+    <label>Photos in compiled files</label>
+    <select id="setImgMode">
+      <option value="full">Full size</option>
+      <option value="thumb">Thumbnails, expandable</option>
+      <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
+    </select>
+    <p class="hint">The starting point for every output. The dashboard picker
+      overrides it for one file without changing this.</p>
     <p class="hint">Used as the organiser on calendar invites. Without it Outlook has nobody to send from, so invitees are left off.</p>
   </div>
 
@@ -1112,12 +1122,26 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- ACCOUNT SEARCH -->
 <section class="scr" id="s-account">
-  <h2>Call details</h2>
+  <h2 id="acctHead">Call details</h2>
+  <!-- Date is on both. Call type is not: there is only one kind of quote
+       request, so the picker is hidden rather than offering a meaningless
+       choice that would then print on the RFQ. -->
   <div class="fld">
     <div class="row">
-      <div><label>Date</label><input type="date" id="cDate"></div>
-      <div><label>Call type</label><select id="cType"><option>Site call</option><option>Phone</option><option>Teams</option></select></div>
+      <div><label id="cDateLbl">Date</label><input type="date" id="cDate"></div>
+      <div id="cTypeRow"><label>Call type</label><select id="cType"><option>Site call</option><option>Phone</option><option>Teams</option></select></div>
     </div>
+  </div>
+  <!-- Quote requests only. A call has no required-by date and no reference to
+       carry, so these are hidden rather than sitting empty on every call. -->
+  <div class="fld" id="cReqByRow" hidden>
+    <label>Required by</label>
+    <input type="text" id="cReqBy" placeholder="e.g. end of next week, before the shutdown">
+    <p class="hint">Free text &mdash; &ldquo;Q3&rdquo; and &ldquo;late Oct&rdquo; are both fine.</p>
+  </div>
+  <div class="fld" id="cRefRow" hidden>
+    <label>Your reference</label>
+    <input type="text" id="cRef" placeholder="Optional">
   </div>
   <div class="fld">
     <label>Account manager</label>
@@ -1142,6 +1166,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <section class="scr" id="s-contacts">
   <h2 id="ctAcc">Contacts</h2>
   <p class="hint" id="ctSub"></p>
+  <p class="hint" id="ctHead">Who did you see?</p>
   <div class="fld">
     <input type="text" id="ctQ" placeholder="Filter by name or role" autocomplete="off">
   </div>
@@ -1161,7 +1186,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <label>Site or area</label><input type="text" id="cSite" placeholder="Optional">
   </div>
   <p class="err" id="ctErr">Tick at least one contact, or enter an unlisted contact</p>
-  <button class="big" id="openCall">Open call record</button>
+  <button class="big" id="openCall">Start the call</button>
 </section>
 
 <!-- TODAY / THIS WEEK -->
@@ -1388,7 +1413,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <!-- DASHBOARD -->
 <section class="scr" id="s-dash">
   <button type="button" class="fld dashhead" id="dashStat"></button>
-  <h2>Add to call</h2>
+  <h2 id="dashAddHead">Add to call</h2>
   <div class="tiles four">
     <button data-go="belt"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></span><b>Belt</b><span class="cnt" id="cntBelt">0 logged</span></button>
     <button data-go="project"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span><b>Project</b></button>
@@ -1398,13 +1423,46 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <!-- Project and note counts are still assigned in a few places; keeping the
        elements avoids guarding every one of those assignments. -->
   <span hidden id="cntProj"></span><span hidden id="cntNote"></span>
-  <h2>Call log</h2>
+  <h2 id="dashLogHead">Call log</h2>
   <div id="logList"></div>
-  <h2>Loose photos</h2>
+  <h2 id="dashLooseHead">Loose photos</h2>
   <div id="looseWrap"></div>
   <button class="ghost" id="savePhotos">Save this call's photos to the phone</button>
-  <button class="ghost" id="toCompile">Compile call notes</button>
-  <button class="ghost" id="closeCall" style="color:var(--dim)">Close call without compiling</button>
+
+  <!-- The compile screen held five buttons of equal weight and nothing else, so
+       it has been folded in here. Three pickers and one button: what is in the
+       document, how the photos are shown, and where it goes.
+
+       Pickers above the button on purpose. The thumb reaches the bottom of the
+       screen most easily, so with the options underneath you could fire off a
+       full-size 18 MB share before noticing they were there. -->
+  <h2>Output</h2>
+  <div class="fld">
+    <p class="stat" id="compStat"></p>
+  </div>
+  <div id="detachWrap"></div>
+  <div class="fld">
+    <div id="outScopeRow">
+      <label>Output</label>
+      <select id="outScope"></select>
+      <div class="gap"></div>
+    </div>
+    <label>Images</label>
+    <select id="outImg">
+      <option value="full">Full size</option>
+      <option value="thumb">Thumbnails, expandable</option>
+      <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
+    </select>
+    <div class="gap"></div>
+    <label>Send to</label>
+    <select id="outDest">
+      <option value="share">Share sheet</option>
+      <option value="download">Save to this phone</option>
+    </select>
+  </div>
+  <button class="big" id="doOutput">Create and share</button>
+  <p class="hint" id="outHint"></p>
+  <button class="ghost" id="closeCall" style="color:var(--dim)">Close call without an output</button>
 </section>
 
 <!-- BELT -->
@@ -1574,6 +1632,21 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     </div>
   </div>
 
+  <!-- Quote requests only. Quantity is derived on a site call and is the thing
+       being ordered on a request; the belt in front of you on site needs no
+       confirming with TSG. Hidden rather than forking the whole form. -->
+  <div id="bQuoteRow" hidden>
+    <h2>For the quote</h2>
+    <div class="fld">
+      <label>Quantity</label>
+      <input type="text" id="bQty" inputmode="numeric" placeholder="How many of this belt">
+    </div>
+    <div class="fld">
+      <label class="chk"><input type="checkbox" id="bTsg"> Belt ID confirmed with TSG</label>
+      <p class="hint">Left unticked, the request is flagged so customer service knows to check the ID before quoting.</p>
+    </div>
+  </div>
+
   <h2>Quote contact</h2>
   <div class="fld">
     <label>Only if different to the call contacts</label>
@@ -1661,21 +1734,6 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 </section>
 
 <!-- COMPILE -->
-<section class="scr" id="s-compile">
-  <h2>Output</h2>
-  <div class="fld">
-    <p class="stat" id="compStat"></p>
-  </div>
-  <div id="detachWrap"></div>
-  <button class="big" id="doShare">Generate and share</button>
-  <button class="ghost" id="doDownload">Download instead</button>
-  <h2>Send one part only</h2>
-  <button class="ghost" id="doHealth">Health check only</button>
-  <button class="ghost" id="doBelts">Belt requirements only</button>
-  <p class="hint">These are for handing to the customer. Both leave out general notes, project discovery and the visit history, and the health sheet prints one fault per page so it can go straight to a fitter. Neither marks the call as issued.</p>
-  <button class="ghost backcall">Back to the call</button>
-  <p class="hint">Share sends the HTML file to the Android share sheet &mdash; pick OneDrive, Outlook or Teams. Download saves it to this phone.</p>
-</section>
 
 
 <section class="scr" id="s-directory">

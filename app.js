@@ -10,6 +10,9 @@
 const DB_NAME = 'fieldcrm', DB_VER = 3;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
+/* Set while the account and contacts screens are being used to raise a quote
+   request rather than start a call. Cleared the moment the record is made. */
+let quoteMode = false;
 
 /* ---------- storage ---------- */
 function openDB(){
@@ -117,13 +120,31 @@ async function apptsDel(id){
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
 }
-async function callsAll(){
+async function recordsAll(){
   const d = await ready();
   return new Promise((res,rej)=>{
     const t = d.transaction('calls','readonly').objectStore('calls').getAll();
     t.onsuccess = ()=>res(t.result||[]); t.onerror = ()=>rej(t.error);
   });
 }
+/* Calls and quote requests share the 'calls' store, so backup, restore and the
+   device merge keep working untouched. They are told apart by rectype, and this
+   is the only place that filter lives.
+
+   Not 'kind'. slimCall() sets kind = GHC_KIND on the way out to the sync repo
+   and pullCall() deletes it on the way back, so a record-level 'kind' would be
+   overwritten on push and stripped on pull - a quote request would return from a
+   sync as an ordinary call, land in Reports and reset the account's cadence,
+   with nothing to show it had happened.
+
+   Everything downstream reads callsAll(), so anything that has not been told
+   about quote requests excludes them. That is the safe answer, and it is the
+   default rather than something each of the twenty-odd call sites has to
+   remember. */
+const QUOTE = 'quote';
+function isQuote(r){ return !!r && r.rectype === QUOTE; }
+async function callsAll(){  return (await recordsAll()).filter(r => !isQuote(r)); }
+async function quotesAll(){ return (await recordsAll()).filter(isQuote); }
 
 /* ---------- helpers ---------- */
 const $ = id => document.getElementById(id);
@@ -814,6 +835,9 @@ function fillBeltFromEntry(e){
      for them. */
   $('bDesc').value = e.beltdesc || '';
   $('bQc').value = e.qcontact || '';
+  $('bQty').value = e.qty || '';
+  $('bTsg').checked = !!e.tsg;
+  applyBeltQuoteFields();
   bRetroVal = e.retrofit || '';
   document.querySelectorAll('#bRetro button').forEach(x =>
     x.classList.toggle('on', !!bRetroVal && x.dataset.v === bRetroVal));
@@ -870,7 +894,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v56';
+const APP_BUILD = 'v57';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1204,7 +1228,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'],
-  note:['General note',''], health:['Health check',''], compile:['Compile','']
+  note:['General note',''], health:['Health check','']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1241,7 +1265,7 @@ function pushDialog(id){
 /* Screens that read the open call. Reaching one without a call - a stale history
    entry after the call was closed, a back gesture into a finished call - threw on
    the first property read and left a blank screen with no way forward. */
-const CALL_SCREENS = ['dash','belt','project','note','health','compile'];
+const CALL_SCREENS = ['dash','belt','project','note','health'];
 function showScreen(name){
   if(CALL_SCREENS.includes(screen) && screen !== 'dash') captureDraft(screen);
   if(CALL_SCREENS.includes(name)) lastCallScreen = name;
@@ -1257,16 +1281,16 @@ function showScreen(name){
   $('back').style.display = (name==='home') ? 'none' : 'block';
   $('title').textContent = TITLES[name] ? TITLES[name][0] : 'Field CRM';
   $('subtitle').textContent = call ? (call.customer + (call.site?' - '+call.site:'')) : 'No call open';
-  const inCall = call && ['dash','belt','project','note','health','compile'].includes(name);
+  const inCall = call && CALL_SCREENS.includes(name);
   $('bar').style.display = inCall ? 'flex' : 'none';
   window.scrollTo(0,0);
   if(name==='dash') renderDash();
-  if(name==='compile') renderCompileStat();
   if(name==='home') renderHome();
   if(name==='directory') renderDirPane();
   if(name==='reference') renderRefPane();
   if(name==='ccontacts') renderCallContacts();
-  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); }
+  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers();
+    if($('setImgMode')) $('setImgMode').value = defaultImgMode(); }
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
   if(name==='today'){ renderToday(); $('title').textContent = todayView==='today' ? 'Today' : 'This week'; }
@@ -1571,6 +1595,7 @@ $('avStart').addEventListener('click', ()=>{
   if(!viewAcct) return;
   $('cDate').value = todayISO();
   cameFromAcct = true;
+  quoteMode = false; applyQuoteMode();
   chooseAccount(viewAcct.a);
 });
 
@@ -3395,6 +3420,7 @@ function startBooking(){
   bookAcct = null;
   cameFromAcct = false;
   bookingMode = true;
+  quoteMode = false; applyQuoteMode();
   $('cDate').value = todayISO();
   go('account'); renderAccSearch();
   $('accHint').textContent = 'Pick the account to book a visit at';
@@ -3429,6 +3455,7 @@ async function bookVisitFor(name){
 $('tvBook').addEventListener('click', startBooking);
 $('tvUnplanned').addEventListener('click', ()=>{
   cameFromAcct = false; bookingMode = false;
+  quoteMode = false; applyQuoteMode();
   $('cDate').value = todayISO();
   go('account'); renderAccSearch();
 });
@@ -4663,10 +4690,18 @@ $('barManuals').addEventListener('click', openManualsOverlay);
 
 /* ---------- home ---------- */
 async function renderHome(){
-  const all = await callsAll();
+  const every = await recordsAll();
+  const all = every.filter(c => !isQuote(c));
   indexCalls(all);
   const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
   $('resumeInfo').textContent = open.length ? open[0].customer : 'None open';
+  /* Quote requests get their own open count. Sharing Resume with calls would
+     mean a half-finished RFQ hiding a half-finished call, or the reverse. */
+  const oq = every.filter(c => isQuote(c) && !c.closed);
+  const qi = $('quoteInfo');
+  if(qi) qi.textContent = oq.length ? (oq.length + ' open') : '';
+  const qb = document.querySelector('#s-home [data-go="resumequote"]');
+  if(qb) qb.hidden = !oq.length;
   renderHomeCounts();
   renderPeopleCount(); renderReportsCount().catch(()=>{});
   const done = all.sort((a,b)=>b.updated-a.updated).slice(0,8);
@@ -4706,11 +4741,21 @@ async function renderHome(){
 }
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', async ()=>{
   const t = b.dataset.go;
-  if(t==='newcall'){
+  if(t==='newcall' || t==='newquote'){
     // a manual account is still possible with no database, so this warns rather than blocks
     if(!ACCOUNTS.length) toast('No contact database - manual account entry only');
     cameFromAcct = false; bookingMode = false;
-    $('cDate').value = todayISO(); go('account'); renderAccSearch();
+    quoteMode = (t === 'newquote');
+    $('cDate').value = todayISO();
+    $('cReqBy').value = '';
+    $('cRef').value = '';
+    applyQuoteMode();
+    go('account'); renderAccSearch();
+  } else if(t==='resumequote'){
+    const open = (await quotesAll()).filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
+    if(!open.length){ toast('No open quote request'); return; }
+    if(open.length === 1){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
+    showOpenPicker(open);
   } else if(t==='accounts'){
     browseScope = 'mine';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'mine'));
@@ -4851,6 +4896,25 @@ $('accManualGo').addEventListener('click', ()=>{
 });
 
 let pendingAcct = null;
+/* The account and contacts screens are the same two screens either way - the
+   same search, the same manual-account fallback, the same contact list. Only the
+   fields differ, so they are shown and hidden rather than duplicated into a
+   parallel pair of screens that would then drift. */
+function applyQuoteMode(){
+  const q = quoteMode;
+  const rows = {cTypeRow: !q, cReqByRow: q, cRefRow: q};
+  Object.keys(rows).forEach(id => { const el = $(id); if(el) el.hidden = !rows[id]; });
+  const dl = $('cDateLbl');
+  if(dl) dl.textContent = q ? 'Date raised' : 'Date';
+  const t = $('acctHead');
+  if(t) t.textContent = q ? 'Quote request details' : 'Call details';
+  const ct = $('ctHead');
+  if(ct) ct.textContent = q ? 'Who rang?' : 'Who did you see?';
+  const ob = $('openCall');
+  if(ob) ob.textContent = q ? 'Start the quote request' : 'Start the call';
+  TITLES.account[0] = q ? 'Quote request' : 'New call';
+  TITLES.contacts[0] = q ? 'Quote request' : 'New call';
+}
 function chooseAccount(name, manual){
   if(bookingMode){ bookVisitFor(name).catch(reportErr); return; }
   const acc = manual ? null : (ACC_BY_NAME.get(name) || null);
@@ -4902,6 +4966,39 @@ $('openCall').addEventListener('click', async ()=>{
 
   const acc = pendingAcct.acc;
   const site = $('cSite').value.trim();
+
+  if(quoteMode){
+    /* No offerExistingCall and no bookUnplanned. A quote request is not a visit:
+       it must not merge into a call already open on this account, and it must
+       not put an appointment in the plan or touch the account's cadence. */
+    call = {
+      id: 'q'+Date.now(),
+      rectype: QUOTE,
+      date: ddmmyyyy($('cDate').value),
+      mgr: $('cMgr').value,
+      customer: pendingAcct.name,
+      manualAccount: pendingAcct.manual,
+      zone: acc ? acc.z : '',
+      suburb: acc ? acc.sub : '',
+      focus: acc ? acc.foc : '',
+      site: site,
+      reqby: $('cReqBy').value.trim(),
+      ref: $('cRef').value.trim(),
+      contacts: chosen,
+      entries: [],
+      loose: [],
+      status: 'in progress',
+      when: Date.parse($('cDate').value) || Date.now(),
+      closed: false,
+      updated: Date.now()
+    };
+    quoteMode = false;
+    await saveCall();
+    go('dash');
+    toast('Quote request started');
+    return;
+  }
+
   const reuse = await offerExistingCall(pendingAcct.name, $('cDate').value, chosen, site);
   if(reuse){
     call = reuse;
@@ -4958,6 +5055,28 @@ function renderDash(){
   $('cntProj').textContent = n('project')+' logged';
   $('cntNote').textContent = n('note')+' logged';
   $('cntHealth').textContent = n('health')+' logged';
+
+  /* A quote request is the belt and whatever customer service needs told. There
+     is no visit, so project discovery and the health check are not offered. */
+  const q = isQuote(c);
+  ['project','health'].forEach(k => {
+    const b = document.querySelector('#s-dash [data-go="'+k+'"]');
+    if(b) b.hidden = q;
+  });
+  const addHead = $('dashAddHead');
+  if(addHead) addHead.textContent = q ? 'Add to request' : 'Add to call';
+  const logHead = $('dashLogHead');
+  if(logHead) logHead.textContent = q ? 'On this request' : 'Call log';
+  const looseHead = $('dashLooseHead');
+  if(looseHead) looseHead.textContent = q ? 'Photos from the customer' : 'Loose photos';
+  const closeBtn = $('closeCall');
+  if(closeBtn) closeBtn.textContent = q ? 'Close this request without an output'
+                                        : 'Close call without an output';
+
+  /* Before the early return below, or a call with nothing logged yet would show
+     no output block at all. */
+  renderCompileStat();
+  renderOutControls();
 
   renderLoose();
 
@@ -5171,7 +5290,9 @@ $('pvClose').addEventListener('click', ()=>{
   if(history.state && history.state.dialog === 'pview') history.back(); else closePhoto();
 });
 $('closeCall').addEventListener('click', async ()=>{
-  if(!confirm('Close this call? It stays saved but will not show under Resume.')) return;
+  const q = isQuote(call);
+  if(!confirm(q ? 'Close this quote request? It stays saved but will not show under Resume request.'
+                : 'Close this call? It stays saved but will not show under Resume.')) return;
   call.closed = true;
   if(call.status === 'in progress') call.status = 'done';
   if(!call.entries.length) call.noReport = true;
@@ -5179,7 +5300,15 @@ $('closeCall').addEventListener('click', async ()=>{
   await syncApptFromCall(call);
   releaseAllPhotos(); call = null; go('home');
 });
-$('toCompile').addEventListener('click', ()=>go('compile'));
+/* The output block lives at the foot of the dashboard now; there is no compile
+   screen to navigate to. */
+$('doOutput').addEventListener('click', ()=>{
+  if(!call) return;
+  sendNotes(currentOutScope(), $('outDest').value, $('outImg').value);
+});
+$('outScope').addEventListener('change', renderOutHint);
+$('outDest').addEventListener('change', renderOutHint);
+$('outImg').addEventListener('change', renderOutHint);
 $('barMenu').addEventListener('click', ()=>go('dash'));
 
 /* ================= entry: belt =================
@@ -5765,10 +5894,18 @@ function commitEntry(entry, keepPhotos){
   return editingIdx;
 }
 
+/* The belt form is the same form either way - the same series cascade, the same
+   sprocket matching, the same width check. Two fields are quote-only and are
+   shown rather than the whole form being forked. */
+function applyBeltQuoteFields(){
+  const q = isQuote(call);
+  const row = $('bQuoteRow');
+  if(row) row.hidden = !q;
+}
 function resetBelt(){
   try { showMsg($('bAssetHit'), '', ''); } catch(e){}
   ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn','bSprDrive','bSprIdle',
-   'bFlHeight','bFlRows','bFlMm','bNotch','bSgHeight','bQc','bRodOther','bFlTypeOther',
+   'bFlHeight','bFlRows','bFlMm','bNotch','bSgHeight','bQc','bQty','bRodOther','bFlTypeOther',
    'bSgTypeOther','bIndentOther'].forEach(i => { if($(i)) $(i).value = ''; });
   ['bRodOther','bMatOther','bColourOther','bFlTypeOther','bSgTypeOther','bIndentOther']
     .forEach(i => { $(i).value = ''; $(i).classList.add('hide'); });
@@ -5784,6 +5921,8 @@ function resetBelt(){
   $('bSprSpacers').checked = false; $('bSprHdRet').checked = false; updateSprExtras();
   $('bSkipAcc').checked = true;  $('bAccBody').classList.add('hide');
   $('bFlType').value = ''; $('bFlMat').value = ''; $('bSgType').value = ''; $('bSgMat').value = '';
+  $('bTsg').checked = false;
+  applyBeltQuoteFields();
   clearEditing();
   $('bErr').classList.remove('show');
   $('bFrame').classList.remove('alert'); $('bWidth').classList.remove('alert');
@@ -5832,7 +5971,13 @@ $('bSave').addEventListener('click', async () => {
     sgtype:  skipAcc ? '' : sgType(),
     sgmat:   skipAcc ? '' : $('bSgMat').value,
     sgheight:skipAcc ? '' : v('bSgHeight'),
-    qcontact:v('bQc'), photos:[]
+    qcontact:v('bQc'),
+    /* Quantity and the TSG confirmation are asked for on a quote request and
+       nowhere else. On a site call quantity is derived, and the belt in front
+       of you is the belt - there is nothing to confirm with TSG. */
+    qty: v('bQty'),
+    tsg: $('bTsg').checked,
+    photos:[]
   };
   const wasEdit = editingIdx != null;
   beltJustSaved = commitEntry(e);
@@ -6325,10 +6470,70 @@ const DASH_CH = '\u2014';
 const V = v => { v = (v==null?'':String(v)).trim(); return (v===''||v==='N/A') ? DASH_CH : esc(v); };
 // Blobs become base64 here and nowhere else, so the output file is byte-for-byte
 // what it was when photos were stored as data URIs.
-async function photoImgs(list){
+/* ---------- image mode ----------
+   'full'      - 420px, stacked. What a customer report needs.
+   'thumb'     - the same bytes, rendered at 148px, expandable by tapping.
+   'thumbonly' - genuinely re-encoded small. The only mode that shrinks the file,
+                 and the only one where there is nothing behind the thumbnail.
+
+   The default is set once in Settings; the dashboard picker overrides it for a
+   single output without changing the default. Remembering the last choice
+   instead would mean one customer PDF quietly changing every RFQ after it. */
+const IMG_MODES = ['full','thumb','thumbonly'];
+const THUMB_PX = 320, THUMB_Q = 0.6;
+function defaultImgMode(){
+  const v = localStorage.getItem(LS('imgMode'));
+  return IMG_MODES.includes(v) ? v : 'full';
+}
+function setDefaultImgMode(v){
+  if(IMG_MODES.includes(v)) localStorage.setItem(LS('imgMode'), v);
+}
+async function photoImgs(list, mode){
   const out = [];
-  for(const p of list) out.push('<img src="'+(await photoDataURL(p))+'">');
+  for(const p of list){
+    if(mode === 'thumbonly'){
+      /* Re-encoded small, so the bytes actually leave the file. A photo that
+         will not re-encode falls back to the full one rather than vanishing -
+         a missing picture is worse than a large file. */
+      let src;
+      try {
+        const blob = isBlobPhoto(p) ? p : dataURLToBlob(String(p));
+        src = await blobToDataURL(await shrink(blob, THUMB_PX, THUMB_Q));
+      } catch(e){ console.warn('thumbnail', e); src = await photoDataURL(p); }
+      out.push('<img src="'+src+'">');
+    } else {
+      out.push('<img src="'+(await photoDataURL(p))+'">');
+    }
+  }
   return out.join('');
+}
+/* The in-document control. Only emitted where there is something to toggle, so
+   a thumbonly file does not offer to show full-size images it does not carry.
+
+   This needs a <script>, which runs when the file is opened as an attachment in
+   a browser - how these files are delivered. Pasted into an email body instead,
+   scripts and <style> blocks are stripped and the file arrives frozen in the
+   mode it compiled in, which is why the compile-time choice is the one that has
+   to be right. */
+function imgToggleHTML(mode){
+  if(mode === 'thumbonly') return '<div class="otog"><p>Images are thumbnails only. '+
+    'Full-size copies were not included in this file.</p></div>';
+  return '<div class="otog"><button type="button" id="imgtog"></button>'+
+    '<p>Tap any photo to open it on its own.</p></div>';
+}
+function imgToggleScript(mode){
+  if(mode === 'thumbonly') return '';
+  return '<script>(function(){var b=document.body,t=document.getElementById("imgtog");'+
+    'if(!t)return;function lbl(){t.textContent=b.className.indexOf("tn")>=0?'+
+    '"Show images full size":"Show thumbnails";}'+
+    't.onclick=function(){var big=document.querySelectorAll(".ph img.big");'+
+    'for(var i=0;i<big.length;i++)big[i].className="";'+
+    'b.className=b.className.indexOf("tn")>=0?"":"tn";lbl();};'+
+    'document.addEventListener("click",function(e){var el=e.target;'+
+    'if(!el||el.tagName!=="IMG")return;var p=el.parentNode;'+
+    'if(!p||p.className.indexOf("ph")<0)return;'+
+    'if(b.className.indexOf("tn")<0)return;'+
+    'el.className=el.className?"":"big";});lbl();})();<\/script>';
 }
 
 function renderCompileStat(){
@@ -6376,11 +6581,166 @@ async function detachPhotos(){
     call.loose = [];
   }
   await saveCall();
-  renderCompileStat();
+  // the log list carries thumbnails of the photos just dropped, so the whole
+  // dashboard is redrawn rather than only the summary line above it
+  if(screen === 'dash') renderDash(); else renderCompileStat();
   toast(humanSize(bytes)+' freed - the record and the photo count are kept');
 }
-async function buildNotesHTML(scope){
+/* ---------- the compiled document ----------
+   The stylesheet and the masthead are shared by every output: call notes,
+   the health and belt extracts, and the belt RFQ. They sat inside
+   buildNotesHTML() as locals, which meant a second builder had to either
+   duplicate 90 lines of CSS and a 20 KB base64 logo or inherit every branch
+   of the first one. Hoisted, unchanged. */
+const NOTES_CSS = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:11pt;color:#222222;margin:0;padding:0 0 0 0}'+
+  '.pg{padding:0 18px 18px}'+
+  '.mast{background:#ED1C24;padding:13px 18px;margin:0 0 22px}'+
+  '.mast img{height:26px;width:auto;display:block}'+
+  /* The document used to be a grid of boxes: every cell ruled on all four
+     sides, headings underlined, blocks outlined. Accurate and hard to read -
+     the eye has to cross a line to get to every value.
+
+     The vertical rules are gone. Rows are separated by a hairline and the
+     label column is set in grey small-caps rather than boxed in, so the page
+     reads as columns of information instead of a spreadsheet. Nothing about
+     the content or the field order changed. */
+  'h1{font-size:17pt;margin:0 0 2px;color:#222222;letter-spacing:-.015em;font-weight:bold}'+
+  'h2{font-size:11pt;margin:26px 0 10px;padding:0 0 5px;border-bottom:1px solid #E3E3E3;'+
+    'color:#00708D;letter-spacing:.09em;text-transform:uppercase;font-weight:bold}'+
+  'h3{font-size:12pt;margin:18px 0 7px;color:#222222;letter-spacing:-.01em}'+
+  '.sub{color:#77787A;font-size:9.5pt;margin:0 0 16px;line-height:1.5}'+
+  'table{border-collapse:collapse;width:100%;margin:0 0 14px;font-size:10pt}'+
+  'th{background:transparent;text-align:left;padding:0 10px 5px 0;border:0;'+
+    'border-bottom:1.5px solid #ACD3E1;font-size:8.5pt;font-weight:bold;color:#00708D;'+
+    'letter-spacing:.07em;text-transform:uppercase}'+
+  'td{padding:7px 10px 7px 0;border:0;border-bottom:1px solid #EDEDED;vertical-align:top;'+
+    'line-height:1.45}'+
+  'tr:last-child td{border-bottom:0}'+
+  'td.l{background:transparent;width:34%;font-weight:normal;color:#77787A;'+
+    'font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase;padding-top:9px}'+
+  '.flag{color:#B2232F;font-weight:bold}'+
+  /* Belt specs run two fields to a row. A belt logged quickly on site fills
+     about five of twelve fields, and one field per row turned that into a
+     column of dashes taller than the information in it. Nothing is dropped -
+     an empty field still reads as "looked at, nothing there". */
+  'table.two td{padding:6px 14px 6px 0}'+
+  'table.two td.l{width:20%;white-space:nowrap;padding-top:8px}'+
+  '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
+  '.blk{page-break-inside:avoid;margin:0 0 22px}'+
+  '.ph{margin:10px 0 16px}'+
+  '.ph img{max-width:420px;border:1px solid #E3E3E3;border-radius:3px;margin:0 10px 10px 0}'+
+  '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'+
+  /* Fault cards. The app stylesheet is not available here, so the rules are
+     repeated with print in mind: one finding per page, so the sheet handed to
+     a fitter covers one job and nothing else. */
+  '.hc{border:1px solid #E3E3E3;border-radius:4px;margin:0 0 18px;page-break-inside:avoid;'+
+    'overflow:hidden}'+
+  '.hc + .hc{page-break-before:always}'+
+  '.hc-top{background:#F7F8F8;border-bottom:1px solid #E3E3E3;padding:9px 14px;overflow:hidden}'+
+  '.hc-asset{float:left;font-weight:bold;color:#00708D;font-size:12pt}'+
+  '.hc-tags{float:right}'+
+  '.fl-pill{display:inline-block;padding:2px 9px;margin-left:5px;font-size:8pt;font-weight:bold;'+
+    'border:1px solid #E3E3E3;border-radius:10px;letter-spacing:.03em}'+
+  '.fl-p-critical{background:#FBE7E8;color:#B2232F;border-color:#B2232F}'+
+  '.fl-p-high{background:#FBEFE2;color:#B35100}.fl-p-medium{background:#E3F0F5;color:#00708D}'+
+  '.fl-p-low{background:#F7F8F8;color:#77787A}.fl-s{background:#FFFFFF;color:#4D4D4F}'+
+  '.fl-state{background:#FFFFFF;color:#77787A}'+
+  '.hc-fault{margin:10px 12px 6px;font-size:12pt;font-weight:bold}'+
+  '.hc-code{font-size:9pt;color:#77787A;font-weight:normal}'+
+  '.hc-row{border-top:1px solid #E6E6E6;overflow:hidden}'+
+  '.hc-lbl{float:left;width:32%;padding:7px 12px;background:#F7F8F8;font-size:9pt;font-weight:bold;color:#4D4D4F}'+
+  '.hc-val{margin-left:32%;padding:7px 12px;overflow:hidden}'+
+  '.hc-val p{margin:0 0 4px}.hc-val ul{margin:0;padding-left:16px}'+
+  '.hc-risk li{color:#B2232F}.hc-gain{color:#00708D;font-weight:bold}'+
+  '.hc-spec li{color:#4D4D4F;font-size:9.5pt}'+
+  '.hc-src{margin-top:4px;font-size:8pt;color:#77787A}'+
+  '.hc-tbl{width:100%;border-collapse:collapse;font-size:9.5pt;margin:0}'+
+  '.hc-tbl th{background:transparent;border:0;padding:2px 8px 2px 0;text-align:left;white-space:nowrap;width:1%;color:#4D4D4F}'+
+  '.hc-tbl td{border:0;padding:2px 0}'+
+  /* ---------- image display ----------
+     Two audiences want opposite things. Customer service is reading for the
+     specification and full-bleed photographs get in the way; a site report going
+     to a customer as a PDF needs every photo legible.
+
+     Thumbnails are a display size, not a second copy. The full-resolution image
+     is embedded once and rendered small, so the file is the same size either
+     way, to the byte. Only 'thumbonly' is genuinely smaller, because it drops
+     the full images rather than shrinking how they are shown.
+
+     Toggling swaps one class on <body>, and that is also what prints: whatever
+     is on screen when you print is what comes out. */
+  'body.tn .ph{margin:8px 0 14px}'+
+  'body.tn .ph img{max-width:148px;max-height:148px;cursor:zoom-in;margin:0 8px 8px 0}'+
+  'body.tn .ph img.big{max-width:420px;max-height:none;cursor:zoom-out}'+
+  '.otog{margin:0 0 18px}'+
+  '.otog button{font:inherit;font-size:9pt;color:#00708D;background:#F7F8F8;'+
+    'border:1px solid #E3E3E3;border-radius:3px;padding:6px 13px;cursor:pointer}'+
+  '.otog p{margin:6px 0 0;font-size:8.5pt;color:#77787A}'+
+  '@media print{.otog{display:none}}';
+const NOTES_LOGO = 'data:image/png;base64,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';
+
+/* ---------- the belt specification table ----------
+   One field list, used by the call notes and by the RFQ. Split out because two
+   copies would drift the moment a field was added to the form, and customer
+   service would get a different spec depending on which button was pressed.
+
+   Rows are [label, value, required]. A required one always prints, with an em
+   dash when empty, because a missing width is information. An optional one that
+   was never filled is dropped rather than printed as a dash - a belt with no
+   flights used to produce ten empty rows. */
+function beltSpecRows(b){
+  const bfAll = [
+    ['Line / description',      b.beltdesc, 0],
+    ['Series',                  b.series,   1],
+    ['Style / surface',         b.style,    1],
+    ['Belt material',           b.beltmat,  1],
+    ['Colour',                  b.colour,   0],
+    ['Rod material',            b.rodmat,   1],
+    ['Belt width (mm)',         b.width,    1],
+    ['Belt length (m)',         b.beltlen,  0],
+    ['Conveyor length (m)',     b.clength,  0],
+    ['Inside frame width (mm)', b.frame,    0],
+    ['Retrofit',                b.retrofit, 0],
+    ['Sprocket description',    b.sprocket, 0],
+    ['Sprocket part number',    b.sprpn,    0],
+    ['Sprocket bore',           b.sprbore,  0],
+    ['Pitch diameter',          b.sprpd,    0],
+    ['Sprocket material',       b.sprmat,   0],
+    ['Sprocket variant',        b.sprvar,   0],
+    ['Drive quantity',          b.sprdrive, 0],
+    ['Idle quantity',           b.spridle,  0],
+    ['Sprocket spacers',        b.sprspacers ? 'Yes' : '', 0],
+    ['Heavy duty retainers',    b.sprhdret ? ('Yes' + (b.sprhdretqty ? ' \u00d7 '+b.sprhdretqty : '')) : '', 0],
+    ['Flight type',             b.fstyle,   0],
+    ['Flight material',         b.flmat,    0],
+    ['Flight height (mm)',      b.fheight,  0],
+    ['Every N rows',            b.frows,    0],
+    ['Flight spacing (mm)',     b.fspacing, 0],
+    ['Indent (mm)',             b.findent,  0],
+    ['Centre notch (mm)',       b.cnotch,   0],
+    ['Sideguard type',          b.sgtype,   0],
+    ['Sideguard material',      b.sgmat,    0],
+    ['Sideguard height (mm)',   b.sgheight, 0]
+  ];
+  return bfAll.filter(r => r[2] || (r[1] !== '' && r[1] != null && r[1] !== false))
+              .map(r => [r[0], r[1]]);
+}
+/* Two fields to a row. An odd count leaves a hole rather than a stretched last
+   cell, so the column edges stay aligned down the whole table. */
+function beltRowsHTML(bf){
+  const p = [];
+  for(let k=0;k<bf.length;k+=2){
+    p.push('<tr>');
+    p.push('<td class="l">'+bf[k][0]+'</td><td>'+V(bf[k][1])+'</td>');
+    p.push(bf[k+1] ? '<td class="l">'+bf[k+1][0]+'</td><td>'+V(bf[k+1][1])+'</td>'
+                   : '<td class="l"></td><td></td>');
+    p.push('</tr>');
+  }
+  return p.join('');
+}
+async function buildNotesHTML(scope, mode){
   const c = call;
+  mode = IMG_MODES.includes(mode) ? mode : defaultImgMode();
   /* 'full' is the call record. 'health' and 'belts' are documents that leave
      for a customer, so general notes and project discovery are excluded from
      both - they carry commercial and internal context. */
@@ -6390,77 +6750,15 @@ async function buildNotesHTML(scope){
   const wantBelts  = scope === 'full' || scope === 'belts';
   const wantHealth = scope === 'full' || scope === 'health';
   const TITLE = {full:'Call notes', health:'Conveyor health check', belts:'Belt requirements'}[scope];
-  const css = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:11pt;color:#222222;margin:0;padding:0 0 0 0}'+
-    '.pg{padding:0 18px 18px}'+
-    '.mast{background:#ED1C24;padding:13px 18px;margin:0 0 22px}'+
-    '.mast img{height:26px;width:auto;display:block}'+
-    /* The document used to be a grid of boxes: every cell ruled on all four
-       sides, headings underlined, blocks outlined. Accurate and hard to read -
-       the eye has to cross a line to get to every value.
-
-       The vertical rules are gone. Rows are separated by a hairline and the
-       label column is set in grey small-caps rather than boxed in, so the page
-       reads as columns of information instead of a spreadsheet. Nothing about
-       the content or the field order changed. */
-    'h1{font-size:17pt;margin:0 0 2px;color:#222222;letter-spacing:-.015em;font-weight:bold}'+
-    'h2{font-size:11pt;margin:26px 0 10px;padding:0 0 5px;border-bottom:1px solid #E3E3E3;'+
-      'color:#00708D;letter-spacing:.09em;text-transform:uppercase;font-weight:bold}'+
-    'h3{font-size:12pt;margin:18px 0 7px;color:#222222;letter-spacing:-.01em}'+
-    '.sub{color:#77787A;font-size:9.5pt;margin:0 0 16px;line-height:1.5}'+
-    'table{border-collapse:collapse;width:100%;margin:0 0 14px;font-size:10pt}'+
-    'th{background:transparent;text-align:left;padding:0 10px 5px 0;border:0;'+
-      'border-bottom:1.5px solid #ACD3E1;font-size:8.5pt;font-weight:bold;color:#00708D;'+
-      'letter-spacing:.07em;text-transform:uppercase}'+
-    'td{padding:7px 10px 7px 0;border:0;border-bottom:1px solid #EDEDED;vertical-align:top;'+
-      'line-height:1.45}'+
-    'tr:last-child td{border-bottom:0}'+
-    'td.l{background:transparent;width:34%;font-weight:normal;color:#77787A;'+
-      'font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase;padding-top:9px}'+
-    '.flag{color:#B2232F;font-weight:bold}'+
-    /* Belt specs run two fields to a row. A belt logged quickly on site fills
-       about five of twelve fields, and one field per row turned that into a
-       column of dashes taller than the information in it. Nothing is dropped -
-       an empty field still reads as "looked at, nothing there". */
-    'table.two td{padding:6px 14px 6px 0}'+
-    'table.two td.l{width:20%;white-space:nowrap;padding-top:8px}'+
-    '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
-    '.blk{page-break-inside:avoid;margin:0 0 22px}'+
-    '.ph{margin:10px 0 16px}'+
-    '.ph img{max-width:420px;border:1px solid #E3E3E3;border-radius:3px;margin:0 10px 10px 0}'+
-    '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'+
-    /* Fault cards. The app stylesheet is not available here, so the rules are
-       repeated with print in mind: one finding per page, so the sheet handed to
-       a fitter covers one job and nothing else. */
-    '.hc{border:1px solid #E3E3E3;border-radius:4px;margin:0 0 18px;page-break-inside:avoid;'+
-      'overflow:hidden}'+
-    '.hc + .hc{page-break-before:always}'+
-    '.hc-top{background:#F7F8F8;border-bottom:1px solid #E3E3E3;padding:9px 14px;overflow:hidden}'+
-    '.hc-asset{float:left;font-weight:bold;color:#00708D;font-size:12pt}'+
-    '.hc-tags{float:right}'+
-    '.fl-pill{display:inline-block;padding:2px 9px;margin-left:5px;font-size:8pt;font-weight:bold;'+
-      'border:1px solid #E3E3E3;border-radius:10px;letter-spacing:.03em}'+
-    '.fl-p-critical{background:#FBE7E8;color:#B2232F;border-color:#B2232F}'+
-    '.fl-p-high{background:#FBEFE2;color:#B35100}.fl-p-medium{background:#E3F0F5;color:#00708D}'+
-    '.fl-p-low{background:#F7F8F8;color:#77787A}.fl-s{background:#FFFFFF;color:#4D4D4F}'+
-    '.fl-state{background:#FFFFFF;color:#77787A}'+
-    '.hc-fault{margin:10px 12px 6px;font-size:12pt;font-weight:bold}'+
-    '.hc-code{font-size:9pt;color:#77787A;font-weight:normal}'+
-    '.hc-row{border-top:1px solid #E6E6E6;overflow:hidden}'+
-    '.hc-lbl{float:left;width:32%;padding:7px 12px;background:#F7F8F8;font-size:9pt;font-weight:bold;color:#4D4D4F}'+
-    '.hc-val{margin-left:32%;padding:7px 12px;overflow:hidden}'+
-    '.hc-val p{margin:0 0 4px}.hc-val ul{margin:0;padding-left:16px}'+
-    '.hc-risk li{color:#B2232F}.hc-gain{color:#00708D;font-weight:bold}'+
-    '.hc-spec li{color:#4D4D4F;font-size:9.5pt}'+
-    '.hc-src{margin-top:4px;font-size:8pt;color:#77787A}'+
-    '.hc-tbl{width:100%;border-collapse:collapse;font-size:9.5pt;margin:0}'+
-    '.hc-tbl th{background:transparent;border:0;padding:2px 8px 2px 0;text-align:left;white-space:nowrap;width:1%;color:#4D4D4F}'+
-    '.hc-tbl td{border:0;padding:2px 0}';
-  const LOGO = 'data:image/png;base64,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';
+  const css = NOTES_CSS, LOGO = NOTES_LOGO;
   const p = [];
-  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</title><style>'+css+'</style></head><body>');
+  const bodyCls = (mode === 'full') ? '' : ' class="tn"';
+  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</title><style>'+css+'</style></head><body'+bodyCls+'>');
   p.push('<div class="mast"><img src="'+LOGO+'" alt="Intralox"></div><div class="pg">');
   p.push('<h1>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</h1>');
   p.push('<p class="sub">'+[c.site,c.type,c.date].filter(Boolean).map(esc).join(' &middot; ')+'</p>');
+  const anyPhoto = c.entries.some(e => e.photos && e.photos.length) || (c.loose && c.loose.length);
+  if(anyPhoto && mode !== 'full') p.push(imgToggleHTML(mode));
 
   p.push('<h2>Call details</h2><table>');
   [['Date',c.date],['Call type',c.type],['Account manager',c.mgr],['Customer',c.customer],['Site or area',c.site]]
@@ -6497,64 +6795,12 @@ async function buildNotesHTML(scope){
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
       p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
-      /* This list was still the Belt Call Log v8 field set - twelve fields, half
-         of which the v13 form no longer writes - so series, style, colour,
-         inside frame width, belt length, sprocket part number and the drive and
-         idle quantities never reached the page. Customer service was being sent
-         an incomplete spec with nothing on it to say so.
-
-         Rows are [label, value, required]. A required one always prints, with an
-         em dash when empty, because a missing width is information. An optional
-         one that was never filled is dropped rather than printed as a dash - a
-         belt with no flights used to produce ten empty rows. The two-column
-         pairing below is untouched. */
-      const bfAll = [
-        ['Line / description',      b.beltdesc, 0],
-        ['Series',                  b.series,   1],
-        ['Style / surface',         b.style,    1],
-        ['Belt material',           b.beltmat,  1],
-        ['Colour',                  b.colour,   0],
-        ['Rod material',            b.rodmat,   1],
-        ['Belt width (mm)',         b.width,    1],
-        ['Belt length (m)',         b.beltlen,  0],
-        ['Conveyor length (m)',     b.clength,  0],
-        ['Inside frame width (mm)', b.frame,    0],
-        ['Retrofit',                b.retrofit, 0],
-        ['Sprocket description',    b.sprocket, 0],
-        ['Sprocket part number',    b.sprpn,    0],
-        ['Sprocket bore',           b.sprbore,  0],
-        ['Pitch diameter',          b.sprpd,    0],
-        ['Sprocket material',       b.sprmat,   0],
-        ['Sprocket variant',        b.sprvar,   0],
-        ['Drive quantity',          b.sprdrive, 0],
-        ['Idle quantity',           b.spridle,  0],
-        ['Sprocket spacers',        b.sprspacers ? 'Yes' : '', 0],
-        ['Heavy duty retainers',    b.sprhdret ? ('Yes' + (b.sprhdretqty ? ' \u00d7 '+b.sprhdretqty : '')) : '', 0],
-        ['Flight type',             b.fstyle,   0],
-        ['Flight material',         b.flmat,    0],
-        ['Flight height (mm)',      b.fheight,  0],
-        ['Every N rows',            b.frows,    0],
-        ['Flight spacing (mm)',     b.fspacing, 0],
-        ['Indent (mm)',             b.findent,  0],
-        ['Centre notch (mm)',       b.cnotch,   0],
-        ['Sideguard type',          b.sgtype,   0],
-        ['Sideguard material',      b.sgmat,    0],
-        ['Sideguard height (mm)',   b.sgheight, 0]
-      ];
-      const bf = bfAll.filter(r => r[2] || (r[1] !== '' && r[1] != null && r[1] !== false))
-                      .map(r => [r[0], r[1]]);
+      // field list and two-column pairing live in beltSpecRows / beltRowsHTML
+      const bf = beltSpecRows(b);
       if(b.qcontact && scope === 'full') bf.push(['Quote contact',b.qcontact]);
-      for(let k=0;k<bf.length;k+=2){
-        p.push('<tr>');
-        p.push('<td class="l">'+bf[k][0]+'</td><td>'+V(bf[k][1])+'</td>');
-        /* An odd count leaves a hole rather than a stretched last cell, so the
-           column edges stay aligned down the whole table. */
-        p.push(bf[k+1] ? '<td class="l">'+bf[k+1][0]+'</td><td>'+V(bf[k+1][1])+'</td>'
-                       : '<td class="l"></td><td></td>');
-        p.push('</tr>');
-      }
+      p.push(beltRowsHTML(bf));
       p.push('</table>');
-      if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos))+'</div>');
+      if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos, mode))+'</div>');
       else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(b.detached.at).toLocaleDateString()+
         ' and are no longer held on the device.</p>');
@@ -6582,7 +6828,7 @@ async function buildNotesHTML(scope){
         p.push('</table>');
       }
       if(h.photos && h.photos.length){
-        p.push('<div class="ph">'+(await photoImgs(h.photos))+'</div>');
+        p.push('<div class="ph">'+(await photoImgs(h.photos, mode))+'</div>');
       } else if(linkedBelt && linkedBelt.photos && linkedBelt.photos.length){
         /* A job sheet that says "edge modules broken or missing" with no picture
            makes a fitter go and find the conveyor before they know what they are
@@ -6598,7 +6844,7 @@ async function buildNotesHTML(scope){
         } else {
           p.push('<p class="sent">No photo was taken of this fault. Shown below is '+
             V(linkedBelt.asset)+' from the same visit.</p>');
-          p.push('<div class="ph">'+(await photoImgs(linkedBelt.photos))+'</div>');
+          p.push('<div class="ph">'+(await photoImgs(linkedBelt.photos, mode))+'</div>');
         }
       } else if(h.detached) p.push('<p class="sent">'+h.detached.n+' photo'+(h.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(h.detached.at).toLocaleDateString()+
@@ -6609,7 +6855,7 @@ async function buildNotesHTML(scope){
 
   if(scope === 'full' && c.loose && c.loose.length){
     p.push('<h2>Additional photos</h2>');
-    p.push('<div class="ph">'+(await photoImgs(c.loose))+'</div>');
+    p.push('<div class="ph">'+(await photoImgs(c.loose, mode))+'</div>');
   } else if(c.looseDetached){
     p.push('<h2>Additional photos</h2>');
     p.push('<p class="sent">'+c.looseDetached.n+' photo'+(c.looseDetached.n===1?'':'s')+
@@ -6619,7 +6865,105 @@ async function buildNotesHTML(scope){
 
   if(scope === 'full') p.push(historyBlock(c));
 
-  p.push('</div><p class="ft">Compiled from site call notes. Final belt selection subject to Intralox review.</p></body></html>');
+  p.push('</div><p class="ft">Compiled from site call notes. Final belt selection subject to Intralox review.</p>');
+  if(anyPhoto && mode !== 'full') p.push(imgToggleScript(mode));
+  p.push('</body></html>');
+  return p.join('');
+}
+
+
+/* ---------- the belt RFQ ----------
+   A quote request is a transaction, not a visit: a customer rings, the belt is
+   specified with them on the phone, and the result goes to customer service.
+   So this is a separate builder rather than a fourth scope inside
+   buildNotesHTML - there is no call type, no visit history, no project
+   discovery and no health check, and the things it does carry (required-by,
+   quantity, the TSG confirmation) have no place in a set of call notes.
+
+   Same stylesheet and masthead, so it reads as part of the same family, and the
+   same beltSpecRows(), so a belt specified on the phone and a belt logged in a
+   plant say the same things in the same order. */
+async function buildRFQHTML(mode){
+  const c = call;
+  mode = IMG_MODES.includes(mode) ? mode : defaultImgMode();
+  const p = [];
+  const TITLE = 'Belt request for quote';
+  const bodyCls = (mode === 'full') ? '' : ' class="tn"';
+  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+TITLE+' '+DASH_CH+' '+
+    esc(c.customer)+'</title><style>'+NOTES_CSS+'</style></head><body'+bodyCls+'>');
+  p.push('<div class="mast"><img src="'+NOTES_LOGO+'" alt="Intralox"></div><div class="pg">');
+  p.push('<h1>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</h1>');
+  p.push('<p class="sub">'+[c.site,c.date].filter(Boolean).map(esc).join(' &middot; ')+'</p>');
+
+  const belts = c.entries.filter(e => e.type === 'belt');
+  const anyPhoto = belts.some(e => e.photos && e.photos.length) || (c.loose && c.loose.length);
+  if(anyPhoto && mode !== 'full') p.push(imgToggleHTML(mode));
+
+  p.push('<h2>Request</h2><table>');
+  [['Customer', c.customer], ['Site or area', c.site], ['Date raised', c.date],
+   ['Required by', c.reqby], ['Account manager', c.mgr], ['Your reference', c.ref]]
+    .forEach(([l,v]) => p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
+  if(c.manualAccount) p.push('<tr><td class="l">Account status</td><td>'+
+    '<span class="flag">Not in CRM &mdash; needs adding to Dynamics</span></td></tr>');
+  p.push('</table>');
+
+  if(c.contacts && c.contacts.length){
+    p.push('<h2>Requested by</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
+    c.contacts.forEach(x => p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+
+      '</td><td>'+V(x.mobile)+'</td><td>'+(x.crm ? 'On file'
+        : '<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
+    p.push('</table>');
+  }
+
+  if(belts.length){
+    p.push('<h2>Belts to quote</h2>');
+    for(let i=0;i<belts.length;i++){
+      const b = belts[i];
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
+      const bf = beltSpecRows(b);
+      /* Quantity is asked for here and nowhere else. On a site call it is
+         derived; on a quote request it is the thing being ordered, so it prints
+         even when blank - customer service needs to see that it was not given
+         rather than guess at one. */
+      bf.unshift(['Quantity', b.qty]);
+      if(b.qcontact) bf.push(['Quote contact', b.qcontact]);
+      p.push(beltRowsHTML(bf));
+      p.push('</table>');
+      /* Unticked and deliberately-not-confirmed look the same, which is fine
+         here: the safe reading and the default reading are both "check it". */
+      p.push(b.tsg
+        ? '<p class="sent">Belt ID confirmed with TSG.</p>'
+        : '<p class="sent"><span class="flag">Belt ID not yet confirmed with TSG.</span></p>');
+      if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos, mode))+'</div>');
+      else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
+        ' were sent with the request issued '+new Date(b.detached.at).toLocaleDateString()+
+        ' and are no longer held on the device.</p>');
+      p.push('</div>');
+    }
+  } else {
+    p.push('<h2>Belts to quote</h2><p class="sub">No belt was specified on this request.</p>');
+  }
+
+  const notes = c.entries.filter(e => e.type === 'note');
+  if(notes.length){
+    p.push('<h2>Notes</h2><table><tr><th>Topic</th><th>Note</th></tr>');
+    notes.forEach(n => p.push('<tr><td>'+V(n.topic)+'</td><td>'+V(n.text)+'</td></tr>'));
+    p.push('</table>');
+  }
+
+  if(c.loose && c.loose.length){
+    p.push('<h2>Photos from the customer</h2>');
+    p.push('<div class="ph">'+(await photoImgs(c.loose, mode))+'</div>');
+  } else if(c.looseDetached){
+    p.push('<h2>Photos from the customer</h2>');
+    p.push('<p class="sent">'+c.looseDetached.n+' photo'+(c.looseDetached.n===1?'':'s')+
+      ' were sent with the request issued '+new Date(c.looseDetached.at).toLocaleDateString()+
+      ' and are no longer held on the device.</p>');
+  }
+
+  p.push('</div><p class="ft">Quote request raised from the field. Final belt selection subject to Intralox review.</p>');
+  if(anyPhoto && mode !== 'full') p.push(imgToggleScript(mode));
+  p.push('</body></html>');
   return p.join('');
 }
 
@@ -6691,51 +7035,104 @@ function historyBlock(c){
   return p.join('');
 }
 function fileName(scope){
-  if(scope && scope !== 'full'){
-    const tag = scope === 'health' ? 'health_check' : 'belt_requirements';
-    const cust = (call.customer||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
-    const site = call.site ? '_'+call.site.replace(/[^A-Za-z0-9]+/g,'_') : '';
-    return cust+site+'_'+tag+'_'+(call.date||'').replace(/\//g,'-')+'.html';
-  }
-  const cust = call.customer.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
+  const cust = (call.customer||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
   const site = call.site ? '_'+call.site.replace(/[^A-Za-z0-9]+/g,'_') : '';
-  return cust+site+'_call_notes_'+call.date.replace(/\//g,'-')+'.html';
+  const date = (call.date||'').replace(/\//g,'-');
+  const tag = scope === 'health' ? 'health_check'
+            : scope === 'belts'  ? 'belt_requirements'
+            : scope === 'rfq'    ? 'belt_RFQ'
+            : 'call_notes';
+  return cust+site+'_'+tag+'_'+date+'.html';
 }
-async function sendNotes(scope){
+const SHARE_TITLE = {full:'Call notes ', health:'Health check ', belts:'Belt requirements ', rfq:'Belt RFQ '};
+/* One path for every output. Scope decides what is in the document, mode decides
+   how the photos are shown, dest decides where it goes. They used to be five
+   buttons that each hard-coded one combination. */
+async function sendNotes(scope, dest, mode){
   toast('Building...');
   let html;
-  try { html = await buildNotesHTML(scope); }
-  catch(e){ console.error(e); toast('Could not build the notes: '+e.message); return; }
+  try {
+    html = (scope === 'rfq') ? await buildRFQHTML(mode) : await buildNotesHTML(scope, mode);
+  }
+  catch(e){ console.error(e); toast('Could not build the file: '+e.message); return; }
   const name = fileName(scope);
+  /* Only the full call record counts as the call having been issued. A health
+     sheet handed to a fitter is not the call report, so it must not mark the
+     call compiled or offer to detach its photos. A quote request is its own
+     record and marks itself issued. */
+  const marks = (scope === 'full' || scope === 'rfq');
+  if(dest === 'download'){
+    download(html, name);
+    if(marks) await markShared(name);
+    return;
+  }
   const file = new File([html], name, {type:'text/html'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
-      await navigator.share({files:[file], title:(scope==='health'?'Health check ':scope==='belts'?'Belt requirements ':'Call notes ')+call.customer});
+      await navigator.share({files:[file], title:(SHARE_TITLE[scope]||'')+call.customer});
       // Only a share that came back without throwing counts as confirmed. An
       // AbortError means it was dismissed, and nothing left the phone.
-      if(scope === 'full') await markShared(name);
+      if(marks) await markShared(name);
       toast('Shared');
-    }catch(e){ if(e.name!=='AbortError') { console.error(e); toast('Share failed - try Download'); } }
+    }catch(e){ if(e.name!=='AbortError'){ console.error(e); toast('Share failed - try Save to this phone'); } }
   } else {
-    toast('Sharing not supported here - downloading instead');
+    toast('Sharing not supported here - saving instead');
     download(html, name);
-    await markShared(name);
+    if(marks) await markShared(name);
   }
 }
-/* Only the full call record counts as the call having been issued. A health
-   sheet handed to a fitter is not the call report, so it must not mark the call
-   compiled or detach its photos. */
-$('doShare').addEventListener('click', () => sendNotes('full'));
-$('doHealth').addEventListener('click', () => sendNotes('health'));
-$('doBelts').addEventListener('click', () => sendNotes('belts'));
-$('doDownload').addEventListener('click', async ()=>{
-  toast('Building notes...');
-  try {
-    const html = await buildNotesHTML('full');
-    download(html, fileName('full'));
-    await markShared(fileName('full'));
-  } catch(e){ console.error(e); toast('Could not build the notes: '+e.message); }
-});
+/* ---------- the output block ----------
+   Five buttons on a screen of their own became three pickers and one button at
+   the foot of the dashboard. The compile screen held nothing but the options for
+   leaving it, and the image mode would have made it six. */
+function outScopeOptions(){
+  const q = isQuote(call);
+  return q ? [['rfq','Belt RFQ']]
+           : [['full','Full call notes'],['health','Health check only'],['belts','Belt requirements only']];
+}
+function currentOutScope(){
+  const el = $('outScope');
+  const opts = outScopeOptions().map(o => o[0]);
+  const v = el ? el.value : '';
+  return opts.includes(v) ? v : opts[0];
+}
+function renderOutControls(){
+  const sel = $('outScope');
+  if(!sel) return;
+  const opts = outScopeOptions(), prev = sel.value;
+  sel.innerHTML = opts.map(([v,l]) => '<option value="'+v+'">'+l+'</option>').join('');
+  if(opts.some(o => o[0] === prev)) sel.value = prev;
+  // a quote request has one output, so the picker is noise
+  const row = $('outScopeRow');
+  if(row) row.hidden = opts.length < 2;
+  const img = $('outImg');
+  if(img && !IMG_MODES.includes(img.value)) img.value = defaultImgMode();
+  renderOutHint();
+}
+function renderOutHint(){
+  const btn = $('doOutput'), hint = $('outHint');
+  if(!btn) return;
+  const dest = $('outDest') ? $('outDest').value : 'share';
+  btn.textContent = dest === 'download' ? 'Create and save' : 'Create and share';
+  if(!hint) return;
+  const scope = currentOutScope();
+  const bits = [];
+  bits.push(dest === 'download'
+    ? 'Saves the file to this phone.'
+    : 'Sends the file to the Android share sheet \u2014 pick OneDrive, Outlook or Teams.');
+  if(scope === 'health' || scope === 'belts'){
+    bits.push('This is for handing to the customer. It leaves out general notes, '+
+      'project discovery and the visit history'+
+      (scope === 'health' ? ', and prints one fault per page so it can go straight to a fitter' : '')+
+      '. It does not mark the call as issued.');
+  } else if(scope === 'full'){
+    bits.push('Marks the call as issued.');
+  }
+  const mode = $('outImg') ? $('outImg').value : 'full';
+  if(mode === 'thumbonly') bits.push('Thumbnails only \u2014 the full-size images are left out, so the file is much smaller.');
+  else if(mode === 'thumb') bits.push('Thumbnails, expandable in the file. Same size as full.');
+  hint.textContent = bits.join(' ');
+}
 async function markShared(name){
   call.shared = Date.now();
   call.sharedAs = name;
@@ -6827,7 +7224,9 @@ async function inlinePhotos(c){
   return out;
 }
 async function buildBackup(withPhotos){
-  const calls = await callsAll();
+  // recordsAll, not callsAll: a backup that quietly omitted quote requests
+  // would look complete and restore incomplete.
+  const calls = await recordsAll();
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VER,
@@ -6875,7 +7274,7 @@ async function doRestore(file){
   if(!data || data.format !== BACKUP_FORMAT) throw new Error('that is not a Field CRM backup file');
   const calls = Array.isArray(data.calls) ? data.calls : [];
   const accounts = Array.isArray(data.accounts) ? data.accounts : [];
-  const existing = await callsAll();
+  const existing = await recordsAll();
   const have = new Set(existing.map(c => c.id));
   let added = 0, updated = 0;
   for(const c of calls){
@@ -7117,17 +7516,21 @@ document.addEventListener('DOMContentLoaded', () => {
 function showOpenPicker(open){
   const dlg = $('opendlg'), el = $('openList');
   if(!dlg || !el){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
-  $('openSub').textContent = open.length + ' calls still open';
+  // the same picker serves both, so the wording follows what was handed to it
+  const q = open.every(isQuote);
+  $('openSub').textContent = open.length + (q ? ' quote requests still open' : ' calls still open');
   el.innerHTML = open.map(c =>
     '<button type="button" data-resume="' + esc(c.id) + '">' +
     '<span class="who">' + esc(c.customer) + (c.site ? ' - ' + esc(c.site) : '') + '</span>' +
     '<span class="n">' + (c.entries.length ? c.entries.length + ' entries' : 'nothing logged') +
     '</span></button>').join('');
   el.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', async () => {
-    const all = await callsAll();
+    // recordsAll, not callsAll: this picker is shown for quote requests too, and
+    // callsAll would never find one
+    const all = await recordsAll();
     const picked = all.find(x => x.id === b.dataset.resume);
     closeOpenPicker();
-    if(!picked){ toast('That call is no longer here'); return; }
+    if(!picked){ toast(q ? 'That request is no longer here' : 'That call is no longer here'); return; }
     call = picked; call.loose = call.loose || [];
     go('dash');
   }));
@@ -7507,6 +7910,19 @@ document.addEventListener('DOMContentLoaded', () => {
     e.addEventListener('change', () => {
       localStorage.setItem(LS('email'), e.value.trim());
       toast(e.value.trim() ? 'Saved' : 'Cleared');
+    });
+  }
+  /* The default, set once. The dashboard picker overrides it for one output
+     without changing it - remembering the last choice instead would mean one
+     customer PDF quietly changing every RFQ after it. */
+  const im = $('setImgMode');
+  if(im){
+    im.value = defaultImgMode();
+    im.addEventListener('change', () => {
+      setDefaultImgMode(im.value);
+      const o = $('outImg');
+      if(o) { o.value = im.value; renderOutHint(); }
+      toast('Saved');
     });
   }
   /* Ticking placeholder makes the invitee list moot, so the dialog says so
