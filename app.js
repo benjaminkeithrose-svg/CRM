@@ -6635,7 +6635,7 @@ const NOTES_CSS =
     'body{max-width:none;box-shadow:none;margin:0}'+
     '.pg{padding:0 0 8mm}'+
     '.mast{margin:0 0 16px;padding:10px 12px}'+
-    'h1,h2,h3{page-break-after:avoid;break-after:avoid}'+
+    'h1,h2,h3,th{page-break-after:avoid;break-after:avoid}'+
     'tr,img{page-break-inside:avoid;break-inside:avoid}'+
     'table{page-break-inside:auto}'+
     'thead{display:table-header-group}'+
@@ -6663,22 +6663,32 @@ const NOTES_CSS =
      as text above the title as well. */
   '.eyebrow{font-size:8.5pt;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;'+
     'color:#479EBC;margin:0 0 4px}'+
-  'table{border-collapse:collapse;width:100%;margin:0 0 14px;font-size:10pt}'+
-  'th{background:transparent;text-align:left;padding:0 10px 5px 0;border:0;'+
-    'border-bottom:1.5px solid #ACD3E1;font-size:8.5pt;font-weight:bold;color:#00708D;'+
-    'letter-spacing:.07em;text-transform:uppercase}'+
-  'td{padding:7px 10px 7px 0;border:0;border-bottom:1px solid #EDEDED;vertical-align:top;'+
-    'line-height:1.45}'+
-  'tr:last-child td{border-bottom:0}'+
-  'td.l{background:transparent;width:34%;font-weight:normal;color:#77787A;'+
-    'font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase;padding-top:9px}'+
+  /* ---------- tables ----------
+     These were set without vertical rules: labels in 8.5pt grey uppercase, two
+     fields to a row, four columns and nothing between them. It reads well
+     enough as a screen of prose and badly as a specification on paper - with no
+     rule between the second value and the third label, the eye has to count
+     across to work out which value belongs to which field, and at 8.5pt
+     uppercase the labels themselves are slow to read.
+
+     So: ruled on all four sides, label cells filled, headers filled and bold,
+     labels back to sentence case at a readable size. A spec sheet is a
+     reference document - somebody hunting for a rod material should land on it
+     without reading anything else. */
+  'table{border-collapse:collapse;width:100%;margin:0 0 14px;font-size:10pt;'+
+    'border:1px solid #B9BCBF}'+
+  'th{background:#E3F0F5;color:#00708D;text-align:left;padding:7px 10px;'+
+    'border:1px solid #B9BCBF;font-size:9pt;font-weight:bold;letter-spacing:.06em;'+
+    'text-transform:uppercase}'+
+  'td{padding:7px 10px;border:1px solid #D4D6D8;vertical-align:top;line-height:1.4}'+
+  'td.l{background:#F7F8F8;width:38%;color:#4D4D4F;font-weight:bold;font-size:9.5pt;'+
+    'letter-spacing:0;text-transform:none}'+
+  'td.v{background:#FFFFFF}'+
+  /* The group band. A belt carries thirty-odd fields across three subsystems,
+     and a flat list of thirty rows is a wall. Banding them means somebody after
+     a bore size looks in one place instead of scanning the lot. */
+  'th.grp{background:#ACD3E1;color:#222222;font-size:9.5pt;letter-spacing:.09em}'+
   '.flag{color:#B2232F;font-weight:bold}'+
-  /* Belt specs run two fields to a row. A belt logged quickly on site fills
-     about five of twelve fields, and one field per row turned that into a
-     column of dashes taller than the information in it. Nothing is dropped -
-     an empty field still reads as "looked at, nothing there". */
-  'table.two td{padding:6px 14px 6px 0}'+
-  'table.two td.l{width:20%;white-space:nowrap;padding-top:8px}'+
   '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
   /* ---------- blocks ----------
      The document deliberately dropped its grid of boxes, and the body text is
@@ -6689,14 +6699,11 @@ const NOTES_CSS =
 
      The label column gets the input background from the brand palette, so a
      field reads as a field rather than as grey text floating beside a value. */
-  '.blk{page-break-inside:avoid;margin:0 0 22px;border:1px solid #E3E3E3;'+
+  '.blk{page-break-inside:avoid;margin:0 0 22px;border:1px solid #EDEDED;'+
     'border-left:3px solid #479EBC;border-radius:4px;padding:14px 16px 6px;'+
     'background:#FFFFFF}'+
-  '.blk h3{margin:0 0 12px;padding:0 0 8px;border-bottom:1px solid #E3F0F5}'+
+  '.blk h3{margin:0 0 12px;padding:0 0 8px;border-bottom:2px solid #E3F0F5}'+
   '.blk table{margin:0 0 6px}'+
-  '.blk td.l{background:#F7F8F8;padding-left:8px;padding-right:10px}'+
-  '.blk td{border-bottom:1px solid #EDEDED}'+
-  '.blk tr:last-child td{border-bottom:0}'+
   /* The rule between one block and the next. Asked for explicitly, and it does
      work the card border alone does not: at a page break the border can end up
      off-screen, and this keeps the two apart wherever they land. */
@@ -6768,19 +6775,18 @@ const NOTES_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUEAAACECAYAAA
    copies would drift the moment a field was added to the form, and customer
    service would get a different spec depending on which button was pressed.
 
+   Banded into the three subsystems the form itself is banded into. A belt
+   carries thirty-odd fields; presented flat they are a wall, and somebody after
+   a bore size has to read all of it. Grouped, they look in one place.
+
    Rows are [label, value, required]. A required one always prints, with an em
    dash when empty, because a missing width is information. An optional one that
    was never filled is dropped rather than printed as a dash - a belt with no
-   flights used to produce ten empty rows. */
-/* Free text on a belt or a fault. Emitted only when there is something in it -
-   an empty comment box is not a finding, and an em dash here would read as one. */
-function commentHTML(e){
-  const t = (e && e.comment ? String(e.comment) : '').trim();
-  if(!t) return '';
-  return '<p class="cmt"><b>General comments</b>'+esc(t).replace(/\n/g,'<br>')+'</p>';
-}
-function beltSpecRows(b){
-  const bfAll = [
+   flights used to produce ten empty rows. An entire group with nothing in it
+   drops out, band and all. */
+function beltSpecGroups(b, opts){
+  opts = opts || {};
+  const belt = [
     ['Line / description',      b.beltdesc, 0],
     ['Series',                  b.series,   1],
     ['Style / surface',         b.style,    1],
@@ -6791,43 +6797,64 @@ function beltSpecRows(b){
     ['Belt length (m)',         b.beltlen,  0],
     ['Conveyor length (m)',     b.clength,  0],
     ['Inside frame width (mm)', b.frame,    0],
-    ['Retrofit',                b.retrofit, 0],
-    ['Sprocket description',    b.sprocket, 0],
-    ['Sprocket part number',    b.sprpn,    0],
-    ['Sprocket bore',           b.sprbore,  0],
-    ['Pitch diameter',          b.sprpd,    0],
-    ['Sprocket material',       b.sprmat,   0],
-    ['Sprocket variant',        b.sprvar,   0],
-    ['Drive quantity',          b.sprdrive, 0],
-    ['Idle quantity',           b.spridle,  0],
-    ['Sprocket spacers',        b.sprspacers ? 'Yes' : '', 0],
-    ['Heavy duty retainers',    b.sprhdret ? ('Yes' + (b.sprhdretqty ? ' \u00d7 '+b.sprhdretqty : '')) : '', 0],
-    ['Flight type',             b.fstyle,   0],
-    ['Flight material',         b.flmat,    0],
-    ['Flight height (mm)',      b.fheight,  0],
-    ['Every N rows',            b.frows,    0],
-    ['Flight spacing (mm)',     b.fspacing, 0],
-    ['Indent (mm)',             b.findent,  0],
-    ['Centre notch (mm)',       b.cnotch,   0],
-    ['Sideguard type',          b.sgtype,   0],
-    ['Sideguard material',      b.sgmat,    0],
-    ['Sideguard height (mm)',   b.sgheight, 0]
+    ['Retrofit',                b.retrofit, 0]
   ];
-  return bfAll.filter(r => r[2] || (r[1] !== '' && r[1] != null && r[1] !== false))
-              .map(r => [r[0], r[1]]);
+  // quantity leads on a quote request: it is the thing being ordered
+  if(opts.qty) belt.unshift(['Quantity', b.qty, 1]);
+  if(opts.qcontact && b.qcontact) belt.push(['Quote contact', b.qcontact, 0]);
+  const spr = [
+    ['Description',          b.sprocket, 0],
+    ['Part number',          b.sprpn,    0],
+    ['Bore',                 b.sprbore,  0],
+    ['Pitch diameter',       b.sprpd,    0],
+    ['Material',             b.sprmat,   0],
+    ['Build type or variant',b.sprvar,   0],
+    ['Drive quantity',       b.sprdrive, 0],
+    ['Idle quantity',        b.spridle,  0],
+    ['Spacers fitted',       b.sprspacers ? 'Yes' : '', 0],
+    ['Heavy duty retainers', b.sprhdret ? ('Yes' + (b.sprhdretqty ? ' \u00d7 '+b.sprhdretqty : '')) : '', 0]
+  ];
+  const acc = [
+    ['Flight type',           b.fstyle,   0],
+    ['Flight material',       b.flmat,    0],
+    ['Flight height (mm)',    b.fheight,  0],
+    ['Every N rows',          b.frows,    0],
+    ['Flight spacing (mm)',   b.fspacing, 0],
+    ['Indent (mm)',           b.findent,  0],
+    ['Centre notch (mm)',     b.cnotch,   0],
+    ['Sideguard type',        b.sgtype,   0],
+    ['Sideguard material',    b.sgmat,    0],
+    ['Sideguard height (mm)', b.sgheight, 0]
+  ];
+  const keep = r => r[2] || (r[1] !== '' && r[1] != null && r[1] !== false);
+  return [['Belt', belt.filter(keep)],
+          ['Sprockets', spr.filter(keep)],
+          ['Flights and sideguards', acc.filter(keep)]]
+    .filter(g => g[1].length);
 }
-/* Two fields to a row. An odd count leaves a hole rather than a stretched last
-   cell, so the column edges stay aligned down the whole table. */
-function beltRowsHTML(bf){
-  const p = [];
-  for(let k=0;k<bf.length;k+=2){
-    p.push('<tr>');
-    p.push('<td class="l">'+bf[k][0]+'</td><td>'+V(bf[k][1])+'</td>');
-    p.push(bf[k+1] ? '<td class="l">'+bf[k+1][0]+'</td><td>'+V(bf[k+1][1])+'</td>'
-                   : '<td class="l"></td><td></td>');
-    p.push('</tr>');
-  }
+// flat view of the same list, for anything that wants the rows without the bands
+function beltSpecRows(b, opts){
+  return beltSpecGroups(b, opts).reduce((a,g) => a.concat(g[1]), []).map(r => [r[0], r[1]]);
+}
+/* One field per row, ruled, with the band across the top of each group. The old
+   layout ran two fields to a row to keep the table short; without a rule between
+   the second value and the third label you had to count across to see which
+   value went with which field, which is slower than the extra rows ever were. */
+function beltSpecTableHTML(groups){
+  const p = ['<table class="spec">'];
+  groups.forEach(([name, rows]) => {
+    p.push('<tr><th class="grp" colspan="2">'+esc(name)+'</th></tr>');
+    rows.forEach(r => p.push('<tr><td class="l">'+r[0]+'</td><td class="v">'+V(r[1])+'</td></tr>'));
+  });
+  p.push('</table>');
   return p.join('');
+}
+/* Free text on a belt or a fault. Emitted only when there is something in it -
+   an empty comment box is not a finding, and an em dash here would read as one. */
+function commentHTML(e){
+  const t = (e && e.comment ? String(e.comment) : '').trim();
+  if(!t) return '';
+  return '<p class="cmt"><b>General comments</b>'+esc(t).replace(/\n/g,'<br>')+'</p>';
 }
 async function buildNotesHTML(scope, mode){
   const c = call;
@@ -6887,12 +6914,8 @@ async function buildNotesHTML(scope, mode){
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
       if(i) p.push('<hr class="sep">');
-      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
-      // field list and two-column pairing live in beltSpecRows / beltRowsHTML
-      const bf = beltSpecRows(b);
-      if(b.qcontact && scope === 'full') bf.push(['Quote contact',b.qcontact]);
-      p.push(beltRowsHTML(bf));
-      p.push('</table>');
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3>');
+      p.push(beltSpecTableHTML(beltSpecGroups(b, {qcontact: scope === 'full'})));
       p.push(commentHTML(b));
       if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos, mode))+'</div>');
       else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
@@ -7017,16 +7040,10 @@ async function buildRFQHTML(mode){
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
       if(i) p.push('<hr class="sep">');
-      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
-      const bf = beltSpecRows(b);
-      /* Quantity is asked for here and nowhere else. On a site call it is
-         derived; on a quote request it is the thing being ordered, so it prints
-         even when blank - customer service needs to see that it was not given
-         rather than guess at one. */
-      bf.unshift(['Quantity', b.qty]);
-      if(b.qcontact) bf.push(['Quote contact', b.qcontact]);
-      p.push(beltRowsHTML(bf));
-      p.push('</table>');
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3>');
+      /* Quantity is asked for here and nowhere else, and prints even when blank:
+         customer service needs to see it was not given rather than guess. */
+      p.push(beltSpecTableHTML(beltSpecGroups(b, {qty: true, qcontact: true})));
       p.push(commentHTML(b));
       /* Unticked and deliberately-not-confirmed look the same, which is fine
          here: the safe reading and the default reading are both "check it". */
