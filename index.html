@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v54">
+<meta name="build" content="v56">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -106,6 +106,25 @@ header .redbox img{width:100%; height:auto; display:block}
 header .hdt{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; padding:7px 0 7px 12px}
 header h1{font-size:14px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .sub{font-size:11px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* One tap to the hub from any depth. The back arrow still steps back one screen;
+   this is the other thing you always want and never had. */
+.menubtn{align-self:center;flex:none;margin-left:8px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);color:var(--ink-2);font-size:12px;
+  font-weight:700;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.menubtn:active{border-color:var(--ink-2)}
+/* ---------- the call strip ----------
+   Shown on every screen that is not part of the open call. Answers "am I still
+   in a call", which the app never used to say, and returns to the exact screen
+   you left rather than the dashboard. */
+.callstrip{display:none;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--red-soft);border:0;border-bottom:1px solid #E4C4C6;color:var(--ink);
+  padding:9px 14px;cursor:pointer;font:inherit}
+.callstrip.on{display:flex}
+.callstrip .cs1{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--warn);flex:none}
+.callstrip .cs2{flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.callstrip .cs3{flex:none;font-size:11.5px;color:var(--ink-3)}
 .back{background:none;border:0;color:var(--ink-2);font-size:30px;cursor:pointer;line-height:1;
   flex:none;align-self:stretch;min-width:52px;padding:0 8px 0 12px;
   display:flex;align-items:center;justify-content:center}
@@ -222,6 +241,20 @@ button.rpt .rd{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-
 button.rpt .rn{font-size:15px;font-weight:700;line-height:1.25;margin-top:2px}
 button.rpt .rm{font-size:11.5px;color:var(--ink-2);margin-top:3px}
 button.rpt.open{border-left-color:var(--red)}
+/* Selection mode only. The default manuals row is a plain .rpt button. */
+.mrow{display:flex;gap:11px;align-items:flex-start;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--line);border-radius:0 var(--r) var(--r) 0;
+  padding:12px;margin-bottom:8px;cursor:pointer}
+.mrow.on{border-left-color:var(--cyan-dk);background:var(--cyan-lt)}
+.mrow input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--cyan-dk)}
+.mrow span{flex:1;min-width:0}
+/* ---------- manuals over a call ---------- */
+.manov{position:fixed;inset:0;z-index:55;background:var(--ground);flex-direction:column;display:none}
+.manov.on{display:flex}
+.manov .movtop{display:flex;align-items:center;gap:10px;padding:9px 14px;flex:none;
+  background:var(--surface);border-bottom:3px solid var(--red)}
+.manov .movtop h1{font-size:14px;margin:0;font-weight:700}
+.manov .movbody{flex:1;overflow:auto;padding:12px;-webkit-overflow-scrolling:touch}
 button.backcall{margin-top:14px}
 /* ---------- carrying a project forward ---------- */
 .carrybox{display:none;margin-bottom:10px}
@@ -374,14 +407,41 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 }
 .card .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
 .card .hd .t{font-weight:700}
-.card .t{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase}
+/* Read at arm's length, in a plant, while measuring something. The entry title
+   was 10px uppercase grey - the quietest text on a card whose whole purpose is
+   telling you which conveyor you are looking at. */
+.card .t{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink);text-transform:none;line-height:1.25}
 .card .x{background:none;border:none;color:var(--cyan-dk);font-size:12px;font-weight:700;padding:4px 2px;cursor:pointer}
 .card .acts{display:flex;gap:14px;align-items:baseline;flex:none}
 .card .x.bin{color:var(--warn)}
 .card p{margin:0;font-size:13.5px;line-height:1.45}
 .card .meta{font-size:11.5px;color:var(--ink-3);margin-top:3px}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.thumbs img{width:66px;height:66px;object-fit:cover;border-radius:var(--r);border:1px solid var(--line)}
+.thumbs img{width:78px;height:78px;object-fit:cover;border-radius:var(--r);border:1px solid var(--line);display:block;cursor:pointer}
+/* The photo opens; the cross deletes. Tapping the picture used to ask to delete
+   it, which is the wrong answer to the question you were actually asking. */
+.thumb{position:relative;display:inline-block}
+.thumb .thx{position:absolute;top:-6px;right:-6px;width:24px;height:24px;line-height:1;
+  border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--warn);
+  font-size:16px;font-weight:700;padding:0;cursor:pointer;box-shadow:0 1px 3px rgba(34,34,34,.25)}
+.thumb .thx:active{background:var(--red-soft)}
+/* ---------- full-screen photo viewer ---------- */
+.pview{position:fixed;inset:0;z-index:60;background:var(--surface);flex-direction:column;display:none}
+.pview.on{display:flex}
+.pview .pvtop{display:flex;align-items:center;gap:10px;padding:9px 14px;
+  border-bottom:3px solid var(--red);flex:none}
+.pview .pvtop h1{font-size:14px;margin:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pview .pvsub{font-size:11px;color:var(--ink-3)}
+.pview .pvbody{flex:1;overflow:auto;background:var(--ground);display:flex;align-items:center;
+  justify-content:center;padding:10px}
+.pview .pvbody img{max-width:100%;max-height:100%;object-fit:contain;background:var(--surface);
+  border:1px solid var(--line)}
+.pview .pvnav{flex:none;display:flex;gap:9px;background:#363738;border-top:3px solid var(--red);
+  padding:9px 12px calc(10px + max(20px, env(safe-area-inset-bottom)))}
+.pview .pvnav button{flex:1;padding:12px 2px;border-radius:var(--r);border:1px solid #5a5c5e;
+  background:transparent;color:#fff;font-size:13px;cursor:pointer}
+.pview .pvnav button.pri{background:#fff;color:#363738;border-color:#fff;font-weight:700}
+.pview .pvnav button:disabled{opacity:.4}
 .cardbar{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-2)}
 /* Icon buttons on a 40px target. The photo count takes the space between the
    additive actions on the left and the destructive one on the right, so Remove
@@ -884,7 +944,9 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <h1 id="title">Field CRM</h1>
     <div class="sub" id="subtitle">No call open</div>
   </div>
+  <button class="menubtn" id="hdMenu" title="Menu" aria-label="Menu">Menu</button>
 </header>
+<button class="callstrip" id="callStrip"></button>
 
 <div class="wrap">
 
@@ -1243,6 +1305,32 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
 </div>
 
+<!-- Full-screen photo viewer. Not a dialog element: it has to sit over the
+     plan screen and the manual viewer as well, and it closes on the back
+     gesture like everything else. -->
+<div class="pview" id="pview">
+  <div class="pvtop">
+    <button class="btn" id="pvClose" aria-label="Close">&#8249;</button>
+    <div><h1 id="pvTtl">Photo</h1><div class="pvsub" id="pvSub"></div></div>
+  </div>
+  <div class="pvbody"><img id="pvImg" alt=""></div>
+  <div class="pvnav">
+    <button id="pvPrev">Previous</button>
+    <button id="pvNext" class="pri">Next</button>
+  </div>
+</div>
+
+<!-- The manuals browser, over the top of a call. The page viewer inside it is
+     already an overlay, so this simply hosts the list without navigating away
+     from whatever form you were filling in. -->
+<div class="manov" id="manOverlay">
+  <div class="movtop">
+    <button class="btn" id="manOvClose" aria-label="Back to the call">&#8249;</button>
+    <h1>Manuals</h1>
+  </div>
+  <div class="movbody" id="manOvBody"></div>
+</div>
+
 <dialog id="mvdlg">
   <div class="dlg-h"><b id="mvTitle"></b><div id="mvDlgSub"></div></div>
   <div class="dlg-b"><div class="res" id="mvDays"></div></div>
@@ -1314,6 +1402,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div id="logList"></div>
   <h2>Loose photos</h2>
   <div id="looseWrap"></div>
+  <button class="ghost" id="savePhotos">Save this call's photos to the phone</button>
   <button class="ghost" id="toCompile">Compile call notes</button>
   <button class="ghost" id="closeCall" style="color:var(--dim)">Close call without compiling</button>
 </section>
@@ -1324,6 +1413,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <label>Asset no. and line description</label>
     <input type="text" id="bAsset" placeholder="61-156 boning line 2">
     <p class="err" id="bErr">Enter an asset no. or line description first</p>
+    <p class="msg" id="draft_belt"></p>
     <p class="msg" id="bAssetHit"></p>
   </div>
 
@@ -1501,6 +1591,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <label>Project or site</label>
     <input type="text" id="pName" placeholder="Nitrogen tunnel">
     <p class="err" id="pErr">Enter a project or site first</p>
+    <p class="msg" id="draft_project"></p>
     <p class="msg" id="pMsg"></p>
   </div>
   <div class="fld">
@@ -1527,6 +1618,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
   <div class="fld">
     <label>Note</label>
+    <p class="msg" id="draft_note"></p>
     <textarea id="nText" placeholder="High turnover in maintenance, kill rate up to 180k/week"></textarea>
     <p class="err" id="nErr">Enter a note first</p>
   </div>
@@ -1545,6 +1637,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <label>Fault or observation</label>
     <textarea id="hFault" placeholder="Sprocket teeth worn, belt tracking right"></textarea>
     <p class="err" id="hErr">Describe the fault first</p>
+    <p class="msg" id="draft_health"></p>
     <div class="cardbar">
       <button type="button" id="hCam">Camera</button>
       <button type="button" id="hGal">Photos</button>
@@ -1635,12 +1728,13 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button type="button" data-seg="browse">All series</button>
   </div>
   <p class="msg" id="mMsg"></p>
-  <div id="mBody"></div>
+  <button class="ghost" id="mSelToggle">Select sections to share</button>
   <div class="fld" id="mSelBar" style="display:none">
     <p class="stat" id="mSelN"></p>
     <button class="big" id="mShare">Share selected sections</button>
     <button class="ghost" id="mClear">Clear selection</button>
   </div>
+  <div id="mBody"></div>
 </div>
   <div class="pane" id="paneFlt" hidden>
   <div class="wrap">
@@ -1706,6 +1800,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <div class="bar" id="bar" style="display:none">
   <button id="barCamera">Camera</button>
   <button id="barGallery">Photos</button>
+  <button id="barManuals" title="Manuals" aria-label="Manuals">Manuals</button>
   <button id="barMenu" class="pri">Call menu</button>
 </div>
 

@@ -870,7 +870,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v54';
+const APP_BUILD = 'v56';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1224,6 +1224,8 @@ function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
 function closeDialogsNow(){
+  closePhoto();
+  closeManualsOverlay();
   DIALOGS.forEach(id => {
     const d = $(id);
     if(!d || !d.hasAttribute('open')) return;
@@ -1241,6 +1243,8 @@ function pushDialog(id){
    the first property read and left a blank screen with no way forward. */
 const CALL_SCREENS = ['dash','belt','project','note','health','compile'];
 function showScreen(name){
+  if(CALL_SCREENS.includes(screen) && screen !== 'dash') captureDraft(screen);
+  if(CALL_SCREENS.includes(name)) lastCallScreen = name;
   if(CALL_SCREENS.includes(name) && !call) name = 'home';
   /* The page viewer is fixed over everything, so leaving the manuals screen has
      to close it - otherwise a back gesture changes the screen underneath and the
@@ -1268,6 +1272,7 @@ function showScreen(name){
   if(name==='today'){ renderToday(); $('title').textContent = todayView==='today' ? 'Today' : 'This week'; }
   // the plan breaks out of the phone column; everything else stays in it
   document.body.classList.toggle('planning', name === 'plan');
+  renderCallStrip();
 }
 function go(name, replace){
   /* Re-showing the same screen is a redraw, not a move. Pushing an entry for it
@@ -1283,6 +1288,11 @@ function go(name, replace){
 window.addEventListener('popstate', e => {
   const st = e.state || {screen:'home'};
   // a dialog was open and the entry behind it has been reached: just close it
+  // the photo viewer is an overlay, not a dialog element, so it is closed here too
+  if($('pview') && $('pview').classList.contains('on') && !st.dialog){ closePhoto(); return; }
+  if($('manOverlay') && $('manOverlay').classList.contains('on') && !st.dialog){
+    closeManualsOverlay(); return;
+  }
   if(openDialogs().length && !st.dialog){ closeDialogsNow(); return; }
   if(st.dialog) return;      // going forward into a dialog entry: leave it be
   showScreen(st.screen || 'home');
@@ -4503,6 +4513,154 @@ async function renderReportsCount(){
 document.querySelectorAll('.backcall').forEach(b =>
   b.addEventListener('click', ()=>go(call ? 'dash' : 'home')));
 
+/* ================= getting around =================
+
+   Two things the app never had. A way back to the hub from any depth - the back
+   arrow retraces history, so leaving was proportional to how deep you had gone
+   and the menu was always at the bottom of the stack. And any indication that a
+   call was still open once you had left it.
+
+   Together they turn "check a manual mid-call" from seven taps out and two back
+   into two out and one back, landing on the screen you left rather than the
+   dashboard. */
+
+function resetNote(){ $('nText').value=''; }
+const CALL_SUBS = {belt:'Belt form', project:'Project form', note:'Note form',
+                   health:'Health check', compile:'Compile', dash:'Call'};
+let lastCallScreen = 'dash';
+
+function renderCallStrip(){
+  const el = $('callStrip');
+  if(!el) return;
+  const away = call && !CALL_SCREENS.includes(screen);
+  el.classList.toggle('on', !!away);
+  if(!away) return;
+  el.innerHTML = '<span class="cs1">In a call</span>' +
+    '<span class="cs2">' + esc(call.customer) + '</span>' +
+    '<span class="cs3">' + esc(CALL_SUBS[lastCallScreen] || 'Call') + ' \u203a</span>';
+}
+$('callStrip').addEventListener('click', ()=>{
+  if(!call) return;
+  /* Back to where you actually were. Returning to the dashboard would mean
+     finding the entry again, which is most of the cost of having left. */
+  go(CALL_SCREENS.includes(lastCallScreen) ? lastCallScreen : 'dash');
+});
+$('hdMenu').addEventListener('click', ()=>{
+  if(screen === 'home') return;
+  go('home');
+});
+
+/* ---------- drafts ----------
+   Leaving a half-filled form used to discard it, which is why leaving felt like
+   a decision rather than a step. The values are kept against the call as you
+   type and restored when you come back. Saving the entry, or backing out on
+   purpose, clears the draft. */
+const DRAFT_FIELDS = {
+  belt:    ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn',
+            'bSprDrive','bSprIdle','bNotch','bFlMat','bFlHeight','bFlMm','bSgMat',
+            'bSgHeight','bQc','bFault'],
+  project: ['pName','pStat','pNext','pTarg','pOwner','pNotes'],
+  note:    ['nTopic','nText'],
+  health:  ['hAsset','hFault','hType','hAction']
+};
+/* Leaving a form captures whatever is in it - including immediately after a
+   save, when the fields still hold what was just filed. Without this the draft
+   was written back a moment after being deleted, and the next visit offered to
+   restore an entry that is already in the call log. */
+let justSaved = null;
+function draftSaved(kind){
+  justSaved = kind;
+  if(call && call.drafts) delete call.drafts[kind];
+}
+function captureDraft(kind){
+  if(justSaved === kind){ justSaved = null; return; }
+  if(!call || !DRAFT_FIELDS[kind]) return;
+  const d = {};
+  let any = false;
+  DRAFT_FIELDS[kind].forEach(id => {
+    const f = $(id);
+    if(!f) return;
+    d[id] = f.value;
+    if(f.value && f.value.trim && f.value.trim() !== '') any = true;
+  });
+  call.drafts = call.drafts || {};
+  if(any) call.drafts[kind] = d; else delete call.drafts[kind];
+}
+function restoreDraft(kind){
+  if(!call || !call.drafts || !call.drafts[kind]) return false;
+  const d = call.drafts[kind];
+  Object.keys(d).forEach(id => { const f = $(id); if(f) f.value = d[id]; });
+  showMsg($('draft_' + kind), 'info',
+    'Picked up where you left off. <span class="lnk" data-cleardraft="' + kind +
+    '">Start fresh instead</span>');
+  const el = $('draft_' + kind);
+  if(el) el.querySelectorAll('[data-cleardraft]').forEach(b =>
+    b.addEventListener('click', ()=>{ clearDraft(kind); openEntry(kind, true); }));
+  return true;
+}
+async function clearDraft(kind){
+  if(!call || !call.drafts) return;
+  delete call.drafts[kind];
+  await saveCall();
+  showMsg($('draft_' + kind), '', '');
+}
+/* One way in to every entry form, so the draft is applied wherever it is opened
+   from - the dashboard, the call menu, or coming back off the call strip. */
+function openEntry(kind, fresh){
+  const reset = {belt:resetBelt, project:resetProject, note:resetNote, health:resetHealth}[kind];
+  if(reset) try { reset(); } catch(e){ console.error(kind, e); }
+  showMsg($('draft_' + kind), '', '');
+  if(!fresh) restoreDraft(kind);
+  go(kind);
+}
+// every form keeps its draft as it is typed
+Object.keys(DRAFT_FIELDS).forEach(kind => {
+  DRAFT_FIELDS[kind].forEach(id => {
+    const f = $(id);
+    if(!f) return;
+    const keep = () => { captureDraft(kind); if(call) saveCall(); };
+    f.addEventListener('input', keep);
+    f.addEventListener('change', keep);
+  });
+});
+
+/* ---------- manuals without leaving the call ----------
+   The manual page viewer is already a full-screen overlay that closes back to
+   whatever was behind it, so the browser in front of it can be too. Opened this
+   way there is nothing to restore, because nothing was navigated away from. */
+/* The manuals pane is MOVED into the overlay rather than duplicated. manuals.js
+   works against #mQ, #mBody and the rest by id, and two copies of those ids on
+   one page would be the duplicate-id bug this project has been bitten by three
+   times. Moving it keeps exactly one of each, and it goes back where it came
+   from on close so the Reference screen is unchanged. */
+let manHome = null;
+function openManualsOverlay(){
+  if(!window.Manuals){ toast('The manual library is not loaded'); return; }
+  const ov = $('manOverlay'), pane = $('paneMan');
+  if(!ov || !pane) return go('reference');
+  if(!manHome) manHome = {parent: pane.parentNode, next: pane.nextSibling};
+  $('manOvBody').appendChild(pane);
+  pane.hidden = false;
+  ov.classList.add('on');
+  try { history.pushState({screen: screen, dialog:'manOverlay'}, '', location.href); } catch(e){}
+  Manuals.render().catch(e => console.error('manuals', e));
+}
+function closeManualsOverlay(){
+  const ov = $('manOverlay');
+  if(!ov || !ov.classList.contains('on')) return;
+  if(window.Manuals) Manuals.closeViewer();
+  ov.classList.remove('on');
+  const pane = $('paneMan');
+  if(pane && manHome && manHome.parent){
+    manHome.parent.insertBefore(pane, manHome.next || null);
+  }
+}
+$('manOvClose').addEventListener('click', ()=>{
+  if(history.state && history.state.dialog === 'manOverlay') history.back();
+  else closeManualsOverlay();
+});
+$('barManuals').addEventListener('click', openManualsOverlay);
+
 /* ---------- home ---------- */
 async function renderHome(){
   const all = await callsAll();
@@ -4588,10 +4746,10 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
        into the wrong plant. */
     if(open.length === 1){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
     showOpenPicker(open);
-  } else if(t==='belt'){ resetBelt(); go('belt'); }
-  else if(t==='project'){ resetProject(); go('project'); }
-  else if(t==='note'){ $('nText').value=''; go('note'); }
-  else if(t==='health'){ resetHealth(); go('health'); }
+  } else if(t==='belt'){ openEntry('belt'); }
+  else if(t==='project'){ openEntry('project'); }
+  else if(t==='note'){ openEntry('note'); }
+  else if(t==='health'){ openEntry('health'); }
   else if(t==='settings'){ go('settings'); }
   else if(t==='directory'){ showDir('acc'); }
   else if(t==='reference'){ showRef('man'); }
@@ -4812,7 +4970,14 @@ function renderDash(){
     if(e.type==='note'){ head='Note - '+e.topic; body=esc(e.text); }
     if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=[e.fault,e.severity].filter(Boolean).join(' &middot; '); }
     const ph = e.photos||[];
-    const th = ph.map((p,j)=>'<img src="'+photoSrc(p)+'" data-rm="'+i+':'+j+'">').join('');
+    /* Tapping a photo used to go straight to "Remove this photo?". Checking
+       whether a picture is on the right conveyor is the commonest reason to
+       touch it, and being asked to delete it instead is the wrong answer to the
+       wrong question. The photo opens; the cross deletes. */
+    const th = ph.map((p,j)=>'<span class="thumb"><img src="'+photoSrc(p)+
+      '" data-view="'+i+':'+j+'" alt="Photo '+(j+1)+'">'+
+      '<button class="thx" data-rm="'+i+':'+j+'" title="Delete this photo" '+
+      'aria-label="Delete photo '+(j+1)+'">&times;</button></span>').join('');
     const gone = e.detached
       ? '<p class="meta"><span class="tag">'+e.detached.n+' photo'+(e.detached.n===1?'':'s')+
         ' sent '+new Date(e.detached.at).toLocaleDateString()+', dropped from this phone</span></p>' : '';
@@ -4880,9 +5045,15 @@ function renderDash(){
   el.querySelectorAll('[data-gal]').forEach(b=>b.addEventListener('click', ()=>{
     photoTarget = +b.dataset.gal; $('galInput').value=''; $('galInput').click();
   }));
-  el.querySelectorAll('[data-rm]').forEach(img=>img.addEventListener('click', async ()=>{
-    const p = img.dataset.rm.split(':').map(Number);
-    if(!confirm('Remove this photo?')) return;
+  el.querySelectorAll('[data-view]').forEach(img=>img.addEventListener('click', ()=>{
+    const p = img.dataset.view.split(':').map(Number);
+    openPhoto(call.entries[p[0]].photos, p[1],
+      (call.entries[p[0]].asset || call.entries[p[0]].project || 'Entry') + ' \u2014 photo');
+  }));
+  el.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click', async ev=>{
+    ev.stopPropagation();
+    const p = b.dataset.rm.split(':').map(Number);
+    if(!confirm('Delete this photo?')) return;
     releasePhoto(call.entries[p[0]].photos[p[1]]);
     call.entries[p[0]].photos.splice(p[1],1); await saveCall(); renderDash();
   }));
@@ -4891,7 +5062,10 @@ function renderLoose(){
   const el = $('looseWrap');
   if(!el || !call) return;
   const ph = call.loose || [];
-  const th = ph.map((p,j)=>'<img src="'+photoSrc(p)+'" data-lrm="'+j+'">').join('');
+  const th = ph.map((p,j)=>'<span class="thumb"><img src="'+photoSrc(p)+
+    '" data-lview="'+j+'" alt="Photo '+(j+1)+'">'+
+    '<button class="thx" data-lrm="'+j+'" title="Delete this photo" '+
+    'aria-label="Delete photo '+(j+1)+'">&times;</button></span>').join('');
   const gone = call.looseDetached
     ? '<p class="meta"><span class="tag">'+call.looseDetached.n+' photo'+(call.looseDetached.n===1?'':'s')+
       ' sent '+new Date(call.looseDetached.at).toLocaleDateString()+', dropped from this phone</span></p>' : '';
@@ -4904,12 +5078,98 @@ function renderLoose(){
     '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span></div></div>';
   $('looseCam').addEventListener('click', ()=>{ photoTarget='loose'; $('camInput').value=''; $('camInput').click(); });
   $('looseGal').addEventListener('click', ()=>{ photoTarget='loose'; $('galInput').value=''; $('galInput').click(); });
-  el.querySelectorAll('[data-lrm]').forEach(img=>img.addEventListener('click', async ()=>{
-    if(!confirm('Remove this photo?')) return;
-    releasePhoto(call.loose[+img.dataset.lrm]);
-    call.loose.splice(+img.dataset.lrm,1); await saveCall(); renderLoose();
+  el.querySelectorAll('[data-lview]').forEach(img=>img.addEventListener('click', ()=>{
+    openPhoto(call.loose, +img.dataset.lview, 'Loose photo');
+  }));
+  el.querySelectorAll('[data-lrm]').forEach(b=>b.addEventListener('click', async ev=>{
+    ev.stopPropagation();
+    if(!confirm('Delete this photo?')) return;
+    releasePhoto(call.loose[+b.dataset.lrm]);
+    call.loose.splice(+b.dataset.lrm,1); await saveCall(); renderLoose();
   }));
 }
+
+/* ---------- getting photos off the phone and into the gallery ----------
+   A photo taken through the app's camera button never reaches the gallery.
+   That is Android, not a bug here: a file input with capture hands the image
+   straight to the page and nothing is written to the camera roll. No web API
+   can write to it either - there is no permission a page can ask for.
+
+   So the photos are handed over as downloads instead. They land in Downloads,
+   which the gallery indexes on most phones, and they are named after the call
+   and the asset rather than IMG_0431 so they mean something months later.
+
+   The reliable route, if you want them in the gallery for certain, is still to
+   use the phone's own camera app and add them from the gallery afterwards. This
+   is the insurance policy for the ones already taken in here. */
+function photoFileName(c, entry, n, total){
+  const clean = v => String(v||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28);
+  const date = String(c.date||'').replace(/\//g,'-');
+  const what = entry ? clean(entry.asset || entry.project || entry.topic || entry.type) : 'loose';
+  return [clean(c.customer), date, what, String(n).padStart(2,'0')].filter(Boolean).join('_') + '.jpg';
+}
+async function savePhotosToPhone(){
+  if(!call) return;
+  const jobs = [];
+  (call.entries||[]).forEach(e => (e.photos||[]).forEach((p,j) =>
+    jobs.push([p, photoFileName(call, e, j+1)])));
+  (call.loose||[]).forEach((p,j) => jobs.push([p, photoFileName(call, null, j+1)]));
+  if(!jobs.length){ toast('No photos on this call yet'); return; }
+  if(!confirm(jobs.length + ' photo' + (jobs.length===1?'':'s') + ' will be saved to this phone.\n\n' +
+     'They go to Downloads, named after the call and the asset. Your gallery picks that ' +
+     'folder up on most phones. Chrome may ask once whether to allow multiple downloads.')) return;
+
+  let done = 0;
+  for(const [p, name] of jobs){
+    try {
+      const blob = isBlobPhoto(p) ? p : dataURLToBlob(String(p));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 8000);
+      done++;
+      // a gap between each: Chrome drops downloads fired in a tight loop
+      await new Promise(r => setTimeout(r, 220));
+    } catch(e){ console.error('photo save', name, e); }
+  }
+  toast(done + ' of ' + jobs.length + ' photo' + (jobs.length===1?'':'s') + ' saved to Downloads');
+}
+$('savePhotos').addEventListener('click', ()=>savePhotosToPhone().catch(reportErr));
+
+/* ---------- looking at a photo ----------
+   Full screen, with next and previous, because the question being asked is
+   almost always "is this the right conveyor" and that cannot be answered from a
+   66px square. It sits over everything and closes on the back gesture, the same
+   way the manual page viewer does. */
+let photoSet = [], photoAt = 0;
+function openPhoto(list, i, title){
+  photoSet = list || []; photoAt = i || 0;
+  if(!photoSet.length) return;
+  $('pvTtl').textContent = title || 'Photo';
+  paintPhoto();
+  $('pview').classList.add('on');
+  try { history.pushState({screen: screen, dialog:'pview'}, '', location.href); } catch(e){}
+}
+function paintPhoto(){
+  const p = photoSet[photoAt];
+  if(!p) return closePhoto();
+  $('pvImg').src = photoSrc(p);
+  $('pvSub').textContent = (photoAt+1) + ' of ' + photoSet.length;
+  $('pvPrev').disabled = photoAt <= 0;
+  $('pvNext').disabled = photoAt >= photoSet.length - 1;
+}
+function closePhoto(){
+  if(!$('pview').classList.contains('on')) return;
+  $('pview').classList.remove('on');
+  $('pvImg').removeAttribute('src');
+  photoSet = [];
+}
+$('pvPrev').addEventListener('click', ()=>{ if(photoAt > 0){ photoAt--; paintPhoto(); } });
+$('pvNext').addEventListener('click', ()=>{ if(photoAt < photoSet.length-1){ photoAt++; paintPhoto(); } });
+$('pvClose').addEventListener('click', ()=>{
+  if(history.state && history.state.dialog === 'pview') history.back(); else closePhoto();
+});
 $('closeCall').addEventListener('click', async ()=>{
   if(!confirm('Close this call? It stays saved but will not show under Resume.')) return;
   call.closed = true;
@@ -5500,6 +5760,7 @@ function commitEntry(entry, keepPhotos){
     return editingIdx;
   }
   call.entries.push(entry);
+  draftSaved('belt');   // saved, so there is nothing to pick up
   editingIdx = call.entries.length - 1;
   return editingIdx;
 }
@@ -5700,6 +5961,7 @@ $('pSave').addEventListener('click', async ()=>{
     if(i >= 0){ entry.photos = call.entries[i].photos || []; call.entries[i] = entry; replaced = true; }
   }
   if(!replaced) call.entries.push(entry);
+  draftSaved('project');
   editingProject = null;
   await saveCall();
   toast(entry.fromStatus ? ('Project moved to ' + status) : (replaced ? 'Project updated' : 'Project logged'));
@@ -5713,6 +5975,7 @@ $('nSave').addEventListener('click', async ()=>{
   const wasEdit = editingIdx != null;
   commitEntry({type:'note', topic:$('nTopic').value, text:t, photos:[]});
   clearEditing();
+  draftSaved('note');
   await saveCall(); toast(wasEdit ? 'Note updated' : 'Note logged'); go('dash');
 });
 
@@ -5913,6 +6176,7 @@ $('hSave').addEventListener('click', async ()=>{
   await saveCall();
   toast(wasEdit ? 'Fault updated'
                 : (n ? ('Fault logged with '+n+' photo'+(n===1?'':'s')) : 'Fault logged'));
+  draftSaved('health'); await saveCall();
   go('dash');
 });
 
@@ -6128,32 +6392,53 @@ async function buildNotesHTML(scope){
   const TITLE = {full:'Call notes', health:'Conveyor health check', belts:'Belt requirements'}[scope];
   const css = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:11pt;color:#222222;margin:0;padding:0 0 0 0}'+
     '.pg{padding:0 18px 18px}'+
-    '.mast{background:#ED1C24;padding:13px 18px;margin:0 0 18px}'+
+    '.mast{background:#ED1C24;padding:13px 18px;margin:0 0 22px}'+
     '.mast img{height:26px;width:auto;display:block}'+
-    'h1{font-size:17pt;margin:0 0 2px;color:#222222;letter-spacing:-.01em}'+
-    'h2{font-size:13pt;margin:22px 0 8px;padding-bottom:4px;border-bottom:2px solid #E3F0F5;color:#4D4D4F}'+
-    'h3{font-size:11.5pt;margin:16px 0 6px;color:#222222}.sub{color:#77787A;font-size:10pt;margin:0 0 14px}'+
-    'table{border-collapse:collapse;width:100%;margin:0 0 10px;font-size:10pt}'+
-    'th{background:#E3F0F5;text-align:left;padding:6px 8px;border:1px solid #ACD3E1;font-weight:bold;color:#222222}'+
-    'td{padding:6px 8px;border:1px solid #CCCCCC;vertical-align:top}'+
-    'td.l{background:#F7F8F8;width:38%;font-weight:bold}.flag{color:#B2232F;font-weight:bold}'+
+    /* The document used to be a grid of boxes: every cell ruled on all four
+       sides, headings underlined, blocks outlined. Accurate and hard to read -
+       the eye has to cross a line to get to every value.
+
+       The vertical rules are gone. Rows are separated by a hairline and the
+       label column is set in grey small-caps rather than boxed in, so the page
+       reads as columns of information instead of a spreadsheet. Nothing about
+       the content or the field order changed. */
+    'h1{font-size:17pt;margin:0 0 2px;color:#222222;letter-spacing:-.015em;font-weight:bold}'+
+    'h2{font-size:11pt;margin:26px 0 10px;padding:0 0 5px;border-bottom:1px solid #E3E3E3;'+
+      'color:#00708D;letter-spacing:.09em;text-transform:uppercase;font-weight:bold}'+
+    'h3{font-size:12pt;margin:18px 0 7px;color:#222222;letter-spacing:-.01em}'+
+    '.sub{color:#77787A;font-size:9.5pt;margin:0 0 16px;line-height:1.5}'+
+    'table{border-collapse:collapse;width:100%;margin:0 0 14px;font-size:10pt}'+
+    'th{background:transparent;text-align:left;padding:0 10px 5px 0;border:0;'+
+      'border-bottom:1.5px solid #ACD3E1;font-size:8.5pt;font-weight:bold;color:#00708D;'+
+      'letter-spacing:.07em;text-transform:uppercase}'+
+    'td{padding:7px 10px 7px 0;border:0;border-bottom:1px solid #EDEDED;vertical-align:top;'+
+      'line-height:1.45}'+
+    'tr:last-child td{border-bottom:0}'+
+    'td.l{background:transparent;width:34%;font-weight:normal;color:#77787A;'+
+      'font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase;padding-top:9px}'+
+    '.flag{color:#B2232F;font-weight:bold}'+
     /* Belt specs run two fields to a row. A belt logged quickly on site fills
        about five of twelve fields, and one field per row turned that into a
        column of dashes taller than the information in it. Nothing is dropped -
        an empty field still reads as "looked at, nothing there". */
-    'table.two td{padding:5px 8px}table.two td.l{width:22%;white-space:nowrap}'+
+    'table.two td{padding:6px 14px 6px 0}'+
+    'table.two td.l{width:20%;white-space:nowrap;padding-top:8px}'+
     '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
-    '.blk{page-break-inside:avoid}.ph{margin:6px 0 14px}.ph img{max-width:420px;border:1px solid #CCCCCC;margin:0 8px 8px 0}'+
-    '.ft{background:#363738;color:#FFFFFF;font-size:8.5pt;letter-spacing:.02em;padding:7px 18px;margin:26px 0 0}'+
+    '.blk{page-break-inside:avoid;margin:0 0 22px}'+
+    '.ph{margin:10px 0 16px}'+
+    '.ph img{max-width:420px;border:1px solid #E3E3E3;border-radius:3px;margin:0 10px 10px 0}'+
+    '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'+
     /* Fault cards. The app stylesheet is not available here, so the rules are
        repeated with print in mind: one finding per page, so the sheet handed to
        a fitter covers one job and nothing else. */
-    '.hc{border:1px solid #CCCCCC;margin:0 0 16px;page-break-inside:avoid}'+
+    '.hc{border:1px solid #E3E3E3;border-radius:4px;margin:0 0 18px;page-break-inside:avoid;'+
+      'overflow:hidden}'+
     '.hc + .hc{page-break-before:always}'+
-    '.hc-top{background:#E3F0F5;border-bottom:1px solid #ACD3E1;padding:8px 12px;overflow:hidden}'+
+    '.hc-top{background:#F7F8F8;border-bottom:1px solid #E3E3E3;padding:9px 14px;overflow:hidden}'+
     '.hc-asset{float:left;font-weight:bold;color:#00708D;font-size:12pt}'+
     '.hc-tags{float:right}'+
-    '.fl-pill{display:inline-block;padding:1px 8px;margin-left:4px;font-size:8.5pt;font-weight:bold;border:1px solid #CCCCCC}'+
+    '.fl-pill{display:inline-block;padding:2px 9px;margin-left:5px;font-size:8pt;font-weight:bold;'+
+      'border:1px solid #E3E3E3;border-radius:10px;letter-spacing:.03em}'+
     '.fl-p-critical{background:#FBE7E8;color:#B2232F;border-color:#B2232F}'+
     '.fl-p-high{background:#FBEFE2;color:#B35100}.fl-p-medium{background:#E3F0F5;color:#00708D}'+
     '.fl-p-low{background:#F7F8F8;color:#77787A}.fl-s{background:#FFFFFF;color:#4D4D4F}'+

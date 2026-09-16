@@ -647,6 +647,8 @@
       });
     });
     $('mClear').addEventListener('click', function () { state.sel = {}; paint(); });
+    var tog = $('mSelToggle');
+    if (tog) tog.addEventListener('click', function () { setSelMode(!state.selMode); });
     $('mShare').addEventListener('click', function () { shareSections(Object.keys(state.sel)); });
     $('mvClose').addEventListener('click', closeViewer);
     $('mvPrev').addEventListener('click', function () { step(-1); });
@@ -698,24 +700,36 @@
     });
   }
 
+  /* Every row used to carry a checkbox AND an Open button. The checkbox came
+     first, was larger, and sat where a thumb lands - so the obvious tap did the
+     wrong thing and opening a manual meant finding a secondary control. The
+     checkboxes existed for one occasional job, selecting sections to share, and
+     were taxing every visit to the screen.
+
+     The row is now a single button that opens the series. Selecting is a mode
+     you turn on when you actually want it. */
   function sectionCard(sec, snippet, hits) {
     var sub = sec.manualName + ', pages ' + sec.start + ' to ' + sec.end +
       ' (' + sec.pages + ' page' + (sec.pages === 1 ? '' : 's') + ')';
-    return '<div class="card"><div class="pick" style="border-top:none;padding-top:0">' +
-      '<input type="checkbox" data-k="' + esc(sec.id) + '"' + (state.sel[sec.id] ? ' checked' : '') + '>' +
-      '<div style="flex:1;min-width:0">' +
-      '<div class="nm">Series ' + esc(sec.series) + '</div>' +
-      '<div class="mt">' + esc(sub) + '</div>' +
-      (snippet ? '<div class="mt">' + esc(snippet) + '</div>' : '') +
-      '<div class="cardbar"><button type="button" data-open="' + esc(sec.id) + '">Open section</button>' +
-      (hits ? '<span class="phc">' + hits + ' page' + (hits === 1 ? '' : 's') + ' mention this</span>' : '') +
-      '</div></div></div></div>';
+    var meta = '<div class="rn">Series ' + esc(sec.series) + '</div>' +
+      '<div class="rm">' + esc(sub) +
+      (hits ? ' \u00b7 ' + hits + ' page' + (hits === 1 ? '' : 's') + ' mention this' : '') + '</div>' +
+      (snippet ? '<div class="rm">' + esc(snippet) + '</div>' : '');
+
+    if (!state.selMode) {
+      return '<button type="button" class="rpt" data-open="' + esc(sec.id) + '">' + meta + '</button>';
+    }
+    return '<label class="mrow' + (state.sel[sec.id] ? ' on' : '') + '">' +
+      '<input type="checkbox" data-k="' + esc(sec.id) + '"' +
+      (state.sel[sec.id] ? ' checked' : '') + '><span>' + meta + '</span></label>';
   }
 
   function wireRows(body) {
     body.querySelectorAll('[data-k]').forEach(function (c) {
       c.addEventListener('change', function () {
         if (c.checked) state.sel[c.dataset.k] = 1; else delete state.sel[c.dataset.k];
+        var row = c.closest('.mrow');
+        if (row) row.classList.toggle('on', c.checked);
         renderSel();
       });
     });
@@ -726,8 +740,19 @@
 
   function renderSel() {
     var n = Object.keys(state.sel).length;
-    $('mSelBar').style.display = n ? 'block' : 'none';
-    $('mSelN').textContent = n + ' series selected';
+    $('mSelBar').style.display = state.selMode ? 'block' : 'none';
+    $('mSelN').textContent = n
+      ? n + ' series selected'
+      : 'Tick the series you want to send, then Share.';
+    var sh = $('mShare');
+    if (sh) sh.disabled = !n;
+    var tog = $('mSelToggle');
+    if (tog) tog.textContent = state.selMode ? 'Done selecting' : 'Select sections to share';
+  }
+  function setSelMode(on) {
+    state.selMode = !!on;
+    if (!state.selMode) state.sel = {};
+    paint();
   }
 
   // ------------------------------------------------------------ viewer
