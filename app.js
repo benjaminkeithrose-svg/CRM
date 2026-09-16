@@ -6605,9 +6605,44 @@ async function detachPhotos(){
    buildNotesHTML() as locals, which meant a second builder had to either
    duplicate 90 lines of CSS and a 20 KB base64 logo or inherit every branch
    of the first one. Hoisted, unchanged. */
-const NOTES_CSS = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:11pt;color:#222222;margin:0;padding:0 0 0 0}'+
-  '.pg{padding:0 18px 18px}'+
-  '.mast{background:#ED1C24;padding:13px 18px;margin:0 0 22px}'+
+const NOTES_CSS =
+  /* ---------- A4 ----------
+     These files are read on a laptop and then printed or saved as a PDF for a
+     customer, so the page is an A4 sheet rather than whatever width the window
+     happens to be. Full-width text was the complaint: a 1600px monitor gave
+     lines of 200 characters that nobody reads and that reflowed completely when
+     printed, so what you checked on screen was not what came out.
+
+     210mm wide with 15mm side margins leaves a 180mm text column - the same
+     measure as the printed page, so the screen is now a preview of the PDF.
+     print-color-adjust keeps the red masthead and the tinted label cells; left
+     to itself a browser drops background colours when printing and the document
+     comes out as grey text on white. */
+  '@page{size:A4;margin:14mm}'+
+  'html{background:#E9EAEB;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+  'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:11pt;'+
+    'color:#222222;margin:12px auto;padding:0;max-width:210mm;background:#FFFFFF;'+
+    'box-shadow:0 1px 6px rgba(0,0,0,.18)}'+
+  '.pg{padding:0 15mm 15mm}'+
+  /* ---------- where the pages break ----------
+     A heading stranded at the foot of a page, or a belt table split from the
+     photographs underneath it, is what "printed strangely" means in practice.
+     Headings hold on to what follows them, rows do not split, and the blocks
+     already carry page-break-inside:avoid. A block taller than a page still
+     splits - nothing can prevent that - but nothing splits that fits. */
+  '@media print{'+
+    'html{background:#FFFFFF}'+
+    'body{max-width:none;box-shadow:none;margin:0}'+
+    '.pg{padding:0 0 8mm}'+
+    '.mast{margin:0 0 16px;padding:10px 12px}'+
+    'h1,h2,h3{page-break-after:avoid;break-after:avoid}'+
+    'tr,img{page-break-inside:avoid;break-inside:avoid}'+
+    'table{page-break-inside:auto}'+
+    'thead{display:table-header-group}'+
+    '.sep{page-break-after:avoid}'+
+    'p{orphans:3;widows:3}'+
+  '}'+
+  '.mast{background:#ED1C24;padding:13px 15mm;margin:0 0 22px}'+
   '.mast img{height:26px;width:auto;display:block}'+
   /* The document used to be a grid of boxes: every cell ruled on all four
      sides, headings underlined, blocks outlined. Accurate and hard to read -
@@ -6674,7 +6709,10 @@ const NOTES_CSS = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans
   '.cmt b{display:block;font-size:8pt;letter-spacing:.07em;text-transform:uppercase;'+
     'color:#77787A;margin:0 0 4px}'+
   '.ph{margin:10px 0 16px}'+
-  '.ph img{max-width:420px;border:1px solid #E3E3E3;border-radius:3px;margin:0 10px 10px 0}'+
+  '.ph img{max-width:420px;width:auto;height:auto;border:1px solid #E3E3E3;'+
+    'border-radius:3px;margin:0 10px 10px 0}'+
+  'img{max-width:100%}'+
+  'td,th{word-wrap:break-word;overflow-wrap:break-word}'+
   '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'+
   /* Fault cards. The app stylesheet is not available here, so the rules are
      repeated with print in mind: one finding per page, so the sheet handed to
