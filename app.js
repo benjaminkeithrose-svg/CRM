@@ -836,6 +836,7 @@ function fillBeltFromEntry(e){
   $('bDesc').value = e.beltdesc || '';
   $('bQc').value = e.qcontact || '';
   $('bQty').value = e.qty || '';
+  $('bComment').value = e.comment || '';
   $('bTsg').checked = !!e.tsg;
   applyBeltQuoteFields();
   bRetroVal = e.retrofit || '';
@@ -1595,7 +1596,8 @@ $('avStart').addEventListener('click', ()=>{
   if(!viewAcct) return;
   $('cDate').value = todayISO();
   cameFromAcct = true;
-  quoteMode = false; applyQuoteMode();
+  if($('cType')) $('cType').value = 'Site call';
+  syncQuoteMode();
   chooseAccount(viewAcct.a);
 });
 
@@ -3420,7 +3422,8 @@ function startBooking(){
   bookAcct = null;
   cameFromAcct = false;
   bookingMode = true;
-  quoteMode = false; applyQuoteMode();
+  if($('cType')) $('cType').value = 'Site call';
+  syncQuoteMode();
   $('cDate').value = todayISO();
   go('account'); renderAccSearch();
   $('accHint').textContent = 'Pick the account to book a visit at';
@@ -3455,7 +3458,8 @@ async function bookVisitFor(name){
 $('tvBook').addEventListener('click', startBooking);
 $('tvUnplanned').addEventListener('click', ()=>{
   cameFromAcct = false; bookingMode = false;
-  quoteMode = false; applyQuoteMode();
+  if($('cType')) $('cType').value = 'Site call';
+  syncQuoteMode();
   $('cDate').value = todayISO();
   go('account'); renderAccSearch();
 });
@@ -4585,10 +4589,10 @@ $('hdMenu').addEventListener('click', ()=>{
 const DRAFT_FIELDS = {
   belt:    ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn',
             'bSprDrive','bSprIdle','bNotch','bFlMat','bFlHeight','bFlMm','bSgMat',
-            'bSgHeight','bQc','bFault'],
+            'bSgHeight','bQc','bComment','bFault'],
   project: ['pName','pStat','pNext','pTarg','pOwner','pNotes'],
   note:    ['nTopic','nText'],
-  health:  ['hAsset','hFault','hType','hAction']
+  health:  ['hAsset','hFault','hType','hAction','hComment']
 };
 /* Leaving a form captures whatever is in it - including immediately after a
    save, when the fields still hold what was just filed. Without this the draft
@@ -4691,17 +4695,11 @@ $('barManuals').addEventListener('click', openManualsOverlay);
 /* ---------- home ---------- */
 async function renderHome(){
   const every = await recordsAll();
+  // only calls index into the account history and the cadence figures
   const all = every.filter(c => !isQuote(c));
   indexCalls(all);
-  const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
+  const open = every.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
   $('resumeInfo').textContent = open.length ? open[0].customer : 'None open';
-  /* Quote requests get their own open count. Sharing Resume with calls would
-     mean a half-finished RFQ hiding a half-finished call, or the reverse. */
-  const oq = every.filter(c => isQuote(c) && !c.closed);
-  const qi = $('quoteInfo');
-  if(qi) qi.textContent = oq.length ? (oq.length + ' open') : '';
-  const qb = document.querySelector('#s-home [data-go="resumequote"]');
-  if(qb) qb.hidden = !oq.length;
   renderHomeCounts();
   renderPeopleCount(); renderReportsCount().catch(()=>{});
   const done = all.sort((a,b)=>b.updated-a.updated).slice(0,8);
@@ -4741,21 +4739,16 @@ async function renderHome(){
 }
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', async ()=>{
   const t = b.dataset.go;
-  if(t==='newcall' || t==='newquote'){
+  if(t==='newcall'){
     // a manual account is still possible with no database, so this warns rather than blocks
     if(!ACCOUNTS.length) toast('No contact database - manual account entry only');
     cameFromAcct = false; bookingMode = false;
-    quoteMode = (t === 'newquote');
     $('cDate').value = todayISO();
     $('cReqBy').value = '';
     $('cRef').value = '';
-    applyQuoteMode();
+    $('cType').value = 'Site call';
+    syncQuoteMode();
     go('account'); renderAccSearch();
-  } else if(t==='resumequote'){
-    const open = (await quotesAll()).filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
-    if(!open.length){ toast('No open quote request'); return; }
-    if(open.length === 1){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
-    showOpenPicker(open);
   } else if(t==='accounts'){
     browseScope = 'mine';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'mine'));
@@ -4783,9 +4776,12 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     $('abQ').value = '';
     showDir('acc');
   } else if(t==='resume'){
-    const all = await callsAll();
+    /* Calls and quote requests together. They were separate tiles briefly; one
+       Resume is simpler, and the picker names each one so a half-finished
+       request is not mistaken for a half-finished call. */
+    const all = await recordsAll();
     const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
-    if(!open.length){ toast('No open call'); return; }
+    if(!open.length){ toast('Nothing open'); return; }
     /* One open call is the common case and asking which would be noise. More
        than one, and picking the most recent silently is how you end up writing
        into the wrong plant. */
@@ -4900,10 +4896,20 @@ let pendingAcct = null;
    same search, the same manual-account fallback, the same contact list. Only the
    fields differ, so they are shown and hidden rather than duplicated into a
    parallel pair of screens that would then drift. */
+const QUOTE_TYPE = 'Quote request';
+/* The mode is whatever the call type says. It used to be a separate home tile,
+   which meant two ways to start the same two screens and a second Resume beside
+   the first. One entry point, and the type picker decides what gets made. */
+function syncQuoteMode(){
+  quoteMode = ($('cType') && $('cType').value === QUOTE_TYPE);
+  applyQuoteMode();
+}
 function applyQuoteMode(){
   const q = quoteMode;
-  const rows = {cTypeRow: !q, cReqByRow: q, cRefRow: q};
-  Object.keys(rows).forEach(id => { const el = $(id); if(el) el.hidden = !rows[id]; });
+  // cTypeRow stays: it is the control that sets the mode
+  [['cReqByRow', q], ['cRefRow', q]].forEach(([id, show]) => {
+    const el = $(id); if(el) el.hidden = !show;
+  });
   const dl = $('cDateLbl');
   if(dl) dl.textContent = q ? 'Date raised' : 'Date';
   const t = $('acctHead');
@@ -4945,6 +4951,7 @@ function chooseAccount(name, manual){
   }
   go('contacts');
 }
+$('cType').addEventListener('change', syncQuoteMode);
 $('ctQ').addEventListener('input', ()=>{
   const q = $('ctQ').value.trim().toLowerCase();
   $('ctList').querySelectorAll('.pick').forEach(r=>{
@@ -4967,13 +4974,15 @@ $('openCall').addEventListener('click', async ()=>{
   const acc = pendingAcct.acc;
   const site = $('cSite').value.trim();
 
-  if(quoteMode){
+  // read off the control rather than the flag, so the two can never disagree
+  if($('cType').value === QUOTE_TYPE){
     /* No offerExistingCall and no bookUnplanned. A quote request is not a visit:
        it must not merge into a call already open on this account, and it must
        not put an appointment in the plan or touch the account's cadence. */
     call = {
       id: 'q'+Date.now(),
       rectype: QUOTE,
+      type: QUOTE_TYPE,
       date: ddmmyyyy($('cDate').value),
       mgr: $('cMgr').value,
       customer: pendingAcct.name,
@@ -5088,6 +5097,10 @@ function renderDash(){
     if(e.type==='project'){ head='Project - '+e.project; body=[e.status,e.next,e.target].filter(Boolean).join(' &middot; '); }
     if(e.type==='note'){ head='Note - '+e.topic; body=esc(e.text); }
     if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=[e.fault,e.severity].filter(Boolean).join(' &middot; '); }
+    /* A comment is the thing most worth knowing is there, and it would otherwise
+       be invisible on the dashboard until the file was compiled. */
+    if(e.comment) body += (body ? '<br>' : '') + '<b>' + esc(e.comment.slice(0,120)) +
+      (e.comment.length > 120 ? '\u2026' : '') + '</b>';
     const ph = e.photos||[];
     /* Tapping a photo used to go straight to "Remove this photo?". Checking
        whether a picture is on the right conveyor is the commonest reason to
@@ -5134,7 +5147,7 @@ function renderDash(){
     } else if(e.type==='health'){
       resetHealth(); editingIdx = i;
       $('hAsset').value = e.asset || ''; $('hFault').value = e.fault || '';
-      $('hAction').value = e.action || '';
+      $('hAction').value = e.action || ''; $('hComment').value = e.comment || '';
       const opt = Array.from($('hType').options).find(o => o.value === e.htype);
       if(!opt && e.htype){ const o=document.createElement('option'); o.value=o.textContent=e.htype; $('hType').appendChild(o); }
       if(e.htype) $('hType').value = e.htype;
@@ -5905,7 +5918,7 @@ function applyBeltQuoteFields(){
 function resetBelt(){
   try { showMsg($('bAssetHit'), '', ''); } catch(e){}
   ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn','bSprDrive','bSprIdle',
-   'bFlHeight','bFlRows','bFlMm','bNotch','bSgHeight','bQc','bQty','bRodOther','bFlTypeOther',
+   'bFlHeight','bFlRows','bFlMm','bNotch','bSgHeight','bQc','bQty','bComment','bRodOther','bFlTypeOther',
    'bSgTypeOther','bIndentOther'].forEach(i => { if($(i)) $(i).value = ''; });
   ['bRodOther','bMatOther','bColourOther','bFlTypeOther','bSgTypeOther','bIndentOther']
     .forEach(i => { $(i).value = ''; $(i).classList.add('hide'); });
@@ -5971,7 +5984,7 @@ $('bSave').addEventListener('click', async () => {
     sgtype:  skipAcc ? '' : sgType(),
     sgmat:   skipAcc ? '' : $('bSgMat').value,
     sgheight:skipAcc ? '' : v('bSgHeight'),
-    qcontact:v('bQc'),
+    qcontact:v('bQc'), comment:v('bComment'),
     /* Quantity and the TSG confirmation are asked for on a quote request and
        nowhere else. On a site call quantity is derived, and the belt in front
        of you is the belt - there is nothing to confirm with TSG. */
@@ -6283,7 +6296,7 @@ $('hCamIn').addEventListener('change', e => addHealthShots([...e.target.files]))
 $('hGalIn').addEventListener('change', e => addHealthShots([...e.target.files]));
 
 function resetHealth(){ clearEditing(); healthExtra = null;
-  ['hAsset','hFault','hAction'].forEach(i=>$(i).value=''); hSevVal='';
+  ['hAsset','hFault','hAction','hComment'].forEach(i=>$(i).value=''); hSevVal='';
   document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
   $('hErr').classList.remove('show'); $('hSevErr').classList.remove('show');
   healthShots.forEach(releasePhoto); healthShots = []; renderHealthShots();
@@ -6312,7 +6325,7 @@ $('hSave').addEventListener('click', async ()=>{
   const kept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
   commitEntry(Object.assign({}, (wasEdit ? call.entries[editingIdx] : null) || {}, healthExtra || {}, {
     type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
-    severity:hSevVal, action:$('hAction').value.trim(),
+    severity:hSevVal, action:$('hAction').value.trim(), comment:$('hComment').value.trim(),
     photos: kept.concat(healthShots)}), false);
   healthExtra = null;
   const n = healthShots.length;
@@ -6609,6 +6622,12 @@ const NOTES_CSS = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans
     'color:#00708D;letter-spacing:.09em;text-transform:uppercase;font-weight:bold}'+
   'h3{font-size:12pt;margin:18px 0 7px;color:#222222;letter-spacing:-.01em}'+
   '.sub{color:#77787A;font-size:9.5pt;margin:0 0 16px;line-height:1.5}'+
+  /* The masthead carries the logo as an image. An image can fail - blocked by a
+     mail client, stripped on a paste - and the document then names no company at
+     all, which for something going outside is not good enough. The name is set
+     as text above the title as well. */
+  '.eyebrow{font-size:8.5pt;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;'+
+    'color:#479EBC;margin:0 0 4px}'+
   'table{border-collapse:collapse;width:100%;margin:0 0 14px;font-size:10pt}'+
   'th{background:transparent;text-align:left;padding:0 10px 5px 0;border:0;'+
     'border-bottom:1.5px solid #ACD3E1;font-size:8.5pt;font-weight:bold;color:#00708D;'+
@@ -6626,7 +6645,34 @@ const NOTES_CSS = 'body{font-family:Roboto,Arial,"Helvetica Neue",Helvetica,sans
   'table.two td{padding:6px 14px 6px 0}'+
   'table.two td.l{width:20%;white-space:nowrap;padding-top:8px}'+
   '.sent{font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px}'+
-  '.blk{page-break-inside:avoid;margin:0 0 22px}'+
+  /* ---------- blocks ----------
+     The document deliberately dropped its grid of boxes, and the body text is
+     better for it. A belt specification is not body text: it is a form, and
+     read as bare rows it was hard to tell where one belt stopped and the next
+     started. So the box comes back here and nowhere else - a ruled card with a
+     cyan spine, the same device the app uses for a section header.
+
+     The label column gets the input background from the brand palette, so a
+     field reads as a field rather than as grey text floating beside a value. */
+  '.blk{page-break-inside:avoid;margin:0 0 22px;border:1px solid #E3E3E3;'+
+    'border-left:3px solid #479EBC;border-radius:4px;padding:14px 16px 6px;'+
+    'background:#FFFFFF}'+
+  '.blk h3{margin:0 0 12px;padding:0 0 8px;border-bottom:1px solid #E3F0F5}'+
+  '.blk table{margin:0 0 6px}'+
+  '.blk td.l{background:#F7F8F8;padding-left:8px;padding-right:10px}'+
+  '.blk td{border-bottom:1px solid #EDEDED}'+
+  '.blk tr:last-child td{border-bottom:0}'+
+  /* The rule between one block and the next. Asked for explicitly, and it does
+     work the card border alone does not: at a page break the border can end up
+     off-screen, and this keeps the two apart wherever they land. */
+  '.sep{height:0;border:0;border-top:2px solid #E3F0F5;margin:0 0 22px}'+
+  /* General comments. Set bold because they are only ever written when
+     something needs saying - a condition, a non-standard item, the thing that
+     would otherwise be missed between rows of dimensions. */
+  '.cmt{margin:10px 0 8px;padding:9px 12px;background:#F7F8F8;border-left:3px solid #479EBC;'+
+    'font-weight:bold;color:#222222;font-size:10pt;line-height:1.45;page-break-inside:avoid}'+
+  '.cmt b{display:block;font-size:8pt;letter-spacing:.07em;text-transform:uppercase;'+
+    'color:#77787A;margin:0 0 4px}'+
   '.ph{margin:10px 0 16px}'+
   '.ph img{max-width:420px;border:1px solid #E3E3E3;border-radius:3px;margin:0 10px 10px 0}'+
   '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'+
@@ -6688,6 +6734,13 @@ const NOTES_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUEAAACECAYAAA
    dash when empty, because a missing width is information. An optional one that
    was never filled is dropped rather than printed as a dash - a belt with no
    flights used to produce ten empty rows. */
+/* Free text on a belt or a fault. Emitted only when there is something in it -
+   an empty comment box is not a finding, and an em dash here would read as one. */
+function commentHTML(e){
+  const t = (e && e.comment ? String(e.comment) : '').trim();
+  if(!t) return '';
+  return '<p class="cmt"><b>General comments</b>'+esc(t).replace(/\n/g,'<br>')+'</p>';
+}
 function beltSpecRows(b){
   const bfAll = [
     ['Line / description',      b.beltdesc, 0],
@@ -6755,6 +6808,7 @@ async function buildNotesHTML(scope, mode){
   const bodyCls = (mode === 'full') ? '' : ' class="tn"';
   p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</title><style>'+css+'</style></head><body'+bodyCls+'>');
   p.push('<div class="mast"><img src="'+LOGO+'" alt="Intralox"></div><div class="pg">');
+  p.push('<p class="eyebrow">Intralox</p>');
   p.push('<h1>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</h1>');
   p.push('<p class="sub">'+[c.site,c.type,c.date].filter(Boolean).map(esc).join(' &middot; ')+'</p>');
   const anyPhoto = c.entries.some(e => e.photos && e.photos.length) || (c.loose && c.loose.length);
@@ -6794,12 +6848,14 @@ async function buildNotesHTML(scope, mode){
     p.push('<h2>Belts to quote</h2>');
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
+      if(i) p.push('<hr class="sep">');
       p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
       // field list and two-column pairing live in beltSpecRows / beltRowsHTML
       const bf = beltSpecRows(b);
       if(b.qcontact && scope === 'full') bf.push(['Quote contact',b.qcontact]);
       p.push(beltRowsHTML(bf));
       p.push('</table>');
+      p.push(commentHTML(b));
       if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos, mode))+'</div>');
       else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
         ' were sent with the notes issued '+new Date(b.detached.at).toLocaleDateString()+
@@ -6813,6 +6869,7 @@ async function buildNotesHTML(scope, mode){
     p.push('<h2>Health check</h2>');
     for(let i=0;i<health.length;i++){
       const h = health[i];
+      if(i) p.push('<hr class="sep">');
       /* The fault library renders the four-row customer card - observations,
          risk of no action, recommendation, gain once corrected, and the
          replacement belt spec pulled from the linked belt entry. Falls back to
@@ -6827,6 +6884,7 @@ async function buildNotesHTML(scope, mode){
           .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
         p.push('</table>');
       }
+      p.push(commentHTML(h));
       if(h.photos && h.photos.length){
         p.push('<div class="ph">'+(await photoImgs(h.photos, mode))+'</div>');
       } else if(linkedBelt && linkedBelt.photos && linkedBelt.photos.length){
@@ -6892,6 +6950,7 @@ async function buildRFQHTML(mode){
   p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+TITLE+' '+DASH_CH+' '+
     esc(c.customer)+'</title><style>'+NOTES_CSS+'</style></head><body'+bodyCls+'>');
   p.push('<div class="mast"><img src="'+NOTES_LOGO+'" alt="Intralox"></div><div class="pg">');
+  p.push('<p class="eyebrow">Intralox</p>');
   p.push('<h1>'+TITLE+' '+DASH_CH+' '+esc(c.customer)+'</h1>');
   p.push('<p class="sub">'+[c.site,c.date].filter(Boolean).map(esc).join(' &middot; ')+'</p>');
 
@@ -6919,6 +6978,7 @@ async function buildRFQHTML(mode){
     p.push('<h2>Belts to quote</h2>');
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
+      if(i) p.push('<hr class="sep">');
       p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3><table class="two">');
       const bf = beltSpecRows(b);
       /* Quantity is asked for here and nowhere else. On a site call it is
@@ -6929,6 +6989,7 @@ async function buildRFQHTML(mode){
       if(b.qcontact) bf.push(['Quote contact', b.qcontact]);
       p.push(beltRowsHTML(bf));
       p.push('</table>');
+      p.push(commentHTML(b));
       /* Unticked and deliberately-not-confirmed look the same, which is fine
          here: the safe reading and the default reading are both "check it". */
       p.push(b.tsg
@@ -7516,12 +7577,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function showOpenPicker(open){
   const dlg = $('opendlg'), el = $('openList');
   if(!dlg || !el){ call = open[0]; call.loose = call.loose || []; go('dash'); return; }
-  // the same picker serves both, so the wording follows what was handed to it
   const q = open.every(isQuote);
-  $('openSub').textContent = open.length + (q ? ' quote requests still open' : ' calls still open');
+  const nq = open.filter(isQuote).length, nc = open.length - nq;
+  $('openSub').textContent = [nc ? nc + (nc===1?' call':' calls') : '',
+    nq ? nq + (nq===1?' quote request':' quote requests') : ''].filter(Boolean).join(' and ') + ' still open';
+  /* A mixed list has to say which is which, or a half-finished request reads as
+     a half-finished call and gets written into. */
   el.innerHTML = open.map(c =>
     '<button type="button" data-resume="' + esc(c.id) + '">' +
-    '<span class="who">' + esc(c.customer) + (c.site ? ' - ' + esc(c.site) : '') + '</span>' +
+    '<span class="who">' + esc(c.customer) + (c.site ? ' - ' + esc(c.site) : '') +
+    (isQuote(c) ? ' <span class="tag">quote request</span>' : '') + '</span>' +
     '<span class="n">' + (c.entries.length ? c.entries.length + ' entries' : 'nothing logged') +
     '</span></button>').join('');
   el.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', async () => {
