@@ -837,6 +837,7 @@ function fillBeltFromEntry(e){
   $('bQc').value = e.qcontact || '';
   $('bQty').value = e.qty || '';
   $('bComment').value = e.comment || '';
+  loadShots('belt', []);   // stored photos stay on the entry; the buffer is for new ones
   $('bTsg').checked = !!e.tsg;
   applyBeltQuoteFields();
   bRetroVal = e.retrofit || '';
@@ -895,10 +896,13 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v57';
+const APP_BUILD = 'v58';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
+  home:   '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/>'+
+          '<path d="M9.5 21v-6h5v6"/>',
+  chev:   '<path d="M15 5 8 12l7 7"/>',
   edit:   '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'+
           '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>',
   trash:  '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'+
@@ -1280,6 +1284,7 @@ function showScreen(name){
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
   $('back').style.display = (name==='home') ? 'none' : 'block';
+  $('hdMenu').style.display = (name==='home') ? 'none' : 'block';
   $('title').textContent = TITLES[name] ? TITLES[name][0] : 'Field CRM';
   $('subtitle').textContent = call ? (call.customer + (call.site?' - '+call.site:'')) : 'No call open';
   const inCall = call && CALL_SCREENS.includes(name);
@@ -1322,12 +1327,38 @@ window.addEventListener('popstate', e => {
   if(st.dialog) return;      // going forward into a dialog entry: leave it be
   showScreen(st.screen || 'home');
 });
-/* The header button now asks the browser to go back, so it and the gesture can
-   never disagree about where "back" is. From home there is nowhere to go. */
+/* ---------- back goes up, not backwards ----------
+   This used to call history.back(), so the button and the Android gesture could
+   never disagree. The cost was that "back" meant "wherever I came from", which
+   is not what the screens look like: a belt is part of a call, a call sits under
+   home, and you expect two presses to get you out of a belt no matter how you
+   arrived at it.
+
+   So the button walks a fixed tree. The gesture still walks history, and the two
+   now differ - deliberately. The button is the considered action and is the one
+   worth making predictable.
+
+   Anything not listed goes home, so a screen added later fails safe rather than
+   trapping you on it. */
+const PARENT = {
+  belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
+  dash:'home', contacts:'account', account:'home', acct:'directory',
+  directory:'home', reference:'home', reports:'home', plan:'home',
+  today:'home', settings:'home'
+};
+function parentOf(name){
+  const up = PARENT[name] || 'home';
+  // a call screen with no call open has nothing to go up to
+  if(CALL_SCREENS.includes(up) && !call) return 'home';
+  return up;
+}
 $('back').addEventListener('click', ()=>{
   if(screen === 'home') return;
-  if(history.length > 1) history.back();
-  else go('home');
+  // leaving an entry form saves or discards it; see leaveEntry
+  if(CALL_SCREENS.includes(screen) && screen !== 'dash' && leaveEntry(screen)) return;
+  /* replace rather than push: walking up should not deepen the stack, or twenty
+     presses would leave twenty entries behind the home screen. */
+  go(parentOf(screen), true);
 });
 
 function renderHomeCounts(){
@@ -4539,10 +4570,70 @@ async function renderReportsCount(){
     : 'No calls yet';
 }
 
-/* Every entry form and the compile screen carry a way back to the call, so you
-   are never relying on the phone's own back gesture to get out of a form. */
+/* ---------- leaving an entry form ----------
+   There is no Save button and no "back without saving". Leaving a form is the
+   save, and it is also the discard - which one depends only on whether the form
+   has anything in it:
+
+     required fields filled  ->  saved to the call log
+     nothing entered at all  ->  dropped silently, so backing out of a form you
+                                 opened by mistake leaves no ghost entry
+     part filled             ->  nothing enters the log, and the draft is kept
+                                 and offered back next time you open the form
+
+   The third case is the one worth being clear about. The draft is not a log
+   entry - it is invisible until you return to that screen - so it cannot clutter
+   anything, and it means missing one required field does not throw away the
+   other thirty you just typed.
+
+   Every one of these paths runs the form's own save handler, so validation, the
+   series cascade, the frequency bumps and the photo buffer all behave exactly as
+   they did when a button triggered them. */
+const ENTRY_REQUIRED = {
+  belt:    ['bAsset'],
+  project: ['pName'],
+  note:    ['nText'],
+  health:  ['hFault']
+};
+/* The save buttons still exist in the markup, hidden. Done clicks them rather
+   than the logic being lifted out, so there is exactly one save path per form
+   and no chance of the two drifting apart. */
+const ENTRY_SAVE_BTN = {belt:'bSave', project:'pSave', note:'nSave', health:'hSave'};
+function entryHasRequired(kind){
+  return (ENTRY_REQUIRED[kind] || []).every(id => {
+    const el = $(id);
+    return el && el.value && el.value.trim() !== '';
+  });
+}
+function entryIsEmpty(kind){
+  const ids = DRAFT_FIELDS[kind] || [];
+  const blank = ids.every(id => { const el = $(id); return !el || !el.value || !el.value.trim(); });
+  return blank && !(SHOTS[kind] && SHOTS[kind].length);
+}
+/* Called on the way out of a form. Returns true if it handled the exit itself -
+   the save handlers navigate to the dashboard when they succeed. */
+function leaveEntry(kind){
+  if(!call || !ENTRY_SAVE_BTN[kind]) return false;
+  if(entryHasRequired(kind)){
+    if(kind === 'belt') beltSaveSilent = false;
+    $(ENTRY_SAVE_BTN[kind]).click();
+    return true;
+  }
+  if(entryIsEmpty(kind)){
+    // opened and backed out of: leave nothing behind, not even a draft
+    resetShots(kind);
+    draftSaved(kind);   // nothing typed, so there is no draft worth keeping
+    return false;
+  }
+  // part filled: the draft survives, nothing reaches the log
+  toast('Kept as a draft \u2014 ' + ENTRY_REQUIRED[kind].length + ' required field still empty');
+  return false;
+}
 document.querySelectorAll('.backcall').forEach(b =>
-  b.addEventListener('click', ()=>go(call ? 'dash' : 'home')));
+  b.addEventListener('click', ()=>{
+    if(CALL_SCREENS.includes(screen) && screen !== 'dash' && leaveEntry(screen)) return;
+    go(call ? 'dash' : 'home', true);
+  }));
 
 /* ================= getting around =================
 
@@ -4555,9 +4646,9 @@ document.querySelectorAll('.backcall').forEach(b =>
    into two out and one back, landing on the screen you left rather than the
    dashboard. */
 
-function resetNote(){ $('nText').value=''; }
+function resetNote(){ $('nText').value=''; resetShots('note'); }
 const CALL_SUBS = {belt:'Belt form', project:'Project form', note:'Note form',
-                   health:'Health check', compile:'Compile', dash:'Call'};
+                   health:'Health check', dash:'Call'};
 let lastCallScreen = 'dash';
 
 function renderCallStrip(){
@@ -4576,9 +4667,16 @@ $('callStrip').addEventListener('click', ()=>{
      finding the entry again, which is most of the cost of having left. */
   go(CALL_SCREENS.includes(lastCallScreen) ? lastCallScreen : 'dash');
 });
+// icons rather than the words "Menu" and a chevron character
+$('back').innerHTML = icon('chev');
+$('hdMenu').innerHTML = icon('home');
+/* Home from anywhere, in a call or out of it. This is a move, not a close - the
+   call stays open and the call strip keeps saying so - which is what makes going
+   in and out of two calls possible. */
 $('hdMenu').addEventListener('click', ()=>{
   if(screen === 'home') return;
-  go('home');
+  if(CALL_SCREENS.includes(screen) && screen !== 'dash' && leaveEntry(screen)) return;
+  go('home', true);
 });
 
 /* ---------- drafts ----------
@@ -5275,10 +5373,48 @@ $('savePhotos').addEventListener('click', ()=>savePhotosToPhone().catch(reportEr
    66px square. It sits over everything and closes on the back gesture, the same
    way the manual page viewer does. */
 let photoSet = [], photoAt = 0;
-function openPhoto(list, i, title){
+/* ---------- zoom ----------
+   Two conveyors in the same plant look the same at thumbnail size. Checking a
+   photo used to mean leaving the app for the gallery and coming back, which is
+   the going-backwards-and-forwards that made attaching photos tedious.
+
+   Pinch with two fingers, or double-tap to jump to 2.5x and again to come back.
+   Panning is a one-finger drag once zoomed; below 1x nothing moves, so a
+   single finger still does nothing surprising at rest. Transform only - the
+   image itself is never re-encoded, so this costs nothing and is instant. */
+let pvZoom = 1, pvX = 0, pvY = 0, pvOnRemove = null;
+const PV_MAX = 6, PV_DBL = 2.5;
+
+function pvApply(){
+  const img = $('pvImg');
+  img.style.transform = 'translate('+pvX+'px,'+pvY+'px) scale('+pvZoom+')';
+  img.style.cursor = pvZoom > 1 ? 'grab' : 'zoom-in';
+  const r = $('pvReset');
+  if(r) r.hidden = pvZoom <= 1.01;
+}
+function pvSetZoom(z, cx, cy){
+  const img = $('pvImg'), prev = pvZoom;
+  pvZoom = Math.max(1, Math.min(PV_MAX, z));
+  if(pvZoom <= 1.01){ pvZoom = 1; pvX = 0; pvY = 0; pvApply(); return; }
+  if(cx != null){
+    /* Keep the point under the fingers where it is, rather than zooming to the
+       middle - otherwise the detail you are trying to look at slides away. */
+    const b = img.getBoundingClientRect();
+    const ox = cx - (b.left + b.width/2), oy = cy - (b.top + b.height/2);
+    const k = pvZoom / prev;
+    pvX = ox - (ox - pvX) * k;
+    pvY = oy - (oy - pvY) * k;
+  }
+  pvApply();
+}
+function pvReset(){ pvZoom = 1; pvX = 0; pvY = 0; pvApply(); }
+
+function openPhoto(list, i, title, opts){
   photoSet = list || []; photoAt = i || 0;
   if(!photoSet.length) return;
+  pvOnRemove = (opts && typeof opts.onRemove === 'function') ? opts.onRemove : null;
   $('pvTtl').textContent = title || 'Photo';
+  if($('pvDel')) $('pvDel').hidden = !pvOnRemove;
   paintPhoto();
   $('pview').classList.add('on');
   try { history.pushState({screen: screen, dialog:'pview'}, '', location.href); } catch(e){}
@@ -5287,6 +5423,7 @@ function paintPhoto(){
   const p = photoSet[photoAt];
   if(!p) return closePhoto();
   $('pvImg').src = photoSrc(p);
+  pvReset();                      // a new photo always opens unzoomed
   $('pvSub').textContent = (photoAt+1) + ' of ' + photoSet.length;
   $('pvPrev').disabled = photoAt <= 0;
   $('pvNext').disabled = photoAt >= photoSet.length - 1;
@@ -5295,10 +5432,76 @@ function closePhoto(){
   if(!$('pview').classList.contains('on')) return;
   $('pview').classList.remove('on');
   $('pvImg').removeAttribute('src');
-  photoSet = [];
+  photoSet = []; pvOnRemove = null; pvReset();
 }
 $('pvPrev').addEventListener('click', ()=>{ if(photoAt > 0){ photoAt--; paintPhoto(); } });
 $('pvNext').addEventListener('click', ()=>{ if(photoAt < photoSet.length-1){ photoAt++; paintPhoto(); } });
+if($('pvReset')) $('pvReset').addEventListener('click', pvReset);
+if($('pvDel')) $('pvDel').addEventListener('click', ()=>{
+  if(!pvOnRemove) return;
+  if(!confirm('Remove this photo?')) return;
+  const at = photoAt;
+  pvOnRemove(at);
+  photoSet.splice(at, 1);
+  if(!photoSet.length){ closePhoto(); return; }
+  photoAt = Math.min(at, photoSet.length - 1);
+  paintPhoto();
+});
+
+/* ---------- gestures on the image ---------- */
+(function(){
+  const body = $('pvbody') || document.querySelector('.pvbody');
+  const img = $('pvImg');
+  if(!body || !img) return;
+  let pts = new Map(), startDist = 0, startZoom = 1, panFrom = null, lastTap = 0;
+
+  const dist = a => { const v = [...a.values()];
+    return Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y); };
+  const mid  = a => { const v = [...a.values()];
+    return {x:(v[0].x + v[1].x)/2, y:(v[0].y + v[1].y)/2}; };
+
+  body.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pts.size === 2){ startDist = dist(pts); startZoom = pvZoom; panFrom = null; }
+    else if(pts.size === 1 && pvZoom > 1){ panFrom = {x:e.clientX - pvX, y:e.clientY - pvY}; }
+    try { body.setPointerCapture(e.pointerId); } catch(err){}
+  });
+  body.addEventListener('pointermove', e => {
+    if(!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pts.size === 2 && startDist > 0){
+      const m = mid(pts);
+      pvSetZoom(startZoom * (dist(pts)/startDist), m.x, m.y);
+      e.preventDefault();
+    } else if(pts.size === 1 && panFrom && pvZoom > 1){
+      pvX = e.clientX - panFrom.x; pvY = e.clientY - panFrom.y;
+      pvApply();
+      e.preventDefault();
+    }
+  });
+  const up = e => {
+    pts.delete(e.pointerId);
+    if(pts.size < 2) startDist = 0;
+    if(pts.size === 0) panFrom = null;
+  };
+  body.addEventListener('pointerup', up);
+  body.addEventListener('pointercancel', up);
+
+  // double tap, and double click for the desktop
+  body.addEventListener('click', e => {
+    const now = Date.now();
+    if(now - lastTap < 300){
+      lastTap = 0;
+      if(pvZoom > 1.01) pvReset(); else pvSetZoom(PV_DBL, e.clientX, e.clientY);
+    } else lastTap = now;
+  });
+  // a mouse wheel zooms on the desktop, where there is nothing to pinch with
+  body.addEventListener('wheel', e => {
+    if(!$('pview').classList.contains('on')) return;
+    e.preventDefault();
+    pvSetZoom(pvZoom * (e.deltaY < 0 ? 1.15 : 1/1.15), e.clientX, e.clientY);
+  }, {passive:false});
+})();
 $('pvClose').addEventListener('click', ()=>{
   if(history.state && history.state.dialog === 'pview') history.back(); else closePhoto();
 });
@@ -5935,6 +6138,7 @@ function resetBelt(){
   $('bSkipAcc').checked = true;  $('bAccBody').classList.add('hide');
   $('bFlType').value = ''; $('bFlMat').value = ''; $('bSgType').value = ''; $('bSgMat').value = '';
   $('bTsg').checked = false;
+  resetShots('belt');
   applyBeltQuoteFields();
   clearEditing();
   $('bErr').classList.remove('show');
@@ -5993,7 +6197,14 @@ $('bSave').addEventListener('click', async () => {
     photos:[]
   };
   const wasEdit = editingIdx != null;
-  beltJustSaved = commitEntry(e);
+  /* Photos shot on the form are added to whatever the entry already carries,
+     rather than replacing it, so editing a belt to fix a width does not wipe the
+     pictures. keepPhotos is false because this line has already done the
+     merging. */
+  const beltKept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
+  const beltShots = takeShots('belt');
+  e.photos = beltKept.concat(beltShots);
+  beltJustSaved = commitEntry(e, false);
   const ctxS = e.series, ctxT = e.series+'|'+e.style, ctxM = ctxT+'|'+e.beltmat;
   if(!wasEdit){
   bump('series', '', e.series);
@@ -6089,6 +6300,7 @@ function loadProject(x){
     '. Change the status and next action; the move is recorded.');
 }
 function resetProjectFields(){
+  resetShots('project');
   ['pName','pNext','pTarg','pOwner','pNotes'].forEach(i=>$(i).value='');
   $('pStat').value='Being considered';
   $('pErr').classList.remove('show');
@@ -6107,7 +6319,7 @@ $('pSave').addEventListener('click', async ()=>{
   const carried = editingProject && editingProject.key === projKey(p);
   const entry = {type:'project', project:p, status:status, next:$('pNext').value.trim(),
     target:$('pTarg').value.trim(), owner:$('pOwner').value.trim(),
-    notes:$('pNotes').value.trim(), photos:[]};
+    notes:$('pNotes').value.trim(), photos:takeShots('project')};
   if(carried && editingProject.fromStatus && editingProject.fromStatus !== status){
     entry.fromStatus = editingProject.fromStatus;   // the report reads this as a move
   }
@@ -6116,7 +6328,8 @@ $('pSave').addEventListener('click', async ()=>{
   let replaced = false;
   if(carried && editingProject.inThisCall){
     const i = call.entries.findIndex(e => e.type==='project' && projKey(e.project) === editingProject.key);
-    if(i >= 0){ entry.photos = call.entries[i].photos || []; call.entries[i] = entry; replaced = true; }
+    // keep what the earlier entry carried and add anything shot this time
+    if(i >= 0){ entry.photos = (call.entries[i].photos || []).concat(entry.photos); call.entries[i] = entry; replaced = true; }
   }
   if(!replaced) call.entries.push(entry);
   draftSaved('project');
@@ -6131,7 +6344,9 @@ $('nSave').addEventListener('click', async ()=>{
   const t = $('nText').value.trim();
   if(!t){ $('nErr').classList.add('show'); $('nText').focus(); return; }
   const wasEdit = editingIdx != null;
-  commitEntry({type:'note', topic:$('nTopic').value, text:t, photos:[]});
+  const noteKept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
+  commitEntry({type:'note', topic:$('nTopic').value, text:t,
+    photos: noteKept.concat(takeShots('note'))}, false);
   clearEditing();
   draftSaved('note');
   await saveCall(); toast(wasEdit ? 'Note updated' : 'Note logged'); go('dash');
@@ -6264,42 +6479,96 @@ function renderHealthHistory(){
 $('hAsset').addEventListener('input', renderHealthHistory);
 
 /* ---------- photos on the form ----------
-   A health item almost always wants a photo, and taking it used to mean saving
-   the item, finding its card on the dashboard and tapping Camera there. These
-   hold the photos against the entry the moment it is saved, so the picture is
-   taken while you are still looking at the thing. */
-let healthShots = [];
-function renderHealthShots(){
-  const el = $('hShots');
+   An entry almost always wants a photo, and taking one used to mean saving the
+   entry first, finding its card on the dashboard and tapping Camera there. Only
+   the health screen had buttons; belt, project and note had none at all, which
+   is backwards - the belt is the thing you are standing in front of.
+
+   The obstacle was that an entry has no photos array until it is saved, so a
+   photo taken before saving has nowhere to go. Health solved it with a pending
+   buffer. This is that solution generalised to all four, with one pair of file
+   inputs shared between them and the kind held in shotsTarget.
+
+   Photos attach the moment you pick them. Tapping a thumbnail opens it full
+   screen, where pinch and double-tap zoom in far enough to tell one conveyor
+   from another, and it can be dropped from there. No confirm step on the way
+   in: the photo is usually right, and paying a tap every time to catch the
+   times it is not costs more than it saves. */
+const SHOT_PREFIX = {belt:'b', project:'p', note:'n', health:'h'};
+const SHOTS = {belt:[], project:[], note:[], health:[]};
+let shotsTarget = null;
+
+function shotEl(kind, suffix){ return $(SHOT_PREFIX[kind] + suffix); }
+
+function renderShots(kind){
+  const list = SHOTS[kind], el = shotEl(kind, 'Shots');
   if(!el) return;
-  el.innerHTML = healthShots.map((p,i) =>
-    '<img src="'+photoSrc(p)+'" data-hrm="'+i+'">').join('');
-  el.querySelectorAll('[data-hrm]').forEach(img => img.addEventListener('click', ()=>{
-    if(!confirm('Remove this photo?')) return;
-    releasePhoto(healthShots[+img.dataset.hrm]);
-    healthShots.splice(+img.dataset.hrm, 1);
-    renderHealthShots();
+  el.innerHTML = list.map((p,i) => '<img src="'+photoSrc(p)+'" data-shot="'+i+'" '+
+    'alt="Photo '+(i+1)+'">').join('');
+  el.querySelectorAll('[data-shot]').forEach(img => img.addEventListener('click', ()=>{
+    // straight to the viewer; removal lives in there, next to the zoom
+    openPhoto(list, +img.dataset.shot, 'Photo on this entry', {
+      onRemove: i => { releasePhoto(list[i]); list.splice(i,1); renderShots(kind); }
+    });
   }));
-  const n = healthShots.length;
-  $('hShotN').textContent = n ? n + (n===1 ? ' photo' : ' photos') + ' ready' : '';
+  const n = list.length, cnt = shotEl(kind, 'ShotN');
+  if(cnt) cnt.textContent = n ? n + (n===1 ? ' photo' : ' photos') + ' ready' : '';
 }
-async function addHealthShots(files){
+async function addShots(kind, files){
+  let bad = 0;
   for(const f of files){
-    try { healthShots.push(await shrink(f)); }
-    catch(err){ console.error('skipped', f.name, err); }
+    try { SHOTS[kind].push(await shrink(f)); }
+    catch(err){ bad++; console.error('skipped', f.name, err); }
   }
-  renderHealthShots();
+  renderShots(kind);
+  if(bad) toast(bad + (bad===1 ? ' photo could not be read' : ' photos could not be read'));
 }
-$('hCam').addEventListener('click', ()=>{ $('hCamIn').value=''; $('hCamIn').click(); });
-$('hGal').addEventListener('click', ()=>{ $('hGalIn').value=''; $('hGalIn').click(); });
-$('hCamIn').addEventListener('change', e => addHealthShots([...e.target.files]));
-$('hGalIn').addEventListener('change', e => addHealthShots([...e.target.files]));
+function resetShots(kind){
+  SHOTS[kind].forEach(releasePhoto);
+  SHOTS[kind] = [];
+  renderShots(kind);
+}
+/* Hands the buffer to the entry being saved and empties it in one step, so a
+   second save cannot attach the same photos twice. */
+function takeShots(kind){
+  const list = SHOTS[kind];
+  SHOTS[kind] = [];
+  renderShots(kind);
+  return list;
+}
+function loadShots(kind, photos){
+  SHOTS[kind].forEach(releasePhoto);
+  SHOTS[kind] = (photos || []).slice();
+  renderShots(kind);
+}
+Object.keys(SHOT_PREFIX).forEach(kind => {
+  const cam = shotEl(kind, 'Cam'), gal = shotEl(kind, 'Gal');
+  if(cam) cam.innerHTML = icon('camera');
+  if(gal) gal.innerHTML = icon('image');
+  if(cam) cam.addEventListener('click', ()=>{
+    shotsTarget = kind; $('entCamIn').value=''; $('entCamIn').click();
+  });
+  if(gal) gal.addEventListener('click', ()=>{
+    shotsTarget = kind; $('entGalIn').value=''; $('entGalIn').click();
+  });
+});
+/* One shared pair of inputs. shotsTarget is cleared straight after use - a stale
+   one would drop the next set of photos onto the wrong entry, which is the same
+   trap photoTarget already carries a warning about. */
+function entryShotsPicked(e){
+  const kind = shotsTarget; shotsTarget = null;
+  const files = [...e.target.files];
+  if(!kind || !files.length) return;
+  addShots(kind, files);
+}
+$('entCamIn').addEventListener('change', entryShotsPicked);
+$('entGalIn').addEventListener('change', entryShotsPicked);
 
 function resetHealth(){ clearEditing(); healthExtra = null;
   ['hAsset','hFault','hAction','hComment'].forEach(i=>$(i).value=''); hSevVal='';
   document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
   $('hErr').classList.remove('show'); $('hSevErr').classList.remove('show');
-  healthShots.forEach(releasePhoto); healthShots = []; renderHealthShots();
+  resetShots('health');
   showMsg($('hPrev'), '', ''); }
 document.querySelectorAll('#hSev button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#hSev button').forEach(x=>x.classList.remove('on'));
@@ -6323,13 +6592,13 @@ $('hSave').addEventListener('click', async ()=>{
   /* On an edit the photos already on the entry are kept and anything newly shot
      is added, rather than the form's list replacing what is stored. */
   const kept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
+  const shots = takeShots('health');
+  const n = shots.length;
   commitEntry(Object.assign({}, (wasEdit ? call.entries[editingIdx] : null) || {}, healthExtra || {}, {
     type:'health', asset:$('hAsset').value.trim(), fault:f, htype:$('hType').value,
     severity:hSevVal, action:$('hAction').value.trim(), comment:$('hComment').value.trim(),
-    photos: kept.concat(healthShots)}), false);
+    photos: kept.concat(shots)}), false);
   healthExtra = null;
-  const n = healthShots.length;
-  healthShots = [];
   clearEditing();
   await saveCall();
   toast(wasEdit ? 'Fault updated'
