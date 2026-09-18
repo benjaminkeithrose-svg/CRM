@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v58';
+const APP_BUILD = 'v59';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -910,7 +910,11 @@ const ICONS = {
   camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>'+
           '<circle cx="12" cy="13" r="4"/>',
   image:  '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>'+
-          '<path d="M21 15l-5-5L5 21"/>'
+          '<path d="M21 15l-5-5L5 21"/>',
+  plus:   '<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
+  calplus:'<path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>'+
+          '<path d="M16 2v4M8 2v4M3 10h18"/><path d="M18 15v6M15 18h6"/>',
+  check:  '<path d="M20 6L9 17l-5-5"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1248,7 +1252,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1299,7 +1303,7 @@ function showScreen(name){
     if($('setImgMode')) $('setImgMode').value = defaultImgMode(); }
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
-  if(name==='today'){ renderToday(); $('title').textContent = todayView==='today' ? 'Today' : 'This week'; }
+  if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
   document.body.classList.toggle('planning', name === 'plan');
   renderCallStrip();
@@ -3092,7 +3096,9 @@ const isPhone = () => window.matchMedia
   ? window.matchMedia('(max-width: '+PHONE_MAX+'px)').matches
   : (window.innerWidth || 1024) <= PHONE_MAX;
 
-let todayView = 'today';
+/* Week by default. On the road the useful question is what the rest of the week
+   looks like; the day is one tap away and is always where the arrows land. */
+let todayView = 'week';
 
 function apptsBetween(fromISO, toISO){
   return APPTS.filter(a => a.date >= fromISO && a.date <= toISO)
@@ -3142,23 +3148,46 @@ function dayLabel(dISO){
   return DAYNM7[d.getDay()].slice(0,3)+' '+d.getDate()+' '+MONNM[d.getMonth()].slice(0,3);
 }
 
+/* The day the phone planner is looking at. Defaults to today and is reset to it
+   by the Today button, so the screen still opens on "now" however far you
+   wandered last time. */
+let tvCursor = null;
+function tvDate(){ return tvCursor || todayISOdate(); }
+function tvShift(days){
+  tvCursor = iso(addDays(parseIso(tvDate()), days));
+  renderToday();
+}
 function renderToday(){
   const el = $('tvBody');
   $('tvPlanner').hidden = isPhone();
   if(todayView === 'today') renderTodayList(el); else renderWeekList(el);
   wireVisitCards(el);
+  /* Today is a no-op when you are already on today, so it dims rather than
+     disappearing - a control that comes and goes is harder to aim at. */
+  const now = tvDate() === todayISOdate();
+  $('tvNow').style.opacity = now ? '.45' : '1';
+  $('title').textContent = tvTitle();
+}
+function tvTitle(){
+  if(todayView === 'today'){
+    return tvDate() === todayISOdate() ? 'Today' : dayLabel(tvDate());
+  }
+  const mon = tvWeekStart();
+  return iso(mon) === iso(startOfWeek(new Date())) ? 'This week'
+    : 'Week of ' + mon.getDate() + ' ' + MONNM[mon.getMonth()].slice(0,3);
 }
 function renderTodayList(el){
-  const t = todayISOdate();
+  const t = tvDate(), isNow = t === todayISOdate();
   const mine = APPTS.filter(a => a.date === t).sort((x,y)=>x.start.localeCompare(y.start));
   const mon = iso(startOfWeek(new Date()));
   // earlier in the week, planned and never resolved
-  const late = APPTS.filter(a => a.date >= mon && a.date < t && !apSettled(a))
-    .sort((x,y)=>x.date.localeCompare(y.date) || x.start.localeCompare(y.start));
+  const late = isNow ? APPTS.filter(a => a.date >= mon && a.date < t && !apSettled(a))
+    .sort((x,y)=>x.date.localeCompare(y.date) || x.start.localeCompare(y.start)) : [];
 
+  const when = isNow ? 'today' : 'on ' + dayLabel(t).toLowerCase();
   $('tvHint').textContent = mine.length
-    ? mine.length+' visit'+(mine.length===1?'':'s')+' today'
-    : 'Nothing planned today.';
+    ? mine.length+' visit'+(mine.length===1?'':'s')+' '+when
+    : 'Nothing planned '+when+'.';
 
   let html = mine.map(ap => visitCard(ap)).join('');
   if(late.length){
@@ -3174,11 +3203,19 @@ function weekViewStart(){
   const now = new Date(), g = now.getDay();
   return (g === 0 || g === 6) ? startOfWeek(addDays(now, 2)) : startOfWeek(now);
 }
+/* With no cursor set this is the weekend-aware "week you care about"; once you
+   have paged, it is simply the week the cursor falls in. */
+function tvWeekStart(){
+  return tvCursor ? startOfWeek(parseIso(tvCursor)) : weekViewStart();
+}
 function renderWeekList(el){
-  const mon = weekViewStart(), t = todayISOdate();
+  const mon = tvWeekStart(), t = todayISOdate();
   const days = [0,1,2,3,4].map(i => addDays(mon,i));
   const n = apptsBetween(iso(days[0]), iso(days[4])).length;
-  $('tvHint').textContent = n ? n+' visit'+(n===1?'':'s')+' this week' : 'Nothing planned this week.';
+  const thisWk = iso(mon) === iso(startOfWeek(new Date()));
+  const wk = thisWk ? 'this week' : 'that week';
+  $('tvHint').textContent = n ? n+' visit'+(n===1?'':'s')+' '+wk
+    : 'Nothing planned '+wk+'.';
   el.innerHTML = days.map((d,i)=>{
     const k = iso(d);
     const list = APPTS.filter(a => a.date === k).sort((x,y)=>x.start.localeCompare(y.start));
@@ -3440,9 +3477,17 @@ $('mvCancel').addEventListener('click', closeMove);
 $('tvView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
   todayView = b.dataset.v;
   $('tvView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-  $('title').textContent = todayView === 'today' ? 'Today' : 'This week';
   renderToday();
 }));
+/* Paging is by day in day view and by week in week view, so the arrows always
+   move by whatever is on the screen. */
+$('tvPrev').innerHTML = icon('chev');
+$('tvNext').innerHTML = icon('chev');
+$('tvUnplanned').innerHTML = icon('plus');
+$('tvBook').innerHTML = icon('calplus');
+$('tvPrev').addEventListener('click', ()=>tvShift(todayView === 'today' ? -1 : -7));
+$('tvNext').addEventListener('click', ()=>tvShift(todayView === 'today' ?  1 :  7));
+$('tvNow').addEventListener('click', ()=>{ tvCursor = null; renderToday(); });
 /* Booking ahead from the phone. The unplanned path already creates an
    appointment as a side effect of starting a call; this is the same thing
    without doing the visit - "I said I'd come back Thursday". Same origin and
@@ -4522,7 +4567,11 @@ async function renderReports(){
   const q = ($('rpQ').value || '').trim().toLowerCase();
   const terms = q.split(/\s+/).filter(Boolean);
   let list = all;
-  if(rpView === 'open') list = list.filter(c => !c.closed);
+  /* Filtering on callStatus, not on c.closed. A call that has been compiled but
+     not closed out is neither open nor done, and the old two-way split had to
+     put it on one side or the other. */
+  if(rpView === 'open') list = list.filter(c => !c.closed && callStatus(c).label !== 'compiled');
+  else if(rpView === 'compiled') list = list.filter(c => !c.closed && callStatus(c).label === 'compiled');
   else if(rpView === 'done') list = list.filter(c => c.closed);
   if(terms.length) list = list.filter(c => terms.every(t => reportHay(c).includes(t)));
 
@@ -4534,14 +4583,23 @@ async function renderReports(){
     : 'No calls logged yet';
 
   const el = $('rpRes');
+  /* A row is a tap target plus two icon actions, so it cannot be one button any
+     more - a button inside a button is not valid and Android picks the wrong one.
+     The row is a div; the reading area is the button. */
   el.innerHTML = list.length
     ? list.slice(0, 60).map(c => {
         const st = callStatus(c);
-        return '<button class="rpt'+(c.closed ? '' : ' open')+'" data-rpt="'+esc(c.id)+'">'+
+        return '<div class="rprow'+(c.closed ? '' : ' open')+'">'+
+          '<button class="rpt" data-rpt="'+esc(c.id)+'">'+
           '<div class="rt"><span class="rd">'+esc(c.date)+'</span>'+
           '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
           '<div class="rn">'+esc(c.customer)+'</div>'+
-          '<div class="rm">'+esc(reportLine(c))+'</div></button>';
+          '<div class="rm">'+esc(reportLine(c))+'</div></button>'+
+          '<div class="rpacts">'+
+            (c.closed ? '' :
+              '<button class="rpi" data-rpdone="'+esc(c.id)+'" aria-label="Mark done" title="Mark done">'+icon('check')+'</button>')+
+            '<button class="rpi del" data-rpdel="'+esc(c.id)+'" aria-label="Delete" title="Delete">'+icon('trash')+'</button>'+
+          '</div></div>';
       }).join('') + (list.length > 60 ? '<p class="hint">'+(list.length-60)+' more \u2014 narrow the search</p>' : '')
     : '<p class="empty">'+(all.length ? 'Nothing matches that.' : 'No calls logged yet.')+'</p>';
   el.querySelectorAll('[data-rpt]').forEach(b => b.addEventListener('click', async ()=>{
@@ -4552,6 +4610,21 @@ async function renderReports(){
     call = found;
     call.loose = call.loose || [];
     go('dash');
+  }));
+  el.querySelectorAll('[data-rpdone]').forEach(b => b.addEventListener('click', async ()=>{
+    const found = (await callsAll()).find(c => c.id === b.dataset.rpdone);
+    if(!found){ toast('That call could not be found'); return; }
+    if(!await markCallDone(found)) return;
+    toast('Marked done');
+    renderReports().catch(e=>console.error('reports', e));
+    renderHome();
+  }));
+  el.querySelectorAll('[data-rpdel]').forEach(b => b.addEventListener('click', async ()=>{
+    const found = (await callsAll()).find(c => c.id === b.dataset.rpdel);
+    if(!found){ toast('That call could not be found'); return; }
+    if(!await deleteCallRecord(found)) return;
+    renderReports().catch(e=>console.error('reports', e));
+    renderHome();
   }));
 }
 $('rpQ').addEventListener('input', ()=>renderReports().catch(reportErr));
@@ -4822,16 +4895,9 @@ async function renderHome(){
     go('dash');
   }));
   el.querySelectorAll('[data-delcall]').forEach(b=>b.addEventListener('click', async ()=>{
-    const id = b.dataset.delcall;
-    const c = done.find(x=>x.id===id);
-    const what = c ? (c.customer + ' on ' + c.date) : 'this call';
-    const ph = c ? c.entries.reduce((a,e)=>a+(e.photos?e.photos.length:0),0) + (c.loose?c.loose.length:0) : 0;
-    if(c) (c.entries||[]).forEach(e => (e.photos||[]).forEach(releasePhoto));
-    if(!confirm('Delete ' + what + '?\n\n' + (c?c.entries.length:0) + ' entries and ' + ph +
-                ' photos will be erased. This cannot be undone.')) return;
-    await callsDel(id);
-    if(call && call.id === id) call = null;
-    toast('Call deleted');
+    const c = done.find(x=>x.id===b.dataset.delcall);
+    if(!c){ toast('That call could not be found'); return; }
+    if(!await deleteCallRecord(c)) return;
     renderHome();
   }));
 }
@@ -5176,14 +5242,10 @@ function renderDash(){
   if(logHead) logHead.textContent = q ? 'On this request' : 'Call log';
   const looseHead = $('dashLooseHead');
   if(looseHead) looseHead.textContent = q ? 'Photos from the customer' : 'Loose photos';
-  const closeBtn = $('closeCall');
-  if(closeBtn) closeBtn.textContent = q ? 'Close this request without an output'
-                                        : 'Close call without an output';
-
   /* Before the early return below, or a call with nothing logged yet would show
-     no output block at all. */
-  renderCompileStat();
-  renderOutControls();
+     no summary line at all. The pickers themselves are rendered when the sheet
+     opens, not here. */
+  renderOutSummary();
 
   renderLoose();
 
@@ -5505,21 +5567,76 @@ if($('pvDel')) $('pvDel').addEventListener('click', ()=>{
 $('pvClose').addEventListener('click', ()=>{
   if(history.state && history.state.dialog === 'pview') history.back(); else closePhoto();
 });
-$('closeCall').addEventListener('click', async ()=>{
-  const q = isQuote(call);
-  if(!confirm(q ? 'Close this quote request? It stays saved but will not show under Resume request.'
-                : 'Close this call? It stays saved but will not show under Resume.')) return;
-  call.closed = true;
-  if(call.status === 'in progress') call.status = 'done';
-  if(!call.entries.length) call.noReport = true;
-  await saveCall();
-  await syncApptFromCall(call);
-  releaseAllPhotos(); call = null; go('home');
-});
-/* The output block lives at the foot of the dashboard now; there is no compile
-   screen to navigate to. */
-$('doOutput').addEventListener('click', ()=>{
+/* Marking a call done. This used to be a button on the dashboard, which put it
+   next to the output controls and made it read like an output option. It is not:
+   compiled means a document was produced, done means the call is finished, and a
+   call can be either without the other. It now lives on the report row, which is
+   where you look when you are tidying up rather than working.
+
+   It is the only thing that closes out the matching visit in the plan, so it
+   cannot simply be deleted. */
+/* Deleting a call for good. Shared by the bin on the home screen and the bin on
+   a report row, so the two can never drift apart.
+
+   The confirm comes first. The home-screen version released the photo blob URLs
+   before asking, so cancelling left the call intact but its images broken until
+   the next reload.
+
+   Local only. A call that has already gone to the sync repo still has a copy
+   there, and the next pull can bring it back. Saying so in the confirm is
+   cheaper than half-implementing a tombstone in the sync format. */
+async function deleteCallRecord(c){
+  if(!c) return false;
+  const ph = c.entries.reduce((a,e)=>a+(e.photos?e.photos.length:0),0) + (c.loose?c.loose.length:0);
+  const synced = !!c.pushedAt || !!c.ghAt;
+  if(!confirm('Delete ' + c.customer + ' on ' + c.date + '?\n\n' +
+      c.entries.length + ' entr' + (c.entries.length===1?'y':'ies') + ' and ' + ph +
+      ' photo' + (ph===1?'':'s') + ' will be erased. This cannot be undone.' +
+      (synced ? '\n\nThis only deletes it from this device. A copy has already gone to the sync repository and could come back on the next pull.' : ''))) return false;
+  (c.entries||[]).forEach(e => (e.photos||[]).forEach(releasePhoto));
+  (c.loose||[]).forEach(releasePhoto);
+  await callsDel(c.id);
+  if(call && call.id === c.id) call = null;
+  toast('Call deleted');
+  return true;
+}
+async function markCallDone(c){
+  if(!c) return false;
+  const q = isQuote(c);
+  if(!confirm((q ? 'Mark this quote request done?' : 'Mark this call done?') + '\n\n' +
+      c.customer + ' on ' + c.date + '.' +
+      (c.shared ? '' : ' Nothing has been produced for it yet.') +
+      ' It stays saved and searchable, and drops out of ' + (q ? 'Resume request' : 'Resume') + '.')) return false;
+  c.closed = true;
+  if(c.status === 'in progress' || !c.status) c.status = 'done';
+  if(!c.entries.length) c.noReport = true;
+  await callsPut(c);
+  await syncApptFromCall(c);
+  /* The open call and the row can be the same record reached two ways, so the
+     working copy is dropped rather than left pointing at a closed call. */
+  if(call && call.id === c.id){ releaseAllPhotos(); call = null; }
+  return true;
+}
+/* The button sits at the top of the dashboard; the pickers are in the sheet it
+   opens. There is no compile screen to navigate to. */
+function openOutDlg(){
   if(!call) return;
+  renderCompileStat();
+  renderOutControls();
+  $('outSub').textContent = call.customer + ' \u2014 ' + call.date;
+  const dlg = $('outdlg');
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
+  try { history.pushState({screen: screen, dialog: true}, '', location.href); } catch(e){}
+}
+function closeOutDlg(){
+  const dlg = $('outdlg');
+  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+$('doOutput').addEventListener('click', openOutDlg);
+$('outCancel').addEventListener('click', closeOutDlg);
+$('outGo').addEventListener('click', ()=>{
+  if(!call) return;
+  closeOutDlg();
   sendNotes(currentOutScope(), $('outDest').value, $('outImg').value);
 });
 $('outScope').addEventListener('change', renderOutHint);
@@ -6863,9 +6980,12 @@ async function detachPhotos(){
     call.loose = [];
   }
   await saveCall();
-  // the log list carries thumbnails of the photos just dropped, so the whole
-  // dashboard is redrawn rather than only the summary line above it
-  if(screen === 'dash') renderDash(); else renderCompileStat();
+  /* The log list carries thumbnails of the photos just dropped, so the whole
+     dashboard is redrawn. The summary inside the sheet is redrawn too - the
+     detach offer is in there, and it is the thing that just changed. */
+  if(screen === 'dash') renderDash();
+  renderCompileStat();
+  renderOutSummary();
   toast(humanSize(bytes)+' freed - the record and the photo count are kept');
 }
 /* ---------- the compiled document ----------
@@ -7535,8 +7655,25 @@ function renderOutControls(){
   if(img && !IMG_MODES.includes(img.value)) img.value = defaultImgMode();
   renderOutHint();
 }
+/* The one line under the button on the dashboard. It says what state the call is
+   in, not what the pickers are set to - those are not on this screen any more. */
+function renderOutSummary(){
+  const hint = $('outHint');
+  if(!hint || !call) return;
+  const n = call.entries.length;
+  const ph = call.entries.reduce((a,e)=>a+(e.photos?e.photos.length:0),0) + (call.loose?call.loose.length:0);
+  if(call.shared){
+    hint.textContent = 'Issued ' + new Date(call.shared).toLocaleDateString() +
+      '. Producing it again replaces nothing \u2014 it just makes another file.';
+  } else if(!n){
+    hint.textContent = 'Nothing logged yet.';
+  } else {
+    hint.textContent = n + ' entr' + (n===1?'y':'ies') + ', ' + ph + ' photo' + (ph===1?'':'s') +
+      '. Not issued yet.';
+  }
+}
 function renderOutHint(){
-  const btn = $('doOutput'), hint = $('outHint');
+  const btn = $('outGo'), hint = $('outDlgHint');
   if(!btn) return;
   const dest = $('outDest') ? $('outDest').value : 'share';
   btn.textContent = dest === 'open' ? 'Create and open'
@@ -7571,6 +7708,7 @@ async function markShared(name){
   await saveCall();
   await syncApptFromCall(call);
   renderCompileStat();
+  renderOutSummary();   // the line under the button now reads "Issued ..."
 }
 /* The appointment follows the call it became. Status is not part of apRev, so
    doing the visit never makes Outlook think the invite changed. */

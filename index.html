@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v58">
+<meta name="build" content="v59">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -162,6 +162,19 @@ textarea{min-height:88px;resize:vertical}
 .na input{width:17px;height:17px;accent-color:var(--cyan-dk)}
 
 /* ---------- segmented control ---------- */
+/* Phone planner header. Icons, not labels: the row has to hold six controls
+   across a phone and still leave a 40px target on each. "Today" stays a word
+   because there is no icon that reads as "now". */
+.tvbar{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.tvbar .tvgap{flex:1}
+.tvi{min-width:40px;height:40px;padding:0 10px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);color:var(--ink-2);
+  font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;
+  justify-content:center}
+.tvi:active{background:var(--sunk)}
+.tvi .ic{width:20px;height:20px}
+#tvPrev .ic{transform:none}
+#tvNext .ic{transform:rotate(180deg)}
 .seg{display:flex;border:1px solid var(--edge);border-radius:var(--r-sm);
   overflow:hidden;background:var(--sunk)}
 .seg button{flex:1;background:transparent;border:0;border-left:1px solid var(--line-2);padding:11px 6px;color:var(--ink-2);cursor:pointer}
@@ -235,6 +248,21 @@ ul.rep li{margin-bottom:2px}
   border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
   color:var(--link);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer}
 .pcard .pl .missing{color:var(--ink-3);font-weight:400;border-style:dashed;cursor:default}
+/* A report row is a reading area plus two icon actions. The card border moved
+   onto the wrapper so the actions sit inside it. */
+.rprow{display:flex;align-items:stretch;background:var(--surface);box-shadow:var(--lift);
+  border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
+  margin-bottom:8px;overflow:hidden}
+.rprow.open{border-left-color:var(--red)}
+.rprow .rpt{flex:1;min-width:0;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+.rpacts{display:flex;flex-direction:column;justify-content:center;gap:2px;
+  padding:6px 6px 6px 0;flex:none}
+.rpi{width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--line-2);border-radius:var(--r);
+  color:var(--ink-3);cursor:pointer;padding:0}
+.rpi .ic{width:17px;height:17px}
+.rpi:active{background:var(--sunk)}
+.rpi.del{color:var(--warn)}
 button.rpt{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
@@ -1201,14 +1229,20 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- TODAY / THIS WEEK -->
 <section class="scr" id="s-today">
+  <div class="tvbar">
+    <button class="tvi" id="tvPrev" type="button" aria-label="Previous"></button>
+    <button class="tvi" id="tvNow" type="button">Today</button>
+    <button class="tvi" id="tvNext" type="button" aria-label="Next"></button>
+    <span class="tvgap"></span>
+    <button class="tvi" id="tvUnplanned" type="button" aria-label="New call"></button>
+    <button class="tvi" id="tvBook" type="button" aria-label="Book a visit"></button>
+  </div>
   <div class="seg" id="tvView">
-    <button type="button" data-v="today" class="on">Today</button>
-    <button type="button" data-v="week">This week</button>
+    <button type="button" data-v="today">Day</button>
+    <button type="button" data-v="week" class="on">Week</button>
   </div>
   <p class="hint" id="tvHint"></p>
   <div id="tvBody"></div>
-  <button class="ghost" id="tvUnplanned">Log an unplanned call</button>
-  <button class="ghost" id="tvBook">Book a visit for later</button>
   <button class="ghost" id="tvPlanner" hidden>Open the planner</button>
 </section>
 
@@ -1221,10 +1255,14 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <input type="search" id="rpQ" placeholder="Account, contact, asset or note" autocomplete="off">
     <p class="hint" id="rpHint"></p>
   </div>
+  <!-- Compiled and done are separate states in the data and always have been:
+       compiled means a document was produced, done means the call is finished.
+       This used to collapse both into "Finished". -->
   <div class="seg" id="rpView">
     <button type="button" data-v="all" class="on">All</button>
     <button type="button" data-v="open">Open</button>
-    <button type="button" data-v="done">Finished</button>
+    <button type="button" data-v="compiled">Compiled</button>
+    <button type="button" data-v="done">Done</button>
   </div>
   <div style="height:10px"></div>
   <div id="rpRes"></div>
@@ -1399,6 +1437,38 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <span id="calHint"></span>
 </div>
 
+<!-- The old compile screen, then the foot of the dashboard, now a sheet. The
+     pickers only exist while a document is actually being produced. -->
+<dialog id="outdlg">
+  <div class="dlg-h"><b>Output</b><div id="outSub"></div></div>
+  <div class="dlg-b">
+    <p class="stat" id="compStat"></p>
+    <div id="detachWrap"></div>
+    <div id="outScopeRow" class="f">
+      <label>Include</label>
+      <select id="outScope"></select>
+    </div>
+    <div class="f">
+      <label>Images</label>
+      <select id="outImg">
+        <option value="full">Full size</option>
+        <option value="thumb">Thumbnails, expandable</option>
+        <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
+      </select>
+    </div>
+    <!-- Options are filled by renderOutDest(): a phone leads with the share
+         sheet, a PC leads with Open, and Share is only offered where the
+         browser says it can actually do it. -->
+    <div class="f">
+      <label>Send to</label>
+      <select id="outDest"></select>
+    </div>
+    <button class="big" id="outGo">Create and share</button>
+    <p class="note" id="outDlgHint"></p>
+  </div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="outCancel" type="button">Cancel</button></div>
+</dialog>
+
 <dialog id="opendlg">
   <div class="dlg-h"><b>Resume a call</b><div id="openSub"></div></div>
   <div class="dlg-b"><div class="res" id="openList"></div></div>
@@ -1427,6 +1497,17 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <!-- DASHBOARD -->
 <section class="scr" id="s-dash">
   <button type="button" class="fld dashhead" id="dashStat"></button>
+
+  <!-- Output lives at the top. It used to sit under the call log, which is fine
+       with three entries and unusable with fifteen belts - you scrolled past
+       everything you had just logged to reach the one button you wanted.
+
+       Only the button is on the screen. The three pickers moved into the sheet
+       it opens, so nothing can be fired off before the options have been seen,
+       which was the reason they sat above the button in the first place. -->
+  <button class="big" id="doOutput">Create and share</button>
+  <p class="hint" id="outHint"></p>
+
   <h2 id="dashAddHead">Add to call</h2>
   <div class="tiles four">
     <button data-go="belt"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></span><b>Belt</b><span class="cnt" id="cntBelt">0 logged</span></button>
@@ -1443,40 +1524,6 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div id="looseWrap"></div>
   <button class="ghost" id="savePhotos">Save this call's photos to the phone</button>
 
-  <!-- The compile screen held five buttons of equal weight and nothing else, so
-       it has been folded in here. Three pickers and one button: what is in the
-       document, how the photos are shown, and where it goes.
-
-       Pickers above the button on purpose. The thumb reaches the bottom of the
-       screen most easily, so with the options underneath you could fire off a
-       full-size 18 MB share before noticing they were there. -->
-  <h2>Output</h2>
-  <div class="fld">
-    <p class="stat" id="compStat"></p>
-  </div>
-  <div id="detachWrap"></div>
-  <div class="fld">
-    <div id="outScopeRow">
-      <label>Output</label>
-      <select id="outScope"></select>
-      <div class="gap"></div>
-    </div>
-    <label>Images</label>
-    <select id="outImg">
-      <option value="full">Full size</option>
-      <option value="thumb">Thumbnails, expandable</option>
-      <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
-    </select>
-    <div class="gap"></div>
-    <!-- Options are filled by renderOutDest(): a phone leads with the share
-         sheet, a PC leads with Open, and Share is only offered where the
-         browser says it can actually do it. -->
-    <label>Send to</label>
-    <select id="outDest"></select>
-  </div>
-  <button class="big" id="doOutput">Create and share</button>
-  <p class="hint" id="outHint"></p>
-  <button class="ghost" id="closeCall" style="color:var(--dim)">Close call without an output</button>
 </section>
 
 <!-- BELT -->
