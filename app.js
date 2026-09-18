@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v59';
+const APP_BUILD = 'v60';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -914,7 +914,10 @@ const ICONS = {
   plus:   '<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
   calplus:'<path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>'+
           '<path d="M16 2v4M8 2v4M3 10h18"/><path d="M18 15v6M15 18h6"/>',
-  check:  '<path d="M20 6L9 17l-5-5"/>'
+  check:  '<path d="M20 6L9 17l-5-5"/>',
+  copy:   '<rect x="9" y="9" width="12" height="12" rx="2"/>'+
+          '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1252,7 +1255,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -3112,32 +3115,31 @@ function visitCard(ap, opts){
   if(apSettled(ap)) cls.push('settled');
   if(opts.late) cls.push('late');
   const cts = a ? (ap.contacts||[]).map(i => a.c[i]).filter(Boolean) : [];
-  const who = cts.map(c => c.p
-      ? '<a href="tel:'+esc(c.p.replace(/\s/g,''))+'">'+esc(c.n)+' &middot; '+esc(c.p)+'</a>'
-      : '<span class="nn">'+esc(c.n)+' <span class="rl">no number on file</span></span>'
-    ).join('');
+
   const when = (opts.showDate ? dayLabel(ap.date)+' ' : '') + ap.start;
-  const where = [a ? a.sub : '', a ? zoneName(a.z) : '', ap.type, ap.dur+' min']
-    .filter(Boolean).map(esc).join(' &middot; ');
+  /* Names only. The numbers moved into the menu behind the card, where they can
+     be copied or saved to the phone rather than dialled by accident.
 
-  // A settled visit keeps its card but drops the actions - nothing left to do.
-  const acts = apSettled(ap)
-    ? '<div class="acts"><button class="quiet" data-reopen="'+esc(ap.id)+'">Reopen</button></div>'
-    : '<div class="acts">'+
-        '<button class="go" data-start="'+esc(ap.id)+'">Start</button>'+
-        '<button data-closeout="'+esc(ap.id)+'">Close out</button>'+
-        '<button data-move="'+esc(ap.id)+'">Move</button>'+
-        (opts.late ? '<button class="quiet" data-missed="'+esc(ap.id)+'">Missed</button>' : '')+
-        '<button class="quiet" data-cancel="'+esc(ap.id)+'">Cancel</button>'+
-      '</div>';
+     Zone, call type and duration are gone. Suburb stays because it is the one
+     thing here that tells you where you are driving, and it costs no extra row
+     riding on the end of the contacts line. */
+  const sub = [cts.map(c => c.n).join(', '), a ? a.sub : ''].filter(Boolean).map(esc).join(' &middot; ');
 
+  /* The status word only appears when it is not the ordinary case. Every card
+     reading "planned" is a column of noise. */
+  const badge = st === 'planned' ? ''
+    : '<span class="st '+AP_STATUS[st].cls+'">'+AP_STATUS[st].label+'</span>';
+
+  const tapId = esc(ap.id);
   return '<div class="'+cls.join(' ')+'">'+
-    '<div class="when">'+esc(when)+'<span class="st '+AP_STATUS[st].cls+'">'+AP_STATUS[st].label+'</span></div>'+
-    '<div class="who">'+esc(ap.acct)+'</div>'+
-    '<div class="where">'+where+'</div>'+
-    (ap.agenda && ap.agenda.trim() ? '<div class="ag">'+esc(ap.agenda.trim())+'</div>' : '')+
-    (who ? '<div class="cl">'+who+'</div>' : '')+
-    acts + '</div>';
+    '<button class="vopen" data-open="'+tapId+'">'+
+      '<div class="vtop"><span class="when">'+esc(when)+'</span>'+
+      '<span class="who">'+esc(ap.acct)+'</span>'+badge+'</div>'+
+      (sub ? '<div class="vsub">'+sub+'</div>' : '')+
+      (ap.agenda && ap.agenda.trim() ? '<div class="ag">'+esc(ap.agenda.trim())+'</div>' : '')+
+    '</button>'+
+    '<button class="vmore" data-vmenu="'+tapId+'" aria-label="More for '+esc(ap.acct)+'">&#8943;</button>'+
+  '</div>';
 }
 /* DAYNM is Monday to Friday, because the planner only ever grids weekdays. A
    label has to cope with a weekend: today is a Saturday often enough, and an
@@ -3226,15 +3228,107 @@ function renderWeekList(el){
   }).join('');
 }
 
+/* ---- contacts out of the app and into the phone ----
+
+   There is no web API that writes to the address book. The Contact Picker API
+   reads only, so the route is a vCard: a few lines of text the phone already
+   knows how to import. Share hands it to Contacts; if the share sheet is not
+   available, or Contacts does not appear in it, the download fallback puts the
+   .vcf in Downloads and tapping it there opens the same import.
+
+   Escaping matters more than it looks. A name like "Smith, John" or a title
+   with a semicolon will split the record into the wrong fields if the commas
+   and semicolons are not escaped. */
+function vcEsc(s){
+  return String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/\n/g,'\\n')
+    .replace(/,/g,'\\,').replace(/;/g,'\\;');
+}
+function vCardFor(c, org){
+  const name = String(c.n || '').trim();
+  /* N wants structured family;given. The contact database holds one display
+     name, so the last word is taken as the family name and the rest as given -
+     wrong for some names, and better than dumping everything in one field. */
+  const bits = name.split(/\s+/).filter(Boolean);
+  const fam = bits.length > 1 ? bits[bits.length-1] : name;
+  const giv = bits.length > 1 ? bits.slice(0,-1).join(' ') : '';
+  const L = ['BEGIN:VCARD','VERSION:3.0',
+    'N:'+vcEsc(fam)+';'+vcEsc(giv)+';;;',
+    'FN:'+vcEsc(name)];
+  if(org) L.push('ORG:'+vcEsc(org));
+  const title = c.t || c.r;
+  if(title) L.push('TITLE:'+vcEsc(title));
+  if(c.p) L.push('TEL;TYPE=CELL:'+vcEsc(c.p));
+  if(c.e && c.e[0]) L.push('EMAIL;TYPE=WORK:'+vcEsc(c.e[0]));
+  L.push('END:VCARD');
+  return L.join('\r\n');
+}
+async function saveContacts(list, org, label){
+  const cards = list.map(c => vCardFor(c, org)).join('\r\n');
+  const raw = String(label || org || 'contacts');
+  const fname = (raw.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40) || 'contacts') + '.vcf';
+  const file = new File([cards], fname, {type:'text/vcard'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try {
+      await navigator.share({files:[file], title:fname});
+      return;
+    } catch(e){
+      if(e && e.name === 'AbortError') return;   // the user backed out, not a failure
+      /* anything else falls through to the download */
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+  toast('Saved to Downloads \u2014 open it to add the contact');
+}
+/* Clipboard needs a secure context and can still be refused. Showing the number
+   in a prompt is not elegant, but it beats a button that silently does nothing
+   when you are standing in a plant trying to ring someone. */
+async function copyText(s, what){
+  try {
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(s);
+      toast((what || 'Copied') + ' copied');
+      return;
+    }
+  } catch(e){ /* fall through */ }
+  try { window.prompt('Copy this' + (what ? ' ' + what.toLowerCase() : '') + ':', s); }
+  catch(e){ toast('Could not copy'); }
+}
+
 function wireVisitCards(el){
   const on = (attr, fn) => el.querySelectorAll('['+attr+']').forEach(b =>
     b.addEventListener('click', ()=>fn(b.getAttribute(attr))));
+  on('data-open',     id => openVisit(id).catch(reportErr));
+  on('data-vmenu',    id => openVisitMenu(id));
   on('data-start',    id => startVisit(id).catch(reportErr));
   on('data-closeout', id => closeOutVisit(id).catch(reportErr));
   on('data-move',     id => openMoveDialog(id));
   on('data-missed',   id => setVisitStatus(id, 'missed').catch(reportErr));
   on('data-cancel',   id => setVisitStatus(id, 'cancelled').catch(reportErr));
   on('data-reopen',   id => setVisitStatus(id, 'planned', true).catch(reportErr));
+}
+/* Tapping the card goes into the call. For a live visit that is startVisit,
+   which opens the existing call or builds one.
+
+   A settled visit is different. Running startVisit on it would flip it back to
+   in progress, so a stray tap on a finished visit would quietly undo the fact
+   that it was finished. If it produced a call, that call opens for reading or
+   editing; if it never did, the tap does nothing and Reopen stays in the menu. */
+async function openVisit(id){
+  const ap = APPTS.find(x => x.id === id);
+  if(!ap) return;
+  if(apSettled(ap)){
+    if(ap.callId){
+      const existing = (await callsAll()).find(c => c.id === ap.callId);
+      if(existing){ call = existing; call.loose = call.loose || []; go('dash'); return; }
+    }
+    toast('This visit is ' + AP_STATUS[apStatus(ap)].label + ' \u2014 reopen it from the menu');
+    return;
+  }
+  await startVisit(id);
 }
 function reportErr(e){ console.error(e); toast('That did not work: '+e.message); }
 
@@ -5617,8 +5711,76 @@ async function markCallDone(c){
   if(call && call.id === c.id){ releaseAllPhotos(); call = null; }
   return true;
 }
-/* The button sits at the top of the dashboard; the pickers are in the sheet it
-   opens. There is no compile screen to navigate to. */
+/* The menu behind the card. Contacts first with their numbers, then the actions
+   that used to wrap across the foot of every card. */
+function openVisitMenu(id){
+  const ap = APPTS.find(x => x.id === id);
+  if(!ap) return;
+  const a = ACC_BY_NAME.get(ap.acct);
+  const cts = a ? (ap.contacts||[]).map(i => a.c[i]).filter(Boolean) : [];
+  const settled = apSettled(ap);
+  const eid = esc(ap.id);
+
+  let html = '';
+  if(cts.length){
+    html += '<div class="vmsec">Contacts</div>';
+    html += cts.map((c, i) => {
+      const num = c.p ? '<span class="vmnum">'+esc(c.p)+'</span>'
+                      : '<span class="vmnone">no number on file</span>';
+      return '<div class="vmrow">'+
+        '<div class="vmwho"><b>'+esc(c.n)+'</b>'+(c.t||c.r ? '<span class="vmrole">'+esc(c.t||c.r)+'</span>' : '')+num+'</div>'+
+        (c.p ? '<button class="vmi" data-vcopy="'+i+'" aria-label="Copy number">'+icon('copy')+'</button>' : '')+
+        '<button class="vmi" data-vsave="'+i+'" aria-label="Save to contacts">'+icon('person')+'</button>'+
+      '</div>';
+    }).join('');
+    if(cts.length > 1) html += '<button class="vmall" data-vsaveall="1">Save all to contacts</button>';
+  }
+
+  html += '<div class="vmsec">Visit</div><div class="vmacts">';
+  if(settled){
+    html += '<button data-reopen="'+eid+'">Reopen</button>';
+  } else {
+    html += '<button data-closeout="'+eid+'">Close out</button>'+
+            '<button data-move="'+eid+'">Move</button>'+
+            '<button class="quiet" data-missed="'+eid+'">Missed</button>'+
+            '<button class="quiet" data-cancel="'+eid+'">Cancel</button>';
+  }
+  html += '</div>';
+
+  $('vmName').textContent = ap.acct;
+  $('vmWhen').textContent = dayLabel(ap.date) + ' ' + ap.start + ' \u00b7 ' + ap.type;
+  const body = $('vmBody');
+  body.innerHTML = html;
+
+  body.querySelectorAll('[data-vcopy]').forEach(b => b.addEventListener('click', ()=>{
+    const c = cts[+b.dataset.vcopy];
+    if(c && c.p) copyText(c.p, 'Number');
+  }));
+  body.querySelectorAll('[data-vsave]').forEach(b => b.addEventListener('click', ()=>{
+    const c = cts[+b.dataset.vsave];
+    if(c) saveContacts([c], ap.acct, c.n).catch(reportErr);
+  }));
+  body.querySelectorAll('[data-vsaveall]').forEach(b => b.addEventListener('click', ()=>{
+    saveContacts(cts, ap.acct, ap.acct).catch(reportErr);
+  }));
+  /* The visit actions each navigate or redraw, so the menu closes behind them
+     rather than being left open over a screen that has moved on. */
+  wireVisitCards(body);
+  body.querySelectorAll('[data-closeout],[data-move],[data-missed],[data-cancel],[data-reopen]')
+    .forEach(b => b.addEventListener('click', closeVisitMenu));
+
+  const dlg = $('vmdlg');
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
+  try { history.pushState({screen: screen, dialog: true}, '', location.href); } catch(e){}
+}
+function closeVisitMenu(){
+  const dlg = $('vmdlg');
+  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+$('vmClose').addEventListener('click', closeVisitMenu);
+
+/* The output block lives at the top of the dashboard now; the pickers are in the
+   sheet it opens. There is no compile screen to navigate to. */
 function openOutDlg(){
   if(!call) return;
   renderCompileStat();

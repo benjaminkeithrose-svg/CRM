@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v59">
+<meta name="build" content="v60">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -379,24 +379,52 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 /* ---------- today / this week ----------
    The phone half of the planner. A read-and-act list: what is on, tap to start,
    tap to close out, tap to move. No drag, no rail, no month grid. */
+/* The card is a tap target plus an overflow button. The padding moved off .vis
+   and onto the button inside it, so the whole reading area is tappable right to
+   the edges rather than leaving a dead 11px frame. */
 .vis{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan);
-  border-radius:0 var(--r) var(--r) 0;padding:11px;margin-bottom:9px}
+  border-radius:0 var(--r) var(--r) 0;margin-bottom:7px;display:flex;align-items:stretch;overflow:hidden}
 .vis.high{border-left-color:var(--high)} .vis.med{border-left-color:var(--med)}
 .vis.low{border-left-color:var(--low)}  .vis.none{border-left-color:var(--none)}
 .vis.settled{opacity:.62}
-.vis .when{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;font-weight:700}
-.vis .who{font-size:15px;font-weight:700;line-height:1.25;margin-top:1px}
-.vis .where{font-size:11.5px;color:var(--ink-3);margin-top:2px}
-.vis .ag{font-size:12.5px;margin-top:7px;white-space:pre-wrap}
-.vis .cl{margin-top:8px;display:flex;flex-direction:column;gap:3px}
-.vis .cl a{font-size:12.5px;color:var(--link);text-decoration:none}
-.vis .cl .nn{font-size:12.5px;color:var(--ink-3)}
-.vis .cl .rl{color:var(--ink-3);font-size:11px}
-.vis .acts{display:flex;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-2);flex-wrap:wrap}
-.vis .acts button{padding:8px 12px;border:1px solid var(--line);border-radius:var(--r);
-  background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:700;cursor:pointer}
-.vis .acts button.go{background:var(--red);border-color:var(--red);color:#fff}
-.vis .acts button.quiet{color:var(--ink-3);font-weight:400;border-color:var(--line-2)}
+.vis .vopen{flex:1;min-width:0;text-align:left;background:transparent;border:0;
+  padding:10px 4px 10px 11px;cursor:pointer;font:inherit;color:inherit}
+.vis .vopen:active{background:var(--sunk)}
+.vis .vtop{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.vis .when{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;font-weight:700;flex:none}
+.vis .who{font-size:15px;font-weight:700;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.vis .vsub{font-size:12px;color:var(--ink-3);margin-top:3px}
+/* Clamped, not dropped: a one-line agenda is worth having, a five-line one puts
+   the card back where it started. */
+.vis .ag{font-size:12.5px;color:var(--ink-2);margin-top:4px;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+.vis .vmore{flex:none;width:40px;background:transparent;border:0;border-left:1px solid var(--line-2);
+  color:var(--ink-3);font-size:19px;line-height:1;cursor:pointer;padding:0}
+.vis .vmore:active{background:var(--sunk)}
+.vis.late .who{color:var(--warn)}
+
+/* The visit menu */
+.vmsec{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);
+  font-weight:700;margin:12px 0 6px}
+.vmsec:first-child{margin-top:0}
+.vmrow{display:flex;align-items:center;gap:6px;padding:7px 0;border-top:1px solid var(--line-2)}
+.vmwho{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.vmrole{font-size:11.5px;color:var(--ink-3)}
+.vmnum{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.vmnone{font-size:11.5px;color:var(--ink-3);font-style:italic}
+.vmi{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);
+  color:var(--ink-3);cursor:pointer;padding:0}
+.vmi .ic{width:17px;height:17px}
+.vmi:active{background:var(--sunk)}
+.vmall{width:100%;margin-top:8px;padding:10px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);color:var(--ink);
+  font-size:13px;font-weight:700;cursor:pointer}
+.vmacts{display:flex;flex-direction:column;gap:6px}
+.vmacts button{padding:11px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);font-size:13.5px;font-weight:700;cursor:pointer;
+  text-align:left}
+.vmacts button.quiet{color:var(--ink-3);font-weight:400;border-color:var(--line-2)}
 .dayblk{margin-bottom:14px}
 .dayblk h3{margin:0 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--ink-2);font-weight:700;display:flex;gap:8px;align-items:baseline}
@@ -404,7 +432,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .dayblk.isToday h3{color:var(--red)}
 .dayblk .none{font-size:12px;color:var(--ink-3);padding:2px 0 6px}
 .late h2{color:var(--warn)}
-.vis.late .when{color:var(--warn)}
+.vis.late .when{color:var(--warn)}   /* the time as well as the name on a late card */
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin-top:8px}
 .kv dt{color:var(--ink-3);white-space:nowrap}
 .kv dd{margin:0;color:var(--ink)}
@@ -1439,6 +1467,15 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 <!-- The old compile screen, then the foot of the dashboard, now a sheet. The
      pickers only exist while a document is actually being produced. -->
+<!-- The actions that used to wrap across the foot of every visit card, plus the
+     contact numbers that used to sit on it. Four buttons and a contact list per
+     card made a five-visit week three screens long. -->
+<dialog id="vmdlg">
+  <div class="dlg-h"><b id="vmName"></b><div id="vmWhen"></div></div>
+  <div class="dlg-b" id="vmBody"></div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="vmClose" type="button">Close</button></div>
+</dialog>
+
 <dialog id="outdlg">
   <div class="dlg-h"><b>Output</b><div id="outSub"></div></div>
   <div class="dlg-b">
