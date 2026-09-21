@@ -1,0 +1,7 @@
+node_modules/
+# Customer data never enters this repo. Belt and suspenders:
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.eml
