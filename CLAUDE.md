@@ -6,21 +6,11 @@ framework, no build step. Deployed to GitHub Pages from this repo's root.
 
 ## Who you are working with
 
-Ben is an engineer, not a developer. He reads code and follows the logic, but he
-does not run a build toolchain and has not used git from a terminal before this.
+@PREFERENCES.md
 
-- Direct and efficient. No preamble.
-- He often dictates. Turn rough input into precise output; do not ask him to
-  restate things that are clear enough to act on.
-- **When he gives a series of design notes, summarise them back and ask before
-  building.** Do not start building off a list of notes.
-- Flag ambiguities rather than waiting for complete information.
-- Do not raise interpretations that are his technical call (belt engineering,
-  sales practice). Capture what he provides.
-- He does not use Android back or swipe gestures. Navigation must be on-screen
-  buttons.
-- The app must not push tasks at him. No suggestions on empty screens; overdue
-  accounts stay in their own place.
+That file is Ben's own, shared across his projects. Where it and this file
+disagree, this file wins — in particular, the Intralox branding below replaces
+its visual defaults.
 
 ## The repo is the only source of truth
 
