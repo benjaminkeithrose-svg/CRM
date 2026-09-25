@@ -60,4 +60,52 @@ whether the bullet handling (3/4) and an in-app mic (2) are worth doing.
 
 ---
 
+## Open: Brand the saved output HTML with the app icon
+*Added 2026-09-25*
+
+**The ask:** Have the compiled call notes / RFQ HTML files carry the same
+icon as the app (the Intralox Call Log icon), so they look less "dodgy"
+handed to a corporate recipient.
+
+**Checked in code — this splits into two different things, and only one
+of them is possible from inside the HTML file:**
+
+1. **The browser-tab icon, once the file is opened — possible.** The
+   output builders (`notesHtml()` and the RFQ builder, `app.js` around
+   line 7425/7571) already write `<!DOCTYPE html><html><head>...` and
+   already embed the letterhead logo as an inline base64 image
+   (`NOTES_LOGO`) so the document stays fully self-contained, matching the
+   "no external resources" rule for shared output. Adding
+   `<link rel="icon" href="data:image/png;base64,...">` to that same
+   `<head>`, built from `icon-192.png` (already in the repo), is the same
+   technique already in use — no new network request, nothing that
+   changes how Outlook/Word renders the body. This would make the tab
+   show the Intralox icon instead of a blank page icon once someone opens
+   the file.
+
+2. **The file icon shown in Explorer, an Outlook attachment list, or the
+   Android share sheet before it's opened — not possible from the HTML
+   itself.** That icon comes from what the receiving computer/phone has
+   registered as the handler for the `.html` extension (usually the
+   default browser), and is the same for every `.html` file on that
+   machine regardless of what's inside it. No content embedded in the
+   file can override it. If the "dodgy" concern is specifically about
+   what a colleague sees *before* opening the attachment, this idea can't
+   fix that — a `.html` attachment will look like every other `.html`
+   attachment either way.
+
+**If (2) is the real concern**, the actual fix is a different output
+format entirely (e.g. something that opens in Word rather than a browser)
+— but CLAUDE.md already records that PDF and EML were both tried and
+dropped for this app, so that trade-off would need revisiting deliberately
+rather than assumed.
+
+**Recommendation when this is picked up:** do (1) — cheap, consistent with
+how the logo is already embedded, and a real (if partial) improvement.
+Confirm with Ben whether that's the perception problem he's solving, or
+whether it's actually the pre-open attachment icon, before spending any
+more time on this.
+
+---
+
 <!-- Add new ideas above this line. -->
