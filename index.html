@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v61">
+<meta name="build" content="v62">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -140,6 +140,10 @@ h2{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;
   color:var(--ink-3);margin:28px 0 10px;padding-bottom:0}
 label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .hint{font-size:11.5px;color:var(--ink-3);margin:6px 0;line-height:1.5}
+.bullet-btn{padding:8px 14px;border:1px solid var(--edge);border-radius:var(--r-pill);
+  background:var(--surface);color:var(--ink-2);font-size:13px;font-weight:600;
+  cursor:pointer;margin-top:6px;min-height:40px}
+.bullet-btn:active{background:var(--sunk)}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
 .stat b{color:var(--ink);font-weight:700}
 .empty{color:var(--ink-3);font-size:12.5px;padding:14px 2px}
@@ -1741,7 +1745,9 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <h2>General comments</h2>
   <div class="fld">
     <textarea id="bComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>
-    <p class="hint">Prints in bold on the report.</p>
+    <button type="button" class="bullet-btn" id="bCommentBullet">Insert bullet &bull;</button>
+    <p class="hint">Prints in bold on the report. A blank line starts a new paragraph; a line
+      starting with - or &bull; becomes a bullet list.</p>
   </div>
 
   <!-- Quote requests only. Quantity is derived on a site call and is the thing
@@ -1858,7 +1864,9 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <div class="fld">
     <label>General comments</label>
     <textarea id="hComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>
-    <p class="hint">Prints in bold on the report.</p>
+    <button type="button" class="bullet-btn" id="hCommentBullet">Insert bullet &bull;</button>
+    <p class="hint">Prints in bold on the report. A blank line starts a new paragraph; a line
+      starting with - or &bull; becomes a bullet list.</p>
   </div>
   <button class="big" id="hSave" hidden>Add fault</button>
   <button class="big backcall">Done</button>

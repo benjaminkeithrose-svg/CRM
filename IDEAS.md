@@ -6,8 +6,8 @@ doesn't change until an idea here is turned into real work in `index.html`,
 
 ---
 
-## Open: Neater comment fields — line breaks, bullets, speech-to-text
-*Added 2026-09-24*
+## Built (v62): Neater comment fields — line breaks, bullets
+*Added 2026-09-24, built 2026-09-25*
 
 **The ask:** The "General comments" field on the belt call and health-check
 forms needs to read like real meeting notes — line breaks or bullet points,
@@ -54,14 +54,38 @@ phone.
 3. If (1) already covers it, (2) would just duplicate a feature the
    keyboard gives for free, and probably isn't worth building.
 
-**Recommendation when this is picked up:** test both (1) options on the
-phone first — this may turn out to need little or no code. Then decide
-whether the bullet handling (3/4) and an in-app mic (2) are worth doing.
+**What was built (options 2 + 3 + 4 from above):**
+- `commentHTML()` in `app.js` now treats a blank line as a paragraph break
+  (each becomes its own `<p>`), and a line starting with `-`, `*` or `•`
+  as a bullet, rendered as a real `<ul><li>` rather than a flat `<br>`
+  run. Text and bullets can mix within one comment.
+- Both comment fields (`bComment` on the belt form, `hComment` on the
+  health-check form) got an "Insert bullet •" button that drops a bullet
+  character onto a new line at the cursor, for typing lists on a phone
+  keyboard without hunting for the `•` character.
+- The field itself is still a plain `<textarea>` — no rich-text editor —
+  so this is all in how the compiled output reads the plain text back,
+  same approach as the existing line-break handling.
+
+**Not built — speech-to-text (option 1 stands, options 2/3 dropped):**
+The Samsung Keyboard / Gboard microphone already works in any text field
+including these two, for free, with no app change. An in-app mic button
+(the Web Speech API) was not built because it typically needs an internet
+connection on Android, which fights this app's offline design, and would
+just duplicate what the keyboard already gives for nothing. If dictation
+via the keyboard turns out not to work well enough in practice, revisit
+this as a new idea with that specific problem named, rather than the
+mic button being built pre-emptively.
+
+**Verification:** headless jsdom script exercising `commentHTML()` directly
+(paragraph breaks, bullet lists, mixed content, escaping, empty input) and
+the bullet button's DOM behaviour. Not tested on a phone — the on-screen
+keyboard, dictation, and touch target feel all need that.
 
 ---
 
-## Open: Brand the saved output HTML with the app icon
-*Added 2026-09-25*
+## Built (v62): Brand the saved output HTML with the app icon
+*Added 2026-09-25, built 2026-09-25*
 
 **The ask:** Have the compiled call notes / RFQ HTML files carry the same
 icon as the app (the Intralox Call Log icon), so they look less "dodgy"
@@ -100,11 +124,24 @@ format entirely (e.g. something that opens in Word rather than a browser)
 dropped for this app, so that trade-off would need revisiting deliberately
 rather than assumed.
 
-**Recommendation when this is picked up:** do (1) — cheap, consistent with
-how the logo is already embedded, and a real (if partial) improvement.
-Confirm with Ben whether that's the perception problem he's solving, or
-whether it's actually the pre-open attachment icon, before spending any
-more time on this.
+**What was built (option 1 only, as recommended):** a 32×32 favicon
+generated from `icon-192.png`, embedded as inline base64 (`NOTES_FAVICON`
+in `app.js`) and added via `<link rel="icon">` to both output builders'
+`<head>` — the compiled call notes and the RFQ document. The tab now shows
+the app icon once the file is opened, same technique as the existing
+inline letterhead logo.
+
+**Still true, not built, and not fixable from inside the file:** the icon
+shown on the file itself before it's opened (Explorer, an Outlook
+attachment list, the Android share sheet) is controlled by the OS's
+`.html` file association, not by anything in the file. If that turns out
+to be the actual "looks dodgy" problem, this idea doesn't solve it — see
+option 2 above for why, and CLAUDE.md's known issues for the output-format
+trade-offs already ruled out (PDF, EML).
+
+**Verification:** headless jsdom script confirming both `buildNotesHTML()`
+and `buildRFQHTML()` output include the `<link rel="icon">` tag. Not
+checked in an actual browser tab or on a phone.
 
 ---
 
