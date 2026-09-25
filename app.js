@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v60';
+const APP_BUILD = 'v61';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -6031,6 +6031,11 @@ function onStyle(){
 function onMaterial(){
   renderColourChips();
   runWidthCheck();
+  /* A loaded belt marks the flight material touched so the load doesn't clobber
+     it, but picking a different belt material here means it's due to follow the
+     new choice again - onMaterial only ever fires from a chip click, never
+     during a programmatic load, so this can't undo the load-time protection. */
+  flMatTouched = false; $('bFlMatAuto').classList.remove('off');
   syncFlightMaterial();
 }
 function setCascade(s, st, m, c){
@@ -6138,6 +6143,19 @@ function sprVariant(){
   return sel.options.length ? sel.options[0].value : '';
 }
 let sprDescTouched = false, sprPnTouched = false, sprDriveTouched = false, sprIdleTouched = false;
+/* Reopening a logged belt marks the description and part number touched so the
+   load itself doesn't clobber them (see fillBeltFromEntry). But a deliberate
+   change to the bore, pitch diameter, material or variant afterwards means the
+   sprocket picked is a different one, so the old description and part number
+   are wrong, not just stale - they must be free to recompute again. */
+function resetSprMatch(){
+  sprDescTouched = false; sprPnTouched = false;
+  /* Clear rather than leave the old sprocket's description/part number on
+     screen until a full new bore+pd+material match is found - a stale value
+     sitting there looking valid is exactly what caused the confusion. */
+  $('bSprDesc').value = ''; $('bSprPn').value = '';
+  $('bSprDescAuto').classList.remove('off'); $('bSprPnAuto').classList.remove('off');
+}
 function matchSprocket(){
   const b = $('bSprBore').value, p = $('bSprPd').value, m = $('bSprMat').value;
   if(!b || !p || !m) return;
@@ -6264,11 +6282,20 @@ let flightType, sgType, indentValue;
 serSel().addEventListener('change', onSeries);
 stySel().addEventListener('change', onStyle);
 $('bWidth').addEventListener('input', () => { runWidthCheck(); runFrameCheck(); updateSprQty(); });
+/* Same reasoning as resetSprMatch: a loaded belt marks the drive/idle quantity
+   touched so the load doesn't clobber it, but a committed width change means the
+   =ODD(width/152) count is due to recompute. Fires on change (blur/enter), not
+   every keystroke, so a same-session manual override survives a typo correction. */
+$('bWidth').addEventListener('change', () => {
+  sprDriveTouched = false; sprIdleTouched = false;
+  $('bSprDrvAuto').classList.remove('off'); $('bSprIdlAuto').classList.remove('off');
+  updateSprQty();
+});
 $('bFrame').addEventListener('input', runFrameCheck);
-$('bSprBore').addEventListener('change', () => onSprBore());
-$('bSprPd').addEventListener('change', onSprPd);
-$('bSprMat').addEventListener('change', onSprMat);
-$('bSprVar').addEventListener('change', matchSprocket);
+$('bSprBore').addEventListener('change', () => { resetSprMatch(); onSprBore(); });
+$('bSprPd').addEventListener('change', () => { resetSprMatch(); onSprPd(); });
+$('bSprMat').addEventListener('change', () => { resetSprMatch(); onSprMat(); });
+$('bSprVar').addEventListener('change', () => { resetSprMatch(); matchSprocket(); });
 $('bSprDesc').addEventListener('input', () => { sprDescTouched = true; $('bSprDescAuto').classList.add('off'); });
 $('bSprPn').addEventListener('input', () => { sprPnTouched = true; $('bSprPnAuto').classList.add('off'); });
 $('bSprDrive').addEventListener('input', () => { sprDriveTouched = true; $('bSprDrvAuto').classList.add('off'); });

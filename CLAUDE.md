@@ -155,3 +155,13 @@ he sees the new build.
   back button is hierarchical via `PARENT`. Deliberate — he does not use gestures.
 - SheetJS is still loaded from a CDN. If first load fails and the phone goes
   offline, import will not work until jsDelivr is reachable once.
+- Reopening a saved belt whose flight material differs from its belt material
+  can fail to restore it: `fillBeltFromEntry()` sets `bSprMat`'s value directly
+  as an option, but `bFlMat` is a `<select>` and `syncFlightMaterial()` (run
+  earlier in the same reload, via the cascade) only ever adds an `<option>` for
+  the *current* belt material, not the saved flight material. If they differ,
+  the direct `.value =` assignment silently no-ops and the field falls back to
+  matching the belt material instead of the value that was actually saved.
+  Found while fixing the sprocket/flight "touched" staleness bug below; not
+  fixed, since it's a different kind of bug (a missing `<option>`, not a stale
+  flag) and belt material and flight material differing is presumably rare.
