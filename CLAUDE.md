@@ -48,10 +48,21 @@ work from a copy of a file anywhere other than this checkout.
 is not bumped, Ben tests the old build on his phone and reports a fix as broken —
 the single most likely source of confusion after an update.
 
-**No customer data in the repo, ever.** The repo is public on GitHub Pages.
-Account names, contacts and CRM exports are loaded manually on each device. The
-app is meant to be handed to colleagues who load their own. `.gitignore` blocks
-spreadsheets as a backstop; do not rely on it.
+**No customer data in the repo, ever.** The repo is public on GitHub Pages —
+and GitHub Pages serves whatever it's given publicly regardless of whether the
+source repo itself is public or private, so making the repo private would not
+change this. Account names, contacts and CRM exports are loaded manually on
+each device. The app is meant to be handed to colleagues who load their own.
+`.gitignore` blocks spreadsheets as a backstop; do not rely on it.
+
+**The belt/sprocket product catalogue is not in this repo either**, for the
+same public-Pages reason, even though it isn't customer data — it's Intralox's
+own part numbers. It rides the same private GitHub repository and token
+already used for appointment sync (`GH` in `app.js`), under its own path next
+to `exchange/appointments.json`. See `pullBeltRefGh()`/`pushBeltRefGh()`. Pull
+and push are both deliberate button presses, same as every other sync in this
+app, except a one-off automatic pull on a device that has no belt data loaded
+at all yet.
 
 **Storage is promise-gated.** `openDB()` returns a cached promise and clears
 itself on failure so the next call retries. Every store operation awaits it. Never

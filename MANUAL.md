@@ -61,6 +61,8 @@ You'll get a short report: how many accounts and contacts came in, how many are 
 
 It takes a few seconds and the app will sit still while it reads. Leave the screen on.
 
+If you've already set up GitHub sync (below) on another device and pushed the belt data from there, you can instead tap **Pull belt reference data** under **Exchange** to bring it down that way — no workbook needed on this device.
+
 **Optionally, load the engineering manuals.** Under **Engineering manuals**, pick a PDF and tap **Import engineering manual**. One at a time, several minutes each, screen left on — every page becomes an image so it works with no reception. Then **Manuals** on the home screen searches them by series or by any term.
 
 These are stored separately from the Belt Call Log's copy, so loading them here doesn't touch that app. It also means you load them once for each.
@@ -141,6 +143,8 @@ Do the same on the other device with the same details. After that, one tap on ea
 **What goes to GitHub:** an account key, the date, time, duration, which contacts you listed as numbers, the status, and your agenda line.
 
 **What never goes:** account names, contact names, phone numbers, emails, call notes, photos. The account is sent as a key, and each device looks the name up in its own copy of the CRM export. If a key doesn't match anything, the app says so instead of guessing.
+
+**The same private repository also carries the belt reference data,** under its own file next to the appointments one. After importing a newer `Plant_Audit_Template_1.xlsm` on one device, tap **Push belt reference data** so the others can tap **Pull belt reference data** and pick it up — nothing here happens automatically except a one-off pull on a device that has no belt data at all yet. This keeps the catalogue, including sprocket part numbers, out of the public app repository entirely.
 
 The agenda is the one field you type into, so it's the one thing that will be readable in the repository. Write it like a subject line.
 
