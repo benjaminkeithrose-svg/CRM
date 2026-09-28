@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v62';
+const APP_BUILD = 'v63';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1103,6 +1103,9 @@ async function loadAccounts(){
   indexAccounts(await accAll());
   APPTS = await apptsAll();
   REF = await kvGet('beltref') || null;
+  if(!REF && ghReady() && navigator.onLine){
+    try { await pullBeltRefGh(); } catch(e){ console.warn('belt reference auto-pull', e); }
+  }
   ASSETS = await kvGet('assets') || null;
   await loadUse();
   WEEKS = await kvGet('weeks') || {};
@@ -4501,6 +4504,7 @@ function renderGh(){
   el.innerHTML = bits.join('<br>');
   $('ghSync').disabled = !ghReady();
   $('ghTest').disabled = !ghReady();
+  renderGhBeltStat();
 }
 ['ghOwner','ghRepo','ghBranch','ghPath','ghToken'].forEach(id => {
   const f = $(id);
@@ -8464,6 +8468,67 @@ async function blobToB64(blob){
   }
   return btoa(bin);
 }
+
+/* ================= belt reference sync =================
+   The belt/sprocket catalogue (including part numbers) is Intralox product
+   data, not something to ship in this app's public repo - GitHub Pages
+   serves it to anyone regardless of whether the source repo is public or
+   private. Instead it rides the same private repository and token already
+   set up for appointment sync, under its own path alongside
+   exchange/appointments.json. Deliberately manual, like every other sync in
+   this app - nothing here runs on its own except the one-time pull below,
+   which only fires when a device has no belt reference data at all yet. */
+function beltRefGhPath(){ return ghPathFor('beltref.json'); }
+
+async function pullBeltRefGh(){
+  if(!ghReady()) throw new Error('set the repository and token first');
+  const text = await getFile(beltRefGhPath());
+  if(!text) throw new Error('nothing has been pushed to ' + beltRefGhPath() + ' yet');
+  const payload = JSON.parse(text);
+  if(!payload || !Array.isArray(payload.combos) || !payload.combos.length){
+    throw new Error('that file did not look like belt reference data');
+  }
+  await kvSet('beltref', payload);
+  await logLoad(GH.owner+'/'+GH.repo+'/'+beltRefGhPath(), 'beltref',
+    'pulled '+payload.combos.length+' belt combinations, '+payload.sprockets.length+' sprocket rows');
+  REF = payload;
+  renderRefStat(); renderHomeSetup(); buildBeltRef();
+  return 'Pulled '+payload.counts.combos+' belt specs, '+payload.counts.sprockets+' sprockets';
+}
+async function pushBeltRefGh(){
+  if(!ghReady()) throw new Error('set the repository and token first');
+  if(!REF) throw new Error('no belt reference data loaded on this device to push');
+  const ok = await putFile(beltRefGhPath(), b64encode(JSON.stringify(REF)),
+    'Field CRM: belt reference data (' + REF.counts.combos + ' combos, ' + REF.counts.sprockets + ' sprockets)');
+  if(!ok) throw new Error('the file changed while pushing - try again');
+  await logLoad(GH.owner+'/'+GH.repo+'/'+beltRefGhPath(), 'beltref',
+    'pushed '+REF.counts.combos+' belt combinations, '+REF.counts.sprockets+' sprocket rows');
+  return 'Pushed '+REF.counts.combos+' belt specs, '+REF.counts.sprockets+' sprockets';
+}
+function renderGhBeltStat(){
+  const el = $('ghBeltStat');
+  if(!el) return;
+  el.innerHTML = REF
+    ? '<b>'+REF.counts.combos+'</b> belt specs, <b>'+REF.counts.sprockets+'</b> sprockets on this device.'
+    : 'No belt reference data on this device yet.';
+  const pullBtn = $('ghBeltPull'), pushBtn = $('ghBeltPush');
+  if(pullBtn) pullBtn.disabled = !ghReady();
+  if(pushBtn) pushBtn.disabled = !ghReady() || !REF;
+}
+if($('ghBeltPull')) $('ghBeltPull').addEventListener('click', async ()=>{
+  $('ghBeltPull').disabled = true;
+  try { await ghCheckRepo(); toast(await pullBeltRefGh()); }
+  catch(e){ console.error(e); toast('Pull failed: ' + e.message);
+    await logLoad(GH.owner+'/'+GH.repo, 'beltref', e.message, true); }
+  finally { renderGhBeltStat(); }
+});
+if($('ghBeltPush')) $('ghBeltPush').addEventListener('click', async ()=>{
+  $('ghBeltPush').disabled = true;
+  try { await ghCheckRepo(); toast(await pushBeltRefGh()); }
+  catch(e){ console.error(e); toast('Push failed: ' + e.message);
+    await logLoad(GH.owner+'/'+GH.repo, 'beltref', e.message, true); }
+  finally { renderGhBeltStat(); }
+});
 
 /* ================= call sync =================
    Photos go up at 800px rather than the 1400px held on the device. The synced

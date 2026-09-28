@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v62">
+<meta name="build" content="v63">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1152,7 +1152,12 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <p class="stat" id="ghCallStat"></p>
     <button class="big" id="ghCalls">Sync call reports now</button>
     <p class="hint">Sends your calls and their photos to the same private repository, and brings back any written on the other device &mdash; so a report written on the phone can be reviewed on the PC. Photos go up at a reduced size, readable on screen but much smaller; the device that took them keeps the originals. <b>This does send account names, contact names and call notes</b>, unlike the appointment sync above. Anything pushed stays in the repository's history even after it is deleted.</p>
-    
+    <div class="gap"></div>
+    <label>Belt reference data</label>
+    <p class="stat" id="ghBeltStat"></p>
+    <button class="ghost" id="ghBeltPull">Pull belt reference data</button>
+    <button class="ghost" id="ghBeltPush">Push belt reference data</button>
+    <p class="hint">The belt/sprocket product catalogue, over this same private repository &mdash; not the public app itself. Push it here after importing a newer workbook under <b>Belt reference data</b> below, so other devices can pull it. Neither happens automatically, except a one-off pull on a device that has no belt data loaded yet at all.</p>
   </div>
 
   <div class="fld">

@@ -145,4 +145,47 @@ checked in an actual browser tab or on a phone.
 
 ---
 
+## Open: Photo-to-belt-spec from a hand-filled paper sheet
+*Added 2026-09-28*
+
+**The ask:** Ben often works from paper — a hand-written spec, or a printed
+table with cells filled in by hand. Wants to photograph it and have Field
+CRM translate it into a belt spec on the form, to check over before sending
+a quote request or call report.
+
+**What already exists to build on:** the app already captures photos fully
+offline today (belt/health-check photos go straight into IndexedDB as
+blobs, no network needed) — the "take a picture" half of this is solved.
+What's new is "read the photo and fill in fields."
+
+**The real trade-off, not a small one:** printed, hand-filled tables might
+work reasonably with on-device OCR (there's precedent — SheetJS is already
+loaded from a CDN for spreadsheet parsing, so a similar offline-capable OCR
+library isn't a structural stretch). Free-hand handwriting is a different
+problem: on-device OCR is poor at it, and the only realistic way to get
+usable accuracy is sending the photo to a cloud AI vision service. That
+breaks two things this app currently is:
+- **Fully offline** — a cloud call needs a live connection at the moment
+  it's used. Workable if the photo can be taken offline and processed
+  later when back in signal (the app already defers other things similarly
+  in spirit, e.g. sync), but not instant in the field with no reception.
+- **Free to run** — nothing else in this app has an ongoing per-use cost or
+  needs an API key. A cloud vision call would be the first thing that does,
+  which is a real decision (who pays, how the key is kept out of a public
+  GitHub Pages repo) not a coding detail.
+
+**Recommended shape when this is picked up:** never trust the result blind.
+Snap the photo, send it off when next online, pre-fill the belt form
+fields from what comes back, leave every field editable, and let Ben check
+and correct before saving or sending — matches what he asked for ("so I
+can check it before sending"), and means imperfect handwriting recognition
+is a rough first draft, not a silent error.
+
+**Not investigated yet:** which cloud vision service, cost per call at his
+likely volume, and exactly where an API key would live for a static,
+no-backend GitHub Pages app (probably needs a small proxy of some kind,
+which is new infrastructure this project has never had before).
+
+---
+
 <!-- Add new ideas above this line. -->
