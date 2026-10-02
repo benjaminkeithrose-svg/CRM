@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v63">
+<meta name="build" content="v64">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -730,7 +730,15 @@ body.planning{padding-bottom:0}
    already downloaded, cyan not yet, orange edited since. Focus stays visible as
    the dot beside the name. */
 .appt{border-left:3px solid var(--cyan);background:var(--sunk);border-radius:0 var(--r) var(--r) 0;
-  padding:5px 7px;cursor:grab;font-size:11.5px}
+  padding:5px 7px;cursor:grab;font-size:11.5px;position:relative}
+/* Sits over the card rather than reserving space for it - the time/name text
+   already ellipsizes, and a 25-minute call is only 20px tall to begin with. */
+.appt .del{position:absolute;top:2px;right:2px;width:16px;height:16px;padding:0;
+  border:0;background:transparent;color:var(--ink-3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:3px}
+.appt .del .ic{width:11px;height:11px}
+.appt .del:active{background:var(--red-soft);color:var(--warn)}
+.dbody.hours .appt.tiny .del{top:50%;transform:translateY(-50%)}
 .appt .t{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:11px;display:flex;align-items:center;gap:5px}
 .appt .a{font-weight:600;line-height:1.25;display:flex;gap:5px;align-items:baseline}
 .appt .k{color:var(--ink-3);font-size:10.5px}
