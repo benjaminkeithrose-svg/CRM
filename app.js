@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v63';
+const APP_BUILD = 'v65';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1903,6 +1903,12 @@ function makeDraggableAppt(el, ap){
   }
   el.addEventListener('pointerdown', e => {
     if(e.button != null && e.button !== 0) return;
+    /* A mouse pointerdown on the delete button starts a drag before the click
+       ever reaches it - setPointerCapture() below grabs every event after
+       this one for the whole card. A touch hold is slow enough (450ms) that a
+       tap never reaches that point, which is why this only showed up testing
+       with a mouse, not the phone this is actually built for. */
+    if(e.target.closest('.del')) return;
     if(coarse){
       /* Half a second before it lifts. Short enough not to feel slow, long
          enough that a scroll never picks a call up. */
@@ -2055,10 +2061,17 @@ function apptEl(ap, pill){
   el.draggable = true; el.tabIndex = 0;
   const stTip = ST_LABEL[st] + (ap.expAt ? ' \u00b7 last downloaded '+new Date(ap.expAt).toLocaleString() : '');
   if(pill){
-    el.textContent = ap.start+' '+ap.acct;
+    el.innerHTML = '<span class="pt"></span>'+
+                   '<button type="button" class="del" aria-label="Delete" title="Delete">'+icon('trash')+'</button>';
+    el.querySelector('.pt').textContent = ap.start+' '+ap.acct;
     el.title = apptTitle(ap)+'\n'+stTip;
+    el.querySelector('.del').addEventListener('click', e=>{
+      e.stopPropagation();
+      deleteApptQuick(ap).catch(err=>{ console.error(err); toast('Could not delete: '+err.message); });
+    });
   } else {
-    el.innerHTML = '<div class="t"><i class="stx"></i><span></span></div>'+
+    el.innerHTML = '<button type="button" class="del" aria-label="Delete" title="Delete">'+icon('trash')+'</button>'+
+                   '<div class="t"><i class="stx"></i><span></span></div>'+
                    '<div class="a"><i class="fd"></i><span></span></div><div class="k"></div>';
     el.querySelector('.t span').textContent = ap.start+' \u00b7 '+ap.dur+' min';
     const fd = el.querySelector('.fd');
@@ -2068,6 +2081,13 @@ function apptEl(ap, pill){
     el.querySelector('.k').textContent = (ap.unplanned ? 'unplanned \u00b7 ' : '')+
       ST_SHORT[st]+' \u00b7 '+ap.type+(a ? ' \u00b7 '+(a.sub||'no suburb') : '');
     el.title = stTip;
+    /* Deleting used to mean opening the dialog just to find the delete button
+       inside it. This skips straight there - stopPropagation so the tap
+       doesn't also open the dialog underneath it. */
+    el.querySelector('.del').addEventListener('click', e=>{
+      e.stopPropagation();
+      deleteApptQuick(ap).catch(err=>{ console.error(err); toast('Could not delete: '+err.message); });
+    });
   }
   el.addEventListener('dragstart', e=>{
     e.dataTransfer.setData('text/plain', JSON.stringify({kind:'appt', id:ap.id}));
@@ -2078,6 +2098,12 @@ function apptEl(ap, pill){
   el.addEventListener('click', e=>{ e.stopPropagation(); openDialog(ap.id); });
   el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.stopPropagation(); openDialog(ap.id); } });
   return el;
+}
+async function deleteApptQuick(ap){
+  if(!confirm('Delete '+apptTitle(ap)+' on '+ap.date+'?')) return;
+  await apptsDel(ap.id);
+  APPTS = APPTS.filter(x => x.id !== ap.id);
+  renderPlan();
 }
 function makeDrop(el, k){
   el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('over'); });
