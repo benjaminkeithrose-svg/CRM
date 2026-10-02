@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v64';
+const APP_BUILD = 'v65';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2061,8 +2061,14 @@ function apptEl(ap, pill){
   el.draggable = true; el.tabIndex = 0;
   const stTip = ST_LABEL[st] + (ap.expAt ? ' \u00b7 last downloaded '+new Date(ap.expAt).toLocaleString() : '');
   if(pill){
-    el.textContent = ap.start+' '+ap.acct;
+    el.innerHTML = '<span class="pt"></span>'+
+                   '<button type="button" class="del" aria-label="Delete" title="Delete">'+icon('trash')+'</button>';
+    el.querySelector('.pt').textContent = ap.start+' '+ap.acct;
     el.title = apptTitle(ap)+'\n'+stTip;
+    el.querySelector('.del').addEventListener('click', e=>{
+      e.stopPropagation();
+      deleteApptQuick(ap).catch(err=>{ console.error(err); toast('Could not delete: '+err.message); });
+    });
   } else {
     el.innerHTML = '<button type="button" class="del" aria-label="Delete" title="Delete">'+icon('trash')+'</button>'+
                    '<div class="t"><i class="stx"></i><span></span></div>'+
