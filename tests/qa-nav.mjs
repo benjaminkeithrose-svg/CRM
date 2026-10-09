@@ -60,10 +60,23 @@ $('hdMenu').click();
 t('home button works from inside a call', g('screen') === 'home');
 t('the call is still open after going home', g('call') !== null);
 w.showScreen('home');
-// v78: on Home the right-hand button is the ⋯ menu, and it opens Settings
-t('on Home the right-hand button is the Settings menu', $('hdMenu').style.display !== 'none' && $('hdMenu').getAttribute('aria-label') === 'Settings, data and backup');
+// v85: on Home the right-hand button is the ⋯ menu: Settings and Help
+t('on Home the right-hand button is the Settings and Help menu', $('hdMenu').style.display !== 'none' && $('hdMenu').getAttribute('aria-label') === 'Settings and help');
 $('hdMenu').click();
-t('the ⋯ menu opens Settings', g('screen') === 'settings');
+t('the ⋯ menu offers Settings and Help',
+  $('vmdlg').hasAttribute('open') && [...$('vmBody').querySelectorAll('button')].map(b => b.textContent.trim()).join() === 'Settings,Help');
+[...$('vmBody').querySelectorAll('button')].find(b => /Settings/.test(b.textContent)).click();
+t('Settings opens Settings', g('screen') === 'settings' && !$('vmdlg').hasAttribute('open'));
+w.showScreen('home');
+$('hdMenu').click();
+[...$('vmBody').querySelectorAll('button')].find(b => /Help/.test(b.textContent)).click();
+t('Help opens Help', g('screen') === 'help' && $('title').textContent === 'Help');
+t('Help has Getting started and How do I…',
+  [...$('s-help').querySelectorAll('h2')].map(h => h.textContent).join('|') === 'Getting started|How do I\u2026');
+const hx = [...$('s-help').querySelectorAll('details.hx')];
+t('every help section starts closed', hx.length >= 20 && hx.every(x => !x.open), hx.length);
+t('every section has a title and a line under it', hx.every(x => x.querySelector('summary b').textContent && x.querySelector('summary .sxs').textContent));
+t('back from Help goes Home', (w.eval("parentOf('help')")) === 'home');
 w.showScreen('home');
 t('back button hides on home', $('back').style.display === 'none');
 
