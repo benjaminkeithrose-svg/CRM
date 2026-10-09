@@ -123,8 +123,8 @@ removed in Step 7, after the new sync has been used for real.
 
 ### Step 0 — Ben's setup (no code)
 
-1. **Decide the policy question first** (see Open decisions, 1). If Intralox
-   would not accept encrypted customer data held by Supabase, stop here.
+1. ~~Decide the policy question first.~~ Done — Ben's decision is to go
+   ahead (Decisions, 1).
 2. Create a Supabase account and one project. **Choose the Sydney region**
    (`ap-southeast-2`) when creating it — it cannot be changed afterwards, and
    it keeps data in Australia and the app fast.
@@ -231,11 +231,11 @@ anything.
 and sent as readable text to Anthropic's API. It is one note, when you press
 the button, never automatic — but it is the one place in this plan where
 call-note text leaves your devices unencrypted. Intralox may want to know
-that (Open decisions, 1).
+that (Decisions, 1).
 
-Cost depends on the model — your choice (Open decisions, 3). For a typical
-note (about 1,000 tokens in, including instructions, and 600 out — roughly
-750 and 450 words):
+**Model: Claude Haiku 5.5** (Ben's choice, 2026-10-09). Both options as they
+were costed, for a typical note (about 1,000 tokens in, including
+instructions, and 600 out — roughly 750 and 450 words):
 
 | Model | Per note | 110 notes a month (5 a working day) |
 |---|---|---|
@@ -252,10 +252,33 @@ subscription. Edge Function calls themselves are within the free tier.
 
 - **Colleagues:** invite flow, a team in the access rules, and a shared data
   key for the team, locked separately for each person. Who sees what needs
-  deciding first (Open decisions, 5).
+  deciding first (Decisions, 5).
 - **Tasks, emails, saved notes, not-stocked products** (the "one app" entry
   in `IDEAS.md`) become new record kinds on this same sync — no separate
   sync to build. They can come before colleagues if you'd rather.
+
+### Step 10 — Photo archive
+
+Ben's request (2026-10-09), so photo storage doesn't fill up. At about 50
+photos a week the free 1 GB lasts roughly one to two years, so this is
+needed within a year of Step 5, not before.
+
+Proposed shape, to be confirmed with Ben before it's built:
+- On the PC, choose "Archive calls older than…" (for example 12 months).
+- The full-size photos for those calls are downloaded and saved to a folder
+  on the PC — decrypted, as ordinary image files, named by account and date
+  so they're findable without the app.
+- Only after the PC confirms every file is saved, those photos are removed
+  from Supabase storage. A small thumbnail stays in the cloud so the call
+  still shows something, marked "full size archived on PC".
+- The phone also drops its full-size local copies of archived photos, so
+  phone storage doesn't keep growing either.
+- Call text, notes and everything else stay in the database — archiving is
+  photos only, since the photos are what take the space.
+
+**Open before building:** archive age (12 months?); whether thumbnails are
+worth keeping in the cloud; where on the PC the folder should live (a
+OneDrive folder would give it a backup for free).
 
 ---
 
@@ -297,33 +320,39 @@ messages a month, 2 projects):
 | Download 5 GB/month | photos fetched only when a call is opened on the PC | Comfortable |
 | Realtime, functions, users | — | Nowhere near |
 
-So photos are what will eventually outgrow free. When that happens the
-options are the paid plan (check its current price), or moving older photos
-off to other storage. Nothing stops working without warning — Supabase's
-dashboard shows usage against each limit. (Open decisions, 4 asks how many
-photos you take, to put a date on it.)
+So photos are what will eventually outgrow free. At Ben's figure of about
+50 photos a week, that's **roughly one to two years** after Step 5. The
+answer chosen is the photo archive (Step 10); the paid plan remains the
+fallback. Nothing stops working without warning — Supabase's dashboard
+shows usage against each limit.
 
 ---
 
-## Open decisions for Ben
+## Decisions
 
-1. **Policy.** Is Intralox OK with customer data — names, contacts, call
-   notes, photos — held by Supabase in Sydney, encrypted so Supabase cannot
-   read it? And with individual notes going to Anthropic's API when you ask
-   for a tidy-up? For context: call-report sync already sends customer
-   names and notes, *unencrypted*, to your private GitHub repo today, so
-   this plan is strictly safer than what exists now.
-2. **Sign-in:** email and password (recommended), or a one-time code by
-   email each time a device signs in?
-3. **AI model for note clean-up:** Claude Opus 5.5 (about $2 a month at your
-   volume) or Claude Haiku 5.5 (about 5 cents a month)? Can be changed later.
-4. **Photo volume:** roughly how many photos a week? Sets when the 1 GB
-   storage limit arrives.
-5. **When colleagues join** (not needed now — only to keep the design
-   honest): does each person's call reports stay private to them, with
-   accounts and the belt catalogue shared across the team?
-6. **Passphrase custody:** password manager is the recommendation. Any
-   reason that won't work for you?
+**Answered 2026-10-09:**
+
+1. **Policy.** Ben has not checked with Intralox IT. His decision: go ahead,
+   because this is a safer option than what exists today — call-report sync
+   already sends customer names and notes, *unencrypted*, to the private
+   GitHub repo, and this plan encrypts them. (Recorded as his call. If IT
+   ever asks, the "What this protects against" section above is the answer
+   to give them, along with the one exception in Step 8.)
+2. **Sign-in:** email and password.
+3. **AI model for note clean-up:** Claude Haiku 5.5 (about 5 cents a month at
+   his volume).
+4. **Photo volume:** about 50 photos a week. At roughly 200–350 KB each that
+   is 10–17 MB a week, so the free 1 GB of file storage lasts **roughly one
+   to two years**. Ben asked for an archive feature to deal with that —
+   added as Step 10.
+
+**Still open, not needed before Step 1:**
+
+5. **When colleagues join:** does each person's call reports stay private to
+   them, with accounts and the belt catalogue shared across the team?
+   (Needed before Step 9 only.)
+6. **Passphrase custody:** password manager is the recommendation. (Needed
+   before Step 3.)
 
 ---
 
