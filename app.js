@@ -927,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v86';
+const APP_BUILD = 'v87';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1934,7 +1934,7 @@ function topFor(ap){ return (minOf(ap.start) - DAY_FROM * 60) * PX_MIN; }
 function fitDayHours(dayKeys){
   let from = 7 * 60, to = 17 * 60;
   for(const k of dayKeys){
-    for(const x of apptsOn(k).concat(tasksOn(k))){
+    for(const x of apptsOn(k).concat(tasksOn(k), quotesOn(k))){
       const m = minOf(x.start);
       from = Math.min(from, m);
       to = Math.max(to, m + (x.dur || TASK_DUR));
@@ -2029,6 +2029,7 @@ function makeDraggableAppt(el, ap, save){
 }
 
 function renderCalendar(){
+  renderKinds();
   const body = $('calBody'), TODAY = todayISOdate();
   body.innerHTML = '';
   const openTasks = TASKS.filter(t => !t.done).length;
@@ -2064,7 +2065,7 @@ function renderCalendar(){
         ln.style.top = ((hgt - DAY_FROM) * 60 * PX_MIN) + 'px';
         b.appendChild(ln);
       }
-      apptsOn(k).forEach(ap => {
+      (showKind('visit') ? apptsOn(k) : []).forEach(ap => {
         const el = apptEl(ap, false);
         const start = minOf(ap.start);
         const out = start < DAY_FROM * 60 || start >= DAY_TO * 60;
@@ -2085,7 +2086,7 @@ function renderCalendar(){
         makeDraggableAppt(el, ap);
         b.appendChild(el);
       });
-      tasksOn(k).forEach(t => {
+      (showKind('task') ? tasksOn(k) : []).forEach(t => {
         const el = taskEl(t, false);
         el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(t))) + 'px';
         el.style.height = Math.max(18, TASK_DUR * PX_MIN) + 'px';
@@ -2094,7 +2095,7 @@ function renderCalendar(){
         b.appendChild(el);
       });
       // quote requests sit where they were made; they do not move
-      quotesOn(k).forEach(q => {
+      (showKind('quote') ? quotesOn(k) : []).forEach(q => {
         const el = quoteEl(q, false);
         el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(q))) + 'px';
         el.style.height = Math.max(18, TASK_DUR * PX_MIN) + 'px';
@@ -2134,9 +2135,9 @@ function renderCalendar(){
         const cell = document.createElement('div');
         cell.className = 'mcell' + (d.getMonth()!==m ? ' out' : '') + (k===TODAY ? ' today' : '');
         cell.innerHTML = '<div class="n">'+d.getDate()+'</div>';
-        apptsOn(k).forEach(ap => cell.appendChild(apptEl(ap,true)));
-        tasksOn(k).forEach(t => cell.appendChild(taskEl(t,true)));
-        quotesOn(k).forEach(q => cell.appendChild(quoteEl(q,true)));
+        if(showKind('visit')) apptsOn(k).forEach(ap => cell.appendChild(apptEl(ap,true)));
+        if(showKind('task')) tasksOn(k).forEach(t => cell.appendChild(taskEl(t,true)));
+        if(showKind('quote')) quotesOn(k).forEach(q => cell.appendChild(quoteEl(q,true)));
         cell.addEventListener('dblclick', ()=>openDialog(null, {date:k}));
         makeDrop(cell, k);
         grid.appendChild(cell);
@@ -3281,6 +3282,7 @@ function tvShiftMonth(n){
   renderToday();
 }
 function renderToday(){
+  renderKinds();
   const el = $('tvBody');
   $('tvPlanner').hidden = isPhone();
   if(todayView === 'today') renderTodayList(el);
@@ -3318,9 +3320,9 @@ function taskCard(t){
 }
 // visits and tasks for one day, in time order
 function dayItems(k){
-  return APPTS.filter(a => a.date === k).map(a => ({at: a.start || '', html: visitCard(a)}))
-    .concat(TASKS.filter(x => x.date === k).map(x => ({at: x.start || '', html: taskCard(x)})))
-    .concat(QUOTES.filter(q => q.date === k).map(q => ({at: q.start, html: quoteCard(q)})))
+  return calA().filter(a => a.date === k).map(a => ({at: a.start || '', html: visitCard(a)}))
+    .concat(calT().filter(x => x.date === k).map(x => ({at: x.start || '', html: taskCard(x)})))
+    .concat(calQ().filter(q => q.date === k).map(q => ({at: q.start, html: quoteCard(q)})))
     .sort((a,b) => a.at.localeCompare(b.at)).map(x => x.html).join('');
 }
 const countWords = (v, t, q) => {
@@ -3330,12 +3332,12 @@ const countWords = (v, t, q) => {
 };
 function renderTodayList(el){
   const t = tvDate(), isNow = t === todayISOdate();
-  const mine = APPTS.filter(a => a.date === t).sort((x,y)=>x.start.localeCompare(y.start));
-  const myTasks = TASKS.filter(x => x.date === t);
-  const myQuotes = QUOTES.filter(x => x.date === t);
+  const mine = calA().filter(a => a.date === t).sort((x,y)=>x.start.localeCompare(y.start));
+  const myTasks = calT().filter(x => x.date === t);
+  const myQuotes = calQ().filter(x => x.date === t);
   const mon = iso(startOfWeek(new Date()));
   // earlier in the week, planned and never resolved
-  const late = isNow ? APPTS.filter(a => a.date >= mon && a.date < t && !apSettled(a))
+  const late = isNow ? calA().filter(a => a.date >= mon && a.date < t && !apSettled(a))
     .sort((x,y)=>x.date.localeCompare(y.date) || x.start.localeCompare(y.start)) : [];
 
   const when = isNow ? 'today' : 'on ' + dayLabel(t).toLowerCase();
@@ -3366,11 +3368,11 @@ function renderWeekList(el){
   const mon = tvWeekStart(), t = todayISOdate();
   // Monday to Friday, plus Saturday and Sunday whenever something is on them
   const days = [0,1,2,3,4,5,6].map(i => addDays(mon,i))
-    .filter((d,i) => i < 5 || APPTS.some(a => a.date === iso(d)) || TASKS.some(x => x.date === iso(d)) || QUOTES.some(x => x.date === iso(d)));
+    .filter((d,i) => i < 5 || calA().some(a => a.date === iso(d)) || calT().some(x => x.date === iso(d)) || calQ().some(x => x.date === iso(d)));
   const from = iso(mon), to = iso(addDays(mon,6));
-  const n = APPTS.filter(a => a.date >= from && a.date <= to).length;
-  const nt = TASKS.filter(x => x.date >= from && x.date <= to).length;
-  const nq = QUOTES.filter(x => x.date >= from && x.date <= to).length;
+  const n = calA().filter(a => a.date >= from && a.date <= to).length;
+  const nt = calT().filter(x => x.date >= from && x.date <= to).length;
+  const nq = calQ().filter(x => x.date >= from && x.date <= to).length;
   const thisWk = iso(mon) === iso(startOfWeek(new Date()));
   const wk = thisWk ? 'this week' : 'that week';
   $('tvHint').textContent = (n || nt || nq) ? countWords(n, nt, nq)+' '+wk
@@ -3392,9 +3394,9 @@ function renderMonthGrid(el){
   const first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
   const from = iso(first), to = iso(last), t = todayISOdate();
   const nv = {}, nt = {}, nq = {};
-  APPTS.forEach(a => { if(a.date >= from && a.date <= to) nv[a.date] = (nv[a.date] || 0) + 1; });
-  TASKS.forEach(x => { if(x.date >= from && x.date <= to) nt[x.date] = (nt[x.date] || 0) + 1; });
-  QUOTES.forEach(x => { if(x.date >= from && x.date <= to) nq[x.date] = (nq[x.date] || 0) + 1; });
+  calA().forEach(a => { if(a.date >= from && a.date <= to) nv[a.date] = (nv[a.date] || 0) + 1; });
+  calT().forEach(x => { if(x.date >= from && x.date <= to) nt[x.date] = (nt[x.date] || 0) + 1; });
+  calQ().forEach(x => { if(x.date >= from && x.date <= to) nq[x.date] = (nq[x.date] || 0) + 1; });
   const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
   const v = sum(nv), k = sum(nt), kq = sum(nq);
   $('tvHint').textContent = (v || k || kq) ? countWords(v, k, kq) + ' in ' + MONNM[m]
@@ -4270,6 +4272,80 @@ function quoteCard(q){
       '<div class="vsub">' + ['Quote request', q.belts ? q.belts + ' belt' + (q.belts === 1 ? '' : 's') : '', q.done ? 'done' : ''].filter(Boolean).map(esc).join(' &middot; ') + '</div>' +
     '</button></div>';
 }
+/* ---------- calendar filter and search (v87) ----------
+   All, Visits, Tasks or Quotes, on the PC calendar and the phone's Day, Week
+   and Month alike. Held in memory only: it is back on All every time the app
+   opens, so a filter left on Tasks cannot quietly hide next week's visits. */
+let calKind = 'all';
+const CAL_KINDS = [['all', 'All'], ['visit', 'Visits'], ['task', 'Tasks'], ['quote', 'Quotes']];
+const showKind = k => calKind === 'all' || calKind === k;
+const calA = () => showKind('visit') ? APPTS : [];
+const calT = () => showKind('task') ? TASKS : [];
+const calQ = () => showKind('quote') ? QUOTES : [];
+function renderKinds(){
+  ['tvKinds', 'pKinds'].forEach(id => {
+    const el = $(id);
+    if(!el) return;
+    el.innerHTML = '<div class="chips">' + CAL_KINDS.map(([k, label]) =>
+      '<button type="button" data-kind="' + k + '" aria-pressed="' + (calKind === k) + '"' + (calKind === k ? ' class="on"' : '') + '>' + label + '</button>').join('') +
+      '</div><button type="button" class="tvi" data-calsearch="1" aria-label="Search the calendar" title="Search the calendar">' + icon('search') + '</button>';
+    el.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => {
+      // tap the one that is on again to go back to All
+      calKind = (b.dataset.kind === calKind) ? 'all' : b.dataset.kind;
+      renderKinds();
+      if(screen === 'today') renderToday();
+      if(screen === 'plan') renderCalendar();
+    }));
+    el.querySelector('[data-calsearch]').addEventListener('click', openCalSearch);
+  });
+}
+// one searchable line per calendar item
+function calHay(kind, x){
+  if(kind === 'task') return [x.title, x.type, x.acct, x.contact, x.notes, x.project, x.email].filter(Boolean).join(' ').toLowerCase();
+  if(kind === 'quote') return [x.acct, 'quote request rfq'].join(' ').toLowerCase();
+  const a = ACC_BY_NAME.get(x.acct);
+  const cts = a ? (x.contacts || []).map(i => a.c[i]).filter(Boolean).map(c => c.n) : [];
+  return [x.acct, x.type, x.agenda, a ? a.sub : ''].concat(cts).filter(Boolean).join(' ').toLowerCase();
+}
+function calJump(dISO){
+  if(screen === 'plan'){ plan.view = 'day'; plan.anchor = parseIso(dISO);
+    $('pView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === 'day'));
+    renderCalendar(); return; }
+  tvCursor = dISO; tvSetView('today');
+}
+function openCalSearch(){
+  const what = calKind === 'all' ? 'tasks, visits and quote requests' : CAL_KINDS.find(k => k[0] === calKind)[1].toLowerCase();
+  openSearch({
+    placeholder: 'Search ' + what,
+    render(q, el, hint){
+      const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+      if(!terms.length){ el.innerHTML = ''; hint.textContent = ''; return; }
+      const hit = (kind, x) => terms.every(t => calHay(kind, x).includes(t));
+      const rows = calT().filter(x => hit('task', x)).map(x => ({kind: 'task', x, date: x.date, done: x.done}))
+        .concat(calA().filter(x => hit('visit', x)).map(x => ({kind: 'visit', x, date: x.date, done: apSettled(x)})))
+        .concat(calQ().filter(x => hit('quote', x)).map(x => ({kind: 'quote', x, date: x.date, done: x.done})))
+        // what is still to do first, then the most recent
+        .sort((a, b) => (a.done - b.done) || b.date.localeCompare(a.date));
+      hint.textContent = rows.length ? rows.length + ' found' : 'Nothing matches that.';
+      el.innerHTML = rows.slice(0, 100).map((r, i) => {
+        const x = r.x, label = r.kind === 'task' ? 'Task' : r.kind === 'quote' ? 'Quote request' : (x.type || 'Visit');
+        const name = r.kind === 'task' ? taskTitle(x) : x.acct;
+        const sub = [label, dayLabel(x.date) + (x.start ? ' ' + x.start : ''), r.kind === 'task' ? x.acct : '', r.done ? 'done' : '']
+          .filter(Boolean).map(esc).join(' &middot; ');
+        return '<button type="button" class="fs-acct cal-' + r.kind + (r.done ? ' done' : '') + '" data-fs="' + i + '">' +
+          '<div class="an">' + esc(name) + '</div><div class="am">' + sub + '</div></button>';
+      }).join('') + (rows.length > 100 ? '<p class="hint">' + (rows.length - 100) + ' more \u2014 add another word</p>' : '');
+      el.querySelectorAll('[data-fs]').forEach(b => b.addEventListener('click', () => {
+        const r = rows[+b.dataset.fs];
+        closeSearch();
+        if(r.kind === 'quote'){ openQuote(r.x.id).catch(reportErr); return; }
+        calJump(r.x.date);
+        if(r.kind === 'task') openTask(r.x.id);
+      }));
+    }
+  });
+}
+
 async function openQuote(id){
   const found = (await recordsAll()).find(c => c.id === id);
   if(!found){ toast('That quote request could not be found'); return; }

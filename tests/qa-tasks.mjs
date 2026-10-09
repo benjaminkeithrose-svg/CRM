@@ -305,6 +305,65 @@ ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
   g(`(() => { call = null; showScreen('home'); })()`);
 }
 
+// ---- v87: calendar filter (All / Visits / Tasks / Quotes) and calendar search ----
+{
+  ok(g('calKind') === 'all', 'the filter starts on All');
+  await g(`(async () => { for (const t of [{id: 'tc1', title: 'Book travel to Perth', date: '2026-10-14', start: '15:00', dur: 30, done: false, updated: Date.now()},
+    {id: 'tc2', title: 'Send drawing', acct: 'Acme Pty Ltd - Smithfield', date: '2026-10-20', start: '10:00', dur: 30, done: false, updated: Date.now()}]) {
+    await tasksPut(t); TASKS = TASKS.filter(x => x.id !== t.id).concat([t]); } })()`);
+  const made = new Date(2026, 9, 14, 9, 0).getTime();
+  await g(`(async () => { call = {id: 'q${made}', rectype: QUOTE, type: QUOTE_TYPE, date: '14/10/2026', customer: 'Acme Pty Ltd - Smithfield',
+    contacts: [], entries: [], loose: [], status: 'in progress', closed: false}; await saveCall(); call = null; })()`);
+  g(`(() => { showScreen('today'); tvCursor = '2026-10-14'; todayView = 'today'; renderToday(); })()`); await tick();
+  const chips = [...$('tvKinds').querySelectorAll('[data-kind]')].map(b => b.textContent);
+  ok(chips.join() === 'All,Visits,Tasks,Quotes' && $('tvKinds').querySelector('[data-kind="all"]').classList.contains('on'), 'phone: All, Visits, Tasks, Quotes chips, All on');
+  ok(!!$('tvKinds').querySelector('[data-calsearch] svg'), 'and a search icon at the end of the row');
+  const kinds = () => ({v: $('tvBody').querySelectorAll('.vis:not(.task):not(.quote)').length, t: $('tvBody').querySelectorAll('.vis.task').length, q: $('tvBody').querySelectorAll('.vis.quote').length});
+  const all = kinds();
+  ok(all.v >= 1 && all.t >= 1 && all.q === 1, 'All shows every kind on the 14th: ' + JSON.stringify(all));
+  $('tvKinds').querySelector('[data-kind="task"]').click(); await tick();
+  const onlyT = kinds();
+  ok(onlyT.v === 0 && onlyT.q === 0 && onlyT.t === all.t, 'Tasks shows only tasks: ' + JSON.stringify(onlyT));
+  ok(/task/.test($('tvHint').textContent) && !/visit|quote/.test($('tvHint').textContent), 'and the count says only tasks: ' + $('tvHint').textContent);
+  g(`(() => { todayView = 'month'; renderToday(); })()`); await tick();
+  const c14 = $('tvBody').querySelector('[data-mday="2026-10-14"]');
+  ok(c14.querySelector('.pm-t') && !c14.querySelector('.pm-v') && !c14.querySelector('.pm-q'), 'Month counts follow the filter');
+  g(`(() => { todayView = 'today'; renderToday(); })()`); await tick();
+  $('tvKinds').querySelector('[data-kind="task"]').click(); await tick();
+  ok(g('calKind') === 'all' && kinds().v === all.v, 'tapping Tasks again goes back to All');
+  $('tvKinds').querySelector('[data-kind="quote"]').click(); await tick();
+  ok(kinds().q === 1 && kinds().v === 0 && kinds().t === 0, 'Quotes shows only quote requests');
+  // PC
+  g(`(() => { showScreen('plan'); plan.view = 'week'; plan.anchor = startOfWeek(new Date('2026-10-14T12:00')); renderPlan(); })()`); await tick();
+  ok($('pKinds').querySelector('[data-kind="quote"]').classList.contains('on'), 'PC shows the same filter');
+  ok(d.querySelectorAll('#calBody .appt.quote').length >= 1 && !d.querySelector('#calBody .appt:not(.quote)'), 'PC week shows only quote requests');
+  $('pKinds').querySelector('[data-kind="all"]').click(); await tick();
+  ok(d.querySelector('#calBody .appt.task') && d.querySelector('#calBody .appt:not(.task):not(.quote)'), 'All brings everything back on the PC');
+  // search, tasks only
+  g(`(() => { showScreen('today'); calKind = 'task'; tvCursor = null; todayView = 'week'; renderToday(); })()`); await tick();
+  $('tvKinds').querySelector('[data-calsearch]').click(); await tick();
+  ok($('srchdlg').hasAttribute('open') && $('fsQ').placeholder === 'Search tasks', 'with Tasks on, the search is for tasks: ' + $('fsQ').placeholder);
+  $('fsQ').value = 'perth'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+  ok($('fsHint').textContent === '1 found' && /Book travel to Perth/.test($('fsRes').textContent), 'finds the task: ' + $('fsHint').textContent);
+  $('fsQ').value = 'acme'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+  ok(![...$('fsRes').querySelectorAll('.fs-acct')].some(b => b.classList.contains('cal-visit') || b.classList.contains('cal-quote')), 'and only tasks, even where visits match');
+  $('fsQ').value = 'perth'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+  $('fsRes').querySelector('.fs-acct').click(); await tick();
+  ok(!$('srchdlg').hasAttribute('open') && dlgOpen() && $('tkTitle').value === 'Book travel to Perth', 'tapping it opens the task');
+  ok(g('tvCursor') === '2026-10-14' && g('todayView') === 'today', 'and the calendar is on its day');
+  $('tkOk').click(); await tick(100);
+  // search, everything
+  g(`(() => { calKind = 'all'; renderToday(); })()`); await tick();
+  $('tvKinds').querySelector('[data-calsearch]').click(); await tick();
+  $('fsQ').value = 'acme'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+  const cls = [...$('fsRes').querySelectorAll('.fs-acct')].map(b => b.className);
+  ok(cls.some(c => /cal-visit/.test(c)) && cls.some(c => /cal-quote/.test(c)), 'with All on, it finds visits and quote requests too');
+  const vb = [...$('fsRes').querySelectorAll('.fs-acct.cal-visit')].find(b => /16 Oct/.test(b.textContent));
+  vb.click(); await tick();
+  ok(!$('srchdlg').hasAttribute('open') && g('tvCursor') === '2026-10-16' && g('screen') === 'today', 'a visit takes the calendar to its day, without starting it');
+  g(`(() => { calKind = 'all'; tvCursor = null; todayView = 'week'; showScreen('home'); })()`);
+}
+
 // ---- marked for cloud sync
 ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k.startsWith('tasks/')), 'task changes are marked for cloud sync');
 

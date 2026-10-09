@@ -111,6 +111,15 @@ Only visits that changed since last time are in the file, and downloading again 
 
 In Month, each day shows how many visits (navy), tasks (light blue) and quote requests (orange) it has. Tap a day to see it.
 
+### Show only tasks, or find one
+
+1. Tap **Plan** on Home.
+2. Tap **Visits**, **Tasks** or **Quotes** to show only those. Tap it again to show everything.
+3. To find something, tap the search icon at the end of that row and type a word.
+4. Tap a result. A task or a quote request opens; a visit takes the calendar to its day.
+
+With Tasks picked, the search looks at tasks only. The filter goes back to All each time you open the app.
+
 ### Start a planned visit
 
 1. Tap **Plan** on Home.
