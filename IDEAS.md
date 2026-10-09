@@ -409,4 +409,39 @@ sync work.
 
 ---
 
+## Open: App review against PREFERENCES.md
+*Reviewed 2026-10-09 at phone width in real Chromium (v76), screen by screen. Not changed yet — for Ben to pick from.*
+
+**Entering data**
+1. **Main action at the bottom.** Belt, note, project and fault forms put **Done** at the very end of the form (the belt form is about 2,700px tall), under everything. Preference: the main action at the top.
+2. **Dropdowns for known answers.** Call type (Site call / Phone / Teams / Quote request), note topic (Staffing / Production / Plant / Commercial / Other), appointment type, account manager. Preference: chips for anything with a known set of answers. (29 dropdowns in the app in all; some — belt series and style from the catalogue — are long lists where a dropdown is right.)
+3. **The New screen** asks date, call type and account manager before the account, in separate boxes. Ben's own redesign below (the "What would you like to do?" chooser) covers this.
+
+**Layout**
+4. **Controls split between top and bottom.** Inside a call, **Create and share** is at the top while a fixed bar of Camera / Photos / Manuals / Call menu sits at the bottom of every call screen. Preference: never split a screen's controls between top and bottom.
+5. **Long scrolling.** The belt form and Settings (about 6,000px) are long single columns. Preference: condense rather than stack.
+
+**Lists and cards**
+6. **Rows of buttons on cards.** Call-log entries show camera, gallery, edit and delete buttons on every card; Reports cards show a tick and a bin. Preference: tap the card to open it; secondary actions in a ⋯ menu. (The phone's visit cards already do this right — tap to open, ⋯ for the rest.)
+7. **Delete next to other actions.** The bin sits beside edit (call log) and beside the tick (Reports). Preference: never next to the primary action.
+8. **No Duplicate action** on call-log entries (a belt, a fault). Preference: anything you'd reasonably copy gets Duplicate, which opens the copy for editing.
+
+**Menus and search**
+9. **Permanent search bars** on Reports, Plan (desktop) and New. Preference: an icon that opens a full-screen search.
+10. **Settings is a big button on Home.** Preference: admin and setup in a ⋯ menu at the top right.
+
+**Don't push work at me**
+11. **Home shows "Never backed up." in red**, and the desktop calendar says "Click an account, or drag it onto a day" when empty. Preference: no nudges on screens; outstanding items live in their own place.
+
+**Branding (CLAUDE.md)**
+12. **Red buttons.** Create and share, Done on the entry forms, and Call menu are Intralox red. CLAUDE.md: red is never a button; the primary action is navy `#00287B`. (The task form's Done already is.)
+
+**Small**
+13. **Small touch targets.** The bins on calendar cards are 16px (13px in the month view). Preference: at least 40px.
+14. **"N/A"** appears in four places in the code that builds output. Worth checking none reach a document. (CLAUDE.md: em dash or omit.)
+
+**Already right:** back chevron and home icon on every screen; tabs on Reports (All / Open / Compiled / Done); "done with nothing to report" is a normal state; output is HTML through the share sheet; delete confirmations name what's lost.
+
+---
+
 <!-- Add new ideas above this line. -->

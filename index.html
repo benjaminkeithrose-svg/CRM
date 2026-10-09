@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v75">
+<meta name="build" content="v76">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -391,6 +391,12 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .vis.high{border-left-color:var(--high)} .vis.med{border-left-color:var(--med)}
 .vis.low{border-left-color:var(--low)}  .vis.none{border-left-color:var(--none)}
 .vis.settled{opacity:.62}
+.vis.task{border-left-color:var(--ink-2);align-items:center}
+.vis .ttick{flex:none;width:40px;height:40px;margin-left:6px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ok)}
+.vis .ttick::before{content:'';position:absolute;width:20px;height:20px;border:2px solid var(--ink-2);border-radius:4px}
+.vis .ttick{position:relative}
+.vis .ttick .ic{width:16px;height:16px;position:relative}
+.vis.task.done .who{text-decoration:line-through}
 .vis .vopen{flex:1;min-width:0;text-align:left;background:transparent;border:0;
   padding:10px 4px 10px 11px;cursor:pointer;font:inherit;color:inherit}
 .vis .vopen:active{background:var(--sunk)}
