@@ -280,8 +280,52 @@ Ben asked what call-report sync currently does (hasn't used it in a while, assum
 4. ~~Should the sync investigation come first?~~ **Answered 2026-10-09: yes** — sync before AI cleanup.
 5. Should IT be asked about Microsoft 365 storage?
 6. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
-7. What image resolution does "full-size" actually need to be?
-8. Bundle encryption into the sync work now, or keep relying on "private repo + the app's enforced privacy check" for the time being?
+7. ~~What image resolution does "full-size" actually need to be?~~ **Answered 2026-10-09: 1400px** — the resolution already held on the phone, not a further-compressed sync copy. No quality loss from what's already on the device.
+8. ~~Bundle encryption into the sync work now, or keep relying on the app's enforced privacy check?~~ **Answered 2026-10-09: yes, encrypt it** — see the new entry below, which this answer fed into directly.
+
+---
+
+## Open: Replace GitHub-repo sync with a real shared backend
+*Added 2026-10-09*
+
+**Why this is its own entry, not another paragraph on the one above:** Ben's answers to the questions above (keep full 1400px image quality, encrypt everything moving between phone/repo/PC in both directions, and — new — stop holding the same data in two places per-device) add up to more than a tweak to the existing GitHub-repo sync. They describe replacing the sync mechanism itself. Recorded separately so it doesn't get lost inside the "one app" entry's threads on tasks/emails/products, which are a different problem.
+
+**The three things Ben asked for, read together:**
+1. **No quality loss on synced photos** — 1400px, matching what's already held on the phone (`shrink()` already uses 1400/0.72 on-device; sync currently re-compresses down to 800/0.6 — see the entry above). Straightforward on its own; mentioned here because it affects how much data the next two points have to move and store.
+2. **Encrypt data moving phone → repo → PC, and back**, with the key living on each device/"platform," not in the repo. This is buildable against the current GitHub-repo sync largely as-is (encrypt before `putFile()`, decrypt after `getFile()`/`getBlob()`, Web Crypto AES-GCM, key never stored alongside the ciphertext) — this part doesn't by itself require a new backend.
+3. **Stop storing the same data twice — once in each device's local copy, once in the sync repo — and make it one real, shared store.** This is the one that changes the architecture. Ben's reasoning: loading a CRM export and the belt catalogue into every device separately is tedious now, and won't work at all once more than one person uses this. A git repo being hand-poked by a button press was never meant to be a real multi-client database, and he's right that it won't carry a team.
+
+**What this actually means: the private GitHub repo stops being the sync mechanism, and a real backend takes its place.**
+
+**Recommendation: Supabase** (hosted Postgres + file storage + authentication + realtime + small serverless functions, one provider, generous free tier). Reasoning:
+- It replaces three separate things this project currently has or was about to need — the GitHub-repo sync, a home for the AI-cleanup proxy from the entry above, and (eventually) multi-user accounts — with **one** piece of infrastructure instead of three. Fewer moving parts for someone who's said plainly they want to go carefully here.
+- **Realtime is built in and free** — tables can push changes to every connected device the moment something changes, which happens to be the "almost instantaneous" sync Ben asked about a few messages ago, solved as a side effect rather than a separate project.
+- **Storage** (for photos) is a separate bucket from the database itself, which is the right shape for 1400px photos rather than stuffing them into database rows.
+- **Row-level security and auth are first-class**, so "built for one user, ready for a team later" is a real option from day one rather than a rebuild — create every table with an owner/user column now, even while only Ben's account exists.
+- **Encryption still works the same way as planned above** — encrypt client-side with Web Crypto before anything is written to Supabase, decrypt after reading it back. Supabase never needs to see plaintext for this to work; it's just a better-built destination for the ciphertext than a git repo was.
+- The main alternative is Firebase (Google's equivalent) — similar shape, similar free tier, mentioned for completeness; Supabase's relational (Postgres) model fits this app's already-relational data (accounts → contacts, calls → entries → photos) more naturally than Firebase's document model would.
+
+**What offline means under this plan, since it still matters:** IndexedDB doesn't go away — it stays exactly what it is today, the on-device working copy the app actually reads and writes while offline. What changes is what it syncs *with*: instead of a device periodically reading and writing files in a git repo by hand, it syncs with Supabase, automatically when online (realtime) and seamlessly, matching what Ben asked for. Supabase becomes the one real copy; IndexedDB becomes a local cache of it, not a second independent copy of the truth — which is the actual fix for "it is very tedious loading the data into the phone or the computer app": the CRM export and the belt catalogue get loaded **once**, into Supabase, by Ben, from whichever device is doing it — every other device and future teammate just reads from there, nothing to re-import per device ever again.
+
+**What retires:** the private GitHub repo and everything built on `GH`/`ghHeaders()`/`getFile()`/`putFile()` for appointments, call reports, and belt reference sync (`pullBeltRefGh()`/`pushBeltRefGh()`, built earlier this project) — all of that becomes Supabase reads and writes instead. The GitHub repo itself can stay as a one-time export/backup if useful, but stops being the live sync path.
+
+**Cost:** Supabase's free tier (as I understand it; worth confirming current limits before committing to this, since they're not something I have a verified, current source for the way Anthropic's own API pricing was checked a few messages ago) covers a single user's database and auth comfortably, and a meaningful amount of file storage and monthly data transfer — photos at 1400px are the one thing likely to be worth watching as call volume grows or a team gets added, since images are what actually consumes storage and bandwidth at any real volume. Realistic expectation: free for quite a while at Ben's stated usage, with a small, predictable bill only once storage or a team's combined usage genuinely outgrows the free tier — not something that creeps up unnoticed.
+
+**Proposed order of work, each step usable on its own:**
+1. Stand up the Supabase project, design the schema (accounts, contacts, calls, appointments — and the tasks/emails/notes/products stores from the entry above, since this is the natural time to add them together), with an owner/user column on every table from the start.
+2. Migrate existing data: one-time load of the CRM export and belt catalogue into Supabase; existing devices' local IndexedDB data uploaded once rather than re-entered.
+3. Replace appointment sync and call-report sync (photos included, at 1400px) with Supabase reads/writes, keeping IndexedDB as the offline-first local cache.
+4. Add the client-side encryption layer across what's now flowing to/from Supabase.
+5. Turn on realtime so sync becomes automatic rather than a button press, closing the loop on "almost instantaneous."
+6. Add the AI-cleanup proxy as a Supabase Edge Function, now that there's a real backend to host it on — this is the earlier "one app" entry's AI piece, built on this foundation instead of a separate Cloudflare Worker.
+
+**Not decided:**
+- Exact schema design (left for when this is actually built, not guessed at here).
+- Where the encryption key is created and how a new device gets it for the first time without the key itself ever traveling in the clear — likely a passphrase Ben types in once per device, same pattern as the GitHub token today, but worth deciding deliberately rather than assumed.
+- Whether the old GitHub repo gets decommissioned once this is live, or kept around as a backup.
+- Exact current Supabase free-tier limits — worth a direct check against their current pricing page before committing, not taken on faith from training knowledge.
+
+**This is a genuinely bigger piece of work than anything built in this project so far** — a new account to create, a schema to design, a real migration, and several existing features (appointment sync, call sync, belt-ref sync) all moving to a new mechanism at once. Worth Ben confirming this plan and the order above before any of it starts.
 
 ---
 
