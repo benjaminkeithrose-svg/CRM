@@ -196,6 +196,56 @@ t('Done at the top saves the note', !!nEnt && nEnt.text === 'New line going in n
 t('with the topic from the chips', nEnt && nEnt.topic === 'Plant', nEnt && nEnt.topic);
 t('and returns to the call menu', g('screen') === 'dash');
 
+// ---- v83: call log cards - tap to open, ⋯ for the rest, Duplicate ----
+{
+  const c9 = mk('c9');
+  c9.entries = [
+    {type:'note', topic:'Plant', text:'Second line planned', photos:['data:image/png;base64,AAA','data:image/png;base64,BBB']},
+    {type:'project', project:'Freezer upgrade', status:'Scoping', next:'Site measure', target:'Q1', owner:'', notes:'', photos:[]}
+  ];
+  setCall(c9);
+  w.showScreen('dash'); await new Promise(r => setTimeout(r, 50));
+  const cards = $('logList').querySelectorAll('.card.entry');
+  t('each entry is a card with a ⋯', cards.length === 2 && cards[0].querySelector('[data-emenu]'));
+  t('no button row on the cards any more', !$('logList').querySelector('.cardbar') && !$('logList').querySelector('[data-del]'));
+  t('the photo count is on the card', /2 photos/.test(cards[0].textContent));
+  t('the photos are still on the card', cards[0].querySelectorAll('.thumbs img').length === 2);
+  cards[0].querySelector('[data-emenu]').click();
+  const acts = [...$('vmBody').querySelectorAll('button')].map(b => b.textContent.trim());
+  t('⋯ offers photo, gallery, Duplicate, then Delete last', acts.join() === 'Take a photo,Add from photos,Duplicate,Delete', acts.join());
+  t('Delete is the warning one', $('vmBody').querySelector('button.danger').textContent.trim() === 'Delete');
+  let asked = '';
+  w.confirm = m => { asked = m; return false; };
+  [...$('vmBody').querySelectorAll('button')].find(b => /Delete/.test(b.textContent)).click();
+  await new Promise(r => setTimeout(r, 20));
+  t('Delete names the entry and its photos', /Note - Plant/.test(asked) && /2 photos/.test(asked), asked);
+  t('Cancel keeps it', g('call').entries.length === 2);
+  w.confirm = () => true;
+  // tap the card: opens to edit
+  $('logList').querySelector('[data-edit="0"]').click(); await new Promise(r => setTimeout(r, 20));
+  t('tapping the card opens it to edit', g('screen') === 'note' && $('nText').value === 'Second line planned' && g('editingIdx') === 0);
+  w.showScreen('dash'); w.eval('editingIdx = null');
+  // Duplicate: opens a copy; Done adds a new entry, original untouched, no photos
+  $('logList').querySelector('[data-emenu="0"]').click();
+  [...$('vmBody').querySelectorAll('button')].find(b => /Duplicate/.test(b.textContent)).click();
+  await new Promise(r => setTimeout(r, 20));
+  t('Duplicate opens the copy in the form, not saved yet',
+    g('screen') === 'note' && $('nText').value === 'Second line planned' && g('editingIdx') === null && g('call').entries.length === 2);
+  $('nText').value = 'Third line planned';
+  $('barDone').click(); await new Promise(r => setTimeout(r, 200));
+  const es = g('call').entries;
+  t('Done adds the copy as a new entry', es.length === 3 && es[2].text === 'Third line planned' && es[2].topic === 'Plant');
+  t('the original is untouched', es[0].text === 'Second line planned' && es[0].photos.length === 2);
+  t('photos are not copied', (es[2].photos || []).length === 0);
+  // a project copy has its name cleared
+  w.showScreen('dash'); await new Promise(r => setTimeout(r, 50));
+  $('logList').querySelector('[data-emenu="1"]').click();
+  [...$('vmBody').querySelectorAll('button')].find(b => /Duplicate/.test(b.textContent)).click();
+  await new Promise(r => setTimeout(r, 20));
+  t('a project copy keeps the details but clears the name', g('screen') === 'project' && $('pName').value === '' && $('pNext').value === 'Site measure');
+  w.showScreen('dash');
+}
+
 // Branding: red is never a button (v81). No rule that styles a button, or a
 // .big/.btn/.pri class, may fill or border it in the brand red.
 {

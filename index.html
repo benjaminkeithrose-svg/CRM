@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v82">
+<meta name="build" content="v83">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -262,14 +262,9 @@ ul.rep li{margin-bottom:2px}
   margin-bottom:8px;overflow:hidden}
 .rprow.open{border-left-color:var(--red)}
 .rprow .rpt{flex:1;min-width:0;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent}
-.rpacts{display:flex;flex-direction:column;justify-content:center;gap:2px;
-  padding:6px 6px 6px 0;flex:none}
-.rpi{width:38px;height:38px;display:flex;align-items:center;justify-content:center;
-  background:transparent;border:1px solid var(--line-2);border-radius:var(--r);
-  color:var(--ink-3);cursor:pointer;padding:0}
-.rpi .ic{width:17px;height:17px}
-.rpi:active{background:var(--sunk)}
-.rpi.del{color:var(--warn)}
+.rpmore{flex:none;width:44px;background:transparent;border:0;border-left:1px solid var(--line-2);
+  color:var(--ink-3);font-size:19px;line-height:1;cursor:pointer;padding:0}
+.rpmore:active{background:var(--sunk)}
 button.rpt{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
@@ -438,6 +433,11 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   background:var(--surface);color:var(--ink);font-size:13.5px;font-weight:700;cursor:pointer;
   text-align:left}
 .vmacts button.quiet{color:var(--ink-3);font-weight:400;border-color:var(--line-2)}
+.vmacts button:has(.ic){display:flex;align-items:center;gap:10px}
+.vmacts button .ic{width:17px;height:17px;flex:none;color:var(--ink-2)}
+/* Delete: last, set apart from the rest, warning colour - never next to the main action */
+.vmacts button.danger{margin-top:12px;color:var(--warn);border-color:#E4C4C6}
+.vmacts button.danger .ic{color:var(--warn)}
 .dayblk{margin-bottom:14px}
 .dayblk h3{margin:0 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--ink-2);font-weight:700;display:flex;gap:8px;align-items:baseline}
@@ -506,6 +506,17 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .card .x.bin{color:var(--warn)}
 .card p{margin:0;font-size:13.5px;line-height:1.45}
 .card .meta{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+/* A logged entry (v83): tap the card to open it, ⋯ for the rest. */
+.card.entry{padding:0;overflow:hidden}
+.card.entry .ehd{display:flex;align-items:stretch}
+.card.entry .eopen{flex:1;min-width:0;text-align:left;background:transparent;border:0;
+  padding:12px 8px 12px 14px;cursor:pointer;font:inherit;color:inherit}
+.card.entry .eopen:active{background:var(--sunk)}
+.card.entry .eopen .t,.card.entry .eopen .meta{display:block}
+.card.entry .emore{flex:none;width:44px;background:transparent;border:0;border-left:1px solid var(--line-2);
+  color:var(--ink-3);font-size:19px;line-height:1;cursor:pointer;padding:0}
+.card.entry .emore:active{background:var(--sunk)}
+.card.entry > .meta,.card.entry > .thumbs{margin:0 14px 12px}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .thumbs img{width:78px;height:78px;object-fit:cover;border-radius:var(--r);border:1px solid var(--line);display:block;cursor:pointer}
 /* The photo opens; the cross deletes. Tapping the picture used to ask to delete
