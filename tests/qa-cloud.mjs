@@ -505,6 +505,20 @@ await syncW(Q);
 qcC = await localCall(Q, 'c100');
 ok(qcC.entries[0].notes === 'Sprocket wear - replace at next shutdown', 'phone\'s older edit lost to the PC\'s newer one: ' + qcC.entries[0].notes);
 
+// a task made on the phone appears on the PC, and its delete follows
+await Q.w.eval(`tasksPut({id: 't100', type: 'Write email', title: 'Send survey summary', date: '2026-10-12', start: '10:30', dur: 30,
+  acct: 'Acme Pty Ltd - Wetherill Park', contact: 'Jo Bloggs', notes: 'secret-ish', done: false, updated: Date.now(), created: Date.now()})`);
+await syncW(Q);
+ok(row5('tasks', 't100') && !/Send survey|secret-ish/.test(Buffer.from(row5('tasks', 't100').body, 'base64').toString('latin1')), 'task sent, unreadable in the cloud');
+await syncW(P);
+ok(P.w.eval('TASKS.some(t => t.id === "t100" && t.title === "Send survey summary" && t.start === "10:30")'), 'PC has the task, on its calendar list');
+await P.w.eval(`(async () => { const t = TASKS.find(x => x.id === 't100'); t.done = true; t.doneAt = Date.now(); t.updated = Date.now(); await tasksPut(t); })()`);
+await syncW(P); await syncW(Q);
+ok(Q.w.eval('TASKS.some(t => t.id === "t100" && t.done)'), 'ticked done on the PC, done on the phone');
+await Q.w.eval(`tasksDel('t100')`);
+await syncW(Q); await syncW(P);
+ok(!P.w.eval('TASKS.some(t => t.id === "t100")'), 'task delete reaches the PC');
+
 // a quote request stays a quote request
 await Q.w.eval(`(async () => { await callsPut({id: 'q100', rectype: 'quote', customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', contacts: [], entries: [], loose: [], updated: Date.now(), reqby: 'soon'}); })()`);
 await syncW(Q); await syncW(P);

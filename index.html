@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v73">
+<meta name="build" content="v74">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -768,6 +768,26 @@ body.planning{padding-bottom:0}
   color:var(--ink-3);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:2px}
 .pill .del .ic{width:9px;height:9px}
 .pill .del:active{background:var(--red-soft);color:var(--warn)}
+/* Tasks on the calendar: dark grey stripe, a tick box, and the right-hand half
+   of the column so an appointment at the same time stays visible. */
+.appt.task,.pill.task{border-left-color:var(--ink-2);background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-2)}
+.dbody.hours .appt.task{left:50%;right:4px;z-index:2;display:flex;align-items:center;gap:5px;padding:0 6px}
+.appt.task .a{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.task .tick{width:16px;height:16px;flex:none;padding:0;border:1.5px solid var(--ink-2);border-radius:3px;
+  background:var(--surface);color:var(--ok);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.task .tick .ic{width:12px;height:12px}
+.pill.task{display:flex;gap:4px;align-items:center}
+.task.done{opacity:.6}
+.task.done .a span,.task.done .pt{text-decoration:line-through}
+.tasklist .pill.task{padding:10px 8px;margin:6px 0;font-size:14px;min-height:40px}
+.tasklist .pill.task .tick{width:22px;height:22px}
+.tasklist .when{color:var(--ink-3);font-size:12px;flex:none}
+/* task form: Done at the top right in the primary action colour, the bin at the far left */
+.dlg-h.tkh{display:flex;align-items:center;gap:10px}
+.dlg-h.tkh b{flex:1;text-align:center}
+.btn.go{background:#00287B;border-color:#00287B;color:#fff;font-weight:700;min-height:40px;padding:8px 18px;font-size:15px}
+.tkdel{width:40px;height:40px;border:0;background:transparent;color:var(--warn);cursor:pointer;padding:8px}
+.tkdel .ic{width:22px;height:22px}
 dialog{border:1px solid var(--line);border-radius:4px;padding:0;width:min(680px,94vw);
   box-shadow:0 18px 48px rgba(34,34,34,.24);color:var(--ink);background:var(--surface)}
 dialog::backdrop{background:rgba(34,34,34,.38)}
@@ -1040,7 +1060,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="newtask"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><b>Task</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- The tiles no longer carry a count line. These keep the existing render
@@ -1417,6 +1437,35 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   </div>
 </section>
 
+<dialog id="taskdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="tkDel" aria-label="Delete task" title="Delete task"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="tkHead">Task</b>
+    <button type="button" class="btn go" id="tkOk" autofocus>Done</button>
+  </div>
+  <div class="dlg-b">
+    <div class="f"><label>Type</label><div class="chips" id="tkType"></div></div>
+    <div class="f"><label for="tkTitle">Title</label><input type="text" id="tkTitle" autocomplete="off" placeholder="What needs doing"></div>
+    <div class="row">
+      <div class="f"><label for="tkDate">Date</label><input type="date" id="tkDate"></div>
+      <div class="f"><label for="tkTime">Start (30 min)</label><input type="time" id="tkTime" step="1800"></div>
+    </div>
+    <div class="f"><label for="tkAcct">Account</label><input type="text" id="tkAcct" list="tkAcctList" autocomplete="off" placeholder="Start typing an account"><datalist id="tkAcctList"></datalist></div>
+    <div class="f"><label for="tkContact">Contact</label><select id="tkContact"></select></div>
+    <div class="row">
+      <div class="f"><label for="tkEmail">Email</label><input type="email" id="tkEmail" autocomplete="off"></div>
+      <div class="f"><label for="tkMobile">Mobile</label><input type="tel" id="tkMobile" autocomplete="off"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label for="tkProject">Project</label><input type="text" id="tkProject" autocomplete="off"></div>
+      <div class="f"><label for="tkRevenue">Estimated revenue ($)</label><input type="number" id="tkRevenue" inputmode="decimal" min="0" step="any"></div>
+    </div>
+    <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea></div>
+    <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Done</div></div></label>
+    <p class="note" id="tkFrom" hidden></p>
+  </div>
+</dialog>
+
 <dialog id="dlg">
   <div class="dlg-h"><b id="dTitle"></b><div id="dSub"></div></div>
   <div class="dlg-b">
@@ -1614,12 +1663,15 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button data-go="project"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span><b>Project</b></button>
     <button data-go="note"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span><b>Note</b></button>
     <button data-go="health"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><b>Health check</b><span class="cnt" id="cntHealth">0 logged</span></button>
+    <button data-go="calltask"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><b>Task</b></button>
   </div>
   <!-- Project and note counts are still assigned in a few places; keeping the
        elements avoids guarding every one of those assignments. -->
   <span hidden id="cntProj"></span><span hidden id="cntNote"></span>
   <h2 id="dashLogHead">Call log</h2>
   <div id="logList"></div>
+  <h2 id="dashTasksHead" hidden>Tasks from this call</h2>
+  <div id="dashTasks" class="tasklist"></div>
   <h2 id="dashLooseHead">Loose photos</h2>
   <div id="looseWrap"></div>
   <button class="ghost" id="savePhotos">Save this call's photos to the phone</button>
