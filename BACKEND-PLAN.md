@@ -263,22 +263,24 @@ Ben's request (2026-10-09), so photo storage doesn't fill up. At about 50
 photos a week the free 1 GB lasts roughly one to two years, so this is
 needed within a year of Step 5, not before.
 
-Proposed shape, to be confirmed with Ben before it's built:
-- On the PC, choose "Archive calls older than…" (for example 12 months).
+Shape, with Ben's answers (2026-10-09):
+- Photos on calls **older than 12 months** are archived.
 - The full-size photos for those calls are downloaded and saved to a folder
   on the PC — decrypted, as ordinary image files, named by account and date
   so they're findable without the app.
-- Only after the PC confirms every file is saved, those photos are removed
-  from Supabase storage. A small thumbnail stays in the cloud so the call
-  still shows something, marked "full size archived on PC".
-- The phone also drops its full-size local copies of archived photos, so
-  phone storage doesn't keep growing either.
-- Call text, notes and everything else stay in the database — archiving is
+- Only after the PC confirms every file is saved, the full-size copy in
+  Supabase is replaced with a **low-resolution copy** — proposed 800px at
+  reduced quality, the size the current GitHub sync uses (roughly 60–100 KB
+  against 200–350 KB). Still readable on screen; marked "full size archived
+  on PC". That cuts archived photos' storage by roughly three quarters.
+- The phone drops its full-size local copies of archived photos too,
+  keeping the low-resolution one, so phone storage doesn't keep growing.
+- Call text, notes and everything else stay as they are — archiving is
   photos only, since the photos are what take the space.
 
-**Open before building:** archive age (12 months?); whether thumbnails are
-worth keeping in the cloud; where on the PC the folder should live (a
-OneDrive folder would give it a backup for free).
+**Open before building:** whether 800px is low enough or too low; where on
+the PC the archive folder should live (a OneDrive folder would give it a
+backup for free).
 
 ---
 
