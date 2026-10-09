@@ -85,6 +85,29 @@ for (const [type, want] of [['Phone', 'Planned phone call'], ['Teams', 'Planned 
   ok(got === want, type + ' books as ' + want + ': ' + got);
 }
 
+// ---- v84: the planner's search is an icon that opens the full-screen search ----
+ok(!$('pQ') && $('pSearch') && /Search the whole account book/.test($('pSearch').textContent), 'planner: a search button, not a box');
+await g(`(async () => {
+  const list = [...ACCOUNTS, {a: 'Acme Foods - Bayswater', sub: 'Bayswater', z: 'Z1', foc: 'Medium', cad: CAD['Medium'], mgr: 'Ben', rep: '', c: []}];
+  await accReplaceAll(list); indexAccounts(list);
+})()`);
+$('pSearch').click(); await tick();
+ok($('srchdlg').hasAttribute('open'), 'it opens the full-screen search');
+$('fsQ').value = 'acme'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+ok(d.querySelectorAll('#fsRes [data-fsacct]').length === 2 && /2 accounts/.test($('fsHint').textContent), 'finds both accounts: ' + $('fsHint').textContent);
+ok(!!$('fsToList'), 'offers to show them in the planner list');
+$('fsToList').click(); await tick();
+ok(!$('srchdlg').hasAttribute('open') && g('plan.q') === 'acme', 'Show in list closes the search and filters the list');
+ok(!$('pScope').hidden && /Searching every zone/.test($('pScope').textContent), 'the list says it is searching, with Clear');
+$('pScope').querySelector('button').click(); await tick();
+ok(g('plan.q') === '', 'Clear ends it');
+$('pSearch').click(); await tick();
+$('fsQ').value = 'bayswater'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+ok(!$('fsToList') && d.querySelectorAll('#fsRes [data-fsacct]').length === 1, 'one match: no Show in list, one result');
+d.querySelector('#fsRes [data-fsacct]').click(); await tick();
+ok(!$('srchdlg').hasAttribute('open') && $('dlg').hasAttribute('open') && /Acme Foods - Bayswater/.test($('dTitle').textContent), 'picking one opens its booking: ' + $('dTitle').textContent);
+g(`(() => { const d = document.getElementById('dlg'); if(d.close) d.close(); else d.removeAttribute('open'); })()`);
+
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));
 console.log(`PASS ${pass}`); if (fail) console.log(`FAIL ${fail}`);
