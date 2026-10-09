@@ -28,6 +28,8 @@ work from a copy of a file anywhere other than this checkout.
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
+| `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
+| `supabase/migrations/` | Cloud database schema. Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 
 ## Hard rules
@@ -60,9 +62,23 @@ write a bare `db.transaction(...)` that assumes the global is populated — an
 earlier build did, and it surfaced minutes later as an unrelated-looking import
 failure.
 
+**Cloud sync (Supabase) marks changes at the storage layer.** `kvSet()` on a
+key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
+waiting to send. Write reference data only through those functions, or the
+change never reaches the other devices. Anything applying a copy pulled from
+the cloud must set `cloudQuiet`, or it bounces straight back up. Everything
+leaving the device is encrypted with `sbSeal()` first. Unlike the GitHub
+sync, this one runs automatically (on open, on reconnect, after a change),
+by Ben's agreement in `BACKEND-PLAN.md`.
+
 **Service worker install caches each asset independently.** Never go back to
 `cache.addAll()`: it is atomic, and a blocked CDN once took the whole app's
 offline capability down with it.
+
+**The service worker serves only the app's own files from its cache** (plus
+the one CDN library in `ASSETS`). Supabase and GitHub API requests go straight
+to the network. Before v69 it cached every GET, so a sync could be answered
+with the first reply it ever got; `tests/qa-sw.mjs` guards this.
 
 **Quote requests are marked `rectype:'quote'`, never `kind`.** `slimCall()` sets
 `kind` for the sync repo and `pullCall()` deletes it on the way back, so a quote
@@ -112,6 +128,13 @@ reach top-level `let`/`const`, so read lexicals with `w.eval('(expr)')`.
 
 The pre-existing referenced-but-absent IDs are harmless and guarded:
 `pastList, looseCam, looseGal, indentAllLnk, detachBtn`.
+
+`tests/browser-cloud.mjs` drives the real app in Playwright's Chromium with two
+browser profiles as two devices (not part of `npm test`; how to run it is at
+the top of the file). `tests/browser-cloud-live.mjs` runs the same against the
+real Supabase project with a throwaway test account passed in the environment —
+never Ben's own account, and never written to the repo. Both are real-browser
+tests, still not phone tests.
 
 **Say which kind of verification applies.** Headless tests catch runtime errors,
 escaping faults and broken flows. They cannot test the camera, the share sheet,

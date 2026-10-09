@@ -1,7 +1,7 @@
 # Backend plan — moving sync to Supabase
 
-*Written 2026-10-09. Nothing here is built yet. This is the agreed shape and
-order of work; each step below becomes its own pull request.*
+*Written 2026-10-09. This is the agreed shape and order of work; each step
+below becomes its own pull request. Progress is marked on each step.*
 
 Background and the conversation that led here: the last two entries in
 `IDEAS.md` ("One app for tasks, emails, call notes and products" and
@@ -144,34 +144,60 @@ removed in Step 7, after the new sync has been used for real.
    give me a separate *test* sign-in, I can test against your real project
    instead of a stand-in.
 
-### Step 1 — Database tables and access rules
+### Step 1 — Database tables and access rules — **done 2026-10-09**
 
-I write `supabase/schema.sql` in this repo; you paste it into the project's
-SQL editor once. It creates:
-- a table of encrypted records (ID, owner, kind, updated time, deleted
-  marker, key ID, encrypted body);
-- a table of encrypted datasets (owner, name, version, encrypted body);
-- a table for each user's locked data key;
-- a private storage bucket for photos;
+Project: **Field CRM**, Sydney region (ref `ksuwpjezkumyualdbfmn`). Applied
+through the Supabase connector from `supabase/migrations/0001_initial_sync_schema.sql`
+— nothing for Ben to paste. It creates:
+- `records` — one encrypted row per synced thing (owner, store, ID, key ID,
+  encrypted body, the app's updated time, deleted marker). `store` is
+  `calls`, `appts` or `datasets`; the datasets (accounts, belt catalogue,
+  assets, overrides, managers, weeks, meta) are rows in here with the
+  dataset name as the ID, rather than a separate table. The column is named
+  `store`, not `kind`, because CLAUDE.md reserves `kind` in the sync payload.
+- `vaults` — each user's data key, locked with their passphrase;
+- a private `photos` storage bucket, one folder per user;
 - access rules so each signed-in user can read and write only their own
-  rows and photos.
+  rows and photos; nobody signed out can touch anything.
+- Newest edit wins on the server: an update carrying an older edit time is
+  skipped, so a device coming back online can't overwrite newer work.
 
-Every table carries a `team` column from day one, unused for now, so adding
+Every table carries a `team_id` column, unused for now, so adding
 colleagues later (Step 9) is a change to the rules rather than a rebuild.
 The file holds no data and no secrets, so it is safe in a public repo.
 
-**Test:** you run the file and confirm it finishes without errors.
+**Checked:** applied without errors; Supabase's security check reports no
+issues; a partial access test (one user inserting and reading their own
+row) passed. The full two-user test (user B can't see or change user A's
+rows, older edits are skipped) was not completed — it is covered again by
+the Step 2–3 tests from the app itself.
 
-### Step 2 — Connect and sign in (nothing syncs yet)
+**To do once Ben's account exists:** turn off new sign-ups in the
+dashboard, so nobody else can create an account in the project and use up
+its free quota.
 
-New **Cloud sync** section under Settings: project address, public key,
-email and password, sign in / sign out, and a status line. The Supabase
-library is added to the app and to the service worker's list.
+### Step 2 — Connect and sign in (nothing syncs yet) — **built 2026-10-09, v66**
+
+New **Cloud sync** section under Settings: project address, publishable
+key, email and password, sign in / sign out, and a status line. The Supabase
+library (`supabase-2.117.1.js`, a release at least two weeks old, checked
+against npm's published checksum) is shipped in the repo and on the service
+worker's list. No sign-up in the app: accounts are created in the Supabase
+dashboard, and public sign-up is switched off. The app refuses the secret
+key if it is pasted by mistake. Sign out is this device only.
+
+**Checked:** headless suite `tests/qa-cloud.mjs` (real library, stand-in
+network): set up, wrong password, sign in, still signed in after reopening,
+sign out, secret key refused, missing library reported. Live from the cloud
+environment against the real project: it accepts the publishable key,
+rejects a wrong password with the message the app translates, and refuses
+to show `records` to anyone signed out. **Not checked:** a real sign-in
+(needs Ben's account) and anything on a phone.
 
 **Test:** sign in on the phone and the PC; close and reopen the app and
 confirm it is still signed in; sign out works.
 
-### Step 3 — Encryption
+### Step 3 — Encryption — **built 2026-10-09, v67**
 
 On the first device, you set the passphrase: the app creates the data key,
 locks it, and stores the locked key in Supabase. On the second device you
@@ -179,14 +205,64 @@ type the same passphrase and it unlocks. A wrong passphrase gives a plain
 "that passphrase doesn't match" message, not a crash or a silent failure.
 Nothing else is uploaded yet.
 
+As built:
+- Passphrase at least 12 characters, typed twice when set. PBKDF2-SHA-256,
+  600,000 rounds, random salt; the data key is a random AES-GCM 256-bit key,
+  locked (wrapped) with AES-GCM and bound to the account.
+- The vault is only ever inserted, never overwritten. If two devices both
+  try to set a passphrase, the second is told to type the first one's.
+- Each device keeps the unlocked key in IndexedDB as a non-extractable key —
+  usable by the app, unreadable as bytes — so it unlocks once per device.
+  Signing out forgets it. Unlocking needs signal the first time.
+- `sbSeal()` / `sbOpen()` encrypt and decrypt one record for Step 4 on. The
+  store and record ID are bound into the encryption, so a body moved to
+  another record, or changed at all, will not open.
+
+**Checked:** `tests/qa-cloud.mjs` with real Web Crypto and the real library
+against a stand-in server — set on one device, wrong then right passphrase
+on a second, a record sealed on the first opens on the second, tampering
+refused, the two-device race, sign-out forgets the key, offline message.
+Each of these was also broken on purpose to confirm a test fails. **Not
+checked:** the real project (needs Ben's account), and any phone or PC.
+
 **Test:** set the passphrase on the phone, unlock on the PC, try a wrong one
 on purpose.
 
-### Step 4 — Reference data, loaded once
+### Step 4 — Reference data, loaded once — **built 2026-10-09, v68**
 
 After any import (CRM export, plant audit workbook, plant audit register) or
 a change to zone overrides, the manager map or planning weeks, the new
 version is encrypted and uploaded. Other devices pull it on their next sync.
+
+As built:
+- Six datasets, each one encrypted row in `records` (store `datasets`):
+  `crm` (accounts + import details), `beltref`, `assets`, `overrides`,
+  `weeks`, `mgrOf`. Gzipped before encryption.
+- Every change marks its dataset as waiting, from the storage layer itself
+  (`kvSet`, `accReplaceAll`, `accMerge`), so every import route is covered
+  and a change made offline is kept and sent later.
+- Sync runs when the app opens, when the device comes back online, about
+  three seconds after a change, straight after unlocking, and from a
+  **Sync now** button. Settings shows the last sync and anything waiting.
+- **Newest wins by each dataset's own import date** where it has one, not
+  by when it happened to sync — so an old backup restored, or an older
+  catalogue pulled from GitHub, cannot push a newer one out. Weeks and
+  reassignments have no import date and go by when they were changed.
+- A device that had data before cloud sync: dated data competes on its
+  date; undated data takes the cloud's copy if there is one. **So the first
+  device to sync seeds the cloud — sync first on the device with the best
+  data (the PC).**
+- A pulled copy is applied without being sent back up. A damaged or
+  tampered copy fails the sync with a message and changes nothing.
+- The Supabase gateway accepted a 12 MB upload in a test (refused only for
+  not being signed in), far above a compressed CRM export.
+
+**Checked:** `tests/qa-cloud.mjs` against a stand-in server that applies the
+same newest-wins rule as the real one — import on one device arrives on a
+new one with no import; a change on the phone reaches the PC; a newer
+import wins, an older one does not; an offline change waits through a
+restart and then goes; a pre-cloud device adopts the cloud's copy; a damaged
+copy is refused. **Not checked:** the real project, or a phone or PC.
 
 **Test:** import the CRM export on the PC only; open the phone, sync, and
 confirm the accounts are there without importing anything on the phone.
@@ -289,7 +365,7 @@ backup for free).
 | Ben | Me |
 |---|---|
 | Step 0: policy check, Supabase account and project, passphrase, backups | Everything in Steps 1–9 that is code: schema file, app changes, tests, docs |
-| Run `schema.sql` once in the SQL editor (Step 1) | Write it, and any later changes to it |
+| Create his account in the Supabase dashboard; switch off public sign-up (Step 2) | The schema, applied through the Supabase connector (Step 1), and any later changes to it |
 | Type the project address, key and passphrase on each device | The Settings screens they go into |
 | Anthropic API account and key, pasted into Supabase secrets (Step 8) | The Edge Function and the button |
 | Test each step on the phone and PC, and merge each pull request | Say exactly what to test in each pull request |
@@ -297,6 +373,35 @@ backup for free).
 ---
 
 ## Testing — what can and can't be checked from here
+
+**Real-browser run, 2026-10-09 (v69):** `tests/browser-cloud.mjs` drove the
+real app in Chromium, served with its service worker, with two browser
+profiles as phone and PC against a stand-in Supabase: sign in, set the
+passphrase, wrong passphrase refused, the phone brings in the PC's data,
+later changes arrive, still unlocked after reopening, the app loads offline,
+an offline change is sent when back online. A third profile talked to the
+real project: it refused a wrong password and a wrong key, and the app said
+so in plain words. 21 of 21 passed — **after** fixing the service worker,
+which had been caching every Supabase and GitHub reply (see CLAUDE.md). A
+real sign-in, real passphrase and real sync were not possible: creating test
+accounts directly in the project was blocked, and Ben's account did not exist
+yet.
+
+**Real-project run, 2026-10-09 (v70):** with a throwaway test account Ben
+created, `tests/browser-cloud-live.mjs` ran the same two-profile test against
+the real Supabase project, nothing stood in. 23 of 23 passed: real sign-in;
+passphrase set, a short one refused, the locked key in `vaults` at 600,000
+rounds with no passphrase in it; data sent automatically and unreadable in
+the database; the second profile refused a wrong passphrase, unlocked, and
+brought in the accounts and reassignment; a newer import arrived on Sync now;
+**the real server kept the newer copy when an older one was sent straight at
+it** (records_before_write works); an older import on the PC was replaced by
+the newer cloud copy; still unlocked after reopening; offline change waited
+and was sent; the PC brought it in; sign out forgot the key and the project
+then showed no records. The first run also found that Sync now did not show
+"syncing..." or grey out while running — fixed in v70. **Still not checked:**
+a second real account (so one user seeing another's rows, which the access
+rules forbid, was not tried with two real accounts), and any real phone.
 
 - **Can check:** the encryption (round trip, wrong passphrase, tampered data
   rejected), the sync rules (newest wins, deletes travel, offline changes
@@ -348,13 +453,13 @@ shows usage against each limit.
    to two years**. Ben asked for an archive feature to deal with that —
    added as Step 10.
 
-**Still open, not needed before Step 1:**
+**Still open:**
 
 5. **When colleagues join:** does each person's call reports stay private to
    them, with accounts and the belt catalogue shared across the team?
    (Needed before Step 9 only.)
-6. **Passphrase custody:** password manager is the recommendation. (Needed
-   before Step 3.)
+6. **Passphrase custody** (answered 2026-10-09): in Ben's password manager,
+   and he can remember it.
 
 ---
 

@@ -54,10 +54,11 @@ async function kvGet(k){
 }
 async function kvSet(k,v){
   const d = await ready();
-  return new Promise((res,rej)=>{
+  await new Promise((res,rej)=>{
     const t = d.transaction('kv','readwrite').objectStore('kv').put(v,k);
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
+  if(CLOUD_KV[k]) cloudMark(CLOUD_KV[k]);    // reference data changed: cloud sync sends it
 }
 async function callsPut(c){
   const d = await ready();
@@ -89,7 +90,7 @@ async function accReplaceAll(list){
     st.clear();
     for(const a of list) st.put(a);
     tx.oncomplete = ()=>res(); tx.onerror = ()=>rej(tx.error); tx.onabort = ()=>rej(tx.error);
-  });
+  }).then(() => { cloudMark('crm'); });
 }
 async function accMerge(list){
   const d = await ready();
@@ -97,7 +98,7 @@ async function accMerge(list){
     const tx = d.transaction('accounts','readwrite'), st = tx.objectStore('accounts');
     for(const a of list) st.put(a);
     tx.oncomplete = ()=>res(); tx.onerror = ()=>rej(tx.error); tx.onabort = ()=>rej(tx.error);
-  });
+  }).then(() => { cloudMark('crm'); });
 }
 async function apptsAll(){
   const d = await ready();
@@ -896,7 +897,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v65';
+const APP_BUILD = 'v70';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4211,7 +4212,7 @@ const LOAD_KIND = {
   crm:'CRM export', overrides:'Zone overrides', beltref:'Belt reference data',
   assets:'Plant audit register',
   manual:'Engineering manual', ghpull:'Pulled from GitHub', ghpush:'Pushed to GitHub',
-  ghtest:'GitHub connection', plan:'Plan from PC',
+  ghtest:'GitHub connection', cloud:'Cloud sign-in', plan:'Plan from PC',
   calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
 };
 async function logLoad(filename, kind, detail, failed){
@@ -4560,6 +4561,584 @@ $('ghSync').addEventListener('click', async ()=>{
     await logLoad(GH.owner+'/'+GH.repo, 'ghpush', e.message, true); }
   finally { btn.disabled = !ghReady(); }
 });
+
+/* ================= cloud sync (Supabase) =================
+
+   BACKEND-PLAN.md, Step 2: connect and sign in; Step 3: the passphrase and the
+   data key. Nothing syncs yet.
+
+   The project address and publishable key are typed in on each device and kept
+   in kv 'cloud', never in this repo, so a colleague can be handed the same app
+   and point it at their own project. The password is never stored by the app:
+   the library keeps a session token in localStorage, under a key prefixed like
+   every other key here, because GitHub Pages puts this app on the same origin
+   as the Belt Call Log.
+
+   The library is shipped in the repo (supabase-2.117.1.js) and cached by the
+   service worker, not loaded from a CDN - see the SheetJS note in CLAUDE.md. If
+   it failed to load, everything here says so instead of throwing. */
+
+let SB = {url:'', key:''};
+let sbClient = null, sbUser = null, sbErr = '';
+
+/* Accepts the full address or just the project ref. */
+function sbNormUrl(v){
+  v = String(v || '').trim().replace(/\/+$/, '');
+  if(/^[a-z0-9]{20}$/.test(v)) return 'https://' + v + '.supabase.co';
+  return v;
+}
+/* The secret key, or the legacy service_role key, bypasses every access rule.
+   It must never sit in a browser, so it is refused and never stored. */
+function sbKeyProblem(k){
+  if(!k) return '';
+  if(/^sb_secret_/.test(k)) return 'that is the secret key - use the publishable key';
+  if(/^eyJ/.test(k)){
+    try {
+      const p = JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+      if(p.role === 'service_role') return 'that is the service_role key - use the publishable key';
+    } catch(e){ return 'that key is not readable'; }
+    return '';
+  }
+  if(/^sb_publishable_/.test(k)) return '';
+  return 'that does not look like a Supabase publishable key';
+}
+const sbReady = () => !!(SB.url && SB.key && !sbKeyProblem(SB.key));
+
+let sbSub = null;
+function sbMake(){
+  // the old connection keeps refreshing its token and reporting sign-ins unless stopped
+  if(sbSub){ try { sbSub.unsubscribe(); } catch(e){} sbSub = null; }
+  if(sbClient){ try { sbClient.auth.stopAutoRefresh(); } catch(e){} }
+  sbClient = null; sbUser = null; sbErr = '';
+  if(!sbReady()) return;
+  if(!window.supabase || !window.supabase.createClient){ sbErr = 'The cloud library did not load. Reload the app once with signal.'; return; }
+  if(!/^https:\/\/[^\/]+$/.test(SB.url)){ sbErr = 'The project address should look like https://xxxx.supabase.co'; return; }
+  const ref = SB.url.replace(/^https:\/\//, '').split('.')[0];
+  try {
+    sbClient = window.supabase.createClient(SB.url, SB.key, {auth:{
+      storageKey: LS('sb.' + ref), persistSession: true,
+      autoRefreshToken: true, detectSessionInUrl: false}});
+    sbSub = sbClient.auth.onAuthStateChange((ev, session) => {
+      sbUser = session ? session.user : null;
+      renderSb();
+    }).data.subscription;
+  } catch(e){ console.error(e); sbClient = null; sbErr = 'Could not start the cloud connection: ' + e.message; }
+}
+/* The stored session is read from this device, so this works offline. */
+async function loadSb(){
+  try { SB = Object.assign(SB, await kvGet('cloud') || {}); } catch(e){}
+  sbMake();
+  if(sbClient){
+    try {
+      const r = await sbClient.auth.getSession();
+      sbUser = r.data && r.data.session ? r.data.session.user : null;
+    } catch(e){ console.warn('cloud session', e); }
+    try {
+      const k = await kvGet('cloudKey');
+      if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
+    } catch(e){ console.warn('cloud key', e); }
+  }
+  await cloudSetsLoad();
+  renderSb();
+  sbCheckVault();     // not awaited: a slow network must not hold up the app opening
+  if(cloudCan()) cloudSync().catch(e => console.warn('cloud sync', e));
+}
+
+/* Sign-in errors in plain words. The library's own messages are for developers. */
+function sbSay(e){
+  const m = String(e && e.message || e || '');
+  if(!navigator.onLine || /fetch|network|load failed/i.test(m)) return 'No connection - try again when you have signal.';
+  if(/invalid login credentials/i.test(m)) return 'That email and password do not match an account in this project.';
+  if(/email not confirmed/i.test(m)) return 'That account has not been confirmed yet. Confirm it in the Supabase dashboard.';
+  if(/invalid api key|no api key/i.test(m)) return 'The project does not accept that key. Check the publishable key.';
+  return m || 'Something went wrong.';
+}
+
+function renderSb(){
+  const el = $('sbStat');
+  if(!el) return;
+  [['sbUrl','url'],['sbKey','key']].forEach(([id,k]) => {
+    const f = $(id); if(f && document.activeElement !== f) f.value = SB[k] || '';
+  });
+  let line;
+  if(!sbReady()) line = '<span class="flagline">Not set up.</span> Needs the project address and the publishable key, below.';
+  else if(sbErr) line = '<span class="flagline">' + esc(sbErr) + '</span>';
+  else if(sbUser) line = 'Signed in as <b>' + esc(sbUser.email || 'this account') + '</b>' +
+    (navigator.onLine ? '' : ' &middot; offline, will reconnect');
+  else line = 'Not signed in.';
+  const signedIn = !!(sbClient && sbUser);
+  if(signedIn) line += '<br>' + ({
+    open:    'Encryption: <b>unlocked on this device</b>.',
+    none:    '<span class="flagline">Encryption: no passphrase set yet.</span> Set one below &mdash; every device uses the same one.',
+    locked:  '<span class="flagline">Encryption: locked on this device.</span> Type your passphrase below.',
+    offline: '<span class="flagline">Encryption: locked.</span> Unlocking needs signal the first time on each device.',
+    error:   '<span class="flagline">Encryption: could not check.</span> ' + esc(sbVaultMsg),
+    unknown: 'Encryption: checking&hellip;'
+  }[sbVault] || '');
+  const open = signedIn && sbVault === 'open';
+  if(open){
+    const last = Number(localStorage.getItem(LS('cloudSync')) || 0);
+    const waiting = cloudSets ? CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length : 0;
+    line += '<br>Reference data: ' + (cloudRun ? 'syncing&hellip;'
+      : cloudLast.failed ? '<span class="flagline">last sync failed &mdash; ' + esc(cloudLast.msg) + '</span>'
+      : last ? 'last synced ' + new Date(last).toLocaleString() : 'not synced from this device yet') +
+      (waiting ? ' &middot; <span class="flagline">' + waiting + ' change' + (waiting === 1 ? '' : 's') + ' waiting to send</span>' : '');
+  }
+  el.innerHTML = line;
+  $('sbIn').hidden = signedIn;
+  $('sbSignOut').hidden = !signedIn;
+  $('sbSync').hidden = !open;
+  $('sbSync').disabled = !!cloudRun;
+  $('sbSignIn').disabled = !sbClient;
+  const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
+  $('sbLock').hidden = !ask;
+  if(ask){
+    const first = sbVault === 'none';
+    $('sbPhLbl').textContent = first ? 'New passphrase' : 'Passphrase';
+    $('sbPh2Wrap').hidden = !first;
+    $('sbPhGo').textContent = first ? 'Set passphrase' : 'Unlock';
+    $('sbPhHint').innerHTML = first
+      ? 'At least ' + PH_MIN + ' characters. It locks everything before it leaves this device, and unlocks it on your other devices. <b>If it is lost, nobody can read the cloud copy</b> &mdash; not even you. Keep it in your password manager.'
+      : 'The passphrase you set on your first device.';
+  }
+}
+[['sbUrl','url'],['sbKey','key']].forEach(([id,k]) => {
+  const f = $(id);
+  if(!f) return;
+  f.addEventListener('change', async ()=>{
+    const v = k === 'url' ? sbNormUrl(f.value) : f.value.trim();
+    const prob = k === 'key' ? sbKeyProblem(v) : '';
+    if(prob){
+      // never kept, not even on this device
+      f.value = SB.key || '';
+      toast('Key not saved: ' + prob);
+      return;
+    }
+    if(v === SB[k]){ f.value = v; return; }
+    if(sbClient && sbUser){ try { await sbClient.auth.signOut({scope:'local'}); } catch(e){} }
+    await sbForget();
+    SB[k] = v;
+    await kvSet('cloud', SB);
+    sbMake();
+    renderSb();
+  });
+});
+$('sbSignIn').addEventListener('click', async ()=>{
+  const btn = $('sbSignIn');
+  const email = $('sbEmail').value.trim(), pass = $('sbPass').value;
+  if(!sbClient){ toast('Set the project address and key first'); return; }
+  if(!email || !pass){ toast('Type the email and password first'); return; }
+  btn.disabled = true;
+  try {
+    const r = await sbClient.auth.signInWithPassword({email: email, password: pass});
+    if(r.error) throw r.error;
+    sbUser = r.data.user;
+    $('sbPass').value = '';
+    toast('Signed in as ' + (sbUser.email || email));
+    await logLoad(SB.url, 'cloud', 'Signed in as ' + (sbUser.email || email));
+    await sbLoadKey();
+  } catch(e){ console.warn(e); toast(sbSay(e)); }
+  finally { btn.disabled = !sbClient; renderSb(); }
+  if(sbUser) await sbCheckVault();
+});
+$('sbSignOut').addEventListener('click', async ()=>{
+  if(!sbClient) return;
+  // local scope: signs this device out only, and works with no signal
+  try { await sbClient.auth.signOut({scope:'local'}); } catch(e){ console.warn(e); }
+  sbUser = null;
+  await sbForget();
+  toast('Signed out of this device');
+  await logLoad(SB.url, 'cloud', 'Signed out');
+  renderSb();
+});
+window.addEventListener('online', ()=>{
+  renderSb();
+  if(sbVault === 'offline' || sbVault === 'error') sbCheckVault();
+  if(cloudCan()) cloudSync().catch(e => console.warn('cloud sync', e));
+});
+window.addEventListener('offline', renderSb);
+
+/* ---------- Step 3: the passphrase and the data key ----------
+
+   Envelope encryption, all in the browser's own Web Crypto:
+   - A random AES-GCM data key encrypts everything that will be synced.
+   - The passphrase, stretched with PBKDF2 (600,000 rounds, so each guess is
+     slow), makes a second key whose only job is to lock the data key.
+   - Only the locked data key goes to Supabase, in 'vaults'. The passphrase
+     and the unlocked key never leave the device.
+   Changing the passphrase later re-locks the one data key; nothing else has to
+   be re-encrypted. A colleague can be given the data key the same way.
+
+   Once unlocked, the device keeps the data key in IndexedDB (kv 'cloudKey') as
+   a non-extractable CryptoKey: the app can use it, but no script can read the
+   key's bytes out. Signing out forgets it.
+
+   The vault is only ever inserted, never updated: overwriting it would orphan
+   everything already encrypted with the old key. If two devices race to set a
+   passphrase, the second one is told to use the first one's. */
+
+const VAULT_KDF = {alg:'PBKDF2', hash:'SHA-256', iterations:600000};
+const PH_MIN = 12;
+const TE = new TextEncoder(), TD = new TextDecoder();
+let sbKeyRec = null;              // {uid, key_id, key: CryptoKey}
+let sbVault = 'unknown', sbVaultMsg = '';
+
+function u8b64(u8){
+  let s = '';
+  for(let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function b64u8(s){
+  const b = atob(s), u = new Uint8Array(b.length);
+  for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+  return u;
+}
+const toHex = u8 => Array.from(u8, b => b.toString(16).padStart(2, '0')).join('');
+// binds the locked key to this account, so a vault row moved to another account will not open
+const vaultAad = uid => TE.encode('fieldcrm-vault/' + uid);
+
+async function sbPassKey(pass, kdf){
+  const base = await crypto.subtle.importKey('raw', TE.encode(pass.normalize('NFC')), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', hash:kdf.hash, iterations:kdf.iterations, salt:b64u8(kdf.salt)},
+    base, {name:'AES-GCM', length:256}, false, ['wrapKey','unwrapKey']);
+}
+async function sbUnwrap(row, wk, uid){
+  return crypto.subtle.unwrapKey('raw', b64u8(row.wrapped_key), wk,
+    {name:'AES-GCM', iv:b64u8(row.wrap_iv), additionalData:vaultAad(uid)},
+    {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function sbKeep(uid, key_id, key){
+  sbKeyRec = {uid: uid, key_id: key_id, key: key};
+  await kvSet('cloudKey', sbKeyRec);
+  sbVault = 'open';
+}
+async function sbForget(){
+  sbKeyRec = null; sbVault = 'unknown';
+  try { await kvSet('cloudKey', null); } catch(e){}
+}
+async function sbLoadKey(){
+  try {
+    const k = await kvGet('cloudKey');
+    if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
+  } catch(e){ console.warn('cloud key', e); }
+}
+async function sbVaultRow(){
+  const r = await sbClient.from('vaults').select('key_id,kdf,wrapped_key,wrap_iv').limit(1);
+  if(r.error) throw r.error;
+  return r.data && r.data[0] || null;
+}
+async function sbCheckVault(){
+  if(!sbClient || !sbUser) return;
+  if(sbKeyRec && sbKeyRec.uid === sbUser.id){ sbVault = 'open'; renderSb(); return; }
+  if(!navigator.onLine){ sbVault = 'offline'; renderSb(); return; }
+  try {
+    sbVault = (await sbVaultRow()) ? 'locked' : 'none';
+  } catch(e){ console.warn('vault', e); sbVault = 'error'; sbVaultMsg = sbSay(e); }
+  renderSb();
+}
+
+async function sbCreateVault(pass){
+  const uid = sbUser.id;
+  const kdf = Object.assign({}, VAULT_KDF, {salt: u8b64(crypto.getRandomValues(new Uint8Array(16)))});
+  const wk = await sbPassKey(pass, kdf);
+  // extractable only so it can be locked; this copy is dropped at the end of the function
+  const dk = await crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrapped = new Uint8Array(await crypto.subtle.wrapKey('raw', dk, wk, {name:'AES-GCM', iv:iv, additionalData:vaultAad(uid)}));
+  const row = {key_id: 'k-' + toHex(crypto.getRandomValues(new Uint8Array(8))), kdf: kdf,
+               wrapped_key: u8b64(wrapped), wrap_iv: u8b64(iv)};
+  const r = await sbClient.from('vaults').insert(row);
+  if(r.error){
+    if(r.error.code === '23505') throw new Error('vault exists');
+    throw r.error;
+  }
+  // the device keeps a non-extractable copy, unlocked the same way any other device will
+  await sbKeep(uid, row.key_id, await sbUnwrap(row, wk, uid));
+}
+async function sbUnlock(pass){
+  const row = await sbVaultRow();
+  if(!row) throw new Error('no vault');
+  const wk = await sbPassKey(pass, row.kdf);
+  let key;
+  try { key = await sbUnwrap(row, wk, sbUser.id); }
+  catch(e){ throw new Error('passphrase mismatch'); }   // AES-GCM refuses: wrong passphrase, or a tampered vault
+  await sbKeep(sbUser.id, row.key_id, key);
+}
+
+$('sbPhGo').addEventListener('click', async ()=>{
+  const btn = $('sbPhGo'), p1 = $('sbPh').value, p2 = $('sbPh2').value;
+  const first = sbVault === 'none';
+  if(!sbClient || !sbUser) return;
+  if(!navigator.onLine){ toast('No connection - try again when you have signal.'); return; }
+  if(first){
+    if(p1.length < PH_MIN){ toast('The passphrase needs at least ' + PH_MIN + ' characters'); return; }
+    if(p1 !== p2){ toast('The two passphrases are different - type them again'); return; }
+  } else if(!p1){ toast('Type the passphrase first'); return; }
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Working\u2026';
+  try {
+    if(first){
+      await sbCreateVault(p1);
+      toast('Passphrase set. Encryption is on.');
+      await logLoad(SB.url, 'cloud', 'Passphrase set, encryption on');
+    } else {
+      await sbUnlock(p1);
+      toast('Unlocked on this device');
+      await logLoad(SB.url, 'cloud', 'Encryption unlocked on this device');
+    }
+    $('sbPh').value = ''; $('sbPh2').value = '';
+    // a new device brings everything in straight away; the first device sends what it has
+    cloudSync().catch(e => console.warn('cloud sync', e));
+  } catch(e){
+    console.warn(e);
+    const m = e && e.message;
+    if(m === 'passphrase mismatch'){ toast('That passphrase does not match the one set on your first device.'); $('sbPh').value = ''; }
+    else if(m === 'vault exists'){ toast('A passphrase was already set on another device. Type that one.'); $('sbPh').value = ''; $('sbPh2').value = ''; await sbCheckVault(); }
+    else if(m === 'no vault'){ await sbCheckVault(); toast('No passphrase is set yet - set one now.'); }
+    else toast(sbSay(e));
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+    renderSb();
+  }
+});
+
+/* Encrypt and decrypt one synced thing. The JSON is gzipped first (the CRM
+   export shrinks several times over, which is upload time on one bar of signal
+   and free-tier storage), then encrypted. The store and ID are bound into the
+   encryption (AES-GCM additional data), so the server cannot swap one record's
+   body into another and have it open. */
+async function sbPipe(u8, stream){
+  const w = stream.writable.getWriter();
+  w.write(u8); w.close();
+  return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+}
+async function sbSeal(store, id, obj){
+  if(!sbKeyRec) throw new Error('encryption is locked on this device');
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const packed = await sbPipe(TE.encode(JSON.stringify(obj)), new CompressionStream('gzip'));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
+    sbKeyRec.key, packed);
+  return {key_id: sbKeyRec.key_id, iv: u8b64(iv), body: u8b64(new Uint8Array(ct))};
+}
+async function sbOpen(store, id, row){
+  if(!sbKeyRec) throw new Error('encryption is locked on this device');
+  if(row.key_id !== sbKeyRec.key_id) throw new Error('encrypted with a different key');
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(row.iv), additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
+    sbKeyRec.key, b64u8(row.body));
+  return JSON.parse(TD.decode(await sbPipe(new Uint8Array(pt), new DecompressionStream('gzip'))));
+}
+
+/* ---------- Step 4: reference data, loaded once ----------
+
+   Each dataset travels whole, as one encrypted row in 'records' with
+   store = 'datasets' and the dataset name as its id:
+     crm        the accounts store plus kv 'meta' (they are one import)
+     beltref    belt/sprocket catalogue
+     assets     plant audit register
+     overrides  zone pins and suburb spellings
+     weeks      planning week markers
+     mgrOf      reassignments
+   Accounts are only ever replaced wholesale by an import, a plan file or a
+   restore - never edited one at a time - so a whole-dataset copy loses nothing.
+   kv 'usage', the load log and everything else device-only stays put.
+
+   Newest wins, by each dataset's own import time where it has one (META.imported,
+   REF.imported, ASSETS.imported, OVERRIDES.loaded) and otherwise by when it was
+   changed here. Using the import time means an older catalogue that turns up
+   later - restored from a backup, or pulled from GitHub - cannot push a newer one
+   out of the cloud. The server enforces the same rule (records_before_write).
+
+   Every local change marks its dataset dirty in kv 'cloudSets' via kvSet() and
+   accReplaceAll()/accMerge(), whether or not cloud sync is set up, so a change
+   made offline is sent next time. Applying a pulled copy is done with marking
+   switched off, or every pull would bounce straight back up.
+
+   A device that had data before cloud sync existed has no entry yet. Where its
+   data carries an import time it competes on that. Weeks and reassignments carry
+   none, so the cloud's copy wins if there is one; if not, this device seeds it. */
+
+var cloudQuiet = false;
+var cloudSets = null;            // {name: {ver, dirty, at}}
+var cloudRun = null, cloudAgain = false, cloudTimer = null;
+var cloudLast = {at: 0, msg: '', failed: false};
+var CLOUD_KV = {beltref:'beltref', assets:'assets', overrides:'overrides', weeks:'weeks', mgrOf:'mgrOf', meta:'crm'};
+const CLOUD_SETS = ['crm', 'beltref', 'assets', 'overrides', 'weeks', 'mgrOf'];
+const CLOUD_NAME = {crm:'CRM accounts', beltref:'belt reference data', assets:'plant audit register',
+                    overrides:'zone overrides', weeks:'planning weeks', mgrOf:'reassignments'};
+
+async function cloudSetsLoad(){
+  if(!cloudSets){
+    try { cloudSets = (await kvGet('cloudSets')) || {}; } catch(e){ cloudSets = {}; }
+  }
+  return cloudSets;
+}
+async function cloudSetsSave(){ await kvSet('cloudSets', cloudSets); }
+
+/* Called on every local change to a synced dataset. Never throws: a failure
+   here must not break the import that triggered it. */
+async function cloudMark(name){
+  if(cloudQuiet) return;
+  try {
+    await cloudSetsLoad();
+    cloudSets[name] = Object.assign({}, cloudSets[name], {dirty: true, at: Date.now()});
+    await cloudSetsSave();
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => { if(cloudCan()) cloudSync().catch(()=>{}); }, 3000);
+    renderSb();
+  } catch(e){ console.warn('cloud mark', name, e); }
+}
+
+/* The dataset's own time, where it has one. */
+function cloudOwnVer(name){
+  const t = {crm: META && META.imported, beltref: REF && REF.imported,
+             assets: ASSETS && ASSETS.imported, overrides: OVERRIDES && OVERRIDES.loaded}[name];
+  return typeof t === 'number' ? t : null;
+}
+function cloudHasLocal(name){
+  switch(name){
+    case 'crm': return ACCOUNTS.length > 0;
+    case 'beltref': return !!REF;
+    case 'assets': return !!ASSETS;
+    case 'overrides': return !!(OVERRIDES && (Object.keys(OVERRIDES.acctZone||{}).length || Object.keys(OVERRIDES.spelling||{}).length));
+    case 'weeks': return Object.keys(WEEKS||{}).length > 0;
+    case 'mgrOf': return Object.keys(MGR_OF||{}).length > 0;
+  }
+  return false;
+}
+/* The version this device holds: null means "nothing worth sending". */
+function cloudLocalVer(name){
+  const e = cloudSets[name];
+  if(!cloudHasLocal(name)) return e && e.dirty ? (cloudOwnVer(name) || e.at) : null;
+  if(e && e.dirty) return cloudOwnVer(name) || e.at;
+  if(e && e.ver != null) return e.ver;
+  return cloudOwnVer(name) || 0;          // here before cloud sync: see the note above
+}
+async function cloudPack(name){
+  switch(name){
+    case 'crm': return {accounts: await accAll(), meta: await kvGet('meta') || null};
+    case 'beltref': return await kvGet('beltref') || null;
+    case 'assets': return await kvGet('assets') || null;
+    case 'overrides': return await kvGet('overrides') || null;
+    case 'weeks': return await kvGet('weeks') || {};
+    case 'mgrOf': return await kvGet('mgrOf') || {};
+  }
+}
+async function cloudApply(name, data){
+  cloudQuiet = true;
+  try {
+    if(name === 'crm'){
+      if(!data || !Array.isArray(data.accounts)) throw new Error('the CRM copy in the cloud is not readable');
+      await accReplaceAll(data.accounts);
+      await kvSet('meta', data.meta || null);
+    } else {
+      await kvSet(name, data);
+    }
+  } finally { cloudQuiet = false; }
+}
+function cloudSummary(name, data){
+  try {
+    if(name === 'crm') return data.accounts.length + ' accounts';
+    if(name === 'beltref') return data.counts.combos + ' belt combinations, ' + data.counts.sprockets + ' sprocket rows';
+    if(name === 'assets') return data.counts.assets + ' asset numbers';
+    if(name === 'overrides') return Object.keys(data.acctZone||{}).length + ' pins, ' + Object.keys(data.spelling||{}).length + ' spellings';
+    if(name === 'weeks' || name === 'mgrOf') return Object.keys(data||{}).length + ' entries';
+  } catch(e){}
+  return '';
+}
+
+const cloudCan = () => !!(sbClient && sbUser && sbKeyRec && navigator.onLine);
+
+/* One sync at a time. A change made while one is running gets its own run
+   straight after. */
+async function cloudSync(){
+  if(cloudRun){ cloudAgain = true; return cloudRun; }
+  cloudRun = (async () => {
+    let out;
+    do { cloudAgain = false; out = await cloudSyncOnce(); } while(cloudAgain);
+    return out;
+  })();
+  renderSb();       // "syncing..." and the button greyed out while it runs
+  try { return await cloudRun; } finally { cloudRun = null; renderSb(); }
+}
+async function cloudSyncOnce(){
+  if(!cloudCan()) throw new Error(!navigator.onLine ? 'no connection' : 'sign in and unlock first');
+  await cloudSetsLoad();
+  const sent = [], got = [];
+  try {
+    const r = await sbClient.from('records').select('id,client_updated').eq('store', 'datasets');
+    if(r.error) throw r.error;
+    const cloud = {};
+    for(const row of r.data || []) cloud[row.id] = Number(row.client_updated);
+
+    const pull = [];
+    for(const name of CLOUD_SETS){
+      const mine = cloudLocalVer(name), theirs = cloud[name];
+      if(theirs == null){
+        if(mine != null) await cloudPush(name, mine || Date.now(), sent);
+      } else if(mine != null && mine > theirs){
+        await cloudPush(name, mine, sent);
+      } else if(mine == null || theirs > mine){
+        pull.push(name);
+      } else if(!cloudSets[name] || cloudSets[name].dirty || cloudSets[name].ver !== theirs){
+        cloudSets[name] = {ver: theirs, dirty: false};      // already the same version
+        await cloudSetsSave();
+      }
+    }
+    if(pull.length){
+      const b = await sbClient.from('records').select('id,key_id,iv,body,client_updated')
+        .eq('store', 'datasets').in('id', pull);
+      if(b.error) throw b.error;
+      for(const row of b.data || []){
+        const data = await sbOpen('datasets', row.id, row);
+        await cloudApply(row.id, data);
+        cloudSets[row.id] = {ver: Number(row.client_updated), dirty: false};
+        await cloudSetsSave();
+        got.push(row.id);
+        await logLoad('Cloud', 'cloud', 'Pulled ' + CLOUD_NAME[row.id] + (cloudSummary(row.id, data) ? ' - ' + cloudSummary(row.id, data) : ''));
+      }
+      if(got.length) await cloudAfterPull(got);
+    }
+    const bits = [];
+    if(sent.length) bits.push('sent ' + sent.map(n => CLOUD_NAME[n]).join(', '));
+    if(got.length) bits.push('brought in ' + got.map(n => CLOUD_NAME[n]).join(', '));
+    cloudLast = {at: Date.now(), msg: bits.length ? bits.join('; ') : 'everything already in step', failed: false};
+    localStorage.setItem(LS('cloudSync'), String(cloudLast.at));
+    return cloudLast.msg;
+  } catch(e){
+    cloudLast = {at: Date.now(), msg: sbSay(e), failed: true};
+    throw e;
+  }
+}
+async function cloudPush(name, ver, sent){
+  const at = cloudSets[name] && cloudSets[name].at;
+  const sealed = await sbSeal('datasets', name, await cloudPack(name));
+  const r = await sbClient.from('records').upsert(Object.assign({owner: sbUser.id, store: 'datasets', id: name,
+    client_updated: ver, deleted: false}, sealed), {onConflict: 'owner,store,id'});
+  if(r.error) throw r.error;
+  // changed again while uploading: leave it dirty for the next run
+  if(cloudSets[name] && cloudSets[name].at !== at && cloudSets[name].dirty) return;
+  cloudSets[name] = {ver: ver, dirty: false};
+  await cloudSetsSave();
+  sent.push(name);
+}
+$('sbSync').addEventListener('click', async ()=>{
+  try { toast('Synced: ' + await cloudSync()); }
+  catch(e){ console.warn(e); toast('Sync failed: ' + sbSay(e)); }
+  renderSb();
+});
+/* Everything that reads the reference data is rebuilt, as at boot. */
+async function cloudAfterPull(names){
+  await loadAccounts();
+  renderDbStat(); renderRefStat(); renderAssetStat(); renderHomeSetup();
+  fillManagers();
+  if(names.includes('beltref')){ try { buildBeltRef(); } catch(e){ console.error('belt reference', e); } }
+  try { await renderHome(); } catch(e){ console.error('home', e); }
+  toast('Brought in ' + names.map(n => CLOUD_NAME[n]).join(', '));
+}
+async function cloudWaiting(){
+  await cloudSetsLoad();
+  return CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length;
+}
 
 /* ================= contacts and accounts, outside a call =================
 
@@ -8212,6 +8791,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   renderManStat(); renderManCount();
   await loadDir();
   await loadGh();
+  try { await loadSb(); } catch(e){ console.error('cloud', e); }
   $('cMgr').addEventListener('change', renderHomeCounts);
   $('cDate').value = todayISO();
   /* buildBeltRef was only called from importRef, so the pickers were built the
