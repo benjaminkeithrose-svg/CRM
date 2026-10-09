@@ -64,8 +64,11 @@ failure.
 
 **Cloud sync (Supabase) marks changes at the storage layer.** `kvSet()` on a
 key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
-waiting to send. Write reference data only through those functions, or the
-change never reaches the other devices. Anything applying a copy pulled from
+waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()` mark that
+record. Bump `call.updated` / `appointment.touchedAt` on a real edit, or the
+change can lose to an older copy. Photos stay Blobs in `entry.photos` and
+`call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never
+reaches the other devices. Anything applying a copy pulled from
 the cloud must set `cloudQuiet`, or it bounces straight back up. Everything
 leaving the device is encrypted with `sbSeal()` first. Unlike the GitHub
 sync, this one runs automatically (on open, on reconnect, after a change),
