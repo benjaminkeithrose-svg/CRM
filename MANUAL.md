@@ -109,14 +109,16 @@ Only visits that changed since last time are in the file, and downloading again 
 2. Tap **Day**, **Week** or **Month**.
 3. Use the arrows to move. Tap **Today** to come back.
 
-In Month, each day shows how many visits (navy) and tasks (light blue) it has. Tap a day to see it.
+In Month, each day shows how many visits (navy), tasks (light blue) and quote requests (orange) it has. Tap a day to see it.
 
 ### Start a planned visit
 
 1. Tap **Plan** on Home.
-2. Tap the visit.
+2. Tap the visit. Or tap **⋯** on it, then **Start the call**.
 
-The call opens with the account and the people already filled in.
+On the PC, click the visit, then **Start the call** at the bottom. Anything you changed on it is saved first.
+
+The call opens with the account and the people already filled in. Once started, the same button says **Open the call**.
 
 ### Log a call that wasn't planned
 
@@ -179,6 +181,8 @@ It goes on the calendar at the next half hour, for 30 minutes. Change the day or
 3. Fill in when it's **Required by**, then pick the account and the people.
 4. Log the belts the same way as on a call.
 5. Tap **Create and share** to send it.
+
+It shows on the calendar, in orange, on the day you made it. Tap it there to open it again. It never goes to Outlook.
 
 ### Send the notes out
 

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v85">
+<meta name="build" content="v86">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -433,6 +433,7 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   background:var(--surface);color:var(--ink);font-size:13.5px;font-weight:700;cursor:pointer;
   text-align:left}
 .vmacts button.quiet{color:var(--ink-3);font-weight:400;border-color:var(--line-2)}
+.vmacts button.go{background:var(--act);border-color:var(--act);color:#fff}
 .vmacts button:has(.ic){display:flex;align-items:center;gap:10px}
 .vmacts button .ic{width:17px;height:17px;flex:none;color:var(--ink-2)}
 /* Delete: last, set apart from the rest, warning colour - never next to the main action */
@@ -716,6 +717,7 @@ body.planning{padding-bottom:0}
 .btn{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px 12px;cursor:pointer;font-size:13px}
 .btn:hover{border-color:var(--ink-2)}
 .btn.key{background:var(--act);border-color:var(--act);color:#fff;font-weight:700}
+.btn.act2{color:var(--act);border-color:var(--act);font-weight:700}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
 /* A gutter of hour labels, then the five days. */
 .week{display:grid;grid-template-columns:46px repeat(5,1fr);gap:8px;align-items:start}
@@ -815,6 +817,16 @@ body.planning{padding-bottom:0}
   position:relative;color:var(--warn);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px}
 .pill .del .ic{width:13px;height:13px}
 .pill .del:active{background:var(--red-soft);color:var(--warn)}
+/* Quote requests on the calendar (v86): orange stripe, the right-hand half of
+   the column like a task, and they do not drag - they sit on the day made. */
+.appt.quote,.pill.quote{border-left-color:var(--orange-dk);background:var(--orange-lt);cursor:pointer}
+.dbody.hours .appt.quote{left:50%;right:4px;z-index:2;display:flex;align-items:center;padding:0 6px}
+.appt.quote .a{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.appt.quote.done,.pill.quote.done{opacity:.6}
+.vis.quote{border-left-color:var(--orange-dk)}
+.pm-q{display:inline-block;min-width:18px;padding:1px 4px;border-radius:999px;font-size:11px;font-weight:700;
+  line-height:15px;text-align:center;background:var(--orange-lt);color:var(--orange-dk)}
+.pm-key .pm-q{margin-left:8px}
 /* Tasks on the calendar: dark grey stripe, a tick box, and the right-hand half
    of the column so an appointment at the same time stays visible. */
 .appt.task,.pill.task{border-left-color:var(--ink-2);background:var(--surface);box-shadow:inset 0 0 0 1px var(--line-2)}
@@ -1443,7 +1455,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Tap <b>Day</b>, <b>Week</b> or <b>Month</b>.</li>
         <li>Use the arrows to move. Tap <b>Today</b> to come back.</li>
       </ol>
-      <p>In Month, each day shows how many visits (navy) and tasks (light blue) it has. Tap a day to see it.</p>
+      <p>In Month, each day shows how many visits (navy), tasks (light blue) and quote requests (orange) it has. Tap a day to see it.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1451,9 +1463,10 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <div class="fld help">
       <ol>
         <li>Tap <b>Plan</b> on Home.</li>
-        <li>Tap the visit.</li>
+        <li>Tap the visit. Or tap <b>&#8943;</b> on it, then <b>Start the call</b>.</li>
       </ol>
-      <p>The call opens with the account and the people already filled in.</p>
+      <p>On the PC, click the visit, then <b>Start the call</b> at the bottom. Anything you changed on it is saved first.</p>
+      <p>The call opens with the account and the people already filled in. Once started, the same button says <b>Open the call</b>.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1542,6 +1555,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Log the belts the same way as on a call.</li>
         <li>Tap <b>Create and share</b> to send it.</li>
       </ol>
+      <p>It shows on the calendar, in orange, on the day you made it. Tap it there to open it again. It never goes to Outlook.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1871,6 +1885,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="dlg-f">
     <button class="btn danger" id="dDel" type="button">Delete</button>
     <span class="spacer"></span>
+    <button class="btn act2" id="dStart" type="button" hidden>Start the call</button>
     <button class="btn" id="dCancel" type="button">Cancel</button>
     <button class="btn key" id="dSave" type="button">Save</button>
   </div>

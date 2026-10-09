@@ -202,6 +202,8 @@ function saveCall(){
   } else if(call.customer){
     CALLS_BY_ACCT.set(call.customer, [call]);
   }
+  // a quote request on the calendar follows its record (v86)
+  if(isQuote(call)) return callsPut(call).then(r => loadQuotes().then(() => r));
   return callsPut(call);
 }
 
@@ -925,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v85';
+const APP_BUILD = 'v86';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1137,6 +1139,7 @@ async function loadAccounts(){
   indexAccounts(await accAll());
   APPTS = await apptsAll();
   TASKS = await tasksAll();
+  await loadQuotes();
   REF = await kvGet('beltref') || null;
   ASSETS = await kvGet('assets') || null;
   await loadUse();
@@ -2090,6 +2093,14 @@ function renderCalendar(){
         makeDraggableAppt(el, t, taskMoved);
         b.appendChild(el);
       });
+      // quote requests sit where they were made; they do not move
+      quotesOn(k).forEach(q => {
+        const el = quoteEl(q, false);
+        el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(q))) + 'px';
+        el.style.height = Math.max(18, TASK_DUR * PX_MIN) + 'px';
+        if(!oneDay) el.classList.add('tiny');
+        b.appendChild(el);
+      });
       /* Clicking empty space books at the time that was clicked, which is the
          whole point of having an hour axis. */
       b.addEventListener('dblclick', e => {
@@ -2125,6 +2136,7 @@ function renderCalendar(){
         cell.innerHTML = '<div class="n">'+d.getDate()+'</div>';
         apptsOn(k).forEach(ap => cell.appendChild(apptEl(ap,true)));
         tasksOn(k).forEach(t => cell.appendChild(taskEl(t,true)));
+        quotesOn(k).forEach(q => cell.appendChild(quoteEl(q,true)));
         cell.addEventListener('dblclick', ()=>openDialog(null, {date:k}));
         makeDrop(cell, k);
         grid.appendChild(cell);
@@ -2275,6 +2287,11 @@ function openDialog(id, seed){
   }
   $('dHold').checked = !!ap.hold;
   $('dDel').hidden = !id;
+  /* The details stay here for the invite; this goes into the call (v86).
+     Only for a saved visit: a new one has nothing to start yet. A finished
+     visit with no call behind it has nothing to open. */
+  $('dStart').hidden = !id || (apSettled(ap) && !ap.callId);
+  $('dStart').textContent = ap.callId ? 'Open the call' : 'Start the call';
   dlgAppt = ap;
   const dlg = $('dlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
@@ -2288,7 +2305,7 @@ function closeDialog(){
   if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
   dlgAppt = null; editingAppt = null;
 }
-async function saveDialog(){
+async function saveDialog(keepOpen){
   const ap = dlgAppt;
   if(!ap) return;
   ap.type = $('dType').value;
@@ -2306,8 +2323,20 @@ async function saveDialog(){
     APPTS.push(ap);
   }
   await saveAppt(ap);
+  if(keepOpen) return ap;
   closeDialog();
   renderPlan();
+}
+/* Start the call from the appointment: keep whatever was just edited, then go
+   into the call. The dialog is shut directly rather than through history.back,
+   which would race the move to the call screen. */
+async function startFromDialog(){
+  if(!editingAppt) return;
+  const ap = await saveDialog(true);
+  const dlg = $('dlg');
+  if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
+  dlgAppt = null; editingAppt = null;
+  if(ap) await openVisit(ap.id);
 }
 async function deleteDialog(){
   if(!editingAppt) return;
@@ -2320,6 +2349,7 @@ async function deleteDialog(){
 }
 $('dSave').addEventListener('click', ()=>saveDialog().catch(e=>{ console.error(e); toast('Could not save: '+e.message); }));
 $('dCancel').addEventListener('click', closeDialog);
+$('dStart').addEventListener('click', ()=>startFromDialog().catch(e=>{ console.error(e); toast('Could not start the call: '+e.message); }));
 $('dDel').addEventListener('click', ()=>deleteDialog().catch(e=>{ console.error(e); toast('Could not delete: '+e.message); }));
 
 /* ---------- plan wiring ---------- */
@@ -3290,21 +3320,27 @@ function taskCard(t){
 function dayItems(k){
   return APPTS.filter(a => a.date === k).map(a => ({at: a.start || '', html: visitCard(a)}))
     .concat(TASKS.filter(x => x.date === k).map(x => ({at: x.start || '', html: taskCard(x)})))
+    .concat(QUOTES.filter(q => q.date === k).map(q => ({at: q.start, html: quoteCard(q)})))
     .sort((a,b) => a.at.localeCompare(b.at)).map(x => x.html).join('');
 }
-const countWords = (v, t) => [v && v + ' visit' + (v === 1 ? '' : 's'), t && t + ' task' + (t === 1 ? '' : 's')].filter(Boolean).join(' and ');
+const countWords = (v, t, q) => {
+  const w = [v && v + ' visit' + (v === 1 ? '' : 's'), t && t + ' task' + (t === 1 ? '' : 's'),
+    q && q + ' quote request' + (q === 1 ? '' : 's')].filter(Boolean);
+  return w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : (w[0] || '');
+};
 function renderTodayList(el){
   const t = tvDate(), isNow = t === todayISOdate();
   const mine = APPTS.filter(a => a.date === t).sort((x,y)=>x.start.localeCompare(y.start));
   const myTasks = TASKS.filter(x => x.date === t);
+  const myQuotes = QUOTES.filter(x => x.date === t);
   const mon = iso(startOfWeek(new Date()));
   // earlier in the week, planned and never resolved
   const late = isNow ? APPTS.filter(a => a.date >= mon && a.date < t && !apSettled(a))
     .sort((x,y)=>x.date.localeCompare(y.date) || x.start.localeCompare(y.start)) : [];
 
   const when = isNow ? 'today' : 'on ' + dayLabel(t).toLowerCase();
-  $('tvHint').textContent = (mine.length || myTasks.length)
-    ? countWords(mine.length, myTasks.length)+' '+when
+  $('tvHint').textContent = (mine.length || myTasks.length || myQuotes.length)
+    ? countWords(mine.length, myTasks.length, myQuotes.length)+' '+when
     : 'Nothing planned '+when+'.';
 
   let html = dayItems(t);
@@ -3330,13 +3366,14 @@ function renderWeekList(el){
   const mon = tvWeekStart(), t = todayISOdate();
   // Monday to Friday, plus Saturday and Sunday whenever something is on them
   const days = [0,1,2,3,4,5,6].map(i => addDays(mon,i))
-    .filter((d,i) => i < 5 || APPTS.some(a => a.date === iso(d)) || TASKS.some(x => x.date === iso(d)));
+    .filter((d,i) => i < 5 || APPTS.some(a => a.date === iso(d)) || TASKS.some(x => x.date === iso(d)) || QUOTES.some(x => x.date === iso(d)));
   const from = iso(mon), to = iso(addDays(mon,6));
   const n = APPTS.filter(a => a.date >= from && a.date <= to).length;
   const nt = TASKS.filter(x => x.date >= from && x.date <= to).length;
+  const nq = QUOTES.filter(x => x.date >= from && x.date <= to).length;
   const thisWk = iso(mon) === iso(startOfWeek(new Date()));
   const wk = thisWk ? 'this week' : 'that week';
-  $('tvHint').textContent = (n || nt) ? countWords(n, nt)+' '+wk
+  $('tvHint').textContent = (n || nt || nq) ? countWords(n, nt, nq)+' '+wk
     : 'Nothing planned '+wk+'.';
   el.innerHTML = days.map(d=>{
     const k = iso(d), items = dayItems(k);
@@ -3354,28 +3391,31 @@ function renderMonthGrid(el){
   const c = parseIso(tvDate()), y = c.getFullYear(), m = c.getMonth();
   const first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
   const from = iso(first), to = iso(last), t = todayISOdate();
-  const nv = {}, nt = {};
+  const nv = {}, nt = {}, nq = {};
   APPTS.forEach(a => { if(a.date >= from && a.date <= to) nv[a.date] = (nv[a.date] || 0) + 1; });
   TASKS.forEach(x => { if(x.date >= from && x.date <= to) nt[x.date] = (nt[x.date] || 0) + 1; });
+  QUOTES.forEach(x => { if(x.date >= from && x.date <= to) nq[x.date] = (nq[x.date] || 0) + 1; });
   const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
-  const v = sum(nv), k = sum(nt);
-  $('tvHint').textContent = (v || k) ? countWords(v, k) + ' in ' + MONNM[m]
+  const v = sum(nv), k = sum(nt), kq = sum(nq);
+  $('tvHint').textContent = (v || k || kq) ? countWords(v, k, kq) + ' in ' + MONNM[m]
     : 'Nothing planned in ' + MONNM[m] + '.';
   let cells = '';
   for(let i = (first.getDay() + 6) % 7; i > 0; i--) cells += '<span class="pm-cell pad"></span>';
   for(let n = 1; n <= last.getDate(); n++){
-    const key = iso(new Date(y, m, n)), a = nv[key] || 0, b = nt[key] || 0;
-    const words = [DAYNM7[new Date(y, m, n).getDay()] + ' ' + n + ' ' + MONNM[m], countWords(a, b) || 'nothing planned'].join(', ');
-    cells += '<button type="button" class="pm-cell' + (key === t ? ' isToday' : '') + (a || b ? ' busy' : '') +
+    const key = iso(new Date(y, m, n)), a = nv[key] || 0, b = nt[key] || 0, c = nq[key] || 0;
+    const words = [DAYNM7[new Date(y, m, n).getDay()] + ' ' + n + ' ' + MONNM[m], countWords(a, b, c) || 'nothing planned'].join(', ');
+    cells += '<button type="button" class="pm-cell' + (key === t ? ' isToday' : '') + (a || b || c ? ' busy' : '') +
       '" data-mday="' + key + '" aria-label="' + esc(words) + '">' +
       '<span class="pm-n">' + n + '</span>' +
       (a ? '<span class="pm-v">' + a + '</span>' : '') +
       (b ? '<span class="pm-t">' + b + '</span>' : '') +
+      (c ? '<span class="pm-q">' + c + '</span>' : '') +
     '</button>';
   }
   el.innerHTML = '<div class="pm-grid">' +
     ['M','T','W','T','F','S','S'].map(x => '<span class="pm-hd">' + x + '</span>').join('') + cells + '</div>' +
-    '<p class="pm-key"><span class="pm-v">2</span> visits <span class="pm-t">1</span> tasks</p>';
+    '<p class="pm-key"><span class="pm-v">2</span> visits <span class="pm-t">1</span> tasks' +
+      (kq ? ' <span class="pm-q">1</span> quotes' : '') + '</p>';
   el.querySelectorAll('[data-mday]').forEach(b => b.addEventListener('click', () => {
     tvCursor = b.dataset.mday;
     tvSetView('today');
@@ -3464,6 +3504,7 @@ function wireVisitCards(el){
   on('data-vmenu',    id => openVisitMenu(id));
   on('data-start',    id => startVisit(id).catch(reportErr));
   on('data-topen',    id => openTask(id));
+  on('data-qopen',    id => openQuote(id).catch(reportErr));
   on('data-ttick',    id => { const t = TASKS.find(x => x.id === id); if(t) taskToggle(t).catch(reportErr); });
   on('data-closeout', id => closeOutVisit(id).catch(reportErr));
   on('data-move',     id => openMoveDialog(id));
@@ -4188,6 +4229,54 @@ const TASK_DUR = 30;
 let taskEdit = null, taskIsNew = false, taskBefore = '';
 
 function tasksOn(dISO){ return TASKS.filter(t => t.date === dISO).sort((x,y)=>(x.start||'').localeCompare(y.start||'')); }
+
+/* ---------- quote requests on the calendar (v86) ----------
+   A quote request is not a visit, so it never becomes an appointment: no
+   Outlook invite, nothing towards the account's cadence. It shows on the day it
+   was made, read straight from the quote records, at the time it was started
+   (its id is that moment), and opens the request when tapped. */
+let QUOTES = [];
+function quoteCal(q){
+  const made = parseInt(String(q.id).slice(1), 10);
+  const d = isFinite(made) && made > 0 ? new Date(made) : null;
+  const date = isoFromDdmmyyyy(q.date) || (d ? iso(d) : '');
+  // backdated to another day: no real time to show, so the start of the day
+  const start = d && iso(d) === date ? hhmm(Math.floor((d.getHours() * 60 + d.getMinutes()) / 15) * 15) : '08:00';
+  return {id: q.id, acct: q.customer || 'Quote request', date, start, done: !!q.closed,
+    belts: (q.entries || []).filter(e => e.type === 'belt').length};
+}
+async function loadQuotes(){
+  QUOTES = (await quotesAll()).map(quoteCal).filter(q => q.date);
+}
+function quotesOn(dISO){ return QUOTES.filter(q => q.date === dISO).sort((x,y) => x.start.localeCompare(y.start)); }
+const quoteLabel = q => (q.start || '') + ' RFQ ' + q.acct;
+function quoteEl(q, pill){
+  const el = document.createElement('div');
+  el.className = (pill ? 'pill' : 'appt') + ' quote' + (q.done ? ' done' : '');
+  el.tabIndex = 0;
+  el.innerHTML = pill ? '<span class="pt"></span>' : '<div class="a"><span></span></div>';
+  el.querySelector(pill ? '.pt' : '.a span').textContent = quoteLabel(q);
+  el.title = 'Quote request: ' + q.acct + (q.belts ? '\n' + q.belts + ' belt' + (q.belts === 1 ? '' : 's') : '') + (q.done ? '\nDone' : '');
+  const open = e => { e.stopPropagation(); openQuote(q.id).catch(reportErr); };
+  el.addEventListener('click', open);
+  el.addEventListener('keydown', e => { if(e.key === 'Enter') open(e); });
+  return el;
+}
+// the phone's Day and Week lists
+function quoteCard(q){
+  return '<div class="vis quote' + (q.done ? ' settled' : '') + '">' +
+    '<button class="vopen" data-qopen="' + esc(q.id) + '">' +
+      '<div class="vtop"><span class="when">' + esc(q.start) + '</span><span class="who">' + esc(q.acct) + '</span></div>' +
+      '<div class="vsub">' + ['Quote request', q.belts ? q.belts + ' belt' + (q.belts === 1 ? '' : 's') : '', q.done ? 'done' : ''].filter(Boolean).map(esc).join(' &middot; ') + '</div>' +
+    '</button></div>';
+}
+async function openQuote(id){
+  const found = (await recordsAll()).find(c => c.id === id);
+  if(!found){ toast('That quote request could not be found'); return; }
+  call = found;
+  call.loose = call.loose || [];
+  go('dash');
+}
 const taskTitle = t => t.title || t.type || 'Untitled task';
 // the next half hour after now: added at 10:12, it sits at 10:30; at 9:12pm, 9:30pm
 function nextHalfHour(d){
@@ -5279,6 +5368,7 @@ async function cloudSyncRecs(){
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
     APPTS = await apptsAll();
     TASKS = await tasksAll();
+    await loadQuotes();
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -6601,6 +6691,7 @@ async function deleteCallRecord(c){
   (c.entries||[]).forEach(e => (e.photos||[]).forEach(releasePhoto));
   (c.loose||[]).forEach(releasePhoto);
   await callsDel(c.id);
+  if(isQuote(c)) await loadQuotes();
   if(call && call.id === c.id) call = null;
   toast('Call deleted');
   return true;
@@ -6616,6 +6707,7 @@ async function markCallDone(c){
   if(c.status === 'in progress' || !c.status) c.status = 'done';
   if(!c.entries.length) c.noReport = true;
   await callsPut(c);
+  if(q) await loadQuotes();
   await syncApptFromCall(c);
   /* The open call and the row can be the same record reached two ways, so the
      working copy is dropped rather than left pointing at a closed call. */
@@ -6649,9 +6741,12 @@ function openVisitMenu(id){
 
   html += '<div class="vmsec">Visit</div><div class="vmacts">';
   if(settled){
+    // a finished visit that produced a call can still open it
+    if(ap.callId) html += '<button class="go" data-open="'+eid+'">Open the call</button>';
     html += '<button data-reopen="'+eid+'">Reopen</button>';
   } else {
-    html += '<button data-closeout="'+eid+'">Close out</button>'+
+    html += '<button class="go" data-open="'+eid+'">'+(ap.callId ? 'Open the call' : 'Start the call')+'</button>'+
+            '<button data-closeout="'+eid+'">Close out</button>'+
             '<button data-move="'+eid+'">Move</button>'+
             '<button class="quiet" data-missed="'+eid+'">Missed</button>'+
             '<button class="quiet" data-cancel="'+eid+'">Cancel</button>';
@@ -6677,7 +6772,7 @@ function openVisitMenu(id){
   /* The visit actions each navigate or redraw, so the menu closes behind them
      rather than being left open over a screen that has moved on. */
   wireVisitCards(body);
-  body.querySelectorAll('[data-closeout],[data-move],[data-missed],[data-cancel],[data-reopen]')
+  body.querySelectorAll('[data-open],[data-closeout],[data-move],[data-missed],[data-cancel],[data-reopen]')
     .forEach(b => b.addEventListener('click', closeVisitMenu));
 
   const dlg = $('vmdlg');
@@ -9090,6 +9185,7 @@ async function doRestore(file){
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   for(const t of tasks) if(t && t.id) await tasksPut(t);
   if(tasks.length) TASKS = await tasksAll();
+  await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
   if(data.mgrOf){ MGR_OF = data.mgrOf; await kvSet('mgrOf', MGR_OF); }
   if(data.overrides){

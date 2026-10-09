@@ -31,6 +31,7 @@ work from a copy of a file anywhere other than this checkout.
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `supabase/migrations/` | Cloud database schema. Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
+| `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
 
 ## Hard rules
 
@@ -98,7 +99,8 @@ Any new `<dialog>` must be added there. Guard `showModal` —
 **Help lives in two places with the same words:** the Help screen
 (`s-help` in `index.html`, opened from ⋯ on Home) and `MANUAL.md`. When a flow,
 button name or screen changes, update the matching Help section in the same
-pull request, then regenerate or edit `MANUAL.md` to match. Help steps are
+pull request, then run `python3 tools/help-to-manual.py` to regenerate
+`MANUAL.md` from it. Help steps are
 numbered, plain English, one action per step.
 
 **No output format that has already been rejected.** EML was tried and dropped:

@@ -395,9 +395,16 @@ becomes the main item everything else hangs off.
 - Tasks are in backup/restore and sync through cloud sync like everything
   else. Database version 4 adds a `tasks` store; existing data is kept.
 
-**Still to build:** B — quote requests on the calendar, **Start call** on a
-planned appointment in the calendar, the phone-call booking fix. C —
-calendar filters (All / Visits / Tasks / Quotes) and search.
+**B built (v86):** quote requests show on the calendar (PC day, week and
+month; phone Day, Week and Month counts) on the day made, at the time made,
+in orange, read from the quote records rather than made into appointments, so
+nothing goes to Outlook or the cadence. Tapping one opens it. A saved planned
+visit has **Start the call** in the PC appointment window (saves edits first)
+and at the top of the phone's ⋯ menu; once started it reads **Open the call**.
+The phone-call booking fix went in with the New screen (v77).
+
+**Still to build:** C — calendar filters (All / Visits / Tasks / Quotes) and
+search.
 
 **Worth knowing:** the app already links an appointment to its call in
 places (`callSummary`, `bookUnplanned()`). The known `'Phone call'` bug in
