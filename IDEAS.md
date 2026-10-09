@@ -243,21 +243,28 @@ Ben restated the actual complaints, which sharpen two things above rather than a
 
 Both the AI piece and true-instant sync point the same direction: this app moving from "fully static, no backend, ever" to "mostly static, with one small piece of infrastructure behind it." That's a real line to cross, not a detail — worth deciding deliberately rather than drifting into it one feature at a time.
 
+**Follow-up 2026-10-09 (third message) — sync question narrowed, AI cost priced out:**
+
+Ben clarified sync: he doesn't need live updates while the PC app sits open, only fresh data at the moment he opens it — a deliberate button press (what already exists today) is actually what he wants, not background polling. **This removes sync from the "needs new infrastructure" list entirely.** The only change worth considering here, and it's small: auto-trigger the existing pull once when the PC app loads, so reports are already there instead of needing a tap first thing — same GitHub-repo mechanism, no new infrastructure, and it keeps (rather than breaks) the app's "nothing happens unless triggered" pattern, since "loading the app" is itself the trigger. That leaves **the AI piece as the only part of this whole entry that actually needs a backend.**
+
+On cost, since Ben was clear he doesn't want to spend more than necessary — priced against current Claude API rates (checked via the pricing skill, not recalled from memory):
+- **Hosting:** a Cloudflare Worker's free tier covers 100,000 requests/day. A few call-note cleanups a day is nowhere near that — **$0** for hosting, indefinitely, at this volume.
+- **The AI calls themselves cost per use, separately from hosting, and this is the one genuinely unavoidable cost** — there's no way around paying for model usage somewhere if the model runs at all. Using Claude Haiku 5.5 ($0.10 per million input tokens, $0.50 per million output tokens — the right-sized model for tidying short dictated text, not a complex reasoning task): even a generously long call note (~3,000 words in, ~1,500 words cleaned up out) costs **roughly a tenth of a cent per call**. At "a few call notes a day" that's realistically **a few cents a month, well under a dollar** — even heavy use (dozens of calls a day) would land under a dollar or two. This needs an Anthropic API account with a payment method or prepaid credit attached (separate from a normal claude.ai subscription, which has no programmatic access) — small amount of setup, not a recurring bill of any real size at Ben's stated use.
+
+So: the backend decision is now just about the AI piece, and the honest cost answer is "free hosting, a few cents a month in actual AI usage." Worth Ben knowing the real number rather than deciding on a vague worry about cost.
+
 **Not decided:**
-- Whether Ben is fine adding one small piece of backend infrastructure (a serverless function, likely Cloudflare Workers or similar) to get AI cleanup inside the app and/or faster sync — see the follow-up above. Everything else in this entry assumed "no backend, ever" stays true; it may not, after this.
-- Whether "almost instantaneous" sync means fast polling (no new infrastructure) or genuinely real-time push (does need new infrastructure).
 - Whether IT allows Microsoft 365 storage or Graph permissions.
 - Whether it is only Ben using the app or the team.
 - What the encryption is actually meant to defend against (see threat model above) — this decides the design, so it has to come before any encryption work starts.
 
 **Questions for Ben before building:**
 1. Is steps 1 to 4 the right scope, in that order?
-2. ~~Is the chat-based AI step acceptable?~~ **Answered 2026-10-09: no** — Ben wants AI cleanup inside the app, no copy/paste round trip. See the follow-up above: this means accepting one small piece of backend infrastructure, which is now the real open question —
-3. Is Ben fine with that one small backend piece (likely a Cloudflare Worker or similar, holding the AI API key so the app can call it directly)? Everything about this project being "no backend, ever" was built assuming the answer was no.
-4. Should the sync investigation come first?
+2. ~~Is the chat-based AI step acceptable?~~ **Answered 2026-10-09: no** — Ben wants AI cleanup inside the app, no copy/paste round trip.
+3. ~~Is Ben fine with the one small backend piece this requires?~~ **Answered 2026-10-09: yes, conditionally** — fine with it as long as it's free or very close to it. Priced out above: realistically a few cents a month. On that basis this is a go, pending him confirming the actual number is acceptable.
+4. Should the sync investigation come first? (The "phone and website disagree" bug, not the instant-visibility ask — that part's settled above with no new infrastructure needed.)
 5. Should IT be asked about Microsoft 365 storage?
 6. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
-7. For "almost instantaneous" sync: is fast polling (every 15-30s, no new infrastructure, but drops the "every sync is a deliberate button press" pattern) good enough, or does it need to be genuinely real-time (needs a second new piece of infrastructure beyond the AI proxy)?
 
 ---
 
