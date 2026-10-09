@@ -118,11 +118,12 @@ t('and leaves no draft', !g('call').drafts || !g('call').drafts.belt);
 // ---- save buttons gone ----
 ['bSave','pSave','nSave','hSave'].forEach(id =>
   t(id+' is hidden', $(id).hidden === true));
+// v82: one Done, in the call toolbar at the top; none left at the foot of the forms
 t('Done replaced back-without-saving',
-  d.querySelectorAll('.backcall').length === 4 &&
-  [...d.querySelectorAll('.backcall')].every(b => b.textContent === 'Done'));
-t('Done is the primary action',
-  [...d.querySelectorAll('.backcall')].every(b => b.classList.contains('big')));
+  d.querySelectorAll('.backcall').length === 1 && $('barDone').textContent === 'Done');
+t('Done is the primary action, at the top',
+  $('barDone').classList.contains('pri') && !!$('barDone').closest('#bar') &&
+  ['s-belt','s-project','s-note','s-health'].every(id => !$(id).querySelector('.backcall')));
 
 // ---- viewer zoom ----
 t('zoom helpers exist',
@@ -150,6 +151,50 @@ w.closePhoto();
 w.openPhoto(['only'], 0, 'Test');
 t('Remove hidden without a handler', $('pvDel').hidden === true);
 w.closePhoto();
+
+// ---- v82: the call toolbar is at the top, with one main action ----
+setCall(mk('c7'));
+w.showScreen('dash');
+t('toolbar shows inside a call', $('bar').style.display === 'block');
+t('toolbar is above the screens, not fixed to the bottom',
+  !!($('bar').compareDocumentPosition(d.querySelector('.wrap')) & 4));
+t('toolbar icons carry names',
+  ['barCamera','barGallery','barManuals'].every(id => $(id).querySelector('svg') && $(id).getAttribute('aria-label')));
+t('call menu: Create and share, no Done', !$('doOutput').hidden && $('barDone').hidden);
+t('no Call menu button any more', !$('barMenu'));
+w.showScreen('note');
+t('a form: Done, no Create and share', $('barDone').hidden === false && $('doOutput').hidden === true);
+t('Log a fault sits up with the asset, above the belt data',
+  !!($('bFault').compareDocumentPosition(d.querySelector('#s-belt h2')) & 4));
+
+// ---- v82: chips for short known lists; the select underneath keeps the value ----
+for (const id of ['nTopic','pStat','hType','dType','dDur','cMgr'])
+  t(id + ' shows as chips, its dropdown hidden', $(id).hidden && $(id + 'Chips') && $(id + 'Chips').querySelectorAll('button').length > 0);
+t('note topic starts on Other', $('nTopicChips').querySelector('button.on').textContent === 'Other');
+let changed = 0; $('nTopic').addEventListener('change', () => changed++);
+[...$('nTopicChips').querySelectorAll('button')].find(b => b.textContent === 'Commercial').click();
+t('tapping a chip sets the value', $('nTopic').value === 'Commercial');
+t('and fires change, as the dropdown did', changed === 1);
+t('only that chip is on', [...$('nTopicChips').querySelectorAll('button.on')].map(b => b.textContent).join() === 'Commercial');
+[...$('nTopicChips').querySelectorAll('button')].find(b => b.textContent === 'Commercial').click();
+t('tapping it again keeps it where the list has no blank answer', $('nTopic').value === 'Commercial');
+$('pStat').value = 'Quoted';
+t('a value set from code lights its chip', $('pStatChips').querySelector('button.on').textContent === 'Quoted');
+w.eval("META = {managers: ['Ann','Bob']}; fillManagers()");
+await new Promise(r => setTimeout(r, 20));
+t('a rebuilt list rebuilds its chips',
+  [...$('cMgrChips').querySelectorAll('button')].map(b => b.textContent).join() === 'Ann,Bob', $('cMgrChips').textContent);
+// a note saved through the top Done keeps the topic picked on the chips
+setCall(mk('c8'));
+w.showScreen('note');
+[...$('nTopicChips').querySelectorAll('button')].find(b => b.textContent === 'Plant').click();
+$('nText').value = 'New line going in next year';
+$('barDone').click();
+await new Promise(r => setTimeout(r, 200));
+const nEnt = g('call').entries.find(e => e.type === 'note');
+t('Done at the top saves the note', !!nEnt && nEnt.text === 'New line going in next year');
+t('with the topic from the chips', nEnt && nEnt.topic === 'Plant', nEnt && nEnt.topic);
+t('and returns to the call menu', g('screen') === 'dash');
 
 // Branding: red is never a button (v81). No rule that styles a button, or a
 // .big/.btn/.pri class, may fill or border it in the brand red.

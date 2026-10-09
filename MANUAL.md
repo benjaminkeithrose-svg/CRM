@@ -176,7 +176,7 @@ Severity has to be answered. An unanswered one used to save quietly and then pri
 
 Every entry in the list has its own **Camera** and **Photos** buttons. Take the photo whenever you like and attach it to the right belt afterwards — it doesn't have to be in order.
 
-The buttons along the bottom attach to whatever you logged last. Photos with nothing to attach them to go in **Loose photos** at the bottom, and come out at the end of the notes.
+The camera and photos icons in the toolbar at the top of the call attach to whatever you logged last. Photos with nothing to attach them to go in **Loose photos** at the bottom, and come out at the end of the notes.
 
 Tap a photo to delete it.
 

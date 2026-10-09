@@ -139,13 +139,13 @@ t('compile screen gone from the DOM', !$('s-compile'));
 t('compile screen gone from navigation', !g('CALL_SCREENS').includes('compile') && !g('TITLES').compile);
 t('output controls present in the sheet',
   !!$('outScope') && !!$('outImg') && !!$('outDest') && !!$('outGo') && !!$('compStat') && !!$('detachWrap'));
-t('the button sits on the dashboard', $('doOutput').closest('section').id === 's-dash');
+t('the button sits in the call toolbar', !!$('doOutput').closest('#bar'));
 t('the pickers sit in the sheet, not on the dashboard',
   $('outScope').closest('dialog') && $('outScope').closest('dialog').id === 'outdlg');
 t('the button comes before the call log on the dashboard',
-  $('doOutput').compareDocumentPosition($('logList')) & 4);
-t('the button comes before the entry buttons', 
-  $('doOutput').compareDocumentPosition($('dashAddHead')) & 4);
+  $('bar').compareDocumentPosition($('logList')) & 4);
+t('the button comes before the entry buttons',
+  $('bar').compareDocumentPosition($('dashAddHead')) & 4);
 
 setCall(mkCall('c5'));
 w.renderOutControls();
