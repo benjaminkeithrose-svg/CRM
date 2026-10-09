@@ -27,7 +27,11 @@ const mk=id=>({id,customer:'Acme',date:'01/09/2026',type:'Site call',mgr:'B',sit
 
 // ---- header icons ----
 t('back button is an icon', $('back').querySelector('svg.ic') !== null);
+// v78: on Home (where the app opens) it is the ⋯ menu; anywhere else, the home icon
+t('on opening, the right-hand button is the ⋯ menu', /\u22ef/.test($('hdMenu').textContent) && $('hdMenu').style.display !== 'none');
+w.showScreen('reports');
 t('home button is an icon', $('hdMenu').querySelector('svg.ic') !== null);
+w.showScreen('home');
 t('home icon exists in the set', !!g('ICONS').home && !!g('ICONS').chev);
 
 // ---- hierarchical back ----
@@ -56,7 +60,11 @@ $('hdMenu').click();
 t('home button works from inside a call', g('screen') === 'home');
 t('the call is still open after going home', g('call') !== null);
 w.showScreen('home');
-t('home button hides on home', $('hdMenu').style.display === 'none');
+// v78: on Home the right-hand button is the ⋯ menu, and it opens Settings
+t('on Home the right-hand button is the Settings menu', $('hdMenu').style.display !== 'none' && $('hdMenu').getAttribute('aria-label') === 'Settings, data and backup');
+$('hdMenu').click();
+t('the ⋯ menu opens Settings', g('screen') === 'settings');
+w.showScreen('home');
 t('back button hides on home', $('back').style.display === 'none');
 
 // ---- photo buffers on all four ----

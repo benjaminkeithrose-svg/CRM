@@ -1,8 +1,8 @@
 # Field CRM — how to use it
 
-Plan your week on the PC. Do the calls on your phone. Send the results back.
+Plan your week on the PC. Do the calls on your phone. Cloud sync keeps the two in step.
 
-Everything is stored on the device you're using. Nothing goes anywhere unless you send it.
+Everything is kept on the device you're using, and — once you've signed in to cloud sync — copied, encrypted with your passphrase, to your own Supabase project so your other devices get it too.
 
 ---
 
@@ -11,10 +11,10 @@ Everything is stored on the device you're using. Nothing goes anywhere unless yo
 1. [Setting it up the first time](#1-setting-it-up-the-first-time)
 2. [Loading your accounts](#2-loading-your-accounts)
 3. [Planning a week](#3-planning-a-week)
-4. [Getting the plan onto your phone](#4-getting-the-plan-onto-your-phone)
+4. [Outlook, and keeping phone and PC in step](#4-outlook-and-keeping-phone-and-pc-in-step)
 5. [Doing a call](#5-doing-a-call)
 6. [Sending the notes out](#6-sending-the-notes-out)
-7. [Sending the week back to the PC](#7-sending-the-week-back-to-the-pc)
+7. [Cloud sync](#7-cloud-sync)
 8. [Back up](#8-back-up)
 9. [The monthly push into Dynamics](#9-the-monthly-push-into-dynamics)
 10. [When something goes wrong](#10-when-something-goes-wrong)
@@ -101,9 +101,7 @@ Above the calendar, pick the zone you'll be working that week. This publishes a 
 
 ---
 
-## 4. Getting the plan onto your phone
-
-Two steps. Both on the PC.
+## 4. Outlook, and keeping phone and PC in step
 
 **Put the appointments in Outlook**
 
@@ -119,55 +117,7 @@ The coloured dot on each appointment tells you where it stands:
 
 Downloading again **updates** the Outlook entry. It does not create a second one.
 
-**Send the plan to the phone**
-
-1. On the PC, scroll to **Exchange** and tap **Send the plan**.
-2. It asks whether to include the account database. Say **yes** the first time and after any CRM import. Say **no** for a normal weekly plan — it keeps the file small.
-3. Save the file to OneDrive.
-4. On the phone, open the OneDrive app, find the file, tap **Share**, and pick **Field CRM** from the share sheet.
-
-That's it. The app opens and merges the file.
-
-If Field CRM isn't in the share sheet, the app hasn't been installed to the home screen properly — see step 1. As a fallback you can download the file in OneDrive and pick it under **Exchange** → **Receive a file**.
-
-### Syncing appointments automatically
-
-Set this up once on each device and the plan moves by itself.
-
-**First, on GitHub:** make a **private** repository — `field-crm-data` or similar. Then create a fine-grained personal access token with **Contents: read and write** on that one repository, and give it an expiry date.
-
-**Then in Field CRM,** under **Exchange → Phone ↔ PC**, fill in your GitHub username, the repo name, and paste the token. Tap **Test the connection** — it checks the repo exists, is private, and that the token can write. Then **Sync appointments now**.
-
-Do the same on the other device with the same details. After that, one tap on each device keeps the plan in step.
-
-**What goes to GitHub:** an account key, the date, time, duration, which contacts you listed as numbers, the status, and your agenda line.
-
-**What never goes:** account names, contact names, phone numbers, emails, call notes, photos. The account is sent as a key, and each device looks the name up in its own copy of the CRM export. If a key doesn't match anything, the app says so instead of guessing.
-
-**The same private repository also carries the belt reference data,** under its own file next to the appointments one. After importing a newer `Plant_Audit_Template_1.xlsm` on one device, tap **Push belt reference data** so the others can tap **Pull belt reference data** and pick it up — nothing here happens automatically except a one-off pull on a device that has no belt data at all yet. This keeps the catalogue, including sprocket part numbers, out of the public app repository entirely.
-
-The agenda is the one field you type into, so it's the one thing that will be readable in the repository. Write it like a subject line.
-
-**Call reports stay on the phone.** That's the trade — the PC learns that you visited, not what you found. It also means the Outlook invite no longer carries the write-up.
-
-If you lose the phone, revoke the token on GitHub and it's dead.
-
-### The file folders
-
-Still there, and still how call reports and everything else move.
-
-**Worth doing once — on the PC.** There are two folders, and they must be different ones:
-
-| Folder | Who writes | Who reads |
-|---|---|---|
-| **PC → Phone** | the PC, when you send the plan | the phone |
-| **Phone → PC** | the phone, when you send the calls | the PC |
-
-On the PC, tap **Set the PC → Phone folder** and **Set the Phone → PC folder** and point each at a different OneDrive folder that syncs. After that, sending writes straight in, and **Check both folders for new files** reads whatever has arrived.
-
-Keep them separate. One shared folder means each device reads back what it just wrote.
-
-The phone can't hold a folder — Android has no way to do it — so on the phone you share files in and out through OneDrive.
+**The phone and the PC** don't need anything sent between them. Cloud sync (section 7) carries the plan, the calls, tasks, photos and the account data both ways, by itself.
 
 ---
 
@@ -253,17 +203,19 @@ It keeps the record of how many photos there were and which file they went out i
 
 ---
 
-## 7. Sending the week back to the PC
+## 7. Cloud sync
 
-On the phone, under **Exchange**, tap **Send the calls**. It asks about photos — say **no** unless you have a reason. The photos are already in the notes you shared.
+Set up once on each device, under **⋯** (top right of Home) → **Cloud sync**:
 
-Save it to OneDrive. On the PC, choose that file and **Merge that file in**.
+1. Paste the project address and the publishable key.
+2. Sign in with your email and password.
+3. On the first device, set your passphrase (twice). On every other device, type it once to unlock.
 
-> **Sharing works for any file the app understands** — a plan, a call file, a backup, the zone overrides, or a CRM export. Share it to Field CRM and the app works out what it is. The **Receive a file** button does the same thing.
+After that it runs by itself — when the app opens, when signal comes back, and a few seconds after you change anything. **Sync now** is there if you want it straight away. Calls (with full-size photos), quote requests, appointments, tasks, the CRM accounts, belt reference data, the plant register, zone overrides, planning weeks and reassignments all travel. Everything is locked with your passphrase before it leaves the device.
 
-The PC picks up your calls, your entries, what happened to each planned visit, and any unplanned calls you logged along the way.
+**Keep the passphrase in your password manager.** Without it nobody — including you — can read the cloud copy.
 
-**Nothing is ever overwritten.** Both sides merge record by record. If you moved a visit on the phone and someone moved it on the PC, the most recent change wins and the app tells you.
+> **Sharing a file still works** — a backup, the zone overrides or a CRM export. Share it to Field CRM and the app works out what it is.
 
 ---
 
@@ -301,15 +253,11 @@ Your call notes also travel inside the Outlook appointment. Write up a visit and
 
 **A fix I asked for isn't there.** The old version is cached. Close the app completely and reopen it. If it's still wrong, the `sw.js` file didn't get its version bumped when it was uploaded.
 
-**Nothing appears on Today.** Either nothing is planned, or the plan file hasn't been merged in. Check **Exchange** — it says how many appointments the device is holding.
+**Nothing appears on Today.** Either nothing is planned, or this device hasn't synced yet. Check **⋯ → Cloud sync** — it says when it last synced.
 
-**Did that file actually load?** Look at **Files loaded on this device** under **Exchange**. Every file in or out is listed newest first, with its name, what it did, and a plain **Loaded successfully** or **Failed**. If a file isn't in that list, it never loaded.
+**Did that file actually load?** Look at **⋯ → Files loaded on this device**. Every file in or out is listed newest first, with its name, what it did, and a plain **Loaded successfully** or **Failed**. If a file isn't in that list, it never loaded.
 
-**Sync says the repository is public.** It refuses to write, and it's right to. Appointments go to a private repository only. Change it in GitHub settings, or point at a different repo.
-
-**Sync says the token was rejected.** Fine-grained tokens expire. Make a new one on GitHub and paste it in.
-
-**An appointment arrived for an unknown account.** The key didn't match anything in this device's CRM export. Re-import the export — the two devices need the same account book.
+**Sync says it failed.** The line under **⋯ → Cloud sync** says why — usually no signal. It tries again by itself when signal comes back.
 
 **Field CRM isn't in the Android share sheet.** It only appears once the app is installed to the home screen. Open it in Chrome, three dots, **Add to Home screen**, then try again. If you've just updated the app, close it fully and reopen it once so the new version registers.
 
@@ -333,6 +281,6 @@ Your call notes also travel inside the Outlook appointment. Write up a visit and
 
 ## Two things to remember
 
-**Never put an export, a backup, or the zone overrides file into the GitHub repository.** It's public. Customer data lives on your devices and in OneDrive.
+**Never put an export, a backup, or the zone overrides file into the GitHub repository.** It's public. Customer data lives on your devices and, encrypted, in your own Supabase project.
 
-**The PC owns the plan. The phone owns what happened.** Plan on the PC, work on the phone, send both ways once a week.
+**Plan on the PC, work on the phone.** Cloud sync keeps them in step; the newest edit wins.

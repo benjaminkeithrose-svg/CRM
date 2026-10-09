@@ -327,7 +327,10 @@ without pressing anything.
 
 **Test:** phone and PC side by side; save on one, watch the other.
 
-### Step 7 — Retire the GitHub sync
+### Step 7 — Retire the GitHub sync — **done 2026-10-09, v78**
+
+Done at Ben's request alongside the Settings clean-up: the GitHub appointment, call and belt-catalogue syncs and the OneDrive folder exchange are gone from the app, and `MANUAL.md` and `CLAUDE.md` describe cloud sync instead. Files shared into the app (backups, zone overrides, CRM exports, and old plan/call files) still load.
+
 
 Only after you've used Steps 5–6 for real and are happy. Removes the
 appointment, call and belt-catalogue sync over the private GitHub repo, and

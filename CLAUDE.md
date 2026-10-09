@@ -49,12 +49,9 @@ each device. The app is meant to be handed to colleagues who load their own.
 
 **The belt/sprocket product catalogue is not in this repo either**, for the
 same public-Pages reason, even though it isn't customer data — it's Intralox's
-own part numbers. It rides the same private GitHub repository and token
-already used for appointment sync (`GH` in `app.js`), under its own path next
-to `exchange/appointments.json`. See `pullBeltRefGh()`/`pushBeltRefGh()`. Pull
-and push are both deliberate button presses, same as every other sync in this
-app, except a one-off automatic pull on a device that has no belt data loaded
-at all yet.
+own part numbers. It is imported on a device and travels between devices
+encrypted through cloud sync (dataset `beltref`). The old GitHub-repo and
+OneDrive-folder syncs were removed in v78.
 
 **Storage is promise-gated.** `openDB()` returns a cached promise and clears
 itself on failure so the next call retries. Every store operation awaits it. Never
@@ -71,9 +68,9 @@ lose to an older copy. Photos stay Blobs in `entry.photos` and
 `call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never
 reaches the other devices. Anything applying a copy pulled from
 the cloud must set `cloudQuiet`, or it bounces straight back up. Everything
-leaving the device is encrypted with `sbSeal()` first. Unlike the GitHub
-sync, this one runs automatically (on open, on reconnect, after a change),
-by Ben's agreement in `BACKEND-PLAN.md`.
+leaving the device is encrypted with `sbSeal()` first. It runs automatically
+(on open, on reconnect, after a change), by Ben's agreement in
+`BACKEND-PLAN.md`.
 
 **Service worker install caches each asset independently.** Never go back to
 `cache.addAll()`: it is atomic, and a blocked CDN once took the whole app's
@@ -84,10 +81,10 @@ the one CDN library in `ASSETS`). Supabase and GitHub API requests go straight
 to the network. Before v69 it cached every GET, so a sync could be answered
 with the first reply it ever got; `tests/qa-sw.mjs` guards this.
 
-**Quote requests are marked `rectype:'quote'`, never `kind`.** `slimCall()` sets
-`kind` for the sync repo and `pullCall()` deletes it on the way back, so a quote
-marked by `kind` would return from sync as an ordinary call, land in Reports and
-reset account cadence. Reads go through `recordsAll()` → `callsAll()` (excludes
+**Quote requests are marked `rectype:'quote'`, never `kind`.** The old GitHub
+call sync (removed in v78) overwrote and stripped `kind`, and call files and
+backups from that time still carry it, so a quote marked by `kind` would come
+back as an ordinary call, land in Reports and reset account cadence. Reads go through `recordsAll()` → `callsAll()` (excludes
 quotes) or `quotesAll()`. Backup and restore deliberately use `recordsAll()`.
 
 **Status vocabulary is `open` / `compiled` / `done`** and they are independent.
