@@ -410,7 +410,9 @@ sync work.
 ---
 
 ## Open: App review against PREFERENCES.md
-*Reviewed 2026-10-09 at phone width in real Chromium (v76), screen by screen. Not changed yet — for Ben to pick from.*
+*Reviewed 2026-10-09 at phone width in real Chromium (v76), screen by screen. Ben chose all of it, as four updates: (1) navy buttons and bigger bins, (2) forms, (3) cards, (4) search. Search stays a box on New, where it is the screen's whole purpose (Ben, 2026-10-09).*
+
+*Done: 3 (New chooser, v77), 10 and 11 (v78–v79), 12 and 13 (v81). 14 needed nothing: every place that builds a document already turns "N/A" into an em dash.*
 
 **Entering data**
 1. **Main action at the bottom.** Belt, note, project and fault forms put **Done** at the very end of the form (the belt form is about 2,700px tall), under everything. Preference: the main action at the top.
