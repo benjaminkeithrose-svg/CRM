@@ -288,6 +288,14 @@ Ben asked what call-report sync currently does (hasn't used it in a while, assum
 ## Open: Replace GitHub-repo sync with a real shared backend
 *Added 2026-10-09*
 
+> **Agreed with Ben and turned into a step-by-step build plan: see
+> `BACKEND-PLAN.md`.** That file is now the source of truth for this work;
+> what follows is the reasoning that led to it. One correction carried
+> there: the "relational model fits this app's data" point below doesn't
+> hold once everything is encrypted on the device (the server can't read
+> fields to relate them). Supabase is still the choice — for sign-in, file
+> storage, realtime, functions and access rules under one account.
+
 **Why this is its own entry, not another paragraph on the one above:** Ben's answers to the questions above (keep full 1400px image quality, encrypt everything moving between phone/repo/PC in both directions, and — new — stop holding the same data in two places per-device) add up to more than a tweak to the existing GitHub-repo sync. They describe replacing the sync mechanism itself. Recorded separately so it doesn't get lost inside the "one app" entry's threads on tasks/emails/products, which are a different problem.
 
 **The three things Ben asked for, read together:**
