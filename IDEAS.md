@@ -444,4 +444,35 @@ sync work.
 
 ---
 
+## Open: Save completed calls to a folder structure on the PC
+*Added 2026-10-09. Future idea, not to build yet.*
+
+**The ask:** on the PC only, download the completed calls into folders — one
+folder per customer, then one folder per site under it, then the call report
+in a folder named for the date of that visit — so there's a physical copy on
+the PC that can later be dropped into OneDrive.
+
+**Worth knowing:** desktop Chrome and Edge can write into a folder you pick
+(the File System Access API the old folder exchange used), so this is
+possible on the PC without anything new on the server; Android can't, which
+fits it being PC-only. The report itself would be the same self-contained
+HTML that Create and share makes, with its photos.
+
+**To settle when it's built:** the date format for the folder names; whether
+it re-saves a call that's changed since it was last saved; and what happens
+to a call with no site (straight under the customer, or an "Unspecified
+site" folder).
+
+## Open: Download manuals and reference files from the Intralox website
+*Added 2026-10-09. Future idea — Ben will provide the link.*
+
+Rather than importing the engineering manuals by hand on each device, the app
+would check the Intralox site for new files. A browser app can't fetch files
+straight from intralox.com (the site blocks it), so this needs a small
+function on the Supabase project to do the fetching. Manuals are also not in
+cloud sync today — each device keeps its own copy — which this would fix as a
+side effect.
+
+---
+
 <!-- Add new ideas above this line. -->

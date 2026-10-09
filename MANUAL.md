@@ -16,7 +16,6 @@ Everything is kept on the device you're using, and — once you've signed in to 
 6. [Sending the notes out](#6-sending-the-notes-out)
 7. [Cloud sync](#7-cloud-sync)
 8. [Back up](#8-back-up)
-9. [The monthly push into Dynamics](#9-the-monthly-push-into-dynamics)
 10. [When something goes wrong](#10-when-something-goes-wrong)
 
 ---
@@ -221,31 +220,11 @@ After that it runs by itself — when the app opens, when signal comes back, and
 
 ## 8. Back up
 
-Under **Backup**, tap **Back up**. You get one file with everything in it — accounts, calls, appointments, settings. A few hundred KB. Put it somewhere that isn't the phone.
+Under **⋯ → Backup and restore**, tap **Back up**. You get one file with your calls, quote requests, tasks, appointments, accounts and settings — not the photos, which are in the cloud. Put it somewhere that isn't the phone.
 
-**Back up with photos** adds the images. Large and slow. Use it before deliberately reinstalling.
+Cloud sync isn't a backup: a delete reaches every device, and without the passphrase nobody can read the cloud copy. This file is the undo.
 
 **Restore** adds and updates records. It never deletes anything already there.
-
-The line under **Backup** turns red if it's been more than a week.
-
-> **This matters more than it looks.** Clearing site data in Chrome, or uninstalling the app, takes everything with it and there is no warning. That's the risk — not GitHub.
-
----
-
-## 9. The monthly push into Dynamics
-
-Two files, both from **Exchange** on the PC.
-
-**Export call notes as CSV** — one row per completed call, with the full write-up in the last column. This is what gets your visits back into Dynamics so those accounts stop looking untouched.
-
-**Export reassignments as CSV** — appears only if you've moved accounts between managers. Field CRM never writes to Dynamics; this file is what you hand to whoever does.
-
-Your call notes also travel inside the Outlook appointment. Write up a visit and the appointment turns orange; download again and the notes go into the invite body in two forms — one for reading, one that Dynamics can pick up.
-
-**Photos do not go into a calendar invite.** They can't. The invite says how many there were and which file has them. The full file with the images is the one you shared to OneDrive.
-
-**Don't type into the invite in Outlook.** The next download replaces the body and anything you typed is lost. Write it in the app.
 
 ---
 
@@ -255,7 +234,7 @@ Your call notes also travel inside the Outlook appointment. Write up a visit and
 
 **Nothing appears on Today.** Either nothing is planned, or this device hasn't synced yet. Check **⋯ → Cloud sync** — it says when it last synced.
 
-**Did that file actually load?** Look at **⋯ → Files loaded on this device**. Every file in or out is listed newest first, with its name, what it did, and a plain **Loaded successfully** or **Failed**. If a file isn't in that list, it never loaded.
+**Did that file actually load?** The message along the bottom says what it loaded, or why it couldn't.
 
 **Sync says it failed.** The line under **⋯ → Cloud sync** says why — usually no signal. It tries again by itself when signal comes back.
 
