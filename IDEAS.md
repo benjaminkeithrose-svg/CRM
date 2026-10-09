@@ -188,4 +188,153 @@ which is new infrastructure this project has never had before).
 
 ---
 
+## Open: One app for tasks, emails, call notes and products (replaces Task Slaughterer 9000)
+*Added 2026-10-09*
+
+**The ask:** Ben wants to work from one place on his phone and PC. The CRM should generate his emails, call notes and tasks, and take voice input. Outlook should work with it more easily. The same data must exist on both devices. He is worried about data security. He currently runs a separate web page called Task Slaughterer 9000 (a Claude artifact) for tasks, emails, saved notes, appointments and the "Not stocked" product list, and wants those features inside the CRM instead.
+
+**Current state (read in code, not tested on a phone):**
+- The CRM is an offline app with IndexedDB stores `kv`, `calls`, `accounts` and `appts`. It has calls, compiled notes and appointments already.
+- Phone and PC exchange the schedule and calls through a private GitHub repository using a token stored on the device (`GH` in `app.js`), or through files. Sync is deliberate button presses, and account names are hashed before they leave the device.
+- Decisions already made that this idea must respect: dictation uses the phone keyboard's mic (an in-app mic button was dropped), `.eml` output was rejected, Outlook output is HTML via the share sheet, no customer data in the repo, no API keys in a public GitHub Pages app.
+- **Checked against the actual app and not accurate as stated: "no Save buttons."** `index.html` has several — `dSave` (the appointment dialog), `bSave` ("Add belt to call log"), `pSave` ("Add project"), `nSave` ("Add note"), `hSave` ("Add fault"). Explicit Save/Add buttons per entry type are this app's existing convention, not something it avoids. Whatever this point in the original note was trying to capture, it needs re-checking against the real app before new screens are designed around it.
+
+**What Task Slaughterer 9000 holds today (to bring across):**
+- **Tasks:** type (add project to Dynamics, update project, update contact details, write email, book travel, book customer call, call, other), title, contact, account, email, mobile, project, estimated revenue, notes, done and done date. Open and Done lists. Edit with the sword button.
+- **Emails:** drafts with To, Subject and Body, ticked off when used, with copy and Outlook export.
+- **Saved notes:** reusable text, such as closing notes for Dynamics opportunities, with a status reason.
+- **Appointments:** title, date, start time, minutes, invitees, body, exported to Outlook as a calendar file.
+- **New products and not stocked:** product, part number, status (Not stocked, New product, Requested to stock), account, details, ticked when stocked.
+
+**Proposed order of work (each step usable on its own):**
+1. **Add the new stores to the CRM.** Tasks, Emails, Saved notes and Not stocked, linked to the CRM's own accounts and contacts. Bump the database version with a migration. Reuse the existing sync, with account names hashed as now.
+2. **Generate from a call.** When a call is finished, offer follow-up tasks and an email draft from templates, using the call's own details. No AI service needed.
+3. **AI clean-up of dictated notes.** Keep it in chat for now: a "Copy for Claude" button, then paste the result back. Do not put an API key in the app.
+4. **One-time import of the Task Slaughterer data** (tasks, emails, notes, appointments, products) as a JSON file, then retire the artifact.
+5. **Outlook.** Keep the share sheet and calendar-file route. Direct Outlook integration (Microsoft Graph) needs Intralox IT to approve an app registration, so treat it as a later option.
+
+**Sync and security (the open concern):**
+- Today's sync works but is manual, and the GitHub token on the phone is the weak point. A fine-grained token limited to the one private repository is the minimum.
+- A safer home for the data is Intralox's own Microsoft 365 (OneDrive or SharePoint), which would also help with Outlook. This needs IT approval and has not been checked.
+- Before changing the sync, find out what actually causes the phone and website to disagree. That has not been investigated yet.
+
+**Follow-up 2026-10-09 — hosting and encryption:**
+
+Ben raised running the app as a Claude artifact instead of GitHub Pages, to get "the AI extras" directly and keep data in that account rather than a repo. He talked himself out of it in the same message, correctly: the app's explicit design is "meant to be handed to colleagues who load their own" (CLAUDE.md), and an artifact hosted in one person's Claude account isn't something a colleague can pick up the same way a public URL is. Recorded here so the idea doesn't come back around without the reason it was dropped. The ask underneath it is unchanged: phone and desktop, same data, as safe as practical.
+
+He also raised moving customer data and belt data into "a proper database... so we can encrypt it." Worth separating two different things that got bundled together there:
+- **Swapping IndexedDB for a different storage engine** (e.g. SQLite via sql.js/wasm) doesn't add encryption by itself — it's a different place to put the same unencrypted bytes. A browser-embedded SQLite build with real at-rest encryption (SQLCipher-equivalent) is not a mature, drop-in option today.
+- **Encrypting the data itself**, independent of what stores it, is the part that actually buys safety — the Web Crypto API (`SubtleCrypto`, AES-GCM) can encrypt a record before it goes into IndexedDB and before it goes up to the private repo, with the key derived from a passphrase Ben holds (never stored alongside the data). This is a smaller change than swapping storage engines and targets the actual question ("is the data safe") rather than where it technically lives. The call-report sync in particular is worth a second look under this: it currently sends account names, contact names and call notes in full to the private repo (unlike the appointment sync, which only ever sends a hashed account key) — if anything in this app should be encrypted first, it's probably that, not a storage-engine migration.
+- This needs a decision on **threat model** before it's buildable: what is the encryption actually defending against — a lost/stolen phone, a leaked GitHub token, someone else gaining access to the private repo, something else? The right design differs a lot depending on the answer (e.g. a device-held key defends against a leaked token or compromised repo but not a stolen *and unlocked* phone; OS-level device encryption, which a modern Android phone already has by default, already covers a stolen-but-locked phone).
+
+On voice-to-text specifically: Ben's message asks whether an online step can be avoided here. Worth being precise, since two different things are easy to conflate:
+- **Plain dictation** into the existing comment fields is already free today via the phone keyboard's own mic (see the first entry in this file) — no app change, no network call from this app's side. Whether *that* itself runs fully offline depends on the keyboard's own settings (Gboard/Samsung voice typing can use an on-device language model, but may default to a cloud one) — worth checking on his phone rather than assumed either way.
+- **AI clean-up of what was dictated** (tidying rambling voice notes into structured call notes) is a different, heavier task that a phone keyboard cannot do, and does need a real model — there is no offline way around that part. This is exactly what step 3 above ("Copy for Claude" button, pasted back, no API key in the app) already proposes, specifically so the one piece that must be online stays a deliberate, occasional action rather than something the whole app depends on.
+
+**Follow-up 2026-10-09 (second message) — restated in plain terms:**
+
+Ben restated the actual complaints, which sharpen two things above rather than add new ones:
+
+1. **"I don't want to jump out of the app to clean up call notes via Claude copy/paste."** This answers the first "Not decided" item below: chat-based AI (step 3's "Copy for Claude" button) is *not* acceptable after all — the round trip itself is the complaint, not just whether it's online. That means the small backend/key-holding proxy is the real requirement, not an optional upgrade: there is no way to call an AI model **from inside the app**, without ever leaving it, without something other than the static site holding the API key — a key embedded in the page is public the instant it ships (same reasoning as the belt-catalogue block earlier: GitHub Pages serves whatever it's given to anyone). A small serverless function (e.g. a Cloudflare Worker) that holds the key and the app calls directly is the standard way to do this, and fits "lightweight" — but it is new infrastructure this project has never had: something to create, host, and keep an eye on, even on a free tier. Worth being upfront that "AI inside the app, no copy/paste" and "no backend, ever" cannot both be true at once; one of them has to give.
+
+2. **"Call reports should be visible on the PC almost instantly, not after a manual sync tap."** Two different answers depending on how literal "instant" needs to be:
+   - **Fast, still no new infrastructure:** change call-report sync from a manual button press to automatic polling of the existing private repo every 15–30 seconds while the app is open on both ends — not real-time, but close, and it's the same GitHub-repo mechanism already built, just triggered on a timer instead of a tap. This is a real departure from this app's existing "nothing happens automatically, every sync is a deliberate button press" pattern (MANUAL.md), which was presumably chosen on purpose — worth Ben confirming he's fine trading that away specifically for call-report sync, not assuming it.
+   - **Genuinely instant (push, not poll):** needs a backend that can notify the other device the moment something changes — GitHub's API has no push mechanism for this. That means a realtime-capable service (e.g. Supabase/Firebase's free tiers) in place of, or alongside, the GitHub repo — a bigger architecture change than the polling option, and a second new moving part on top of the AI proxy above.
+
+Both the AI piece and true-instant sync point the same direction: this app moving from "fully static, no backend, ever" to "mostly static, with one small piece of infrastructure behind it." That's a real line to cross, not a detail — worth deciding deliberately rather than drifting into it one feature at a time.
+
+**Follow-up 2026-10-09 (third message) — sync question narrowed, AI cost priced out:**
+
+Ben clarified sync: he doesn't need live updates while the PC app sits open, only fresh data at the moment he opens it — a deliberate button press (what already exists today) is actually what he wants, not background polling. **This removes sync from the "needs new infrastructure" list entirely.** The only change worth considering here, and it's small: auto-trigger the existing pull once when the PC app loads, so reports are already there instead of needing a tap first thing — same GitHub-repo mechanism, no new infrastructure, and it keeps (rather than breaks) the app's "nothing happens unless triggered" pattern, since "loading the app" is itself the trigger. That leaves **the AI piece as the only part of this whole entry that actually needs a backend.**
+
+On cost, since Ben was clear he doesn't want to spend more than necessary — priced against current Claude API rates (checked via the pricing skill, not recalled from memory):
+- **Hosting:** a Cloudflare Worker's free tier covers 100,000 requests/day. A few call-note cleanups a day is nowhere near that — **$0** for hosting, indefinitely, at this volume.
+- **The AI calls themselves cost per use, separately from hosting, and this is the one genuinely unavoidable cost** — there's no way around paying for model usage somewhere if the model runs at all. Using Claude Haiku 5.5 ($0.10 per million input tokens, $0.50 per million output tokens — the right-sized model for tidying short dictated text, not a complex reasoning task): even a generously long call note (~3,000 words in, ~1,500 words cleaned up out) costs **roughly a tenth of a cent per call**. At "a few call notes a day" that's realistically **a few cents a month, well under a dollar** — even heavy use (dozens of calls a day) would land under a dollar or two. This needs an Anthropic API account with a payment method or prepaid credit attached (separate from a normal claude.ai subscription, which has no programmatic access) — small amount of setup, not a recurring bill of any real size at Ben's stated use.
+
+So: the backend decision is now just about the AI piece, and the honest cost answer is "free hosting, a few cents a month in actual AI usage." Worth Ben knowing the real number rather than deciding on a vague worry about cost.
+
+**Follow-up 2026-10-09 (fourth message) — what sync actually does today, and the repo question:**
+
+Ben asked what call-report sync currently does (hasn't used it in a while, assumed it was a lightweight document only) and whether the sync repo is public or private. Checked against the actual code rather than guessed:
+
+- **Call-report sync already sends everything** — full customer name, contacts, notes, and photos — not just a lightweight document. The one real limit: photos go up resized to 800px at reduced quality ("for reading a report on a laptop, where the difference is invisible" per the code comment), not full camera resolution. Appointment sync is the lightweight one (only a hashed account key, date, time, status, agenda) — these are two separate mechanisms Ben may have been conflating.
+- **Two different repos, not one.** This app's own repo (public, has to be for GitHub Pages, never carries customer data) is not the same thing as the separate private repo Ben set up for sync, where call reports/appointments/photos actually land. The sync repo's privacy is enforced in code, every push: `ghCheckRepo()` reads the repo's real status from GitHub's API and **refuses to sync at all** if it isn't private ("that repository is PUBLIC. Appointments must go to a private one."). That setting lives only on Ben's device, not anywhere accessible from a session here, so it can't be verified remotely — Ben can check it himself in ten seconds via **Exchange → Test the connection**, which runs that exact check.
+
+**New ask: full-size images on the PC, not the current 800px compressed copies.** Technically simple, but a real tradeoff worth deciding first: GitHub repos don't prune, and anything ever pushed stays in history even after deletion, so switching to full camera resolution makes the private repo grow considerably faster over time. Asked Ben whether he needs true original resolution or just better-than-800px (e.g. the 1400px copy already held on the phone) before building this.
+
+**This connects back to the still-open encryption question** (see the threat-model note above) rather than being separate from it: if sync is about to carry *more* data through that same private repo, whether to encrypt what's sitting in it matters more, not less. Asked Ben directly whether to bundle encryption into this round of sync work or treat "private repo + the app's enforced check" as sufficient for now.
+
+**Order confirmed:** sync (and the open "does it actually work reliably" question) before AI cleanup — cleanup only matters once the data lands where Ben wants it first.
+
+**Not decided:**
+- Whether IT allows Microsoft 365 storage or Graph permissions.
+- Whether it is only Ben using the app or the team.
+- What the encryption is actually meant to defend against (see threat model above) — this decides the design, so it has to come before any encryption work starts.
+- Whether "full-size images" means true original resolution or just bigger than the current 800px sync copy.
+- Whether encryption gets bundled into this sync round or deferred.
+
+**Questions for Ben before building:**
+1. Is steps 1 to 4 the right scope, in that order?
+2. ~~Is the chat-based AI step acceptable?~~ **Answered 2026-10-09: no** — Ben wants AI cleanup inside the app, no copy/paste round trip.
+3. ~~Is Ben fine with the one small backend piece this requires?~~ **Answered 2026-10-09: yes, conditionally** — fine with it as long as it's free or very close to it. Priced out above: realistically a few cents a month. On that basis this is a go, pending him confirming the actual number is acceptable.
+4. ~~Should the sync investigation come first?~~ **Answered 2026-10-09: yes** — sync before AI cleanup.
+5. Should IT be asked about Microsoft 365 storage?
+6. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
+7. ~~What image resolution does "full-size" actually need to be?~~ **Answered 2026-10-09: 1400px** — the resolution already held on the phone, not a further-compressed sync copy. No quality loss from what's already on the device.
+8. ~~Bundle encryption into the sync work now, or keep relying on the app's enforced privacy check?~~ **Answered 2026-10-09: yes, encrypt it** — see the new entry below, which this answer fed into directly.
+
+---
+
+## Open: Replace GitHub-repo sync with a real shared backend
+*Added 2026-10-09*
+
+> **Agreed with Ben and turned into a step-by-step build plan: see
+> `BACKEND-PLAN.md`.** That file is now the source of truth for this work;
+> what follows is the reasoning that led to it. One correction carried
+> there: the "relational model fits this app's data" point below doesn't
+> hold once everything is encrypted on the device (the server can't read
+> fields to relate them). Supabase is still the choice — for sign-in, file
+> storage, realtime, functions and access rules under one account.
+
+**Why this is its own entry, not another paragraph on the one above:** Ben's answers to the questions above (keep full 1400px image quality, encrypt everything moving between phone/repo/PC in both directions, and — new — stop holding the same data in two places per-device) add up to more than a tweak to the existing GitHub-repo sync. They describe replacing the sync mechanism itself. Recorded separately so it doesn't get lost inside the "one app" entry's threads on tasks/emails/products, which are a different problem.
+
+**The three things Ben asked for, read together:**
+1. **No quality loss on synced photos** — 1400px, matching what's already held on the phone (`shrink()` already uses 1400/0.72 on-device; sync currently re-compresses down to 800/0.6 — see the entry above). Straightforward on its own; mentioned here because it affects how much data the next two points have to move and store.
+2. **Encrypt data moving phone → repo → PC, and back**, with the key living on each device/"platform," not in the repo. This is buildable against the current GitHub-repo sync largely as-is (encrypt before `putFile()`, decrypt after `getFile()`/`getBlob()`, Web Crypto AES-GCM, key never stored alongside the ciphertext) — this part doesn't by itself require a new backend.
+3. **Stop storing the same data twice — once in each device's local copy, once in the sync repo — and make it one real, shared store.** This is the one that changes the architecture. Ben's reasoning: loading a CRM export and the belt catalogue into every device separately is tedious now, and won't work at all once more than one person uses this. A git repo being hand-poked by a button press was never meant to be a real multi-client database, and he's right that it won't carry a team.
+
+**What this actually means: the private GitHub repo stops being the sync mechanism, and a real backend takes its place.**
+
+**Recommendation: Supabase** (hosted Postgres + file storage + authentication + realtime + small serverless functions, one provider, generous free tier). Reasoning:
+- It replaces three separate things this project currently has or was about to need — the GitHub-repo sync, a home for the AI-cleanup proxy from the entry above, and (eventually) multi-user accounts — with **one** piece of infrastructure instead of three. Fewer moving parts for someone who's said plainly they want to go carefully here.
+- **Realtime is built in and free** — tables can push changes to every connected device the moment something changes, which happens to be the "almost instantaneous" sync Ben asked about a few messages ago, solved as a side effect rather than a separate project.
+- **Storage** (for photos) is a separate bucket from the database itself, which is the right shape for 1400px photos rather than stuffing them into database rows.
+- **Row-level security and auth are first-class**, so "built for one user, ready for a team later" is a real option from day one rather than a rebuild — create every table with an owner/user column now, even while only Ben's account exists.
+- **Encryption still works the same way as planned above** — encrypt client-side with Web Crypto before anything is written to Supabase, decrypt after reading it back. Supabase never needs to see plaintext for this to work; it's just a better-built destination for the ciphertext than a git repo was.
+- The main alternative is Firebase (Google's equivalent) — similar shape, similar free tier, mentioned for completeness; Supabase's relational (Postgres) model fits this app's already-relational data (accounts → contacts, calls → entries → photos) more naturally than Firebase's document model would.
+
+**What offline means under this plan, since it still matters:** IndexedDB doesn't go away — it stays exactly what it is today, the on-device working copy the app actually reads and writes while offline. What changes is what it syncs *with*: instead of a device periodically reading and writing files in a git repo by hand, it syncs with Supabase, automatically when online (realtime) and seamlessly, matching what Ben asked for. Supabase becomes the one real copy; IndexedDB becomes a local cache of it, not a second independent copy of the truth — which is the actual fix for "it is very tedious loading the data into the phone or the computer app": the CRM export and the belt catalogue get loaded **once**, into Supabase, by Ben, from whichever device is doing it — every other device and future teammate just reads from there, nothing to re-import per device ever again.
+
+**What retires:** the private GitHub repo and everything built on `GH`/`ghHeaders()`/`getFile()`/`putFile()` for appointments, call reports, and belt reference sync (`pullBeltRefGh()`/`pushBeltRefGh()`, built earlier this project) — all of that becomes Supabase reads and writes instead. The GitHub repo itself can stay as a one-time export/backup if useful, but stops being the live sync path.
+
+**Cost:** Supabase's free tier (as I understand it; worth confirming current limits before committing to this, since they're not something I have a verified, current source for the way Anthropic's own API pricing was checked a few messages ago) covers a single user's database and auth comfortably, and a meaningful amount of file storage and monthly data transfer — photos at 1400px are the one thing likely to be worth watching as call volume grows or a team gets added, since images are what actually consumes storage and bandwidth at any real volume. Realistic expectation: free for quite a while at Ben's stated usage, with a small, predictable bill only once storage or a team's combined usage genuinely outgrows the free tier — not something that creeps up unnoticed.
+
+**Proposed order of work, each step usable on its own:**
+1. Stand up the Supabase project, design the schema (accounts, contacts, calls, appointments — and the tasks/emails/notes/products stores from the entry above, since this is the natural time to add them together), with an owner/user column on every table from the start.
+2. Migrate existing data: one-time load of the CRM export and belt catalogue into Supabase; existing devices' local IndexedDB data uploaded once rather than re-entered.
+3. Replace appointment sync and call-report sync (photos included, at 1400px) with Supabase reads/writes, keeping IndexedDB as the offline-first local cache.
+4. Add the client-side encryption layer across what's now flowing to/from Supabase.
+5. Turn on realtime so sync becomes automatic rather than a button press, closing the loop on "almost instantaneous."
+6. Add the AI-cleanup proxy as a Supabase Edge Function, now that there's a real backend to host it on — this is the earlier "one app" entry's AI piece, built on this foundation instead of a separate Cloudflare Worker.
+
+**Not decided:**
+- Exact schema design (left for when this is actually built, not guessed at here).
+- Where the encryption key is created and how a new device gets it for the first time without the key itself ever traveling in the clear — likely a passphrase Ben types in once per device, same pattern as the GitHub token today, but worth deciding deliberately rather than assumed.
+- Whether the old GitHub repo gets decommissioned once this is live, or kept around as a backup.
+- Exact current Supabase free-tier limits — worth a direct check against their current pricing page before committing, not taken on faith from training knowledge.
+
+**This is a genuinely bigger piece of work than anything built in this project so far** — a new account to create, a schema to design, a real migration, and several existing features (appointment sync, call sync, belt-ref sync) all moving to a new mechanism at once. Worth Ben confirming this plan and the order above before any of it starts.
+
+---
+
 <!-- Add new ideas above this line. -->
