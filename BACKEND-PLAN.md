@@ -1,7 +1,7 @@
 # Backend plan — moving sync to Supabase
 
-*Written 2026-10-09. Nothing here is built yet. This is the agreed shape and
-order of work; each step below becomes its own pull request.*
+*Written 2026-10-09. This is the agreed shape and order of work; each step
+below becomes its own pull request. Progress is marked on each step.*
 
 Background and the conversation that led here: the last two entries in
 `IDEAS.md` ("One app for tasks, emails, call notes and products" and
@@ -176,11 +176,23 @@ the Step 2–3 tests from the app itself.
 dashboard, so nobody else can create an account in the project and use up
 its free quota.
 
-### Step 2 — Connect and sign in (nothing syncs yet)
+### Step 2 — Connect and sign in (nothing syncs yet) — **built 2026-10-09, v66**
 
-New **Cloud sync** section under Settings: project address, public key,
-email and password, sign in / sign out, and a status line. The Supabase
-library is added to the app and to the service worker's list.
+New **Cloud sync** section under Settings: project address, publishable
+key, email and password, sign in / sign out, and a status line. The Supabase
+library (`supabase-2.117.1.js`, a release at least two weeks old, checked
+against npm's published checksum) is shipped in the repo and on the service
+worker's list. No sign-up in the app: accounts are created in the Supabase
+dashboard, and public sign-up is switched off. The app refuses the secret
+key if it is pasted by mistake. Sign out is this device only.
+
+**Checked:** headless suite `tests/qa-cloud.mjs` (real library, stand-in
+network): set up, wrong password, sign in, still signed in after reopening,
+sign out, secret key refused, missing library reported. Live from the cloud
+environment against the real project: it accepts the publishable key,
+rejects a wrong password with the message the app translates, and refuses
+to show `records` to anyone signed out. **Not checked:** a real sign-in
+(needs Ben's account) and anything on a phone.
 
 **Test:** sign in on the phone and the PC; close and reopen the app and
 confirm it is still signed in; sign out works.
@@ -303,7 +315,7 @@ backup for free).
 | Ben | Me |
 |---|---|
 | Step 0: policy check, Supabase account and project, passphrase, backups | Everything in Steps 1–9 that is code: schema file, app changes, tests, docs |
-| Run `schema.sql` once in the SQL editor (Step 1) | Write it, and any later changes to it |
+| Create his account in the Supabase dashboard; switch off public sign-up (Step 2) | The schema, applied through the Supabase connector (Step 1), and any later changes to it |
 | Type the project address, key and passphrase on each device | The Settings screens they go into |
 | Anthropic API account and key, pasted into Supabase secrets (Step 8) | The Edge Function and the button |
 | Test each step on the phone and PC, and merge each pull request | Say exactly what to test in each pull request |

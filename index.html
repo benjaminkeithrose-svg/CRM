@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v65">
+<meta name="build" content="v66">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1123,6 +1123,30 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <p class="hint">The account-name zone pins and the suburb spelling corrections. They contain customer account names, so they load from a file rather than shipping with the app. Zones themselves are built in.</p>
   </div>
 
+  <h2>Cloud sync</h2>
+
+  <div class="fld">
+    <p class="stat" id="sbStat"></p>
+    <div id="sbIn">
+      <div class="gap"></div>
+      <label>Email</label>
+      <input type="email" id="sbEmail" autocomplete="username" placeholder="you@example.com">
+      <div class="gap"></div>
+      <label>Password</label>
+      <input type="password" id="sbPass" autocomplete="current-password">
+      <div class="gap"></div>
+      <button class="big" id="sbSignIn">Sign in</button>
+    </div>
+    <button class="ghost" id="sbSignOut" hidden>Sign out of this device</button>
+    <div class="gap"></div>
+    <label>Project address</label>
+    <input type="text" id="sbUrl" autocomplete="off" placeholder="https://xxxx.supabase.co">
+    <div class="gap"></div>
+    <label>Publishable key</label>
+    <input type="text" id="sbKey" autocomplete="off" placeholder="sb_publishable_...">
+    <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Nothing syncs yet &mdash; this step only signs in.</p>
+  </div>
+
   <h2>Exchange</h2>
 
   <div class="fld">
@@ -2034,6 +2058,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 <script src="zones.js"></script>
 <script src="manuals.js"></script>
 <script src="healthlib.js"></script>
+<script src="supabase-2.117.1.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

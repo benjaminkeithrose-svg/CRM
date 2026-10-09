@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v65';
+const APP_BUILD = 'v66';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4211,7 +4211,7 @@ const LOAD_KIND = {
   crm:'CRM export', overrides:'Zone overrides', beltref:'Belt reference data',
   assets:'Plant audit register',
   manual:'Engineering manual', ghpull:'Pulled from GitHub', ghpush:'Pushed to GitHub',
-  ghtest:'GitHub connection', plan:'Plan from PC',
+  ghtest:'GitHub connection', cloud:'Cloud sign-in', plan:'Plan from PC',
   calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
 };
 async function logLoad(filename, kind, detail, failed){
@@ -4560,6 +4560,156 @@ $('ghSync').addEventListener('click', async ()=>{
     await logLoad(GH.owner+'/'+GH.repo, 'ghpush', e.message, true); }
   finally { btn.disabled = !ghReady(); }
 });
+
+/* ================= cloud sync (Supabase) =================
+
+   BACKEND-PLAN.md, Step 2: connect and sign in. Nothing syncs yet.
+
+   The project address and publishable key are typed in on each device and kept
+   in kv 'cloud', never in this repo, so a colleague can be handed the same app
+   and point it at their own project. The password is never stored by the app:
+   the library keeps a session token in localStorage, under a key prefixed like
+   every other key here, because GitHub Pages puts this app on the same origin
+   as the Belt Call Log.
+
+   The library is shipped in the repo (supabase-2.117.1.js) and cached by the
+   service worker, not loaded from a CDN - see the SheetJS note in CLAUDE.md. If
+   it failed to load, everything here says so instead of throwing. */
+
+let SB = {url:'', key:''};
+let sbClient = null, sbUser = null, sbErr = '';
+
+/* Accepts the full address or just the project ref. */
+function sbNormUrl(v){
+  v = String(v || '').trim().replace(/\/+$/, '');
+  if(/^[a-z0-9]{20}$/.test(v)) return 'https://' + v + '.supabase.co';
+  return v;
+}
+/* The secret key, or the legacy service_role key, bypasses every access rule.
+   It must never sit in a browser, so it is refused and never stored. */
+function sbKeyProblem(k){
+  if(!k) return '';
+  if(/^sb_secret_/.test(k)) return 'that is the secret key - use the publishable key';
+  if(/^eyJ/.test(k)){
+    try {
+      const p = JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+      if(p.role === 'service_role') return 'that is the service_role key - use the publishable key';
+    } catch(e){ return 'that key is not readable'; }
+    return '';
+  }
+  if(/^sb_publishable_/.test(k)) return '';
+  return 'that does not look like a Supabase publishable key';
+}
+const sbReady = () => !!(SB.url && SB.key && !sbKeyProblem(SB.key));
+
+let sbSub = null;
+function sbMake(){
+  // the old connection keeps refreshing its token and reporting sign-ins unless stopped
+  if(sbSub){ try { sbSub.unsubscribe(); } catch(e){} sbSub = null; }
+  if(sbClient){ try { sbClient.auth.stopAutoRefresh(); } catch(e){} }
+  sbClient = null; sbUser = null; sbErr = '';
+  if(!sbReady()) return;
+  if(!window.supabase || !window.supabase.createClient){ sbErr = 'The cloud library did not load. Reload the app once with signal.'; return; }
+  if(!/^https:\/\/[^\/]+$/.test(SB.url)){ sbErr = 'The project address should look like https://xxxx.supabase.co'; return; }
+  const ref = SB.url.replace(/^https:\/\//, '').split('.')[0];
+  try {
+    sbClient = window.supabase.createClient(SB.url, SB.key, {auth:{
+      storageKey: LS('sb.' + ref), persistSession: true,
+      autoRefreshToken: true, detectSessionInUrl: false}});
+    sbSub = sbClient.auth.onAuthStateChange((ev, session) => {
+      sbUser = session ? session.user : null;
+      renderSb();
+    }).data.subscription;
+  } catch(e){ console.error(e); sbClient = null; sbErr = 'Could not start the cloud connection: ' + e.message; }
+}
+/* The stored session is read from this device, so this works offline. */
+async function loadSb(){
+  try { SB = Object.assign(SB, await kvGet('cloud') || {}); } catch(e){}
+  sbMake();
+  if(sbClient){
+    try {
+      const r = await sbClient.auth.getSession();
+      sbUser = r.data && r.data.session ? r.data.session.user : null;
+    } catch(e){ console.warn('cloud session', e); }
+  }
+  renderSb();
+}
+
+/* Sign-in errors in plain words. The library's own messages are for developers. */
+function sbSay(e){
+  const m = String(e && e.message || e || '');
+  if(!navigator.onLine || /fetch|network|load failed/i.test(m)) return 'No connection - try again when you have signal.';
+  if(/invalid login credentials/i.test(m)) return 'That email and password do not match an account in this project.';
+  if(/email not confirmed/i.test(m)) return 'That account has not been confirmed yet. Confirm it in the Supabase dashboard.';
+  if(/invalid api key|no api key/i.test(m)) return 'The project does not accept that key. Check the publishable key.';
+  return m || 'Something went wrong.';
+}
+
+function renderSb(){
+  const el = $('sbStat');
+  if(!el) return;
+  [['sbUrl','url'],['sbKey','key']].forEach(([id,k]) => {
+    const f = $(id); if(f && document.activeElement !== f) f.value = SB[k] || '';
+  });
+  let line;
+  if(!sbReady()) line = '<span class="flagline">Not set up.</span> Needs the project address and the publishable key, below.';
+  else if(sbErr) line = '<span class="flagline">' + esc(sbErr) + '</span>';
+  else if(sbUser) line = 'Signed in as <b>' + esc(sbUser.email || 'this account') + '</b>' +
+    (navigator.onLine ? '' : ' &middot; offline, will reconnect');
+  else line = 'Not signed in.';
+  el.innerHTML = line;
+  const signedIn = !!(sbClient && sbUser);
+  $('sbIn').hidden = signedIn;
+  $('sbSignOut').hidden = !signedIn;
+  $('sbSignIn').disabled = !sbClient;
+}
+[['sbUrl','url'],['sbKey','key']].forEach(([id,k]) => {
+  const f = $(id);
+  if(!f) return;
+  f.addEventListener('change', async ()=>{
+    const v = k === 'url' ? sbNormUrl(f.value) : f.value.trim();
+    const prob = k === 'key' ? sbKeyProblem(v) : '';
+    if(prob){
+      // never kept, not even on this device
+      f.value = SB.key || '';
+      toast('Key not saved: ' + prob);
+      return;
+    }
+    if(v === SB[k]){ f.value = v; return; }
+    if(sbClient && sbUser){ try { await sbClient.auth.signOut({scope:'local'}); } catch(e){} }
+    SB[k] = v;
+    await kvSet('cloud', SB);
+    sbMake();
+    renderSb();
+  });
+});
+$('sbSignIn').addEventListener('click', async ()=>{
+  const btn = $('sbSignIn');
+  const email = $('sbEmail').value.trim(), pass = $('sbPass').value;
+  if(!sbClient){ toast('Set the project address and key first'); return; }
+  if(!email || !pass){ toast('Type the email and password first'); return; }
+  btn.disabled = true;
+  try {
+    const r = await sbClient.auth.signInWithPassword({email: email, password: pass});
+    if(r.error) throw r.error;
+    sbUser = r.data.user;
+    $('sbPass').value = '';
+    toast('Signed in as ' + (sbUser.email || email));
+    await logLoad(SB.url, 'cloud', 'Signed in as ' + (sbUser.email || email));
+  } catch(e){ console.warn(e); toast(sbSay(e)); }
+  finally { btn.disabled = !sbClient; renderSb(); }
+});
+$('sbSignOut').addEventListener('click', async ()=>{
+  if(!sbClient) return;
+  // local scope: signs this device out only, and works with no signal
+  try { await sbClient.auth.signOut({scope:'local'}); } catch(e){ console.warn(e); }
+  sbUser = null;
+  toast('Signed out of this device');
+  await logLoad(SB.url, 'cloud', 'Signed out');
+  renderSb();
+});
+window.addEventListener('online', renderSb);
+window.addEventListener('offline', renderSb);
 
 /* ================= contacts and accounts, outside a call =================
 
@@ -8212,6 +8362,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   renderManStat(); renderManCount();
   await loadDir();
   await loadGh();
+  try { await loadSb(); } catch(e){ console.error('cloud', e); }
   $('cMgr').addEventListener('change', renderHomeCounts);
   $('cDate').value = todayISO();
   /* buildBeltRef was only called from importRef, so the pickers were built the

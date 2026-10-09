@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v65';
+const CACHE = 'fieldcrm-v66';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -14,7 +14,7 @@ const SHARE_KEY = './shared-file';
 // Local files first. If one of these fails the app still installs, but note the warning.
 const ASSETS = [
   './', './index.html', './app.js', './zones.js', './manuals.js', './healthlib.js',
-  './health-seed.json', './manifest.webmanifest',
+  './health-seed.json', './manifest.webmanifest', './supabase-2.117.1.js',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
