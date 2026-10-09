@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v74">
+<meta name="build" content="v75">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1461,7 +1461,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <div class="f"><label for="tkRevenue">Estimated revenue ($)</label><input type="number" id="tkRevenue" inputmode="decimal" min="0" step="any"></div>
     </div>
     <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea></div>
-    <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Done</div></div></label>
+    <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Completed</div><div class="cr">The task itself is finished. Ticked tasks stay on the calendar, greyed out.</div></div></label>
     <p class="note" id="tkFrom" hidden></p>
   </div>
 </dialog>

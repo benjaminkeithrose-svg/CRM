@@ -67,13 +67,20 @@ ok(!!tile, 'Task tile on Home');
 tile.click(); await tick();
 ok(dlgOpen(), 'task form opens');
 const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
-const expect = Math.min(Math.ceil((mins + 1) / 30) * 30, 23 * 60 + 30);
+// next half hour, kept inside the calendar's 7am-5pm day (a 30 minute task ends by 5pm)
+const expect = Math.max(7 * 60, Math.min(Math.ceil((mins + 1) / 30) * 30, 17 * 60 - 30));
 const hh = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
 ok($('tkDate').value === g('todayISOdate()'), 'date is today: ' + $('tkDate').value);
 ok($('tkTime').value === hh(expect), 'start is the next half hour: ' + $('tkTime').value + ' expected ' + hh(expect));
 ok($('tkType').querySelectorAll('button').length === 8, 'eight task types as chips');
 ok($('tkDel').hidden, 'no delete on a task not yet saved');
 ok(!/Save/.test($('taskdlg').textContent.replace(/Saved?/g, m => m)) || !$('taskdlg').querySelector('button#tkSave'), 'no Save button');
+
+// the placement rule at the edges of the day
+ok(g(`nextHalfHour(new Date('2026-10-09T21:12'))`) === '16:30', 'added at 9:12pm: the last slot of the day, 4:30pm');
+ok(g(`nextHalfHour(new Date('2026-10-09T05:40'))`) === '07:00', 'added at 5:40am: 7:00am');
+ok(g(`nextHalfHour(new Date('2026-10-09T10:12'))`) === '10:30', 'added at 10:12am: 10:30am');
+ok(/Completed/.test($('tkDone').closest('label').textContent), 'the tick box says Completed, not Done');
 
 // nothing entered: Done discards
 $('tkOk').click(); await tick(150);
