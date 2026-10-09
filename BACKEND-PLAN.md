@@ -374,6 +374,19 @@ backup for free).
 
 ## Testing — what can and can't be checked from here
 
+**Real-browser run, 2026-10-09 (v69):** `tests/browser-cloud.mjs` drove the
+real app in Chromium, served with its service worker, with two browser
+profiles as phone and PC against a stand-in Supabase: sign in, set the
+passphrase, wrong passphrase refused, the phone brings in the PC's data,
+later changes arrive, still unlocked after reopening, the app loads offline,
+an offline change is sent when back online. A third profile talked to the
+real project: it refused a wrong password and a wrong key, and the app said
+so in plain words. 21 of 21 passed — **after** fixing the service worker,
+which had been caching every Supabase and GitHub reply (see CLAUDE.md). A
+real sign-in, real passphrase and real sync were not possible: creating test
+accounts directly in the project was blocked, and Ben's account did not exist
+yet.
+
 - **Can check:** the encryption (round trip, wrong passphrase, tampered data
   rejected), the sync rules (newest wins, deletes travel, offline changes
   queue and send later), the screens, and that nothing breaks the existing

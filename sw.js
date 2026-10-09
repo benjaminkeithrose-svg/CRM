@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v68';
+const CACHE = 'fieldcrm-v69';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -111,6 +111,11 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (e.request.method !== 'GET') return;
+  /* Only the app's own files, and the one CDN library in ASSETS, come from the
+     cache. Everything else - Supabase, the GitHub API - is live data: a saved
+     copy would be served forever after, so a sync would keep seeing the first
+     answer it ever got. Those go straight to the network. */
+  if (url.origin !== self.location.origin && !ASSETS.includes(e.request.url)) return;
   // ?shared=1 must still match the cached index.html when offline
   const opts = e.request.mode === 'navigate' ? { ignoreSearch: true } : undefined;
   e.respondWith(
@@ -118,6 +123,8 @@ self.addEventListener('fetch', e => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
       return res;
-    }).catch(() => caches.match('./index.html')))
+    // offline with nothing cached: a page load gets the app; a script or file gets
+    // an honest failure, not index.html parsed as JavaScript
+    }).catch(() => e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
   );
 });

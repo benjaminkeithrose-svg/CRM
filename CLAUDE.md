@@ -75,6 +75,11 @@ by Ben's agreement in `BACKEND-PLAN.md`.
 `cache.addAll()`: it is atomic, and a blocked CDN once took the whole app's
 offline capability down with it.
 
+**The service worker serves only the app's own files from its cache** (plus
+the one CDN library in `ASSETS`). Supabase and GitHub API requests go straight
+to the network. Before v69 it cached every GET, so a sync could be answered
+with the first reply it ever got; `tests/qa-sw.mjs` guards this.
+
 **Quote requests are marked `rectype:'quote'`, never `kind`.** `slimCall()` sets
 `kind` for the sync repo and `pullCall()` deletes it on the way back, so a quote
 marked by `kind` would return from sync as an ordinary call, land in Reports and
@@ -123,6 +128,10 @@ reach top-level `let`/`const`, so read lexicals with `w.eval('(expr)')`.
 
 The pre-existing referenced-but-absent IDs are harmless and guarded:
 `pastList, looseCam, looseGal, indentAllLnk, detachBtn`.
+
+`tests/browser-cloud.mjs` drives the real app in Playwright's Chromium with two
+browser profiles as two devices (not part of `npm test`; how to run it is at
+the top of the file). It is a real-browser test, still not a phone test.
 
 **Say which kind of verification applies.** Headless tests catch runtime errors,
 escaping faults and broken flows. They cannot test the camera, the share sheet,
