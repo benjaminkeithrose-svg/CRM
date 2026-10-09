@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v79';
+const CACHE = 'fieldcrm-v80';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -23,7 +23,9 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c =>
       // cached one at a time: a blocked CDN must not take the whole install down with it
-      Promise.all(ASSETS.map(a => c.add(a).catch(err => console.warn('sw: not cached', a, err))))
+      // 'reload': fresh from the server, not the browser's own HTTP cache, or a new
+      // version can install with yesterday's files
+      Promise.all(ASSETS.map(a => c.add(new Request(a, { cache: 'reload' })).catch(err => console.warn('sw: not cached', a, err))))
     ).then(() => self.skipWaiting())
   );
 });
