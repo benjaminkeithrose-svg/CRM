@@ -337,8 +337,8 @@ Ben asked what call-report sync currently does (hasn't used it in a while, assum
 
 ---
 
-## Open: The calendar as the backbone — everything lives under a call
-*Added 2026-10-09, Ben's words summarised. Not built; to be talked through first.*
+## In progress: The calendar as the backbone — everything lives under a call
+*Added 2026-10-09. Part A (tasks) built in v74; B and C to come.*
 
 **The ask:** every task, call and quote request Ben adds is placed in the
 calendar. When he goes to a planned call, he opens it from the calendar and
@@ -358,6 +358,46 @@ becomes the main item everything else hangs off.
    (creating it the first time), rather than via Start call today?
 5. What "everything" under the call covers: belts, health checks, projects,
    notes, photos, quotes and tasks raised in the meeting?
+
+**Ben's answers (2026-10-09):**
+1. A task with no date lands on the day it's added; he moves it from there.
+   He wants to search for tasks only, show tasks only, and have different
+   ways of viewing the calendar.
+2. A quote request lands on the day it's made.
+3. Starting an unplanned visit or phone call puts it on the calendar
+   automatically.
+4. A planned appointment keeps all its details (for sending invites) and
+   gets a **Start call** button that opens the call log.
+5. Under the call: belts, health checks, projects, notes, photos, and the
+   quotes and tasks raised in the meeting. Tasks don't exist yet — start
+   adding them.
+- Task fields: the same as Task Slaughterer. Every task is **30 minutes**.
+- Order: A (tasks), then B (calendar links), then C (views and search).
+  Importing the old Task Slaughterer tasks comes later, separately.
+
+**Built — A, tasks (v74):**
+- A Task tile on Home and on the call screen; **+ Task** on every day in the
+  week and day views.
+- The task form uses chips for the eight types, plus title, date, start
+  (30 minutes), account (picked from the CRM), contact (that account's),
+  email and mobile (filled from the contact, never over something typed),
+  project, estimated revenue, notes and Done. The form has a **Done**
+  button, not Save. Nothing entered is discarded silently; no title is
+  kept as a draft and says so; Escape or the back gesture counts as Done.
+  The bin is on the far left, in the warning colour.
+- A new task lands on today at the next half hour (added 10:12 → 10:30).
+- On the calendar, a task is a one-line card in the right half of the day
+  column (appointments keep the full width underneath), with a tick box.
+  Drag it in the week or day view to move it; it shows in the month view
+  too. Done tasks are greyed and struck through.
+- A task added from inside a call carries the call, its account and first
+  contact, and is listed under the call as "Tasks from this call".
+- Tasks are in backup/restore and sync through cloud sync like everything
+  else. Database version 4 adds a `tasks` store; existing data is kept.
+
+**Still to build:** B — quote requests on the calendar, **Start call** on a
+planned appointment in the calendar, the phone-call booking fix. C —
+calendar filters (All / Visits / Tasks / Quotes) and search.
 
 **Worth knowing:** the app already links an appointment to its call in
 places (`callSummary`, `bookUnplanned()`). The known `'Phone call'` bug in

@@ -7,7 +7,7 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
-const DB_NAME = 'fieldcrm', DB_VER = 3;
+const DB_NAME = 'fieldcrm', DB_VER = 4;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
 /* Set while the account and contacts screens are being used to raise a quote
@@ -31,6 +31,8 @@ function openDB(){
       if(!d.objectStoreNames.contains('accounts')) d.createObjectStore('accounts', {keyPath:'a'});
       // v3: the schedule. Owned by the desktop, sent to the phone as a plan file.
       if(!d.objectStoreNames.contains('appts')) d.createObjectStore('appts', {keyPath:'id'});
+      // v4: tasks. Each sits on the calendar for 30 minutes on its date.
+      if(!d.objectStoreNames.contains('tasks')) d.createObjectStore('tasks', {keyPath:'id'});
     };
     r.onsuccess = e => { db = e.target.result; res(db); };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
@@ -124,6 +126,29 @@ async function apptsDel(id){
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
   cloudMarkRec('appts', id, Date.now(), true);
+}
+async function tasksAll(){
+  const d = await ready();
+  return new Promise((res,rej)=>{
+    const t = d.transaction('tasks','readonly').objectStore('tasks').getAll();
+    t.onsuccess = ()=>res(t.result||[]); t.onerror = ()=>rej(t.error);
+  });
+}
+async function tasksPut(task){
+  const d = await ready();
+  await new Promise((res,rej)=>{
+    const t = d.transaction('tasks','readwrite').objectStore('tasks').put(task);
+    t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
+  });
+  cloudMarkRec('tasks', task.id, task.updated);
+}
+async function tasksDel(id){
+  const d = await ready();
+  await new Promise((res,rej)=>{
+    const t = d.transaction('tasks','readwrite').objectStore('tasks').delete(id);
+    t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
+  });
+  cloudMarkRec('tasks', id, Date.now(), true);
 }
 async function recordsAll(){
   const d = await ready();
@@ -901,7 +926,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v73';
+const APP_BUILD = 'v74';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1107,6 +1132,7 @@ function indexAccounts(list){
 async function loadAccounts(){
   indexAccounts(await accAll());
   APPTS = await apptsAll();
+  TASKS = await tasksAll();
   REF = await kvGet('beltref') || null;
   if(!REF && ghReady() && navigator.onLine){
     try { await pullBeltRefGh(); } catch(e){ console.warn('belt reference auto-pull', e); }
@@ -1263,7 +1289,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1670,6 +1696,7 @@ function isWeekday(d){ const g=d.getDay(); return g>=1 && g<=5; }
 const todayISOdate = () => iso(new Date());
 
 let APPTS = [];
+let TASKS = [];
 const plan = {
   mgr:'', zone:'', view:'week', anchor:startOfWeek(new Date()),
   focus:new Set(LEVELS.map(l=>l[0])), q:'', seq:1, dueOnly:false
@@ -1895,7 +1922,7 @@ function hourGutter(){
 /* Pointer drag. Vertical moves the time, horizontal moves the day, and the
    label updates as it goes so the time is read off the thing being moved rather
    than guessed from where it sits. */
-function makeDraggableAppt(el, ap){
+function makeDraggableAppt(el, ap, save){
   let dragging = false, holdT = null, startY = 0, startTop = 0, moved = false;
   const coarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
 
@@ -1913,7 +1940,7 @@ function makeDraggableAppt(el, ap){
        this one for the whole card. A touch hold is slow enough (450ms) that a
        tap never reaches that point, which is why this only showed up testing
        with a mouse, not the phone this is actually built for. */
-    if(e.target.closest('.del')) return;
+    if(e.target.closest('.del, .tick')) return;
     if(coarse){
       /* Half a second before it lifts. Short enough not to feel slow, long
          enough that a scroll never picks a call up. */
@@ -1955,7 +1982,7 @@ function makeDraggableAppt(el, ap){
     if((ns && ns !== ap.start) || (nd && nd !== ap.date)){
       if(ns) ap.start = ns;
       if(nd) ap.date = nd;
-      await saveAppt(ap);
+      await (save || saveAppt)(ap);
       renderPlan();
     }
   }
@@ -1966,9 +1993,11 @@ function makeDraggableAppt(el, ap){
 function renderCalendar(){
   const body = $('calBody'), TODAY = todayISOdate();
   body.innerHTML = '';
-  $('calHint').textContent = APPTS.length
+  const openTasks = TASKS.filter(t => !t.done).length;
+  $('calHint').textContent = (APPTS.length
     ? APPTS.length+' appointment'+(APPTS.length===1?'':'s')+' planned'
-    : 'Click an account, or drag it onto a day.';
+    : 'Click an account, or drag it onto a day.') +
+    (openTasks ? ' \u00b7 ' + openTasks + ' open task' + (openTasks===1?'':'s') : '');
 
   if(plan.view === 'week' || plan.view === 'day'){
     const oneDay = plan.view === 'day';
@@ -2017,6 +2046,14 @@ function renderCalendar(){
         makeDraggableAppt(el, ap);
         b.appendChild(el);
       });
+      tasksOn(k).forEach(t => {
+        const el = taskEl(t, false);
+        el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(t))) + 'px';
+        el.style.height = Math.max(18, TASK_DUR * PX_MIN) + 'px';
+        if(!oneDay) el.classList.add('tiny');
+        makeDraggableAppt(el, t, taskMoved);
+        b.appendChild(el);
+      });
       /* Clicking empty space books at the time that was clicked, which is the
          whole point of having an hour axis. */
       b.addEventListener('dblclick', e => {
@@ -2029,6 +2066,10 @@ function renderCalendar(){
       add.className = 'add'; add.type = 'button'; add.textContent = '+ Add call';
       add.onclick = ()=>openDialog(null, {date:k});
       col.appendChild(add);
+      const addT = document.createElement('button');
+      addT.className = 'add'; addT.type = 'button'; addT.textContent = '+ Task';
+      addT.onclick = ()=>openTask(null, {date:k});
+      col.appendChild(addT);
       makeDrop(col, k);
       grid.appendChild(col);
     });
@@ -2047,6 +2088,7 @@ function renderCalendar(){
         cell.className = 'mcell' + (d.getMonth()!==m ? ' out' : '') + (k===TODAY ? ' today' : '');
         cell.innerHTML = '<div class="n">'+d.getDate()+'</div>';
         apptsOn(k).forEach(ap => cell.appendChild(apptEl(ap,true)));
+        tasksOn(k).forEach(t => cell.appendChild(taskEl(t,true)));
         cell.addEventListener('dblclick', ()=>openDialog(null, {date:k}));
         makeDrop(cell, k);
         grid.appendChild(cell);
@@ -4566,6 +4608,204 @@ $('ghSync').addEventListener('click', async ()=>{
   finally { btn.disabled = !ghReady(); }
 });
 
+/* ================= tasks =================
+
+   Ben's tasks, brought in from Task Slaughterer 9000 (IDEAS.md) with the same
+   fields, the account and contact picked from the CRM. Every task sits on the
+   calendar for 30 minutes on its date. A new one lands on the day it is added,
+   at the next half hour, and is moved from there - by dragging it in the week
+   or day view, or by changing its date and time. A task added from inside a
+   call carries that call's id and is listed under it on the call screen.
+
+   The form follows Ben's Done rule (PREFERENCES.md): no Save button - Done
+   leaves and saves; nothing entered is discarded silently; a task with no
+   title is kept as a draft and says so. Closing it any other way (Escape,
+   the back gesture) counts as Done, so nothing typed is lost. */
+const TASK_TYPES = ['Add project to Dynamics', 'Update project', 'Update contact details', 'Write email',
+                    'Book travel', 'Book customer call', 'Call', 'Other'];
+const TASK_DUR = 30;
+let taskEdit = null, taskIsNew = false, taskBefore = '';
+
+function tasksOn(dISO){ return TASKS.filter(t => t.date === dISO).sort((x,y)=>(x.start||'').localeCompare(y.start||'')); }
+const taskTitle = t => t.title || t.type || 'Untitled task';
+// the next half hour after now: added at 10:12, it sits at 10:30
+function nextHalfHour(d){
+  const m = d.getHours() * 60 + d.getMinutes();
+  return hhmm(Math.min(Math.ceil((m + 1) / 30) * 30, 23 * 60 + 30));
+}
+async function taskMoved(t){ t.updated = Date.now(); await tasksPut(t); }
+async function taskToggle(t){
+  t.done = !t.done;
+  t.doneAt = t.done ? Date.now() : null;
+  t.updated = Date.now();
+  await tasksPut(t);
+  toast(t.done ? 'Done: ' + taskTitle(t) : 'Not done: ' + taskTitle(t));
+  taskRefresh();
+}
+function taskRefresh(){
+  if(screen === 'plan') renderPlan();
+  if(screen === 'dash' && call) renderDashTasks();
+}
+
+function taskEl(t, pill){
+  const el = document.createElement('div');
+  el.className = (pill ? 'pill' : 'appt') + ' task' + (t.done ? ' done' : '');
+  el.tabIndex = 0;
+  const tick = '<button type="button" class="tick" aria-label="' + (t.done ? 'Mark not done' : 'Mark done') +
+    '" title="' + (t.done ? 'Done - tap to undo' : 'Mark done') + '">' + (t.done ? icon('check') : '') + '</button>';
+  if(pill){
+    el.innerHTML = tick + '<span class="pt"></span>';
+    el.querySelector('.pt').textContent = (t.start || '') + ' ' + taskTitle(t);
+  } else {
+    // one line: 30 minutes is too short for the three lines an appointment card has
+    el.innerHTML = tick + '<div class="a"><span></span></div>';
+    el.querySelector('.a span').textContent = (t.start || '') + ' ' + taskTitle(t);
+  }
+  el.title = 'Task: ' + taskTitle(t) + (t.acct ? '\n' + t.acct : '') + (t.done ? '\nDone' : '');
+  el.querySelector('.tick').addEventListener('click', e => {
+    e.stopPropagation();
+    taskToggle(t).catch(err => { console.error(err); toast('Could not update the task: ' + err.message); });
+  });
+  el.addEventListener('click', e => { e.stopPropagation(); openTask(t.id); });
+  el.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.stopPropagation(); openTask(t.id); } });
+  return el;
+}
+
+/* Tasks raised in this call, under the call log. */
+function renderDashTasks(){
+  const el = $('dashTasks');
+  if(!el || !call) return;
+  const list = TASKS.filter(t => t.callId === call.id).sort((a,b) => (a.date + a.start).localeCompare(b.date + b.start));
+  $('dashTasksHead').hidden = !list.length;
+  el.innerHTML = '';
+  for(const t of list){
+    const row = taskEl(t, true);
+    row.classList.add('row');
+    const when = document.createElement('span');
+    when.className = 'when'; when.textContent = ddmmyyyy(t.date);
+    row.appendChild(when);
+    el.appendChild(row);
+  }
+}
+
+function taskFillContacts(acct, keep){
+  const sel = $('tkContact'), a = ACC_BY_NAME.get(acct);
+  sel.innerHTML = '<option value="">(none)</option>';
+  const names = a ? a.c.map(c => c.n) : [];
+  if(keep && !names.includes(keep)) names.unshift(keep);     // a contact since removed from the CRM stays visible
+  for(const n of names){ const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); }
+  sel.value = keep || '';
+}
+/* Email and mobile fill from the contact, but never over something typed. */
+function taskAutoFill(){
+  const a = ACC_BY_NAME.get($('tkAcct').value.trim());
+  const c = a ? a.c.find(x => x.n === $('tkContact').value) : null;
+  [['tkEmail', c ? (c.e || [])[0] || '' : ''], ['tkMobile', c ? c.p || '' : '']].forEach(([id, v]) => {
+    const f = $(id);
+    if(!f.value || f.value === f.dataset.auto){ f.value = v; f.dataset.auto = v; }
+  });
+}
+function taskRead(){
+  const t = taskEdit;
+  const on = $('tkType').querySelector('button.on');
+  t.type = on ? on.dataset.v : '';
+  t.title = $('tkTitle').value.trim();
+  t.date = $('tkDate').value || todayISOdate();
+  t.start = $('tkTime').value || nextHalfHour(new Date());
+  t.dur = TASK_DUR;
+  t.acct = $('tkAcct').value.trim();
+  t.contact = $('tkContact').value;
+  t.email = $('tkEmail').value.trim();
+  t.mobile = $('tkMobile').value.trim();
+  t.project = $('tkProject').value.trim();
+  t.revenue = $('tkRevenue').value.trim();
+  t.notes = $('tkNotes').value;
+  if($('tkDone').checked !== !!t.done){ t.done = $('tkDone').checked; t.doneAt = t.done ? Date.now() : null; }
+  return t;
+}
+function openTask(id, extra){
+  const t = id ? TASKS.find(x => x.id === id) : null;
+  if(id && !t){ toast('That task could not be found'); return; }
+  taskIsNew = !t;
+  taskEdit = t ? Object.assign({}, t) : Object.assign({
+    id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    type: '', title: '', date: todayISOdate(), start: nextHalfHour(new Date()), dur: TASK_DUR,
+    acct: '', contact: '', email: '', mobile: '', project: '', revenue: '', notes: '',
+    done: false, doneAt: null, callId: null, created: Date.now()
+  }, extra || {});
+  const e = taskEdit;
+  $('tkHead').textContent = taskIsNew ? 'New task' : 'Task';
+  $('tkType').innerHTML = TASK_TYPES.map(x => '<button type="button" data-v="' + esc(x) + '"' + (x === e.type ? ' class="on"' : '') + '>' + esc(x) + '</button>').join('');
+  $('tkTitle').value = e.title || '';
+  $('tkDate').value = e.date || '';
+  $('tkTime').value = e.start || '';
+  const dl = $('tkAcctList');
+  if(dl.childElementCount !== ACCOUNTS.length){
+    dl.innerHTML = '';
+    for(const a of ACCOUNTS){ const o = document.createElement('option'); o.value = a.a; dl.appendChild(o); }
+  }
+  $('tkAcct').value = e.acct || '';
+  taskFillContacts(e.acct, e.contact);
+  $('tkEmail').value = e.email || ''; $('tkEmail').dataset.auto = '';
+  $('tkMobile').value = e.mobile || ''; $('tkMobile').dataset.auto = '';
+  if(e.contact && !e.email && !e.mobile) taskAutoFill();
+  $('tkProject').value = e.project || '';
+  $('tkRevenue').value = e.revenue || '';
+  $('tkNotes').value = e.notes || '';
+  $('tkDone').checked = !!e.done;
+  const from = e.callId ? (CALLS_BY_ACCT.get(e.acct) || []).find(c => c.id === e.callId) : null;
+  $('tkFrom').hidden = !e.callId;
+  $('tkFrom').textContent = e.callId ? 'Raised in the call with ' + (from ? from.customer + ' on ' + from.date : (e.acct || 'this account')) : '';
+  $('tkDel').hidden = taskIsNew;
+  taskBefore = JSON.stringify(taskRead());
+  const d = $('taskdlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  if(taskIsNew) setTimeout(() => { try { $('tkTitle').focus(); } catch(_){} }, 50);
+}
+async function taskFinish(){
+  if(!taskEdit) return;
+  const t = taskRead();
+  taskEdit = null;
+  const d = $('taskdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  const blank = !t.title && !t.type && !t.acct && !t.notes.trim() && !t.project && !t.revenue && !t.email && !t.mobile;
+  if(taskIsNew && blank) return;                         // nothing entered: no empty ghost task
+  if(!taskIsNew && JSON.stringify(t) === taskBefore) return;   // opened and closed: nothing to save
+  t.updated = Date.now();
+  await tasksPut(t);
+  TASKS = TASKS.filter(x => x.id !== t.id).concat([t]);
+  const when = ddmmyyyy(t.date) + ' at ' + t.start;
+  toast(!t.title && !t.type ? 'Kept as a draft — it has no title yet (' + when + ')'
+    : taskIsNew ? 'Task on the calendar: ' + when : 'Task saved');
+  taskRefresh();
+}
+async function taskDelete(){
+  const t = taskEdit;
+  if(!t) return;
+  if(!confirm('Delete the task "' + taskTitle(t) + '" on ' + ddmmyyyy(t.date) + '?\n\nIt is gone from this device' +
+      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return;
+  taskEdit = null;
+  const d = $('taskdlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+  await tasksDel(t.id);
+  TASKS = TASKS.filter(x => x.id !== t.id);
+  toast('Task deleted');
+  taskRefresh();
+}
+$('tkType').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const was = b.classList.contains('on');
+  $('tkType').querySelectorAll('button').forEach(x => x.classList.remove('on'));
+  if(!was) b.classList.add('on');                        // tap again to deselect
+});
+$('tkAcct').addEventListener('change', () => { taskFillContacts($('tkAcct').value.trim(), ''); taskAutoFill(); });
+$('tkContact').addEventListener('change', taskAutoFill);
+$('tkOk').addEventListener('click', () => taskFinish().catch(e => { console.error(e); toast('Could not save the task: ' + e.message); }));
+$('tkDel').addEventListener('click', () => taskDelete().catch(e => { console.error(e); toast('Could not delete: ' + e.message); }));
+// Escape, or the dialog closed by the back gesture: treated as Done
+$('taskdlg').addEventListener('cancel', e => { e.preventDefault(); taskFinish().catch(console.error); });
+$('taskdlg').addEventListener('close', () => { if(taskEdit) taskFinish().catch(console.error); });
+
 /* ================= cloud sync (Supabase) =================
 
    BACKEND-PLAN.md, Step 2: connect and sign in; Step 3: the passphrase and the
@@ -5182,7 +5422,7 @@ async function cloudWaiting(){
 var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
 var cloudProgress = '';
 var cloudRecTimer = null;
-const CLOUD_REC_STORES = ['calls', 'appts'];
+const CLOUD_REC_STORES = ['calls', 'appts', 'tasks'];
 
 async function cloudDirtyLoad(){
   if(!cloudDirty){
@@ -5211,7 +5451,7 @@ function recGet(store, id){
     t.onsuccess = ()=>res(t.result || null); t.onerror = ()=>rej(t.error);
   }));
 }
-const recVer = (store, r) => store === 'calls' ? (r.updated || 0) : (r.touchedAt || 0);
+const recVer = (store, r) => store === 'appts' ? (r.touchedAt || 0) : (r.updated || 0);
 
 /* Everything already here before cloud sync goes up once. */
 async function cloudSeed(){
@@ -5220,6 +5460,7 @@ async function cloudSeed(){
   const now = Date.now();
   for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
   for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
+  for(const t of await tasksAll()) if(!cloudDirty['tasks/' + t.id]) cloudDirty['tasks/' + t.id] = {v: recVer('tasks', t) || now, del: false, at: now};
   await cloudDirtySave();
   await kvSet('cloudSeeded', true);
 }
@@ -5354,10 +5595,10 @@ async function cloudPushRecs(stats){
       batch.push({key: k, at: d.at, row: Object.assign({store: store, id: id, client_updated: d.v, deleted: true},
         await sbSeal(store, id, null))});
       stats.gone++;
-    } else if(store === 'appts'){
+    } else if(store !== 'calls'){
       batch.push({key: k, at: d.at, row: Object.assign({store: store, id: id, client_updated: recVer(store, rec) || d.v, deleted: false},
         await sbSeal(store, id, rec))});
-      stats.appts++;
+      stats[store]++;
     } else {
       await flush();
       // the 800px copies from the GitHub sync lose to the originals of the same edit
@@ -5413,10 +5654,10 @@ async function cloudApplyRec(row, stats){
   cloudQuiet = true;
   try {
     if(row.deleted){
-      if(local){ store === 'calls' ? await callsDel(id) : await apptsDel(id); stats.gone++; }
-    } else if(store === 'appts'){
-      await apptsPut(await sbOpen(store, id, row));
-      stats.appts++;
+      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel})[store](id); stats.gone++; }
+    } else if(store !== 'calls'){
+      await ({appts: apptsPut, tasks: tasksPut})[store](await sbOpen(store, id, row));
+      stats[store]++;
     } else {
       const got = await cloudCallIn(await sbOpen(store, id, row), local);
       await callsPut(got.call);
@@ -5458,25 +5699,25 @@ async function cloudPullRecs(stats){
 }
 
 async function cloudSyncRecs(){
-  const stats = {calls: 0, appts: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  const stats = {calls: 0, appts: 0, tasks: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
-  const up = {calls: 0, appts: 0, gone: 0, photosUp: 0};
+  const up = {calls: 0, appts: 0, tasks: 0, gone: 0, photosUp: 0};
   try {
     await cloudPushRecs(up);
     const down = stats;
     await cloudPullRecs(down);
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
-  const sentN = up.calls + up.appts + up.gone;
-  if(sentN) bits.push('sent ' + [up.calls && n(up.calls, 'call'), up.appts && n(up.appts, 'appointment'),
-    up.gone && n(up.gone, 'deletion'), up.photosUp && n(up.photosUp, 'photo')].filter(Boolean).join(', '));
-  const gotN = stats.calls + stats.appts + stats.gone;
-  if(gotN){
-    bits.push('brought in ' + [stats.calls && n(stats.calls, 'call'), stats.appts && n(stats.appts, 'appointment'),
-      stats.gone && n(stats.gone, 'deletion'), stats.photosDown && n(stats.photosDown, 'photo')].filter(Boolean).join(', '));
-    await logLoad('Cloud', 'cloud', 'Brought in ' + [stats.calls && n(stats.calls, 'call'), stats.appts && n(stats.appts, 'appointment'),
-      stats.gone && n(stats.gone, 'deletion'), stats.photosDown && n(stats.photosDown, 'photo')].filter(Boolean).join(', '));
+  const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
+    x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
+  if(up.calls + up.appts + up.tasks + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
+  if(stats.calls + stats.appts + stats.tasks + stats.gone){
+    const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
+    bits.push('brought in ' + got);
+    await logLoad('Cloud', 'cloud', 'Brought in ' + got);
     APPTS = await apptsAll();
+    TASKS = await tasksAll();
+    if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
   }
@@ -5969,6 +6210,12 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   } else if(t==='people'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
     $('peQ').value = ''; showDir('ppl');
+  } else if(t==='newtask'){
+    openTask(null);
+  } else if(t==='calltask'){
+    if(!call){ toast('Open a call first'); return; }
+    const first = (call.contacts||[])[0] || {};
+    openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
   } else if(t==='reports'){
     $('rpQ').value = ''; go('reports');
   } else if(t==='manuals'){
@@ -6264,6 +6511,7 @@ $('openCall').addEventListener('click', async ()=>{
 function renderDash(){
   if(!call) return go('home');
   const c = call;
+  renderDashTasks();
   const onDoc = c.contacts.filter(docContact).length;
   $('dashStat').innerHTML =
     '<b>'+esc(c.customer)+'</b><br>'+esc(c.date)+' &middot; '+esc(c.type)+' &middot; '+esc(c.mgr)+
@@ -9017,6 +9265,7 @@ async function buildBackup(withPhotos){
     prefs: {mgr: localStorage.getItem(LS('mgr')) || ''},
     accounts: ACCOUNTS,
     appts: APPTS,
+    tasks: TASKS,
     weeks: WEEKS,
     mgrOf: MGR_OF,
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos)
@@ -9084,6 +9333,9 @@ async function doRestore(file){
     await apptsPut(ap);
   }
   if(appts.length) APPTS = await apptsAll();
+  const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+  for(const t of tasks) if(t && t.id) await tasksPut(t);
+  if(tasks.length) TASKS = await tasksAll();
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
   if(data.mgrOf){ MGR_OF = data.mgrOf; await kvSet('mgrOf', MGR_OF); }
   if(data.overrides){
