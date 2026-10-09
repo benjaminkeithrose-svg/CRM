@@ -218,16 +218,31 @@ which is new infrastructure this project has never had before).
 - A safer home for the data is Intralox's own Microsoft 365 (OneDrive or SharePoint), which would also help with Outlook. This needs IT approval and has not been checked.
 - Before changing the sync, find out what actually causes the phone and website to disagree. That has not been investigated yet.
 
+**Follow-up 2026-10-09 — hosting and encryption:**
+
+Ben raised running the app as a Claude artifact instead of GitHub Pages, to get "the AI extras" directly and keep data in that account rather than a repo. He talked himself out of it in the same message, correctly: the app's explicit design is "meant to be handed to colleagues who load their own" (CLAUDE.md), and an artifact hosted in one person's Claude account isn't something a colleague can pick up the same way a public URL is. Recorded here so the idea doesn't come back around without the reason it was dropped. The ask underneath it is unchanged: phone and desktop, same data, as safe as practical.
+
+He also raised moving customer data and belt data into "a proper database... so we can encrypt it." Worth separating two different things that got bundled together there:
+- **Swapping IndexedDB for a different storage engine** (e.g. SQLite via sql.js/wasm) doesn't add encryption by itself — it's a different place to put the same unencrypted bytes. A browser-embedded SQLite build with real at-rest encryption (SQLCipher-equivalent) is not a mature, drop-in option today.
+- **Encrypting the data itself**, independent of what stores it, is the part that actually buys safety — the Web Crypto API (`SubtleCrypto`, AES-GCM) can encrypt a record before it goes into IndexedDB and before it goes up to the private repo, with the key derived from a passphrase Ben holds (never stored alongside the data). This is a smaller change than swapping storage engines and targets the actual question ("is the data safe") rather than where it technically lives. The call-report sync in particular is worth a second look under this: it currently sends account names, contact names and call notes in full to the private repo (unlike the appointment sync, which only ever sends a hashed account key) — if anything in this app should be encrypted first, it's probably that, not a storage-engine migration.
+- This needs a decision on **threat model** before it's buildable: what is the encryption actually defending against — a lost/stolen phone, a leaked GitHub token, someone else gaining access to the private repo, something else? The right design differs a lot depending on the answer (e.g. a device-held key defends against a leaked token or compromised repo but not a stolen *and unlocked* phone; OS-level device encryption, which a modern Android phone already has by default, already covers a stolen-but-locked phone).
+
+On voice-to-text specifically: Ben's message asks whether an online step can be avoided here. Worth being precise, since two different things are easy to conflate:
+- **Plain dictation** into the existing comment fields is already free today via the phone keyboard's own mic (see the first entry in this file) — no app change, no network call from this app's side. Whether *that* itself runs fully offline depends on the keyboard's own settings (Gboard/Samsung voice typing can use an on-device language model, but may default to a cloud one) — worth checking on his phone rather than assumed either way.
+- **AI clean-up of what was dictated** (tidying rambling voice notes into structured call notes) is a different, heavier task that a phone keyboard cannot do, and does need a real model — there is no offline way around that part. This is exactly what step 3 above ("Copy for Claude" button, pasted back, no API key in the app) already proposes, specifically so the one piece that must be online stays a deliberate, occasional action rather than something the whole app depends on.
+
 **Not decided:**
 - Whether the AI step stays in chat or moves into the app. In the app it would need a key and a small server, which this project has never had.
 - Whether IT allows Microsoft 365 storage or Graph permissions.
 - Whether it is only Ben using the app or the team.
+- What the encryption is actually meant to defend against (see threat model above) — this decides the design, so it has to come before any encryption work starts.
 
 **Questions for Ben before building:**
 1. Is steps 1 to 4 the right scope, in that order?
 2. Is the chat-based AI step acceptable?
 3. Should the sync investigation come first?
 4. Should IT be asked about Microsoft 365 storage?
+5. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
 
 ---
 
