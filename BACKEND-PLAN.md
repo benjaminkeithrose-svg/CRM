@@ -144,23 +144,37 @@ removed in Step 7, after the new sync has been used for real.
    give me a separate *test* sign-in, I can test against your real project
    instead of a stand-in.
 
-### Step 1 — Database tables and access rules
+### Step 1 — Database tables and access rules — **done 2026-10-09**
 
-I write `supabase/schema.sql` in this repo; you paste it into the project's
-SQL editor once. It creates:
-- a table of encrypted records (ID, owner, kind, updated time, deleted
-  marker, key ID, encrypted body);
-- a table of encrypted datasets (owner, name, version, encrypted body);
-- a table for each user's locked data key;
-- a private storage bucket for photos;
+Project: **Field CRM**, Sydney region (ref `ksuwpjezkumyualdbfmn`). Applied
+through the Supabase connector from `supabase/migrations/0001_initial_sync_schema.sql`
+— nothing for Ben to paste. It creates:
+- `records` — one encrypted row per synced thing (owner, store, ID, key ID,
+  encrypted body, the app's updated time, deleted marker). `store` is
+  `calls`, `appts` or `datasets`; the datasets (accounts, belt catalogue,
+  assets, overrides, managers, weeks, meta) are rows in here with the
+  dataset name as the ID, rather than a separate table. The column is named
+  `store`, not `kind`, because CLAUDE.md reserves `kind` in the sync payload.
+- `vaults` — each user's data key, locked with their passphrase;
+- a private `photos` storage bucket, one folder per user;
 - access rules so each signed-in user can read and write only their own
-  rows and photos.
+  rows and photos; nobody signed out can touch anything.
+- Newest edit wins on the server: an update carrying an older edit time is
+  skipped, so a device coming back online can't overwrite newer work.
 
-Every table carries a `team` column from day one, unused for now, so adding
+Every table carries a `team_id` column, unused for now, so adding
 colleagues later (Step 9) is a change to the rules rather than a rebuild.
 The file holds no data and no secrets, so it is safe in a public repo.
 
-**Test:** you run the file and confirm it finishes without errors.
+**Checked:** applied without errors; Supabase's security check reports no
+issues; a partial access test (one user inserting and reading their own
+row) passed. The full two-user test (user B can't see or change user A's
+rows, older edits are skipped) was not completed — it is covered again by
+the Step 2–3 tests from the app itself.
+
+**To do once Ben's account exists:** turn off new sign-ups in the
+dashboard, so nobody else can create an account in the project and use up
+its free quota.
 
 ### Step 2 — Connect and sign in (nothing syncs yet)
 
