@@ -253,18 +253,35 @@ On cost, since Ben was clear he doesn't want to spend more than necessary — pr
 
 So: the backend decision is now just about the AI piece, and the honest cost answer is "free hosting, a few cents a month in actual AI usage." Worth Ben knowing the real number rather than deciding on a vague worry about cost.
 
+**Follow-up 2026-10-09 (fourth message) — what sync actually does today, and the repo question:**
+
+Ben asked what call-report sync currently does (hasn't used it in a while, assumed it was a lightweight document only) and whether the sync repo is public or private. Checked against the actual code rather than guessed:
+
+- **Call-report sync already sends everything** — full customer name, contacts, notes, and photos — not just a lightweight document. The one real limit: photos go up resized to 800px at reduced quality ("for reading a report on a laptop, where the difference is invisible" per the code comment), not full camera resolution. Appointment sync is the lightweight one (only a hashed account key, date, time, status, agenda) — these are two separate mechanisms Ben may have been conflating.
+- **Two different repos, not one.** This app's own repo (public, has to be for GitHub Pages, never carries customer data) is not the same thing as the separate private repo Ben set up for sync, where call reports/appointments/photos actually land. The sync repo's privacy is enforced in code, every push: `ghCheckRepo()` reads the repo's real status from GitHub's API and **refuses to sync at all** if it isn't private ("that repository is PUBLIC. Appointments must go to a private one."). That setting lives only on Ben's device, not anywhere accessible from a session here, so it can't be verified remotely — Ben can check it himself in ten seconds via **Exchange → Test the connection**, which runs that exact check.
+
+**New ask: full-size images on the PC, not the current 800px compressed copies.** Technically simple, but a real tradeoff worth deciding first: GitHub repos don't prune, and anything ever pushed stays in history even after deletion, so switching to full camera resolution makes the private repo grow considerably faster over time. Asked Ben whether he needs true original resolution or just better-than-800px (e.g. the 1400px copy already held on the phone) before building this.
+
+**This connects back to the still-open encryption question** (see the threat-model note above) rather than being separate from it: if sync is about to carry *more* data through that same private repo, whether to encrypt what's sitting in it matters more, not less. Asked Ben directly whether to bundle encryption into this round of sync work or treat "private repo + the app's enforced check" as sufficient for now.
+
+**Order confirmed:** sync (and the open "does it actually work reliably" question) before AI cleanup — cleanup only matters once the data lands where Ben wants it first.
+
 **Not decided:**
 - Whether IT allows Microsoft 365 storage or Graph permissions.
 - Whether it is only Ben using the app or the team.
 - What the encryption is actually meant to defend against (see threat model above) — this decides the design, so it has to come before any encryption work starts.
+- Whether "full-size images" means true original resolution or just bigger than the current 800px sync copy.
+- Whether encryption gets bundled into this sync round or deferred.
 
 **Questions for Ben before building:**
 1. Is steps 1 to 4 the right scope, in that order?
 2. ~~Is the chat-based AI step acceptable?~~ **Answered 2026-10-09: no** — Ben wants AI cleanup inside the app, no copy/paste round trip.
 3. ~~Is Ben fine with the one small backend piece this requires?~~ **Answered 2026-10-09: yes, conditionally** — fine with it as long as it's free or very close to it. Priced out above: realistically a few cents a month. On that basis this is a go, pending him confirming the actual number is acceptable.
-4. Should the sync investigation come first? (The "phone and website disagree" bug, not the instant-visibility ask — that part's settled above with no new infrastructure needed.)
+4. ~~Should the sync investigation come first?~~ **Answered 2026-10-09: yes** — sync before AI cleanup.
 5. Should IT be asked about Microsoft 365 storage?
 6. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
+7. What image resolution does "full-size" actually need to be?
+8. Bundle encryption into the sync work now, or keep relying on "private repo + the app's enforced privacy check" for the time being?
 
 ---
 
