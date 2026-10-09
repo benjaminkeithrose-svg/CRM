@@ -896,7 +896,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v66';
+const APP_BUILD = 'v67';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4563,7 +4563,8 @@ $('ghSync').addEventListener('click', async ()=>{
 
 /* ================= cloud sync (Supabase) =================
 
-   BACKEND-PLAN.md, Step 2: connect and sign in. Nothing syncs yet.
+   BACKEND-PLAN.md, Step 2: connect and sign in; Step 3: the passphrase and the
+   data key. Nothing syncs yet.
 
    The project address and publishable key are typed in on each device and kept
    in kv 'cloud', never in this repo, so a colleague can be handed the same app
@@ -4631,8 +4632,13 @@ async function loadSb(){
       const r = await sbClient.auth.getSession();
       sbUser = r.data && r.data.session ? r.data.session.user : null;
     } catch(e){ console.warn('cloud session', e); }
+    try {
+      const k = await kvGet('cloudKey');
+      if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
+    } catch(e){ console.warn('cloud key', e); }
   }
   renderSb();
+  sbCheckVault();     // not awaited: a slow network must not hold up the app opening
 }
 
 /* Sign-in errors in plain words. The library's own messages are for developers. */
@@ -4657,11 +4663,30 @@ function renderSb(){
   else if(sbUser) line = 'Signed in as <b>' + esc(sbUser.email || 'this account') + '</b>' +
     (navigator.onLine ? '' : ' &middot; offline, will reconnect');
   else line = 'Not signed in.';
-  el.innerHTML = line;
   const signedIn = !!(sbClient && sbUser);
+  if(signedIn) line += '<br>' + ({
+    open:    'Encryption: <b>unlocked on this device</b>.',
+    none:    '<span class="flagline">Encryption: no passphrase set yet.</span> Set one below &mdash; every device uses the same one.',
+    locked:  '<span class="flagline">Encryption: locked on this device.</span> Type your passphrase below.',
+    offline: '<span class="flagline">Encryption: locked.</span> Unlocking needs signal the first time on each device.',
+    error:   '<span class="flagline">Encryption: could not check.</span> ' + esc(sbVaultMsg),
+    unknown: 'Encryption: checking&hellip;'
+  }[sbVault] || '');
+  el.innerHTML = line;
   $('sbIn').hidden = signedIn;
   $('sbSignOut').hidden = !signedIn;
   $('sbSignIn').disabled = !sbClient;
+  const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
+  $('sbLock').hidden = !ask;
+  if(ask){
+    const first = sbVault === 'none';
+    $('sbPhLbl').textContent = first ? 'New passphrase' : 'Passphrase';
+    $('sbPh2Wrap').hidden = !first;
+    $('sbPhGo').textContent = first ? 'Set passphrase' : 'Unlock';
+    $('sbPhHint').innerHTML = first
+      ? 'At least ' + PH_MIN + ' characters. It locks everything before it leaves this device, and unlocks it on your other devices. <b>If it is lost, nobody can read the cloud copy</b> &mdash; not even you. Keep it in your password manager.'
+      : 'The passphrase you set on your first device.';
+  }
 }
 [['sbUrl','url'],['sbKey','key']].forEach(([id,k]) => {
   const f = $(id);
@@ -4677,6 +4702,7 @@ function renderSb(){
     }
     if(v === SB[k]){ f.value = v; return; }
     if(sbClient && sbUser){ try { await sbClient.auth.signOut({scope:'local'}); } catch(e){} }
+    await sbForget();
     SB[k] = v;
     await kvSet('cloud', SB);
     sbMake();
@@ -4696,20 +4722,183 @@ $('sbSignIn').addEventListener('click', async ()=>{
     $('sbPass').value = '';
     toast('Signed in as ' + (sbUser.email || email));
     await logLoad(SB.url, 'cloud', 'Signed in as ' + (sbUser.email || email));
+    await sbLoadKey();
   } catch(e){ console.warn(e); toast(sbSay(e)); }
   finally { btn.disabled = !sbClient; renderSb(); }
+  if(sbUser) await sbCheckVault();
 });
 $('sbSignOut').addEventListener('click', async ()=>{
   if(!sbClient) return;
   // local scope: signs this device out only, and works with no signal
   try { await sbClient.auth.signOut({scope:'local'}); } catch(e){ console.warn(e); }
   sbUser = null;
+  await sbForget();
   toast('Signed out of this device');
   await logLoad(SB.url, 'cloud', 'Signed out');
   renderSb();
 });
-window.addEventListener('online', renderSb);
+window.addEventListener('online', ()=>{ renderSb(); if(sbVault === 'offline' || sbVault === 'error') sbCheckVault(); });
 window.addEventListener('offline', renderSb);
+
+/* ---------- Step 3: the passphrase and the data key ----------
+
+   Envelope encryption, all in the browser's own Web Crypto:
+   - A random AES-GCM data key encrypts everything that will be synced.
+   - The passphrase, stretched with PBKDF2 (600,000 rounds, so each guess is
+     slow), makes a second key whose only job is to lock the data key.
+   - Only the locked data key goes to Supabase, in 'vaults'. The passphrase
+     and the unlocked key never leave the device.
+   Changing the passphrase later re-locks the one data key; nothing else has to
+   be re-encrypted. A colleague can be given the data key the same way.
+
+   Once unlocked, the device keeps the data key in IndexedDB (kv 'cloudKey') as
+   a non-extractable CryptoKey: the app can use it, but no script can read the
+   key's bytes out. Signing out forgets it.
+
+   The vault is only ever inserted, never updated: overwriting it would orphan
+   everything already encrypted with the old key. If two devices race to set a
+   passphrase, the second one is told to use the first one's. */
+
+const VAULT_KDF = {alg:'PBKDF2', hash:'SHA-256', iterations:600000};
+const PH_MIN = 12;
+const TE = new TextEncoder(), TD = new TextDecoder();
+let sbKeyRec = null;              // {uid, key_id, key: CryptoKey}
+let sbVault = 'unknown', sbVaultMsg = '';
+
+function u8b64(u8){
+  let s = '';
+  for(let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function b64u8(s){
+  const b = atob(s), u = new Uint8Array(b.length);
+  for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+  return u;
+}
+const toHex = u8 => Array.from(u8, b => b.toString(16).padStart(2, '0')).join('');
+// binds the locked key to this account, so a vault row moved to another account will not open
+const vaultAad = uid => TE.encode('fieldcrm-vault/' + uid);
+
+async function sbPassKey(pass, kdf){
+  const base = await crypto.subtle.importKey('raw', TE.encode(pass.normalize('NFC')), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', hash:kdf.hash, iterations:kdf.iterations, salt:b64u8(kdf.salt)},
+    base, {name:'AES-GCM', length:256}, false, ['wrapKey','unwrapKey']);
+}
+async function sbUnwrap(row, wk, uid){
+  return crypto.subtle.unwrapKey('raw', b64u8(row.wrapped_key), wk,
+    {name:'AES-GCM', iv:b64u8(row.wrap_iv), additionalData:vaultAad(uid)},
+    {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function sbKeep(uid, key_id, key){
+  sbKeyRec = {uid: uid, key_id: key_id, key: key};
+  await kvSet('cloudKey', sbKeyRec);
+  sbVault = 'open';
+}
+async function sbForget(){
+  sbKeyRec = null; sbVault = 'unknown';
+  try { await kvSet('cloudKey', null); } catch(e){}
+}
+async function sbLoadKey(){
+  try {
+    const k = await kvGet('cloudKey');
+    if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
+  } catch(e){ console.warn('cloud key', e); }
+}
+async function sbVaultRow(){
+  const r = await sbClient.from('vaults').select('key_id,kdf,wrapped_key,wrap_iv').limit(1);
+  if(r.error) throw r.error;
+  return r.data && r.data[0] || null;
+}
+async function sbCheckVault(){
+  if(!sbClient || !sbUser) return;
+  if(sbKeyRec && sbKeyRec.uid === sbUser.id){ sbVault = 'open'; renderSb(); return; }
+  if(!navigator.onLine){ sbVault = 'offline'; renderSb(); return; }
+  try {
+    sbVault = (await sbVaultRow()) ? 'locked' : 'none';
+  } catch(e){ console.warn('vault', e); sbVault = 'error'; sbVaultMsg = sbSay(e); }
+  renderSb();
+}
+
+async function sbCreateVault(pass){
+  const uid = sbUser.id;
+  const kdf = Object.assign({}, VAULT_KDF, {salt: u8b64(crypto.getRandomValues(new Uint8Array(16)))});
+  const wk = await sbPassKey(pass, kdf);
+  // extractable only so it can be locked; this copy is dropped at the end of the function
+  const dk = await crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrapped = new Uint8Array(await crypto.subtle.wrapKey('raw', dk, wk, {name:'AES-GCM', iv:iv, additionalData:vaultAad(uid)}));
+  const row = {key_id: 'k-' + toHex(crypto.getRandomValues(new Uint8Array(8))), kdf: kdf,
+               wrapped_key: u8b64(wrapped), wrap_iv: u8b64(iv)};
+  const r = await sbClient.from('vaults').insert(row);
+  if(r.error){
+    if(r.error.code === '23505') throw new Error('vault exists');
+    throw r.error;
+  }
+  // the device keeps a non-extractable copy, unlocked the same way any other device will
+  await sbKeep(uid, row.key_id, await sbUnwrap(row, wk, uid));
+}
+async function sbUnlock(pass){
+  const row = await sbVaultRow();
+  if(!row) throw new Error('no vault');
+  const wk = await sbPassKey(pass, row.kdf);
+  let key;
+  try { key = await sbUnwrap(row, wk, sbUser.id); }
+  catch(e){ throw new Error('passphrase mismatch'); }   // AES-GCM refuses: wrong passphrase, or a tampered vault
+  await sbKeep(sbUser.id, row.key_id, key);
+}
+
+$('sbPhGo').addEventListener('click', async ()=>{
+  const btn = $('sbPhGo'), p1 = $('sbPh').value, p2 = $('sbPh2').value;
+  const first = sbVault === 'none';
+  if(!sbClient || !sbUser) return;
+  if(!navigator.onLine){ toast('No connection - try again when you have signal.'); return; }
+  if(first){
+    if(p1.length < PH_MIN){ toast('The passphrase needs at least ' + PH_MIN + ' characters'); return; }
+    if(p1 !== p2){ toast('The two passphrases are different - type them again'); return; }
+  } else if(!p1){ toast('Type the passphrase first'); return; }
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Working\u2026';
+  try {
+    if(first){
+      await sbCreateVault(p1);
+      toast('Passphrase set. Encryption is on.');
+      await logLoad(SB.url, 'cloud', 'Passphrase set, encryption on');
+    } else {
+      await sbUnlock(p1);
+      toast('Unlocked on this device');
+      await logLoad(SB.url, 'cloud', 'Encryption unlocked on this device');
+    }
+    $('sbPh').value = ''; $('sbPh2').value = '';
+  } catch(e){
+    console.warn(e);
+    const m = e && e.message;
+    if(m === 'passphrase mismatch'){ toast('That passphrase does not match the one set on your first device.'); $('sbPh').value = ''; }
+    else if(m === 'vault exists'){ toast('A passphrase was already set on another device. Type that one.'); $('sbPh').value = ''; $('sbPh2').value = ''; await sbCheckVault(); }
+    else if(m === 'no vault'){ await sbCheckVault(); toast('No passphrase is set yet - set one now.'); }
+    else toast(sbSay(e));
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+    renderSb();
+  }
+});
+
+/* For Step 4 on: encrypt and decrypt one synced thing. The store and ID are
+   bound into the encryption (AES-GCM additional data), so the server cannot
+   swap one record's body into another and have it open. */
+async function sbSeal(store, id, obj){
+  if(!sbKeyRec) throw new Error('encryption is locked on this device');
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
+    sbKeyRec.key, TE.encode(JSON.stringify(obj)));
+  return {key_id: sbKeyRec.key_id, iv: u8b64(iv), body: u8b64(new Uint8Array(ct))};
+}
+async function sbOpen(store, id, row){
+  if(!sbKeyRec) throw new Error('encryption is locked on this device');
+  if(row.key_id !== sbKeyRec.key_id) throw new Error('encrypted with a different key');
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(row.iv), additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
+    sbKeyRec.key, b64u8(row.body));
+  return JSON.parse(TD.decode(pt));
+}
 
 /* ================= contacts and accounts, outside a call =================
 

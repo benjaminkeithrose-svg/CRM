@@ -197,13 +197,33 @@ to show `records` to anyone signed out. **Not checked:** a real sign-in
 **Test:** sign in on the phone and the PC; close and reopen the app and
 confirm it is still signed in; sign out works.
 
-### Step 3 — Encryption
+### Step 3 — Encryption — **built 2026-10-09, v67**
 
 On the first device, you set the passphrase: the app creates the data key,
 locks it, and stores the locked key in Supabase. On the second device you
 type the same passphrase and it unlocks. A wrong passphrase gives a plain
 "that passphrase doesn't match" message, not a crash or a silent failure.
 Nothing else is uploaded yet.
+
+As built:
+- Passphrase at least 12 characters, typed twice when set. PBKDF2-SHA-256,
+  600,000 rounds, random salt; the data key is a random AES-GCM 256-bit key,
+  locked (wrapped) with AES-GCM and bound to the account.
+- The vault is only ever inserted, never overwritten. If two devices both
+  try to set a passphrase, the second is told to type the first one's.
+- Each device keeps the unlocked key in IndexedDB as a non-extractable key —
+  usable by the app, unreadable as bytes — so it unlocks once per device.
+  Signing out forgets it. Unlocking needs signal the first time.
+- `sbSeal()` / `sbOpen()` encrypt and decrypt one record for Step 4 on. The
+  store and record ID are bound into the encryption, so a body moved to
+  another record, or changed at all, will not open.
+
+**Checked:** `tests/qa-cloud.mjs` with real Web Crypto and the real library
+against a stand-in server — set on one device, wrong then right passphrase
+on a second, a record sealed on the first opens on the second, tampering
+refused, the two-device race, sign-out forgets the key, offline message.
+Each of these was also broken on purpose to confirm a test fails. **Not
+checked:** the real project (needs Ben's account), and any phone or PC.
 
 **Test:** set the passphrase on the phone, unlock on the PC, try a wrong one
 on purpose.
@@ -374,13 +394,13 @@ shows usage against each limit.
    to two years**. Ben asked for an archive feature to deal with that —
    added as Step 10.
 
-**Still open, not needed before Step 1:**
+**Still open:**
 
 5. **When colleagues join:** does each person's call reports stay private to
    them, with accounts and the belt catalogue shared across the team?
    (Needed before Step 9 only.)
-6. **Passphrase custody:** password manager is the recommendation. (Needed
-   before Step 3.)
+6. **Passphrase custody** (answered 2026-10-09): in Ben's password manager,
+   and he can remember it.
 
 ---
 
