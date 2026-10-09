@@ -67,8 +67,7 @@ ok(!!tile, 'Task tile on Home');
 tile.click(); await tick();
 ok(dlgOpen(), 'task form opens');
 const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
-// next half hour, kept inside the calendar's 7am-5pm day (a 30 minute task ends by 5pm)
-const expect = Math.max(7 * 60, Math.min(Math.ceil((mins + 1) / 30) * 30, 17 * 60 - 30));
+const expect = Math.min(Math.ceil((mins + 1) / 30) * 30, 23 * 60 + 30);
 const hh = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
 ok($('tkDate').value === g('todayISOdate()'), 'date is today: ' + $('tkDate').value);
 ok($('tkTime').value === hh(expect), 'start is the next half hour: ' + $('tkTime').value + ' expected ' + hh(expect));
@@ -77,8 +76,8 @@ ok($('tkDel').hidden, 'no delete on a task not yet saved');
 ok(!/Save/.test($('taskdlg').textContent.replace(/Saved?/g, m => m)) || !$('taskdlg').querySelector('button#tkSave'), 'no Save button');
 
 // the placement rule at the edges of the day
-ok(g(`nextHalfHour(new Date('2026-10-09T21:12'))`) === '16:30', 'added at 9:12pm: the last slot of the day, 4:30pm');
-ok(g(`nextHalfHour(new Date('2026-10-09T05:40'))`) === '07:00', 'added at 5:40am: 7:00am');
+ok(g(`nextHalfHour(new Date('2026-10-09T21:12'))`) === '21:30', 'added at 9:12pm: 9:30pm - no boundaries');
+ok(g(`nextHalfHour(new Date('2026-10-09T05:40'))`) === '06:00', 'added at 5:40am: 6:00am');
 ok(g(`nextHalfHour(new Date('2026-10-09T10:12'))`) === '10:30', 'added at 10:12am: 10:30am');
 ok(/Completed/.test($('tkDone').closest('label').textContent), 'the tick box says Completed, not Done');
 
@@ -153,6 +152,32 @@ if (wd >= 1 && wd <= 5) {
 } else {
   console.log('  (weekend: the Mon-Fri calendar has no today column, calendar checks skipped)');
 }
+// the desktop grid stretches to show a task outside 7am-5pm
+await g(`(async () => { const t = {id: 'tlate', type: '', title: 'Late task', date: '2026-10-08', start: '21:30', dur: 30, acct: '', contact: '', email: '', mobile: '',
+  project: '', revenue: '', notes: '', done: false, doneAt: null, callId: null, updated: Date.now()}; await tasksPut(t); TASKS.push(t);
+  plan.view = 'day'; plan.anchor = new Date('2026-10-08T12:00'); renderPlan(); })()`);
+await tick();
+const late = [...d.querySelectorAll('#calBody .appt.task')].find(e => /Late task/.test(e.textContent));
+const body = d.querySelector('#calBody .dbody.hours');
+ok(late && body && parseFloat(late.style.top) + 24 <= parseFloat(body.style.height), 'a 9:30pm task fits inside the day, which now runs to ' + g('DAY_TO') + ':00');
+ok([...d.querySelectorAll('#calBody .gh')].some(e => e.textContent === '9pm'), 'the hour labels run to 9pm');
+
+// the phone's Day and Week lists (Plan on a phone opens these, not the grid)
+g(`(() => { showScreen('today'); tvCursor = '2026-10-08'; todayView = 'today'; renderToday(); })()`); await tick();
+ok(/Late task/.test($('tvBody').textContent) && /task/.test($('tvHint').textContent), 'phone Day list shows the task: ' + $('tvHint').textContent);
+const tc = [...$('tvBody').querySelectorAll('.vis.task')].find(e => /Late task/.test(e.textContent));
+tc.querySelector('[data-ttick]').click(); await tick(150);
+ok(g(`TASKS.find(t => t.id === 'tlate').done`) === true, 'phone: tick marks it completed');
+ok([...$('tvBody').querySelectorAll('.vis.task.done')].some(e => /Late task/.test(e.textContent)), 'phone: shown as completed');
+[...$('tvBody').querySelectorAll('.vis.task')].find(e => /Late task/.test(e.textContent)).querySelector('[data-topen]').click(); await tick();
+ok(dlgOpen() && $('tkTitle').value === 'Late task', 'phone: tapping it opens the task');
+$('tkOk').click(); await tick(100);
+g(`(() => { todayView = 'week'; renderToday(); })()`); await tick();
+ok(/Late task/.test($('tvBody').textContent), 'phone Week list shows the task');
+await g(`(async () => { const t = {id: 'tsat', title: 'Saturday task', date: '2026-10-10', start: '09:00', dur: 30, done: false, updated: Date.now()}; await tasksPut(t); TASKS.push(t); renderToday(); })()`);
+await tick();
+ok(/Saturday/.test($('tvBody').textContent) && /Saturday task/.test($('tvBody').textContent), 'a weekend day shows when something is on it');
+
 // + Task on a given day
 g(`openTask(null, {date: '2026-10-14'})`); await tick();
 ok($('tkDate').value === '2026-10-14', '+ Task on a day starts on that day');

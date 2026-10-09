@@ -926,7 +926,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v75';
+const APP_BUILD = 'v76';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1890,10 +1890,13 @@ function apptFocusCls(ap){ const a = ACC_BY_NAME.get(ap.acct); return a ? FOC_CL
 /* ---------- hour grid ----------
    Business hours only. Everything else is a band you cannot drop into, so the
    usable area of the column is the part of the day you actually work. */
-const DAY_FROM = 7, DAY_TO = 17;            // 7am to 5pm
+/* 7am to 5pm by default; a day with anything earlier or later stretches to
+   show it (fitDayHours). Ben's rule: no boundaries on when a call or task can
+   be. */
+let DAY_FROM = 7, DAY_TO = 17;
 const PX_MIN = 0.8;                          // 48px an hour
 const SNAP = 5;                              // minutes
-const GRID_H = (DAY_TO - DAY_FROM) * 60 * PX_MIN;
+let GRID_H = (DAY_TO - DAY_FROM) * 60 * PX_MIN;
 
 function minOf(hhmm){
   const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
@@ -1906,6 +1909,19 @@ function hhmm(mins){
 }
 function topFor(ap){ return (minOf(ap.start) - DAY_FROM * 60) * PX_MIN; }
 
+function fitDayHours(dayKeys){
+  let from = 7 * 60, to = 17 * 60;
+  for(const k of dayKeys){
+    for(const x of apptsOn(k).concat(tasksOn(k))){
+      const m = minOf(x.start);
+      from = Math.min(from, m);
+      to = Math.max(to, m + (x.dur || TASK_DUR));
+    }
+  }
+  DAY_FROM = Math.max(0, Math.floor(from / 60));
+  DAY_TO = Math.min(24, Math.ceil(to / 60));
+  GRID_H = (DAY_TO - DAY_FROM) * 60 * PX_MIN;
+}
 function hourGutter(){
   const g = document.createElement('div');
   g.className = 'gut';
@@ -1913,7 +1929,7 @@ function hourGutter(){
     const s = document.createElement('div');
     s.className = 'gh';
     s.style.height = (60 * PX_MIN) + 'px';
-    s.textContent = (hgt > 12 ? hgt - 12 : hgt) + (hgt < 12 ? 'am' : 'pm');
+    s.textContent = (hgt % 12 || 12) + (hgt < 12 ? 'am' : 'pm');
     g.appendChild(s);
   }
   return g;
@@ -2009,6 +2025,7 @@ function renderCalendar(){
         days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
     const grid = document.createElement('div');
     grid.className = 'week' + (oneDay ? ' oneday' : '');
+    fitDayHours(days.map(iso));
     grid.appendChild(hourGutter());
     days.forEach((d,i)=>{
       const k = iso(d);
@@ -2051,8 +2068,6 @@ function renderCalendar(){
         el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(t))) + 'px';
         el.style.height = Math.max(18, TASK_DUR * PX_MIN) + 'px';
         if(!oneDay) el.classList.add('tiny');
-        const ts = minOf(t.start || '00:00');
-        if(ts < DAY_FROM * 60 || ts >= DAY_TO * 60){ el.classList.add('oob'); el.title += '\nOutside 7am-5pm, shown at the edge'; }
         makeDraggableAppt(el, t, taskMoved);
         b.appendChild(el);
       });
@@ -3256,20 +3271,39 @@ function tvTitle(){
   return iso(mon) === iso(startOfWeek(new Date())) ? 'This week'
     : 'Week of ' + mon.getDate() + ' ' + MONNM[mon.getMonth()].slice(0,3);
 }
+/* A task on the phone's Day and Week lists: a tick box, then the same layout as
+   a visit card. Tapping it opens the task. */
+function taskCard(t){
+  return '<div class="vis task' + (t.done ? ' settled done' : '') + '">' +
+    '<button class="ttick" data-ttick="' + esc(t.id) + '" aria-label="' + (t.done ? 'Mark not completed' : 'Mark completed') + '">' +
+      (t.done ? icon('check') : '') + '</button>' +
+    '<button class="vopen" data-topen="' + esc(t.id) + '">' +
+      '<div class="vtop"><span class="when">' + esc(t.start || '') + '</span><span class="who">' + esc(taskTitle(t)) + '</span></div>' +
+      '<div class="vsub">' + ['Task', t.type && t.type !== t.title ? t.type : '', t.acct].filter(Boolean).map(esc).join(' &middot; ') + '</div>' +
+    '</button></div>';
+}
+// visits and tasks for one day, in time order
+function dayItems(k){
+  return APPTS.filter(a => a.date === k).map(a => ({at: a.start || '', html: visitCard(a)}))
+    .concat(TASKS.filter(x => x.date === k).map(x => ({at: x.start || '', html: taskCard(x)})))
+    .sort((a,b) => a.at.localeCompare(b.at)).map(x => x.html).join('');
+}
+const countWords = (v, t) => [v && v + ' visit' + (v === 1 ? '' : 's'), t && t + ' task' + (t === 1 ? '' : 's')].filter(Boolean).join(' and ');
 function renderTodayList(el){
   const t = tvDate(), isNow = t === todayISOdate();
   const mine = APPTS.filter(a => a.date === t).sort((x,y)=>x.start.localeCompare(y.start));
+  const myTasks = TASKS.filter(x => x.date === t);
   const mon = iso(startOfWeek(new Date()));
   // earlier in the week, planned and never resolved
   const late = isNow ? APPTS.filter(a => a.date >= mon && a.date < t && !apSettled(a))
     .sort((x,y)=>x.date.localeCompare(y.date) || x.start.localeCompare(y.start)) : [];
 
   const when = isNow ? 'today' : 'on ' + dayLabel(t).toLowerCase();
-  $('tvHint').textContent = mine.length
-    ? mine.length+' visit'+(mine.length===1?'':'s')+' '+when
+  $('tvHint').textContent = (mine.length || myTasks.length)
+    ? countWords(mine.length, myTasks.length)+' '+when
     : 'Nothing planned '+when+'.';
 
-  let html = mine.map(ap => visitCard(ap)).join('');
+  let html = dayItems(t);
   if(late.length){
     html += '<div class="late"><h2>Earlier this week</h2>'+
       late.map(ap => visitCard(ap, {late:true, showDate:true})).join('')+'</div>';
@@ -3290,18 +3324,21 @@ function tvWeekStart(){
 }
 function renderWeekList(el){
   const mon = tvWeekStart(), t = todayISOdate();
-  const days = [0,1,2,3,4].map(i => addDays(mon,i));
-  const n = apptsBetween(iso(days[0]), iso(days[4])).length;
+  // Monday to Friday, plus Saturday and Sunday whenever something is on them
+  const days = [0,1,2,3,4,5,6].map(i => addDays(mon,i))
+    .filter((d,i) => i < 5 || APPTS.some(a => a.date === iso(d)) || TASKS.some(x => x.date === iso(d)));
+  const from = iso(mon), to = iso(addDays(mon,6));
+  const n = APPTS.filter(a => a.date >= from && a.date <= to).length;
+  const nt = TASKS.filter(x => x.date >= from && x.date <= to).length;
   const thisWk = iso(mon) === iso(startOfWeek(new Date()));
   const wk = thisWk ? 'this week' : 'that week';
-  $('tvHint').textContent = n ? n+' visit'+(n===1?'':'s')+' '+wk
+  $('tvHint').textContent = (n || nt) ? countWords(n, nt)+' '+wk
     : 'Nothing planned '+wk+'.';
-  el.innerHTML = days.map((d,i)=>{
-    const k = iso(d);
-    const list = APPTS.filter(a => a.date === k).sort((x,y)=>x.start.localeCompare(y.start));
+  el.innerHTML = days.map(d=>{
+    const k = iso(d), items = dayItems(k);
     return '<div class="dayblk'+(k===t?' isToday':'')+'">'+
-      '<h3>'+DAYNM[i]+'<span class="dt">'+d.getDate()+' '+MONNM[d.getMonth()].slice(0,3)+'</span></h3>'+
-      (list.length ? list.map(ap => visitCard(ap)).join('') : '<div class="none">Nothing planned.</div>')+
+      '<h3>'+DAYNM7[d.getDay()]+'<span class="dt">'+d.getDate()+' '+MONNM[d.getMonth()].slice(0,3)+'</span></h3>'+
+      (items || '<div class="none">Nothing planned.</div>')+
       '</div>';
   }).join('');
 }
@@ -3382,6 +3419,8 @@ function wireVisitCards(el){
   on('data-open',     id => openVisit(id).catch(reportErr));
   on('data-vmenu',    id => openVisitMenu(id));
   on('data-start',    id => startVisit(id).catch(reportErr));
+  on('data-topen',    id => openTask(id));
+  on('data-ttick',    id => { const t = TASKS.find(x => x.id === id); if(t) taskToggle(t).catch(reportErr); });
   on('data-closeout', id => closeOutVisit(id).catch(reportErr));
   on('data-move',     id => openMoveDialog(id));
   on('data-missed',   id => setVisitStatus(id, 'missed').catch(reportErr));
@@ -4630,14 +4669,10 @@ let taskEdit = null, taskIsNew = false, taskBefore = '';
 
 function tasksOn(dISO){ return TASKS.filter(t => t.date === dISO).sort((x,y)=>(x.start||'').localeCompare(y.start||'')); }
 const taskTitle = t => t.title || t.type || 'Untitled task';
-/* The next half hour after now - added at 10:12, it sits at 10:30 - kept
-   inside the hours the calendar shows (7am to 5pm). Added at 9pm it would
-   otherwise sit at 9:30pm, squeezed off the bottom of the day where it is
-   easy to miss; it goes to the last slot, 4:30pm, instead. */
+// the next half hour after now: added at 10:12, it sits at 10:30; at 9:12pm, 9:30pm
 function nextHalfHour(d){
   const m = d.getHours() * 60 + d.getMinutes();
-  const next = Math.ceil((m + 1) / 30) * 30;
-  return hhmm(Math.max(DAY_FROM * 60, Math.min(next, DAY_TO * 60 - TASK_DUR)));
+  return hhmm(Math.min(Math.ceil((m + 1) / 30) * 30, 23 * 60 + 30));
 }
 async function taskMoved(t){ t.updated = Date.now(); await tasksPut(t); }
 async function taskToggle(t){
@@ -4650,6 +4685,7 @@ async function taskToggle(t){
 }
 function taskRefresh(){
   if(screen === 'plan') renderPlan();
+  if(screen === 'today') renderToday();
   if(screen === 'dash' && call) renderDashTasks();
 }
 
