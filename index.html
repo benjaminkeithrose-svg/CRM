@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v83">
+<meta name="build" content="v84">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -239,8 +239,8 @@ ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line
 ul.rep li{margin-bottom:2px}
 .flagline{color:var(--warn);font-weight:700}
 /* ---------- contacts, accounts and reports ---------- */
-#peQ,#rpQ{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:16px}
-#peQ:focus,#rpQ:focus{outline:none;border-color:var(--cyan-dk)}
+#peQ{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:16px}
+#peQ:focus{outline:none;border-color:var(--cyan-dk)}
 .pgroup{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
   font-weight:700;margin:14px 0 6px}
 .pcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan);
@@ -615,8 +615,11 @@ body.planning{padding-bottom:0}
 .planwrap{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 120px)}
 .rail{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .rail-top{padding:10px 12px;border-bottom:1px solid var(--line-2);display:flex;flex-direction:column;gap:8px}
-.rail-top input[type=search]{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:14px}
-.rail-top input[type=search]:focus{border-color:var(--cyan-dk)}
+.railsearch{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 10px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink-2);
+  font-size:13.5px;cursor:pointer;text-align:left}
+.railsearch .ic{width:16px;height:16px;flex:none}
+.railsearch:hover{border-color:var(--ink-2)}
 .rail-top .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .f{display:flex;flex-direction:column;gap:3px}
 .f label{font-size:11px;color:var(--ink-2)}
@@ -835,6 +838,27 @@ body.planning{padding-bottom:0}
 dialog{border:1px solid var(--line);border-radius:4px;padding:0;width:min(680px,94vw);
   box-shadow:0 18px 48px rgba(34,34,34,.24);color:var(--ink);background:var(--surface)}
 dialog::backdrop{background:rgba(34,34,34,.38)}
+dialog.fsearch{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;
+  border:0;border-radius:0;box-shadow:none;background:var(--ground);flex-direction:column}
+dialog.fsearch[open]{display:flex}
+.fs-bar{display:flex;align-items:center;gap:8px;padding:8px max(12px, calc((100% - 680px) / 2 + 12px));background:var(--surface);
+  border-bottom:1px solid var(--line-2);box-shadow:var(--lift);flex:none}
+.fs-bar input{flex:1;min-width:0}
+.fs-x{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;padding:0;
+  border:1px solid var(--edge);border-radius:var(--r-sm);background:var(--surface);color:var(--ink-2);cursor:pointer}
+.fs-x .ic{width:20px;height:20px}
+.fs-body{flex:1;overflow:auto;padding:12px;max-width:680px;width:100%;margin:0 auto}
+.fs-body > .hint{margin:0 0 10px}
+.fs-acct{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);
+  border-left:3px solid var(--none);border-radius:0 var(--r) var(--r) 0;padding:10px 12px;margin-bottom:7px;
+  cursor:pointer;font:inherit;color:var(--ink)}
+.fs-acct.high{border-left-color:var(--high)} .fs-acct.med{border-left-color:var(--med)} .fs-acct.low{border-left-color:var(--low)}
+.fs-acct:active{background:var(--sunk)}
+.fs-acct .an{font-weight:700;font-size:15px;line-height:1.25}
+.fs-acct .am{font-size:12px;color:var(--ink-3);margin-top:2px}
+.fs-all{margin:0 0 10px}
+.rptop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.rptop .hint{flex:1;margin:0}
 .dlg-h{padding:13px 16px;border-bottom:1px solid var(--line-2)}
 .dlg-h b{font-size:14px;font-weight:700} .dlg-h div{font-size:11.5px;color:var(--ink-3);margin-top:2px}
 .dlg-b{padding:14px 16px;display:flex;flex-direction:column;gap:12px;max-height:62vh;overflow:auto}
@@ -1396,9 +1420,10 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 
 <!-- REPORTS -->
 <section class="scr" id="s-reports">
-  <div class="fld">
-    <input type="search" id="rpQ" placeholder="Account, contact, asset or note" autocomplete="off">
+  <!-- No permanent search box (v84): the icon opens the full-screen search. -->
+  <div class="rptop">
     <p class="hint" id="rpHint"></p>
+    <button type="button" class="tvi" id="rpSearch" aria-label="Search calls" title="Search calls"></button>
   </div>
   <!-- Compiled and done are separate states in the data and always have been:
        compiled means a document was produced, done means the call is finished.
@@ -1434,7 +1459,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="planwrap">
     <div class="rail">
       <div class="rail-top">
-        <input type="search" id="pQ" placeholder="Search the whole account book" autocomplete="off">
+        <button type="button" class="railsearch" id="pSearch"></button>
         <div class="f"><label>Zone</label><select id="pZone"></select></div>
         <div class="scope" id="pScope" hidden></div>
         <div class="chips" id="pChips"></div>
@@ -1616,6 +1641,19 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 <!-- The actions that used to wrap across the foot of every visit card, plus the
      contact numbers that used to sit on it. Four buttons and a contact list per
      card made a five-visit week three screens long. -->
+<!-- Full-screen search (v84). An icon opens it; the searching happens here.
+     What it searches and what a result does are supplied by whoever opens it. -->
+<dialog id="srchdlg" class="fsearch" aria-label="Search">
+  <div class="fs-bar">
+    <button type="button" class="fs-x" id="fsClose" aria-label="Close search"></button>
+    <input type="search" id="fsQ" autocomplete="off" enterkeyhint="search">
+  </div>
+  <div class="fs-body">
+    <p class="hint" id="fsHint"></p>
+    <div id="fsRes"></div>
+  </div>
+</dialog>
+
 <dialog id="vmdlg">
   <div class="dlg-h"><b id="vmName"></b><div id="vmWhen"></div></div>
   <div class="dlg-b" id="vmBody"></div>

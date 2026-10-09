@@ -83,7 +83,7 @@ The left side is your account list, the right side is the calendar.
 **Finding accounts**
 
 - Pick a **Zone** and a **Manager** to see that patch.
-- Or just type in the search box. Search ignores the zone and manager and looks at every account you have — because equipment builders and head offices are often in somebody else's patch and you still have to call on them.
+- Or click **Search the whole account book** at the top of the list. Click an account in the results to book it, or **Show these in the planner list** to drag them onto the calendar. Search ignores the zone and manager and looks at every account you have — because equipment builders and head offices are often in somebody else's patch and you still have to call on them.
 - The coloured chips filter by focus. **Needs booking** shows only accounts past their call cycle with nothing already in the diary.
 
 **Booking a call**

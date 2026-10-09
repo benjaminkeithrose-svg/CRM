@@ -167,6 +167,25 @@ t('the done tab shows only the closed call',
   $('rpRes').querySelectorAll('.rprow').length === 1 &&
   !!$('rpRes').querySelector('[data-rpt="r2"]'));
 
+// ---- v84: no permanent search box; an icon opens a full-screen search ----
+t('Reports has no search box on the screen', !$('s-reports').querySelector('input'));
+t('a search icon with a name instead', $('rpSearch').querySelector('svg') && $('rpSearch').getAttribute('aria-label') === 'Search calls');
+t('the search sheet is registered so back closes it', g('DIALOGS').includes('srchdlg'));
+$('rpSearch').click(); await new Promise(r => setTimeout(r, 50));
+t('the icon opens the full-screen search', $('srchdlg').hasAttribute('open') && $('fsQ').value === '');
+t('nothing listed before you type', $('fsRes').children.length === 0 && $('fsHint').textContent === '');
+$('fsQ').value = 'hazel'; $('fsQ').dispatchEvent(new w.Event('input')); await new Promise(r => setTimeout(r, 80));
+t('typing finds the call', !!$('fsRes').querySelector('[data-rpt="r1"]') && !$('fsRes').querySelector('[data-rpt="r2"]'), $('fsHint').textContent);
+t('and says how many', /^1 of \d+ calls$/.test($('fsHint').textContent), $('fsHint').textContent);
+$('fsQ').value = 'zzzz'; $('fsQ').dispatchEvent(new w.Event('input')); await new Promise(r => setTimeout(r, 80));
+t('no match says so', $('fsHint').textContent === 'Nothing matches that.' && $('fsRes').children.length === 0);
+$('fsQ').value = 'cv-9'; $('fsQ').dispatchEvent(new w.Event('input')); await new Promise(r => setTimeout(r, 80));
+t('it searches what was logged, not just the name', !!$('fsRes').querySelector('[data-rpt="r1"]'));
+$('fsRes').querySelector('[data-rpt="r1"]').click(); await new Promise(r => setTimeout(r, 80));
+t('tapping a result closes the search and opens the call',
+  !$('srchdlg').hasAttribute('open') && w.eval('screen') === 'dash' && w.eval('call.id') === 'r1');
+w.eval('call = null'); w.showScreen('home');
+
 // compiled is its own bucket
 await w.eval('callsPut(' + JSON.stringify({
   id:'r3', rectype:'call', customer:'Woodward', date:'12-09-2026', type:'Site call',

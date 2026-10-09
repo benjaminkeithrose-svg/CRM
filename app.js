@@ -925,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v83';
+const APP_BUILD = 'v84';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -947,7 +947,9 @@ const ICONS = {
   copy:   '<rect x="9" y="9" width="12" height="12" rx="2"/>'+
           '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-  book:   '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'
+  book:   '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>',
+  close:  '<path d="M18 6L6 18M6 6l12 12"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1286,7 +1288,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1754,17 +1756,18 @@ function haystack(a){
   return (a._hay = bits.filter(Boolean).join(' ').toLowerCase());
 }
 // Every token has to land somewhere, so two words narrow rather than widen.
-function matchQ(a){
-  if(!plan.q) return true;
+function matchQ(a, q){
+  q = q == null ? plan.q : q;
+  if(!q) return true;
   const h = haystack(a);
-  return plan.q.toLowerCase().split(/\s+/).filter(Boolean).every(t => h.includes(t));
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => h.includes(t));
 }
 const searching = () => plan.q.length > 0;
 // Reassignment overrides the CRM manager everywhere, so scoping uses effMgr.
 function inPlanScope(a){ return !plan.mgr || effMgr(a) === plan.mgr; }
 function zoneAccounts(){ return ACCOUNTS.filter(a => a.z === plan.zone && inPlanScope(a)); }
-function searchAll(){
-  return ACCOUNTS.filter(matchQ).sort((x,y)=>
+function searchAll(q){
+  return ACCOUNTS.filter(a => matchQ(a, q)).sort((x,y)=>
     (FOCUS_RANK[x.foc] ?? 3) - (FOCUS_RANK[y.foc] ?? 3) ||
     (x.z === plan.zone ? 0 : 1) - (y.z === plan.zone ? 0 : 1) ||
     ZONE_ORDER.indexOf(x.z) - ZONE_ORDER.indexOf(y.z) ||
@@ -1829,7 +1832,7 @@ function renderRail(){
       'Searching every zone and every manager' +
       (out ? ' \u2014 '+out+' outside '+plan.zone : '') +
       (others ? ', '+others+' not yours' : '');
-    scope.querySelector('button').onclick = ()=>{ plan.q=''; $('pQ').value=''; renderPlan(); };
+    scope.querySelector('button').onclick = ()=>{ plan.q=''; renderPlan(); };
   } else {
     const z = ZONES[plan.zone];
     $('zTitle').textContent = plan.zone ? zoneName(plan.zone) : 'No zone';
@@ -2335,7 +2338,29 @@ function renderPlanCount(){
   el.textContent = APPTS.length+' planned'+(p ? ', '+p+' not in Outlook' : '');
 }
 $('pDueOnly').addEventListener('click', ()=>{ plan.dueOnly = !plan.dueOnly; renderPlan(); });
-$('pQ').addEventListener('input', ()=>{ plan.q = $('pQ').value.trim(); renderPlan(); });
+$('pSearch').innerHTML = icon('search') + '<span>Search the whole account book</span>';
+$('pSearch').addEventListener('click', () => openSearch({
+  placeholder: 'Account, suburb, contact, zone or manager',
+  value: plan.q,
+  render(q, el, hint){
+    if(!q){ el.innerHTML = ''; hint.textContent = ''; return; }
+    const hits = searchAll(q);
+    hint.textContent = hits.length ? hits.length + (hits.length === 1 ? ' account' : ' accounts') + ' across the whole book'
+      : 'Nothing matches that.';
+    /* Picking one books it, as clicking it in the list does. Dragging needs the
+       list, so the matches can be put there too. */
+    el.innerHTML = (hits.length > 1 ? '<button type="button" class="ghost fs-all" id="fsToList">Show these ' + hits.length + ' in the planner list</button>' : '') +
+      hits.slice(0, 100).map(a => '<button type="button" class="fs-acct ' + (FOC_CLS[a.foc] || 'none') + '" data-fsacct="' + esc(a.a) + '">' +
+        '<div class="an">' + esc(a.a) + '</div>' +
+        '<div class="am">' + [a.sub, zoneName(a.z), a.foc, effMgr(a)].filter(Boolean).map(esc).join(' &middot; ') + '</div></button>').join('') +
+      (hits.length > 100 ? '<p class="hint">' + (hits.length - 100) + ' more \u2014 add another word</p>' : '');
+    const all = el.querySelector('#fsToList');
+    if(all) all.addEventListener('click', () => { plan.q = q; closeSearch(); renderPlan(); });
+    el.querySelectorAll('[data-fsacct]').forEach(b => b.addEventListener('click', () => {
+      closeSearch(); openDialog(null, {acct: b.dataset.fsacct});
+    }));
+  }
+}));
 $('pMgr').addEventListener('change', ()=>{ plan.mgr = $('pMgr').value; renderPlan(); });
 $('pZone').addEventListener('change', ()=>{ plan.zone = $('pZone').value; renderPlan(); });
 $('pView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
@@ -5388,8 +5413,6 @@ function reportLine(c){
 }
 async function renderReports(){
   const all = (await callsAll()).slice().sort((a,b) => callWhen(b) - callWhen(a));
-  const q = ($('rpQ').value || '').trim().toLowerCase();
-  const terms = q.split(/\s+/).filter(Boolean);
   let list = all;
   /* Filtering on callStatus, not on c.closed. A call that has been compiled but
      not closed out is neither open nor done, and the old two-way split had to
@@ -5397,11 +5420,10 @@ async function renderReports(){
   if(rpView === 'open') list = list.filter(c => !c.closed && callStatus(c).label !== 'compiled');
   else if(rpView === 'compiled') list = list.filter(c => !c.closed && callStatus(c).label === 'compiled');
   else if(rpView === 'done') list = list.filter(c => c.closed);
-  if(terms.length) list = list.filter(c => terms.every(t => reportHay(c).includes(t)));
 
   const open = all.filter(c => !c.closed).length;
   $('rpHint').textContent = all.length
-    ? (q || rpView !== 'all'
+    ? (rpView !== 'all'
         ? list.length + ' of ' + all.length + ' calls'
         : all.length + ' calls, ' + (open ? open + ' still open' : 'none open'))
     : 'No calls logged yet';
@@ -5412,21 +5434,27 @@ async function renderReports(){
      div; the reading area is the button. Mark done and Delete used to sit on
      the row as a tick and a bin, side by side; they are behind the ⋯ (v83). */
   el.innerHTML = list.length
-    ? list.slice(0, 60).map(c => {
-        const st = callStatus(c);
-        return '<div class="rprow'+(c.closed ? '' : ' open')+'">'+
-          '<button class="rpt" data-rpt="'+esc(c.id)+'">'+
-          '<div class="rt"><span class="rd">'+esc(c.date)+'</span>'+
-          '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
-          '<div class="rn">'+esc(c.customer)+'</div>'+
-          '<div class="rm">'+esc(reportLine(c))+'</div></button>'+
-          '<button class="rpmore" data-rpmenu="'+esc(c.id)+'" aria-label="More for '+esc(c.customer)+'">&#8943;</button>'+
-          '</div>';
-      }).join('') + (list.length > 60 ? '<p class="hint">'+(list.length-60)+' more \u2014 narrow the search</p>' : '')
-    : '<p class="empty">'+(all.length ? 'Nothing matches that.' : 'No calls logged yet.')+'</p>';
+    ? list.slice(0, 60).map(reportRow).join('') + (list.length > 60 ? '<p class="hint">'+(list.length-60)+' more \u2014 search to find older calls</p>' : '')
+    : '<p class="empty">'+(all.length ? 'Nothing here.' : 'No calls logged yet.')+'</p>';
+  wireReportRows(el, list);
+}
+function reportRow(c){
+  const st = callStatus(c);
+  return '<div class="rprow'+(c.closed ? '' : ' open')+'">'+
+    '<button class="rpt" data-rpt="'+esc(c.id)+'">'+
+    '<div class="rt"><span class="rd">'+esc(c.date)+'</span>'+
+    '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
+    '<div class="rn">'+esc(c.customer)+'</div>'+
+    '<div class="rm">'+esc(reportLine(c))+'</div></button>'+
+    '<button class="rpmore" data-rpmenu="'+esc(c.id)+'" aria-label="More for '+esc(c.customer)+'">&#8943;</button>'+
+    '</div>';
+}
+// before is run first when a row is opened - the search closes itself there
+function wireReportRows(el, list, before){
   el.querySelectorAll('[data-rpt]').forEach(b => b.addEventListener('click', async ()=>{
     const found = (await callsAll()).find(c => c.id === b.dataset.rpt);
     if(!found){ toast('That call could not be opened'); return; }
+    if(before) before();
     /* Reopening a finished call to edit it does not un-finish it. The status
        only moves when you actually change something and close it again. */
     call = found;
@@ -5439,7 +5467,8 @@ async function renderReports(){
   }));
 }
 function openReportMenu(c){
-  const refresh = () => { renderReports().catch(e=>console.error('reports', e)); renderHome(); };
+  const refresh = () => { renderReports().catch(e=>console.error('reports', e)); renderHome();
+    if($('srchdlg').hasAttribute('open')) runSearch(); };
   const fresh = async () => (await callsAll()).find(x => x.id === c.id);
   const acts = [];
   if(!c.closed) acts.push({label: 'Mark done', icon: 'check', run: async () => {
@@ -5456,7 +5485,20 @@ function openReportMenu(c){
   }});
   openCardMenu(c.customer, c.date + ' \u00b7 ' + callStatus(c).label, acts);
 }
-$('rpQ').addEventListener('input', ()=>renderReports().catch(reportErr));
+$('rpSearch').innerHTML = icon('search');
+$('rpSearch').addEventListener('click', () => openSearch({
+  placeholder: 'Account, contact, asset or note',
+  async render(q, el, hint){
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if(!terms.length){ el.innerHTML = ''; hint.textContent = ''; return; }
+    const all = (await callsAll()).slice().sort((a,b) => callWhen(b) - callWhen(a));
+    const hits = all.filter(c => terms.every(t => reportHay(c).includes(t)));
+    hint.textContent = hits.length ? hits.length + ' of ' + all.length + ' calls' : 'Nothing matches that.';
+    el.innerHTML = hits.slice(0, 100).map(reportRow).join('') +
+      (hits.length > 100 ? '<p class="hint">' + (hits.length - 100) + ' more \u2014 add another word</p>' : '');
+    wireReportRows(el, hits, closeSearch);
+  }
+}));
 $('rpView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
   rpView = b.dataset.v;
   $('rpView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
@@ -5758,7 +5800,7 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     const first = (call.contacts||[])[0] || {};
     openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
   } else if(t==='reports'){
-    $('rpQ').value = ''; go('reports');
+    go('reports');
   } else if(t==='manuals'){
     if(!window.Manuals){ toast('manuals.js did not load'); return; }
     showRef('man');
@@ -6250,6 +6292,41 @@ function openLogged(i, copy){
   go(e.type);
   toast(copy ? 'A copy \u2014 change what differs, then Done. Photos are not copied.' : 'Editing - save to update');
 }
+
+/* ---------- full-screen search (v84) ----------
+   No permanent search boxes. An icon opens this and the searching happens
+   here; whoever opens it supplies what is searched and what a result does. */
+let fsOpts = null, fsSeq = 0;
+function openSearch(opts){
+  fsOpts = opts;
+  $('fsQ').placeholder = opts.placeholder || 'Search';
+  $('fsQ').value = opts.value || '';
+  runSearch();
+  const d = $('srchdlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open','');
+  pushDialog('srchdlg');
+  $('fsQ').focus();
+}
+async function runSearch(){
+  if(!fsOpts) return;
+  // a slow search must not paint over a newer one
+  const n = ++fsSeq, q = $('fsQ').value.trim();
+  const el = document.createElement('div'), hint = {textContent: ''};
+  try { await fsOpts.render(q, el, hint); } catch(e){ console.error('search', e); }
+  if(n !== fsSeq) return;
+  $('fsRes').replaceChildren(...el.childNodes);
+  $('fsHint').textContent = hint.textContent;
+}
+function closeSearch(){
+  const d = $('srchdlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+$('fsClose').innerHTML = icon('close');
+$('fsClose').addEventListener('click', () => {
+  if(history.state && history.state.dialog === 'srchdlg') history.back();
+  else closeSearch();
+});
+$('fsQ').addEventListener('input', runSearch);
 
 /* A ⋯ menu for any card: a title, a line under it, then the actions. It uses
    the visit menu's sheet. Delete goes last, set apart, in the warning colour. */
