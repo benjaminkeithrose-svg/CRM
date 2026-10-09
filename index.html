@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v86">
+<meta name="build" content="v87">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -817,6 +817,12 @@ body.planning{padding-bottom:0}
   position:relative;color:var(--warn);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px}
 .pill .del .ic{width:13px;height:13px}
 .pill .del:active{background:var(--red-soft);color:var(--warn)}
+/* Calendar filter chips and search (v87) */
+.calkinds{display:flex;align-items:center;gap:8px;margin:8px 0 4px}
+.calkinds .chips{flex:1;min-width:0;gap:6px}
+.calkinds .chips button{padding:7px 12px;font-size:13.5px}
+.fs-acct.cal-task{border-left-color:var(--ink-2)} .fs-acct.cal-visit{border-left-color:var(--cyan)}
+.fs-acct.cal-quote{border-left-color:var(--orange-dk)} .fs-acct.done{opacity:.6}
 /* Quote requests on the calendar (v86): orange stripe, the right-hand half of
    the column like a task, and they do not drag - they sit on the day made. */
 .appt.quote,.pill.quote{border-left-color:var(--orange-dk);background:var(--orange-lt);cursor:pointer}
@@ -1459,6 +1465,18 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Show only tasks, or find one</b><span class="sxs">The chips and search on Plan</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Tap <b>Visits</b>, <b>Tasks</b> or <b>Quotes</b> to show only those. Tap it again to show everything.</li>
+        <li>To find something, tap the search icon at the end of that row and type a word.</li>
+        <li>Tap a result. A task or a quote request opens; a visit takes the calendar to its day.</li>
+      </ol>
+      <p>With Tasks picked, the search looks at tasks only. The filter goes back to All each time you open the app.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Start a planned visit</b><span class="sxs">From Plan</span></summary>
     <div class="fld help">
       <ol>
@@ -1739,6 +1757,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <button type="button" data-v="week" class="on">Week</button>
     <button type="button" data-v="month">Month</button>
   </div>
+  <div class="calkinds" id="tvKinds"></div>
   <p class="hint" id="tvHint"></p>
   <div id="tvBody"></div>
   <button class="ghost" id="tvPlanner" hidden>Open the planner</button>
@@ -1820,6 +1839,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         </div>
         <button class="btn more" id="planMore" type="button" aria-label="More">&#8943;</button>
       </div>
+      <div class="calkinds" id="pKinds"></div>
       <div id="calBody"></div>
     </div>
   </div>

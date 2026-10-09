@@ -403,8 +403,15 @@ visit has **Start the call** in the PC appointment window (saves edits first)
 and at the top of the phone's ⋯ menu; once started it reads **Open the call**.
 The phone-call booking fix went in with the New screen (v77).
 
-**Still to build:** C — calendar filters (All / Visits / Tasks / Quotes) and
-search.
+**C built (v87):** All / Visits / Tasks / Quotes chips under Day / Week / Month
+on the phone and the PC; tap again to go back to All; in memory only, so every
+app open starts on All. Counts and the phone's Month numbers follow it. A
+search icon on that row opens the full-screen search over tasks, visits and
+quote requests (only the filtered kind when one is picked); a task or quote
+opens, a visit takes the calendar to its day.
+
+The calendar backbone (A, B, C) is built. Still open from the original idea:
+Task Slaughterer import.
 
 **Worth knowing:** the app already links an appointment to its call in
 places (`callSummary`, `bookUnplanned()`). The known `'Phone call'` bug in
