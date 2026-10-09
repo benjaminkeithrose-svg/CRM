@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v78">
+<meta name="build" content="v79">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1141,7 +1141,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   </details>
 
   <details class="sx" id="sxData">
-    <summary><b>Import data</b><span class="sxs" id="sumData"></span></summary>
+    <summary><b>Update data</b><span class="sxs" id="sumData"></span></summary>
   <div class="fld">
     <label>Contact database</label>
     <p class="stat" id="dbStat">No data loaded.</p>
@@ -1186,20 +1186,6 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   </div>
   </details>
 
-  <details class="sx" id="sxBk">
-    <summary><b>Backup and restore</b><span class="sxs" id="sumBk"></span></summary>
-  <div class="fld">
-    <p class="stat" id="bkStat"></p>
-    <button class="ghost" id="bkBtn">Back up</button>
-    <button class="ghost" id="bkPhBtn">Back up with photos</button>
-    <p class="hint">The backup holds accounts, calls and settings as one JSON file. Send it somewhere off this device. Clearing site data or uninstalling the app takes everything with it and there is no warning.</p>
-    <div style="height:10px"></div>
-    <label>Restore</label>
-    <input type="file" id="rsFile" accept=".json">
-    <button class="ghost" id="rsBtn">Restore from backup</button>
-    <p class="hint">Adds and updates records by id. Nothing already here is deleted.</p>
-  </div>
-  </details>
 
   <details class="sx" id="sxMe">
     <summary><b>Your details</b><span class="sxs" id="sumMe"></span></summary>
@@ -1219,31 +1205,29 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   </div>
   </details>
 
-  <details class="sx" id="sxDyn">
-    <summary><b>Export for Dynamics</b><span class="sxs">Call notes and reassignments as CSV</span></summary>
-  <div class="fld">
-    <button class="ghost" id="exCallNotes">Export call notes as CSV</button>
-    <button class="ghost" id="exReassignCsv" hidden>Export reassignments as CSV</button>
-    <p class="hint">For importing into Dynamics.</p>
-  </div>
-  </details>
 
   <details class="sx" id="sxVer">
     <summary><b>App version</b><span class="sxs" id="sumVer"></span></summary>
   <div class="fld">
     <p class="stat" id="upStat"></p>
     <button class="ghost" id="upBtn">Get the latest version</button>
-    <p class="hint">Checks the server for newer app files and reloads once. Nothing downloads unless you tap it. Your calls, accounts and photos are not affected.</p>
+    <p class="hint">The app checks once a day by itself when it opens with signal, and updates if there is a newer version. This button checks now. Your calls, accounts and photos are not affected.</p>
     <p class="hint" id="appVer"></p>
   </div>
   </details>
 
-  <details class="sx" id="sxLog">
-    <summary><b>Files loaded on this device</b><span class="sxs" id="sumLog"></span></summary>
+
+  <details class="sx" id="sxBk">
+    <summary><b>Backup and restore</b><span class="sxs" id="sumBk"></span></summary>
   <div class="fld">
-    <label>Files loaded on this device</label>
-    <div id="loadLog"></div>
-    <p class="hint">Newest first. Shows the filename and what each file did, so it is obvious what has and has not been loaded on this device.</p>
+    <p class="stat" id="bkStat"></p>
+    <button class="ghost" id="bkBtn">Back up</button>
+    <p class="hint">One file with your calls, quote requests, tasks, appointments, accounts and settings &mdash; not the photos, which stay in the cloud. Your undo if something is deleted on every device, or the passphrase is ever lost. Keep it somewhere off this device.</p>
+    <div style="height:10px"></div>
+    <label>Restore</label>
+    <input type="file" id="rsFile" accept=".json">
+    <button class="ghost" id="rsBtn">Restore from backup</button>
+    <p class="hint">Adds and updates records by id. Nothing already here is deleted.</p>
   </div>
   </details>
 </section>

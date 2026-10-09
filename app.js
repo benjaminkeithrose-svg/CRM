@@ -925,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v78';
+const APP_BUILD = 'v79';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2701,21 +2701,6 @@ $('rRevert').addEventListener('click', ()=>applyReassign(true).catch(reportErr))
 $('rCancel').addEventListener('click', closeReassign);
 $('pReassign').addEventListener('click', ()=>openReassign({}));
 
-/* The CSV is the handover. Nothing here writes to Dynamics, so the moves have to
-   leave in a form somebody can act on. */
-function reassignCsv(){
-  const rows = [['Account Name','Zone','Suburb','Account Focus','CRM Account Manager','Reassigned To']];
-  ACCOUNTS.filter(isMoved).forEach(a => rows.push(
-    [a.a, a.z, a.sub, a.foc, a.mgr||'', effMgr(a) || '(unassigned)']));
-  return rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n';
-}
-function exportReassignments(){
-  const n = ACCOUNTS.filter(isMoved).length;
-  if(!n){ toast('No accounts have been reassigned'); return; }
-  downloadFile('manager-reassignments.csv', reassignCsv(), 'text/csv;charset=utf-8');
-  toast(n+' reassignment'+(n===1?'':'s')+' written to CSV');
-}
-
 /* ================= notes back into Dynamics =================
 
    Two problems, one answer.
@@ -2876,40 +2861,6 @@ function notesHtml(s){
        'padding-top:8px">'+esc(NO_OUTLOOK_EDITS)+'</p>';
   return h + '</div>';
 }
-
-/* ---------- call-notes.csv ---------- */
-/* The monthly Dynamics push. One row per call, with the plain-text notes in a
-   single cell, so it can be pasted or imported without unpicking anything. */
-async function callNotesCsv(){
-  const calls = (await callsAll())
-    .filter(c => c.status === 'done' || c.status === 'compiled' || c.closed)
-    .sort((a,b) => callWhen(a) - callWhen(b));
-  const head = ['Account Name','Zone','Suburb','Account Manager','Call Date','Call Type','Site',
-                'Status','Contacts','Belts','Projects','Health items','Photos','Notes file','Notes'];
-  const rows = [head];
-  for(const c of calls){
-    const a = ACC_BY_NAME.get(c.customer);
-    const s = callSummary(c);
-    rows.push([
-      c.customer, a ? a.z : (c.zone||''), a ? a.sub : (c.suburb||''),
-      a ? (effMgr(a)||'') : (c.mgr||''),
-      c.date, c.type, c.site || '', s.status,
-      s.contacts.map(x => x.n).join('; '),
-      s.belts.length, s.projects.length, s.health.length, s.photos,
-      s.file, notesText(s)
-    ]);
-  }
-  return {csv: rows.map(r => r.map(cell =>
-    '"'+String(cell == null ? '' : cell).replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n',
-    n: calls.length};
-}
-async function exportCallNotes(){
-  const {csv, n} = await callNotesCsv();
-  if(!n){ toast('No completed calls to export'); return; }
-  downloadFile('call-notes.csv', csv, 'text/csv;charset=utf-8');
-  toast(n+' call'+(n===1?'':'s')+' written to call-notes.csv');
-}
-$('exCallNotes').addEventListener('click', ()=>exportCallNotes().catch(reportErr));
 
 /* ---------- ICS export ----------
    Outlook is the target and Outlook is fussy. Three things carry the whole
@@ -3992,15 +3943,10 @@ async function receiveExchange(file){
   throw new Error('unrecognised exchange file: ' + data.kind);
 }
 
-/* What is left of the old Exchange panel: the reassignment CSV (only when
-   something has been reassigned) and the load log. The folder and GitHub
-   syncs were removed in v78 - cloud sync carries everything they did. */
-function renderExchange(){
-  const b = $('exReassignCsv');
-  if(b) b.hidden = !ACCOUNTS.some(isMoved);
-  renderLoadLog();
-}
-$('exReassignCsv').addEventListener('click', exportReassignments);
+/* Kept as a name because several places still call it after loading a file.
+   The Exchange panel, its folder and GitHub syncs (v78) and the on-screen load
+   log and Dynamics CSVs (v79) are gone; the log is still kept in kv 'loadLog'. */
+function renderExchange(){ renderLoadLog(); }
 
 /* ================= one door for every incoming file =================
 
@@ -8940,7 +8886,6 @@ function renderBackupStat(){
     : when + (days ? ', '+days+' day'+(days===1?'':'s')+' ago.' : ', today.');
 }
 $('bkBtn').addEventListener('click', ()=>doBackup(false).catch(e=>{ console.error(e); toast('Backup failed: '+e.message); }));
-$('bkPhBtn').addEventListener('click', ()=>doBackup(true).catch(e=>{ console.error(e); toast('Backup failed: '+e.message); }));
 $('rsBtn').addEventListener('click', async ()=>{
   const f = $('rsFile').files[0];
   if(!f){ toast('Choose a backup file first'); return; }
@@ -9047,14 +8992,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 /* ---------- get the latest version ----------
-   Deliberately manual. The service worker is cache-first and stays that way, so
-   the app never goes looking for new files on its own - no surprise reload, no
-   fetching while you are mid-call on a bad connection.
+   The button, plus a check once a day (dailyUpdateCheck, below) - Ben's choice,
+   2026-10-09. The service worker is still cache-first, so between checks the
+   app never goes looking for new files on its own.
 
    What this does NOT touch: IndexedDB. Calls, accounts, photos and settings are
    untouched by a refresh or the reload after it. The only thing a reload costs
    is whatever is typed into a form and not yet saved, which is why an open call
    gets asked first. */
+/* Once a day, when the app opens with signal, ask the server which version it
+   has. Only if it is newer does the refresh below run - and the app reloads
+   straight away, before there is anything open to lose. The button stays for
+   checking now. sw.js is asked for with cache 'no-store', which the service
+   worker passes straight to the network rather than answering from its cache. */
+async function serverBuild(){
+  const r = await fetch('./sw.js', {cache: 'no-store'});
+  if(!r.ok) return 0;
+  const m = (await r.text()).match(/fieldcrm-v(\d+)/);
+  return m ? +m[1] : 0;
+}
+async function dailyUpdateCheck(){
+  if(!navigator.onLine || !('serviceWorker' in navigator)) return;
+  const last = +(localStorage.getItem(LS('upCheck')) || 0);
+  if(Date.now() - last < 864e5) return;
+  localStorage.setItem(LS('upCheck'), String(Date.now()));
+  const theirs = await serverBuild().catch(() => 0);
+  if(theirs > +APP_BUILD.slice(1)){
+    toast('Updating to v' + theirs + '\u2026');
+    await pullLatestVersion();
+  }
+}
 async function pullLatestVersion(){
   const stat = $('upStat');
   if(!('serviceWorker' in navigator)){
@@ -9106,6 +9073,7 @@ async function pullLatestVersion(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => dailyUpdateCheck().catch(e => console.warn('update check', e)), 4000);
   const b = $('upBtn');
   if(b) b.addEventListener('click', () => pullLatestVersion().catch(e => {
     console.error('update', e);

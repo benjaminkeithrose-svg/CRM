@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v78';
+const CACHE = 'fieldcrm-v79';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -116,6 +116,8 @@ self.addEventListener('fetch', e => {
      copy would be served forever after, so a sync would keep seeing the first
      answer it ever got. Those go straight to the network. */
   if (url.origin !== self.location.origin && !ASSETS.includes(e.request.url)) return;
+  // asked for fresh on purpose (the daily version check): straight to the network
+  if (e.request.cache === 'no-store') return;
   // ?shared=1 must still match the cached index.html when offline
   const opts = e.request.mode === 'navigate' ? { ignoreSearch: true } : undefined;
   e.respondWith(

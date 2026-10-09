@@ -45,6 +45,11 @@ for (const u of ['https://ksuwpjezkumyualdbfmn.supabase.co/rest/v1/records?selec
 }
 ok(cached.size === 0, 'nothing from Supabase or GitHub is kept in the cache');
 
+// a request asked for fresh (the daily version check) goes to the network, not the cache
+const before = cached.size;
+ok((await fire(ORIGIN + '/CRM/sw.js', { cache: 'no-store' })) === undefined, 'a no-store request is left to the network (daily version check)');
+ok(cached.size === before, 'and nothing is cached from it');
+
 // the app's own files and the listed CDN library are
 const own = await fire(ORIGIN + '/CRM/app.js');
 ok(own && (await own.text()).startsWith('net:'), 'own file fetched and served');

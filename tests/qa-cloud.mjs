@@ -214,7 +214,7 @@ const allLs = keys.map(k => a.w.localStorage.getItem(k)).join(' ');
 ok(!allLs.includes('right-pass'), 'password not stored anywhere in localStorage');
 const kv = await a.w.eval('kvGet("cloud")');
 ok(kv && kv.url && kv.key && !JSON.stringify(kv).includes('right-pass'), 'kv holds address and key, no password');
-ok(/Cloud sync/.test(a.$('loadLog').textContent), 'sign-in shows in the load log');
+ok(/Signed in as/.test(a.w.eval('JSON.stringify(LOAD_LOG)')), 'sign-in is recorded in the load log');
 a.save();
 
 // ---- reopen: still signed in, with no network call needed
@@ -375,7 +375,7 @@ ok(Q.w.eval('ACCOUNTS.length') === 1 && Q.w.eval('ACCOUNTS[0].a') === 'Acme Pty 
 ok(Q.w.eval('META.source') === 'export-' + T1 + '.xlsx', 'phone has the import details');
 ok(Q.w.eval('OVERRIDES.acctZone["Acme Pty Ltd - Smithfield"]') === 'Z2', 'phone has the zone overrides');
 ok(/1<\/b> accounts/.test(Q.$('dbStat').innerHTML), 'the data screen shows them: ' + Q.$('dbStat').textContent);
-ok(/Pulled CRM accounts/.test(Q.$('loadLog').textContent), 'load log records the pull');
+ok(/Pulled CRM accounts/.test(Q.w.eval('JSON.stringify(LOAD_LOG)')), 'load log records the pull');
 await sync(Q);
 ok(posts.length === postsBefore, 'nothing pulled is sent back up');
 ok(!/waiting to send/.test(Q.stat()), 'phone in step: ' + Q.stat());
@@ -484,7 +484,7 @@ ok(pcC && pcC.entries[0].notes === 'Sprocket wear' && pcC.contacts[0].name === '
 const pcBytes = await photoBytesIn(P, pcC);
 ok(JSON.stringify(pcBytes) === JSON.stringify(['255,216,255,1:300000', '255,216,255,2:250000', '255,216,255,3:200000']), 'PC has all three photos, byte for byte: ' + pcBytes.join(' '));
 ok(P.w.eval('APPTS.some(a => a.id === "a100")'), 'PC has the appointment');
-ok(/Brought in 1 call, 1 appointment, 3 photos/.test(P.$('loadLog').textContent), 'load log says what came in');
+ok(/Brought in 1 call, 1 appointment, 3 photos/.test(P.w.eval('JSON.stringify(LOAD_LOG)')), 'load log says what came in');
 const postsC100 = posts.filter(x => x === 'calls/c100').length;
 await syncW(P);
 ok(posts.filter(x => x === 'calls/c100').length === postsC100, 'a call brought in is not sent back up');
