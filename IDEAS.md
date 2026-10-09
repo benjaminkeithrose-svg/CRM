@@ -188,4 +188,47 @@ which is new infrastructure this project has never had before).
 
 ---
 
+## Open: One app for tasks, emails, call notes and products (replaces Task Slaughterer 9000)
+*Added 2026-10-09*
+
+**The ask:** Ben wants to work from one place on his phone and PC. The CRM should generate his emails, call notes and tasks, and take voice input. Outlook should work with it more easily. The same data must exist on both devices. He is worried about data security. He currently runs a separate web page called Task Slaughterer 9000 (a Claude artifact) for tasks, emails, saved notes, appointments and the "Not stocked" product list, and wants those features inside the CRM instead.
+
+**Current state (read in code, not tested on a phone):**
+- The CRM is an offline app with IndexedDB stores `kv`, `calls`, `accounts` and `appts`. It has calls, compiled notes and appointments already.
+- Phone and PC exchange the schedule and calls through a private GitHub repository using a token stored on the device (`GH` in `app.js`), or through files. Sync is deliberate button presses, and account names are hashed before they leave the device.
+- Decisions already made that this idea must respect: dictation uses the phone keyboard's mic (an in-app mic button was dropped), `.eml` output was rejected, Outlook output is HTML via the share sheet, no customer data in the repo, no API keys in a public GitHub Pages app.
+- **Checked against the actual app and not accurate as stated: "no Save buttons."** `index.html` has several — `dSave` (the appointment dialog), `bSave` ("Add belt to call log"), `pSave` ("Add project"), `nSave` ("Add note"), `hSave` ("Add fault"). Explicit Save/Add buttons per entry type are this app's existing convention, not something it avoids. Whatever this point in the original note was trying to capture, it needs re-checking against the real app before new screens are designed around it.
+
+**What Task Slaughterer 9000 holds today (to bring across):**
+- **Tasks:** type (add project to Dynamics, update project, update contact details, write email, book travel, book customer call, call, other), title, contact, account, email, mobile, project, estimated revenue, notes, done and done date. Open and Done lists. Edit with the sword button.
+- **Emails:** drafts with To, Subject and Body, ticked off when used, with copy and Outlook export.
+- **Saved notes:** reusable text, such as closing notes for Dynamics opportunities, with a status reason.
+- **Appointments:** title, date, start time, minutes, invitees, body, exported to Outlook as a calendar file.
+- **New products and not stocked:** product, part number, status (Not stocked, New product, Requested to stock), account, details, ticked when stocked.
+
+**Proposed order of work (each step usable on its own):**
+1. **Add the new stores to the CRM.** Tasks, Emails, Saved notes and Not stocked, linked to the CRM's own accounts and contacts. Bump the database version with a migration. Reuse the existing sync, with account names hashed as now.
+2. **Generate from a call.** When a call is finished, offer follow-up tasks and an email draft from templates, using the call's own details. No AI service needed.
+3. **AI clean-up of dictated notes.** Keep it in chat for now: a "Copy for Claude" button, then paste the result back. Do not put an API key in the app.
+4. **One-time import of the Task Slaughterer data** (tasks, emails, notes, appointments, products) as a JSON file, then retire the artifact.
+5. **Outlook.** Keep the share sheet and calendar-file route. Direct Outlook integration (Microsoft Graph) needs Intralox IT to approve an app registration, so treat it as a later option.
+
+**Sync and security (the open concern):**
+- Today's sync works but is manual, and the GitHub token on the phone is the weak point. A fine-grained token limited to the one private repository is the minimum.
+- A safer home for the data is Intralox's own Microsoft 365 (OneDrive or SharePoint), which would also help with Outlook. This needs IT approval and has not been checked.
+- Before changing the sync, find out what actually causes the phone and website to disagree. That has not been investigated yet.
+
+**Not decided:**
+- Whether the AI step stays in chat or moves into the app. In the app it would need a key and a small server, which this project has never had.
+- Whether IT allows Microsoft 365 storage or Graph permissions.
+- Whether it is only Ben using the app or the team.
+
+**Questions for Ben before building:**
+1. Is steps 1 to 4 the right scope, in that order?
+2. Is the chat-based AI step acceptable?
+3. Should the sync investigation come first?
+4. Should IT be asked about Microsoft 365 storage?
+
+---
+
 <!-- Add new ideas above this line. -->
