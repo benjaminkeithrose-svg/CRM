@@ -174,7 +174,7 @@ const allLs = keys.map(k => a.w.localStorage.getItem(k)).join(' ');
 ok(!allLs.includes('right-pass'), 'password not stored anywhere in localStorage');
 const kv = await a.w.eval('kvGet("cloud")');
 ok(kv && kv.url && kv.key && !JSON.stringify(kv).includes('right-pass'), 'kv holds address and key, no password');
-ok(/Cloud sign-in/.test(a.$('loadLog').textContent), 'sign-in shows in the load log');
+ok(/Cloud sync/.test(a.$('loadLog').textContent), 'sign-in shows in the load log');
 a.save();
 
 // ---- reopen: still signed in, with no network call needed
