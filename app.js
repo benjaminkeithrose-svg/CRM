@@ -54,10 +54,11 @@ async function kvGet(k){
 }
 async function kvSet(k,v){
   const d = await ready();
-  return new Promise((res,rej)=>{
+  await new Promise((res,rej)=>{
     const t = d.transaction('kv','readwrite').objectStore('kv').put(v,k);
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
+  if(CLOUD_KV[k]) cloudMark(CLOUD_KV[k]);    // reference data changed: cloud sync sends it
 }
 async function callsPut(c){
   const d = await ready();
@@ -89,7 +90,7 @@ async function accReplaceAll(list){
     st.clear();
     for(const a of list) st.put(a);
     tx.oncomplete = ()=>res(); tx.onerror = ()=>rej(tx.error); tx.onabort = ()=>rej(tx.error);
-  });
+  }).then(() => { cloudMark('crm'); });
 }
 async function accMerge(list){
   const d = await ready();
@@ -97,7 +98,7 @@ async function accMerge(list){
     const tx = d.transaction('accounts','readwrite'), st = tx.objectStore('accounts');
     for(const a of list) st.put(a);
     tx.oncomplete = ()=>res(); tx.onerror = ()=>rej(tx.error); tx.onabort = ()=>rej(tx.error);
-  });
+  }).then(() => { cloudMark('crm'); });
 }
 async function apptsAll(){
   const d = await ready();
@@ -896,7 +897,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v67';
+const APP_BUILD = 'v68';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4637,8 +4638,10 @@ async function loadSb(){
       if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
     } catch(e){ console.warn('cloud key', e); }
   }
+  await cloudSetsLoad();
   renderSb();
   sbCheckVault();     // not awaited: a slow network must not hold up the app opening
+  if(cloudCan()) cloudSync().catch(e => console.warn('cloud sync', e));
 }
 
 /* Sign-in errors in plain words. The library's own messages are for developers. */
@@ -4672,9 +4675,20 @@ function renderSb(){
     error:   '<span class="flagline">Encryption: could not check.</span> ' + esc(sbVaultMsg),
     unknown: 'Encryption: checking&hellip;'
   }[sbVault] || '');
+  const open = signedIn && sbVault === 'open';
+  if(open){
+    const last = Number(localStorage.getItem(LS('cloudSync')) || 0);
+    const waiting = cloudSets ? CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length : 0;
+    line += '<br>Reference data: ' + (cloudRun ? 'syncing&hellip;'
+      : cloudLast.failed ? '<span class="flagline">last sync failed &mdash; ' + esc(cloudLast.msg) + '</span>'
+      : last ? 'last synced ' + new Date(last).toLocaleString() : 'not synced from this device yet') +
+      (waiting ? ' &middot; <span class="flagline">' + waiting + ' change' + (waiting === 1 ? '' : 's') + ' waiting to send</span>' : '');
+  }
   el.innerHTML = line;
   $('sbIn').hidden = signedIn;
   $('sbSignOut').hidden = !signedIn;
+  $('sbSync').hidden = !open;
+  $('sbSync').disabled = !!cloudRun;
   $('sbSignIn').disabled = !sbClient;
   const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
   $('sbLock').hidden = !ask;
@@ -4737,7 +4751,11 @@ $('sbSignOut').addEventListener('click', async ()=>{
   await logLoad(SB.url, 'cloud', 'Signed out');
   renderSb();
 });
-window.addEventListener('online', ()=>{ renderSb(); if(sbVault === 'offline' || sbVault === 'error') sbCheckVault(); });
+window.addEventListener('online', ()=>{
+  renderSb();
+  if(sbVault === 'offline' || sbVault === 'error') sbCheckVault();
+  if(cloudCan()) cloudSync().catch(e => console.warn('cloud sync', e));
+});
 window.addEventListener('offline', renderSb);
 
 /* ---------- Step 3: the passphrase and the data key ----------
@@ -4869,6 +4887,8 @@ $('sbPhGo').addEventListener('click', async ()=>{
       await logLoad(SB.url, 'cloud', 'Encryption unlocked on this device');
     }
     $('sbPh').value = ''; $('sbPh2').value = '';
+    // a new device brings everything in straight away; the first device sends what it has
+    cloudSync().catch(e => console.warn('cloud sync', e));
   } catch(e){
     console.warn(e);
     const m = e && e.message;
@@ -4882,14 +4902,22 @@ $('sbPhGo').addEventListener('click', async ()=>{
   }
 });
 
-/* For Step 4 on: encrypt and decrypt one synced thing. The store and ID are
-   bound into the encryption (AES-GCM additional data), so the server cannot
-   swap one record's body into another and have it open. */
+/* Encrypt and decrypt one synced thing. The JSON is gzipped first (the CRM
+   export shrinks several times over, which is upload time on one bar of signal
+   and free-tier storage), then encrypted. The store and ID are bound into the
+   encryption (AES-GCM additional data), so the server cannot swap one record's
+   body into another and have it open. */
+async function sbPipe(u8, stream){
+  const w = stream.writable.getWriter();
+  w.write(u8); w.close();
+  return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+}
 async function sbSeal(store, id, obj){
   if(!sbKeyRec) throw new Error('encryption is locked on this device');
   const iv = crypto.getRandomValues(new Uint8Array(12));
+  const packed = await sbPipe(TE.encode(JSON.stringify(obj)), new CompressionStream('gzip'));
   const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
-    sbKeyRec.key, TE.encode(JSON.stringify(obj)));
+    sbKeyRec.key, packed);
   return {key_id: sbKeyRec.key_id, iv: u8b64(iv), body: u8b64(new Uint8Array(ct))};
 }
 async function sbOpen(store, id, row){
@@ -4897,7 +4925,218 @@ async function sbOpen(store, id, row){
   if(row.key_id !== sbKeyRec.key_id) throw new Error('encrypted with a different key');
   const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(row.iv), additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
     sbKeyRec.key, b64u8(row.body));
-  return JSON.parse(TD.decode(pt));
+  return JSON.parse(TD.decode(await sbPipe(new Uint8Array(pt), new DecompressionStream('gzip'))));
+}
+
+/* ---------- Step 4: reference data, loaded once ----------
+
+   Each dataset travels whole, as one encrypted row in 'records' with
+   store = 'datasets' and the dataset name as its id:
+     crm        the accounts store plus kv 'meta' (they are one import)
+     beltref    belt/sprocket catalogue
+     assets     plant audit register
+     overrides  zone pins and suburb spellings
+     weeks      planning week markers
+     mgrOf      reassignments
+   Accounts are only ever replaced wholesale by an import, a plan file or a
+   restore - never edited one at a time - so a whole-dataset copy loses nothing.
+   kv 'usage', the load log and everything else device-only stays put.
+
+   Newest wins, by each dataset's own import time where it has one (META.imported,
+   REF.imported, ASSETS.imported, OVERRIDES.loaded) and otherwise by when it was
+   changed here. Using the import time means an older catalogue that turns up
+   later - restored from a backup, or pulled from GitHub - cannot push a newer one
+   out of the cloud. The server enforces the same rule (records_before_write).
+
+   Every local change marks its dataset dirty in kv 'cloudSets' via kvSet() and
+   accReplaceAll()/accMerge(), whether or not cloud sync is set up, so a change
+   made offline is sent next time. Applying a pulled copy is done with marking
+   switched off, or every pull would bounce straight back up.
+
+   A device that had data before cloud sync existed has no entry yet. Where its
+   data carries an import time it competes on that. Weeks and reassignments carry
+   none, so the cloud's copy wins if there is one; if not, this device seeds it. */
+
+var cloudQuiet = false;
+var cloudSets = null;            // {name: {ver, dirty, at}}
+var cloudRun = null, cloudAgain = false, cloudTimer = null;
+var cloudLast = {at: 0, msg: '', failed: false};
+var CLOUD_KV = {beltref:'beltref', assets:'assets', overrides:'overrides', weeks:'weeks', mgrOf:'mgrOf', meta:'crm'};
+const CLOUD_SETS = ['crm', 'beltref', 'assets', 'overrides', 'weeks', 'mgrOf'];
+const CLOUD_NAME = {crm:'CRM accounts', beltref:'belt reference data', assets:'plant audit register',
+                    overrides:'zone overrides', weeks:'planning weeks', mgrOf:'reassignments'};
+
+async function cloudSetsLoad(){
+  if(!cloudSets){
+    try { cloudSets = (await kvGet('cloudSets')) || {}; } catch(e){ cloudSets = {}; }
+  }
+  return cloudSets;
+}
+async function cloudSetsSave(){ await kvSet('cloudSets', cloudSets); }
+
+/* Called on every local change to a synced dataset. Never throws: a failure
+   here must not break the import that triggered it. */
+async function cloudMark(name){
+  if(cloudQuiet) return;
+  try {
+    await cloudSetsLoad();
+    cloudSets[name] = Object.assign({}, cloudSets[name], {dirty: true, at: Date.now()});
+    await cloudSetsSave();
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => { if(cloudCan()) cloudSync().catch(()=>{}); }, 3000);
+    renderSb();
+  } catch(e){ console.warn('cloud mark', name, e); }
+}
+
+/* The dataset's own time, where it has one. */
+function cloudOwnVer(name){
+  const t = {crm: META && META.imported, beltref: REF && REF.imported,
+             assets: ASSETS && ASSETS.imported, overrides: OVERRIDES && OVERRIDES.loaded}[name];
+  return typeof t === 'number' ? t : null;
+}
+function cloudHasLocal(name){
+  switch(name){
+    case 'crm': return ACCOUNTS.length > 0;
+    case 'beltref': return !!REF;
+    case 'assets': return !!ASSETS;
+    case 'overrides': return !!(OVERRIDES && (Object.keys(OVERRIDES.acctZone||{}).length || Object.keys(OVERRIDES.spelling||{}).length));
+    case 'weeks': return Object.keys(WEEKS||{}).length > 0;
+    case 'mgrOf': return Object.keys(MGR_OF||{}).length > 0;
+  }
+  return false;
+}
+/* The version this device holds: null means "nothing worth sending". */
+function cloudLocalVer(name){
+  const e = cloudSets[name];
+  if(!cloudHasLocal(name)) return e && e.dirty ? (cloudOwnVer(name) || e.at) : null;
+  if(e && e.dirty) return cloudOwnVer(name) || e.at;
+  if(e && e.ver != null) return e.ver;
+  return cloudOwnVer(name) || 0;          // here before cloud sync: see the note above
+}
+async function cloudPack(name){
+  switch(name){
+    case 'crm': return {accounts: await accAll(), meta: await kvGet('meta') || null};
+    case 'beltref': return await kvGet('beltref') || null;
+    case 'assets': return await kvGet('assets') || null;
+    case 'overrides': return await kvGet('overrides') || null;
+    case 'weeks': return await kvGet('weeks') || {};
+    case 'mgrOf': return await kvGet('mgrOf') || {};
+  }
+}
+async function cloudApply(name, data){
+  cloudQuiet = true;
+  try {
+    if(name === 'crm'){
+      if(!data || !Array.isArray(data.accounts)) throw new Error('the CRM copy in the cloud is not readable');
+      await accReplaceAll(data.accounts);
+      await kvSet('meta', data.meta || null);
+    } else {
+      await kvSet(name, data);
+    }
+  } finally { cloudQuiet = false; }
+}
+function cloudSummary(name, data){
+  try {
+    if(name === 'crm') return data.accounts.length + ' accounts';
+    if(name === 'beltref') return data.counts.combos + ' belt combinations, ' + data.counts.sprockets + ' sprocket rows';
+    if(name === 'assets') return data.counts.assets + ' asset numbers';
+    if(name === 'overrides') return Object.keys(data.acctZone||{}).length + ' pins, ' + Object.keys(data.spelling||{}).length + ' spellings';
+    if(name === 'weeks' || name === 'mgrOf') return Object.keys(data||{}).length + ' entries';
+  } catch(e){}
+  return '';
+}
+
+const cloudCan = () => !!(sbClient && sbUser && sbKeyRec && navigator.onLine);
+
+/* One sync at a time. A change made while one is running gets its own run
+   straight after. */
+async function cloudSync(){
+  if(cloudRun){ cloudAgain = true; return cloudRun; }
+  cloudRun = (async () => {
+    let out;
+    do { cloudAgain = false; out = await cloudSyncOnce(); } while(cloudAgain);
+    return out;
+  })();
+  try { return await cloudRun; } finally { cloudRun = null; renderSb(); }
+}
+async function cloudSyncOnce(){
+  if(!cloudCan()) throw new Error(!navigator.onLine ? 'no connection' : 'sign in and unlock first');
+  await cloudSetsLoad();
+  const sent = [], got = [];
+  try {
+    const r = await sbClient.from('records').select('id,client_updated').eq('store', 'datasets');
+    if(r.error) throw r.error;
+    const cloud = {};
+    for(const row of r.data || []) cloud[row.id] = Number(row.client_updated);
+
+    const pull = [];
+    for(const name of CLOUD_SETS){
+      const mine = cloudLocalVer(name), theirs = cloud[name];
+      if(theirs == null){
+        if(mine != null) await cloudPush(name, mine || Date.now(), sent);
+      } else if(mine != null && mine > theirs){
+        await cloudPush(name, mine, sent);
+      } else if(mine == null || theirs > mine){
+        pull.push(name);
+      } else if(!cloudSets[name] || cloudSets[name].dirty || cloudSets[name].ver !== theirs){
+        cloudSets[name] = {ver: theirs, dirty: false};      // already the same version
+        await cloudSetsSave();
+      }
+    }
+    if(pull.length){
+      const b = await sbClient.from('records').select('id,key_id,iv,body,client_updated')
+        .eq('store', 'datasets').in('id', pull);
+      if(b.error) throw b.error;
+      for(const row of b.data || []){
+        const data = await sbOpen('datasets', row.id, row);
+        await cloudApply(row.id, data);
+        cloudSets[row.id] = {ver: Number(row.client_updated), dirty: false};
+        await cloudSetsSave();
+        got.push(row.id);
+        await logLoad('Cloud', 'cloud', 'Pulled ' + CLOUD_NAME[row.id] + (cloudSummary(row.id, data) ? ' - ' + cloudSummary(row.id, data) : ''));
+      }
+      if(got.length) await cloudAfterPull(got);
+    }
+    const bits = [];
+    if(sent.length) bits.push('sent ' + sent.map(n => CLOUD_NAME[n]).join(', '));
+    if(got.length) bits.push('brought in ' + got.map(n => CLOUD_NAME[n]).join(', '));
+    cloudLast = {at: Date.now(), msg: bits.length ? bits.join('; ') : 'everything already in step', failed: false};
+    localStorage.setItem(LS('cloudSync'), String(cloudLast.at));
+    return cloudLast.msg;
+  } catch(e){
+    cloudLast = {at: Date.now(), msg: sbSay(e), failed: true};
+    throw e;
+  }
+}
+async function cloudPush(name, ver, sent){
+  const at = cloudSets[name] && cloudSets[name].at;
+  const sealed = await sbSeal('datasets', name, await cloudPack(name));
+  const r = await sbClient.from('records').upsert(Object.assign({owner: sbUser.id, store: 'datasets', id: name,
+    client_updated: ver, deleted: false}, sealed), {onConflict: 'owner,store,id'});
+  if(r.error) throw r.error;
+  // changed again while uploading: leave it dirty for the next run
+  if(cloudSets[name] && cloudSets[name].at !== at && cloudSets[name].dirty) return;
+  cloudSets[name] = {ver: ver, dirty: false};
+  await cloudSetsSave();
+  sent.push(name);
+}
+$('sbSync').addEventListener('click', async ()=>{
+  try { toast('Synced: ' + await cloudSync()); }
+  catch(e){ console.warn(e); toast('Sync failed: ' + sbSay(e)); }
+  renderSb();
+});
+/* Everything that reads the reference data is rebuilt, as at boot. */
+async function cloudAfterPull(names){
+  await loadAccounts();
+  renderDbStat(); renderRefStat(); renderAssetStat(); renderHomeSetup();
+  fillManagers();
+  if(names.includes('beltref')){ try { buildBeltRef(); } catch(e){ console.error('belt reference', e); } }
+  try { await renderHome(); } catch(e){ console.error('home', e); }
+  toast('Brought in ' + names.map(n => CLOUD_NAME[n]).join(', '));
+}
+async function cloudWaiting(){
+  await cloudSetsLoad();
+  return CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length;
 }
 
 /* ================= contacts and accounts, outside a call =================

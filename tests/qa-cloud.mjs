@@ -1,6 +1,8 @@
 // Cloud sync. Step 2: settings, sign in, stay signed in on reopen, sign out.
 // Step 3: passphrase on the first device, unlock on a second, wrong passphrase,
 // the two-device race, and encryption round trips between devices.
+// Step 4: reference data imported on one device arrives on another; newest
+// import wins; offline changes wait; a pulled copy is not sent back.
 // Loads the real shipped Supabase library and real Web Crypto; only the network
 // is a stand-in, so this proves the app, the library and the crypto work
 // together - not that the real project accepts them. That needs a device.
@@ -25,6 +27,12 @@ const now = () => Math.floor(Date.now() / 1000);
 const USER = { id: '11111111-1111-1111-1111-111111111111', email: 'ben@example.com', aud: 'authenticated', role: 'authenticated' };
 const calls = [];
 const VAULTS = {};     // the stand-in server's vaults table, by owner
+const RECORDS = {};    // the stand-in server's records table, 'owner|store|id' -> row
+const posts = [];      // record uploads, for "was anything sent" checks
+const subOf = (w, opts) => {
+  const tok = (new w.Headers(opts.headers || {}).get('authorization') || '').replace(/^Bearer /, '');
+  try { return JSON.parse(Buffer.from(tok.split('.')[1], 'base64url').toString()).sub || null; } catch (e) { return null; }
+};
 
 function fakeFetch(w) {
   return async (url, opts = {}) => {
@@ -43,6 +51,32 @@ function fakeFetch(w) {
     }
     if (u.includes('/auth/v1/logout')) return new w.Response(null, { status: 204 });
     if (u.includes('/auth/v1/user')) return res(200, USER);
+    if (u.includes('/rest/v1/records')) {
+      const sub = subOf(w, opts);
+      if (!sub) return res(401, { code: '42501', message: 'permission denied for table records' });
+      const q = new URL(u).searchParams;
+      if ((opts.method || 'GET') === 'GET') {
+        const store = (q.get('store') || '').replace(/^eq\./, '');
+        const ids = q.get('id') ? q.get('id').replace(/^in\.\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')) : null;
+        const cols = (q.get('select') || '*').split(',');
+        const rows = Object.values(RECORDS).filter(r => r.owner === sub && (!store || r.store === store) && (!ids || ids.includes(r.id)))
+          .map(r => cols[0] === '*' ? r : Object.fromEntries(cols.map(c => [c, r[c]])));
+        return res(200, rows);
+      }
+      if (opts.method === 'POST') {
+        const b = JSON.parse(opts.body);
+        for (const row of Array.isArray(b) ? b : [b]) {
+          if (row.owner && row.owner !== sub) return res(403, { code: '42501', message: 'new row violates row-level security policy' });
+          const k = sub + '|' + row.store + '|' + row.id, old = RECORDS[k];
+          posts.push(row.store + '/' + row.id);
+          // records_before_write: an older edit never replaces a newer one
+          if (old && Number(row.client_updated) < Number(old.client_updated)) continue;
+          RECORDS[k] = Object.assign({}, row, { owner: sub, server_updated: new Date().toISOString() });
+        }
+        return new w.Response(null, { status: 201 });
+      }
+      return res(405, {});
+    }
     if (u.includes('/rest/v1/vaults')) {
       const h = new w.Headers(opts.headers || {});
       const tok = (h.get('authorization') || '').replace(/^Bearer /, '');
@@ -81,6 +115,7 @@ async function boot(dev) {
   w.HTMLCanvasElement.prototype.getContext = () => null;
   w.console.error = (...a) => errs.push(a.join(' ')); w.console.warn = () => {};
   w.Response = Response; w.Headers = Headers; w.Request = Request;
+  w.CompressionStream = CompressionStream; w.DecompressionStream = DecompressionStream;
   w.fetch = fakeFetch(w);
   for (const [k, v] of Object.entries(dev.ls)) w.localStorage.setItem(k, v);
   for (const f of ['zones.js', 'manuals.js', 'healthlib.js', LIB, 'app.js']) {
@@ -259,6 +294,108 @@ ok(/needs signal/.test(q.stat()), 'offline: says unlocking needs signal: ' + q.s
 for (const x of [p, q, r]) {
   real = x.errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
   ok(!real.length, 'no console errors (step 3): ' + real.slice(0, 3).join(' | '));
+}
+
+// ================= Step 4: reference data, loaded once =================
+const unlocked = async dev => { const x = await setUp(dev); await go(x, PH); await tick(800); return x; };
+const ds = id => RECORDS[USER.id + '|datasets|' + id];
+const sync = async x => { x.$('sbSync').click(); await tick(800); };
+const T1 = Date.now() - 3600e3;   // an import an hour ago
+const crmImport = (x, when, name) => x.w.eval(`(async () => {
+  const list = [{a:${JSON.stringify(name)}, sub:'Smithfield', z:'Z1', tier:'A', foc:'High', cad:CAD['High'], seg:'', team:'', mgr:'Ben', rep:'',
+    last:null, lastAppt:null, idle:null, c:[{n:'Jo Bloggs', r:'Engineer', t:'', p:'0400 000 000', pk:'ok', e:['jo@acme.example']}]}];
+  await accReplaceAll(list);
+  const meta = {imported:${when}, source:'export-${when}.xlsx', rows:1, counts:{accounts:1, contacts:1}, managers:['Ben'], reps:[]};
+  await kvSet('meta', meta); META = meta; indexAccounts(list); renderDbStat();
+})()`);
+
+const pc2 = newDevice();
+let P = await unlocked(pc2);
+ok(!P.$('sbSync').hidden, 'Sync button shown once unlocked');
+await crmImport(P, T1, 'Acme Pty Ltd - Smithfield');
+await P.w.eval(`(async () => { OVERRIDES = {acctZone:{'Acme Pty Ltd - Smithfield':'Z2'}, spelling:{smithfeild:'smithfield'}, loaded:${T1}, file:'zone-overrides.json'};
+  await kvSet('overrides', OVERRIDES); })()`);
+await tick(100);
+ok(/2 changes waiting to send/.test(P.stat()), 'imports show as waiting to send: ' + P.stat());
+await sync(P);
+ok(ds('crm') && ds('overrides'), 'PC sent the CRM accounts and the zone overrides');
+ok(Number(ds('crm').client_updated) === T1, 'the cloud copy carries the import time, not the sync time');
+const raw = Buffer.from(ds('crm').body, 'base64').toString('latin1');
+ok(!/Acme|Bloggs|acme\.example/.test(raw) && !/Acme|Bloggs/.test(JSON.stringify(ds('crm'))), 'customer names are not readable in the cloud copy');
+ok(!/waiting to send/.test(P.stat()) && /last synced/.test(P.stat()), 'PC in step after syncing: ' + P.stat());
+ok(/Synced: sent/.test(P.$('toast').textContent), 'sync says what it sent: ' + P.$('toast').textContent);
+
+// a new phone brings it all in with no import of its own
+const ph3 = newDevice();
+let Q = await unlocked(ph3);
+const postsBefore = posts.length;
+ok(Q.w.eval('ACCOUNTS.length') === 1 && Q.w.eval('ACCOUNTS[0].a') === 'Acme Pty Ltd - Smithfield', 'phone has the accounts without importing');
+ok(Q.w.eval('META.source') === 'export-' + T1 + '.xlsx', 'phone has the import details');
+ok(Q.w.eval('OVERRIDES.acctZone["Acme Pty Ltd - Smithfield"]') === 'Z2', 'phone has the zone overrides');
+ok(/1<\/b> accounts/.test(Q.$('dbStat').innerHTML), 'the data screen shows them: ' + Q.$('dbStat').textContent);
+ok(/Pulled CRM accounts/.test(Q.$('loadLog').textContent), 'load log records the pull');
+await sync(Q);
+ok(posts.length === postsBefore, 'nothing pulled is sent back up');
+ok(!/waiting to send/.test(Q.stat()), 'phone in step: ' + Q.stat());
+
+// a change on the phone reaches the PC
+await Q.w.eval(`(async () => { MGR_OF['Acme Pty Ltd - Smithfield'] = 'Sam'; await saveMgrOf(); })()`);
+await tick(100);
+ok(/1 change waiting to send/.test(Q.stat()), 'phone change waiting: ' + Q.stat());
+await sync(Q);
+ok(ds('mgrOf'), 'reassignment sent');
+await sync(P);
+ok(P.w.eval('MGR_OF["Acme Pty Ltd - Smithfield"]') === 'Sam', 'PC brought the reassignment in');
+
+// a newer import wins; an older one turning up later does not
+const T2 = Date.now() - 600e3;
+await crmImport(Q, T2, 'Acme Pty Ltd - Wetherill Park');
+await sync(Q);
+await sync(P);
+ok(P.w.eval('ACCOUNTS[0].a') === 'Acme Pty Ltd - Wetherill Park', 'newer import on the phone replaces the PC\'s');
+await crmImport(P, T1 - 1000, 'Acme Pty Ltd - Old Copy');     // e.g. an old backup restored
+await sync(P);
+ok(Number(ds('crm').client_updated) === T2, 'an older import does not replace the newer one in the cloud');
+ok(P.w.eval('ACCOUNTS[0].a') === 'Acme Pty Ltd - Wetherill Park', 'and the PC is put back to the newer one');
+
+// offline: the change waits, survives closing the app, and goes when back online
+Object.defineProperty(Q.w.navigator, 'onLine', { value: false, configurable: true });
+const pOff = posts.length;
+await Q.w.eval(`(async () => { WEEKS['2026-10-12'] = {zone:'Z3'}; await saveWeeks(); })()`);
+await tick(3500);   // past the automatic-send delay
+ok(posts.length === pOff, 'nothing sent while offline');
+ok(/waiting to send/.test(Q.stat()), 'offline change shown as waiting: ' + Q.stat());
+Q.save();
+Q = await boot(ph3);
+await tick(1200);
+ok(ds('weeks') && JSON.stringify(ds('weeks')) && posts.slice(pOff).includes('datasets/weeks'), 'reopened online: the waiting change was sent');
+
+// a device that had older data before cloud sync adopts the cloud's
+const old = newDevice();
+let O = await boot(old);
+await crmImport(O, T1 - 5000, 'Acme Pty Ltd - Legacy');
+await O.w.eval(`(async () => { WEEKS = {'2026-01-05':{zone:'Z9'}}; await kvSet('weeks', WEEKS); })()`);
+await tick(300);
+// as if all of that was there before cloud sync existed: no record of any version
+await O.w.eval(`(async () => { cloudSets = {}; await kvSet('cloudSets', {}); })()`);
+O.save();
+O = await unlocked(old);
+ok(O.w.eval('ACCOUNTS[0].a') === 'Acme Pty Ltd - Wetherill Park', 'older data from before cloud sync is replaced by the cloud\'s');
+ok(O.w.eval('WEEKS["2026-10-12"] && WEEKS["2026-10-12"].zone') === 'Z3', 'undated weeks take the cloud copy');
+ok(Number(ds('crm').client_updated) === T2, 'and the cloud copy is untouched');
+
+// a damaged cloud copy is refused, and nothing on the device changes
+const k = USER.id + '|datasets|overrides';
+const bad = Buffer.from(RECORDS[k].body, 'base64'); bad[5] ^= 1;
+RECORDS[k] = Object.assign({}, RECORDS[k], { body: bad.toString('base64'), client_updated: Date.now() });
+const before4 = O.w.eval('JSON.stringify(OVERRIDES)');
+await sync(O);
+ok(/Sync failed/.test(O.$('toast').textContent) && /last sync failed/.test(O.stat()), 'damaged copy: sync fails and says so: ' + O.stat());
+ok(O.w.eval('JSON.stringify(OVERRIDES)') === before4, 'damaged copy: nothing on the device changed');
+
+for (const x of [P, Q, O]) {
+  real = x.errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
+  ok(!real.length, 'no console errors (step 4): ' + real.slice(0, 3).join(' | '));
 }
 
 console.log(`PASS ${pass}`); if (fail) console.log(`FAIL ${fail}`);

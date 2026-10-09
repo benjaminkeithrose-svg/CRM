@@ -62,6 +62,15 @@ write a bare `db.transaction(...)` that assumes the global is populated — an
 earlier build did, and it surfaced minutes later as an unrelated-looking import
 failure.
 
+**Cloud sync (Supabase) marks changes at the storage layer.** `kvSet()` on a
+key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
+waiting to send. Write reference data only through those functions, or the
+change never reaches the other devices. Anything applying a copy pulled from
+the cloud must set `cloudQuiet`, or it bounces straight back up. Everything
+leaving the device is encrypted with `sbSeal()` first. Unlike the GitHub
+sync, this one runs automatically (on open, on reconnect, after a change),
+by Ben's agreement in `BACKEND-PLAN.md`.
+
 **Service worker install caches each asset independently.** Never go back to
 `cache.addAll()`: it is atomic, and a blocked CDN once took the whole app's
 offline capability down with it.

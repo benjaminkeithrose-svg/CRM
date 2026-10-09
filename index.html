@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v67">
+<meta name="build" content="v68">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1149,6 +1149,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
       <p class="hint" id="sbPhHint"></p>
       <button class="big" id="sbPhGo">Unlock</button>
     </div>
+    <button class="big" id="sbSync" hidden>Sync now</button>
     <button class="ghost" id="sbSignOut" hidden>Sign out of this device</button>
     <div class="gap"></div>
     <label>Project address</label>
@@ -1156,7 +1157,8 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <div class="gap"></div>
     <label>Publishable key</label>
     <input type="text" id="sbKey" autocomplete="off" placeholder="sb_publishable_...">
-    <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Nothing syncs yet &mdash; this only signs in and sets up encryption. Signing out also locks this device.</p>
+    <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Signing out also locks this device.</p>
+    <p class="hint">What syncs so far: the CRM accounts and contacts, belt reference data, plant audit register, zone overrides, planning weeks and reassignments &mdash; import on one device and the others bring it in. Calls, quote requests and appointments are not synced here yet.</p>
   </div>
 
   <h2>Exchange</h2>

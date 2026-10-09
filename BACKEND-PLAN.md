@@ -228,11 +228,41 @@ checked:** the real project (needs Ben's account), and any phone or PC.
 **Test:** set the passphrase on the phone, unlock on the PC, try a wrong one
 on purpose.
 
-### Step 4 — Reference data, loaded once
+### Step 4 — Reference data, loaded once — **built 2026-10-09, v68**
 
 After any import (CRM export, plant audit workbook, plant audit register) or
 a change to zone overrides, the manager map or planning weeks, the new
 version is encrypted and uploaded. Other devices pull it on their next sync.
+
+As built:
+- Six datasets, each one encrypted row in `records` (store `datasets`):
+  `crm` (accounts + import details), `beltref`, `assets`, `overrides`,
+  `weeks`, `mgrOf`. Gzipped before encryption.
+- Every change marks its dataset as waiting, from the storage layer itself
+  (`kvSet`, `accReplaceAll`, `accMerge`), so every import route is covered
+  and a change made offline is kept and sent later.
+- Sync runs when the app opens, when the device comes back online, about
+  three seconds after a change, straight after unlocking, and from a
+  **Sync now** button. Settings shows the last sync and anything waiting.
+- **Newest wins by each dataset's own import date** where it has one, not
+  by when it happened to sync — so an old backup restored, or an older
+  catalogue pulled from GitHub, cannot push a newer one out. Weeks and
+  reassignments have no import date and go by when they were changed.
+- A device that had data before cloud sync: dated data competes on its
+  date; undated data takes the cloud's copy if there is one. **So the first
+  device to sync seeds the cloud — sync first on the device with the best
+  data (the PC).**
+- A pulled copy is applied without being sent back up. A damaged or
+  tampered copy fails the sync with a message and changes nothing.
+- The Supabase gateway accepted a 12 MB upload in a test (refused only for
+  not being signed in), far above a compressed CRM export.
+
+**Checked:** `tests/qa-cloud.mjs` against a stand-in server that applies the
+same newest-wins rule as the real one — import on one device arrives on a
+new one with no import; a change on the phone reaches the PC; a newer
+import wins, an older one does not; an offline change waits through a
+restart and then goes; a pre-cloud device adopts the cloud's copy; a damaged
+copy is refused. **Not checked:** the real project, or a phone or PC.
 
 **Test:** import the CRM export on the PC only; open the phone, sync, and
 confirm the accounts are there without importing anything on the phone.
