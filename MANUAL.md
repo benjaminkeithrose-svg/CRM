@@ -46,7 +46,7 @@ Do this again whenever the CRM changes. Monthly is plenty. With cloud sync on, y
 
 The newer audit form (FORM v1.2) doesn't import yet. Use Plant_Audit_Template_1.xlsm.
 
-Also under Update data, if you have them: the **plant audit register** (which belts are installed where), the **engineering manuals** (PDFs, one at a time, several minutes each), and the **zone overrides** file.
+Also under Update data: the **engineering manuals** (see How do I… Get the engineering manuals), and if you have them, the **plant audit register** (which belts are installed where) and the **zone overrides** file.
 
 ### 5. Turn on cloud sync
 
@@ -212,10 +212,23 @@ Once the file has gone, open Create and share again and tap **Drop the photos, k
 
 To finish a call, tap **⋯** on it in Reports, then **Mark done**. Done with nothing to report is a normal finish.
 
+### Get the engineering manuals
+
+1. Connect to Wi-Fi. The MPB manual is about 45 MB.
+2. Tap **⋯** on Home, then **Settings**, then **Update data**.
+3. Under **Engineering manuals**, tap **Download** next to the one you want.
+4. Leave the screen on until it says it's imported.
+5. Do the next one.
+
+There are three: the MPB engineering manual, the ThermoDrive engineering manual, and the MPB installation manual (installation, maintenance and troubleshooting). Once imported they work with no signal.
+
+When signed in to cloud sync, the app checks the Intralox website once a week for a new edition. If there is one, that manual's line says so, and its button changes to **Get the new one**.
+
 ### Look up a manual, a fault or a contact
 
-1. Tap **Reference** on Home for the engineering manuals and the fault library.
-2. Tap **Directory** on Home for accounts and contacts.
+1. Tap **Reference** on Home for the manuals and the fault library.
+2. Tap **Intralox website** there for Belt Finder, the how-to videos and the resource pages. These need signal.
+3. Tap **Directory** on Home for accounts and contacts.
 
 In a call, the book icon at the top opens the manuals without leaving the call.
 

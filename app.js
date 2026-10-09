@@ -927,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v87';
+const APP_BUILD = 'v88';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -9566,11 +9566,161 @@ function closeOpenPicker(){
    age of the last backup is worth seeing without going looking for it. */
 /* The one line under each Settings heading, so the closed list says where
    things stand without opening anything. */
+/* ---------- manuals from intralox.com (v88) ----------
+   The engineering manuals download straight from Intralox's file host, which
+   allows it, and go through the same importer as a PDF picked by hand. The
+   links below are the editions current when this was written. A page cannot
+   read intralox.com itself, so finding a NEW edition is done by the
+   intralox-manuals function in the Supabase project (supabase/functions/),
+   asked once a week by a signed-in device; its answer replaces these links. */
+const IX_BASE = 'https://assets-us-01.kc-usercontent.com/19eb64b5-1815-003a-d268-e7109927ccad/';
+const INTRALOX_DOCS = {
+  mpb: {label: 'MPB engineering manual', bytes: 44684407,
+    url: IX_BASE + '18fdc7fc-ce10-44df-af25-8c7231ffb194/5012156.5%20Summer%202026%20MPB%20Engineering%20Manual_EN-US.pdf'},
+  td: {label: 'ThermoDrive engineering manual', bytes: 16141686,
+    url: IX_BASE + '1cac0f10-8310-44ad-83fd-e80573b31912/5011939.5%20-%202026%20TD%20Engineering%20Manual_English_SO.pdf'},
+  install: {label: 'MPB installation manual', bytes: 5830251,
+    url: IX_BASE + '1a1322d8-1d18-4c30-a73c-09319948df43/5009841%202%202024%20MPB%20Conveyor%20Belting%20Install%20Maintenance%20Troubles%20Manual%20EN.US.pdf',
+    doc: {id: 'MPBINSTALL', name: 'MPB Installation Manual', title: 'Installation, maintenance and troubleshooting'}},
+  thermolace: {label: 'ThermoLace HDE installation instructions', bytes: 1450741,
+    url: IX_BASE + '545a8573-bc2b-400d-9dac-9bfc3eda53e6/5013164.1_English_SO.pdf'}
+};
+const IX_DOWNLOADS = ['mpb', 'td', 'install'];
+let IX_LATEST = null;                      // {checked, docs} from the function, kept in kv 'ixDocs'
+const mb = n => (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + ' MB';
+function ixDoc(kind){
+  const l = IX_LATEST && IX_LATEST.docs && IX_LATEST.docs[kind];
+  return Object.assign({}, INTRALOX_DOCS[kind], l && l.url ? {url: l.url, bytes: l.bytes || INTRALOX_DOCS[kind].bytes, modified: l.modified || ''} : {});
+}
+// a newer edition than the one downloaded here, as far as the last check knows
+function ixNewer(kind, src){
+  const l = IX_LATEST && IX_LATEST.docs && IX_LATEST.docs[kind];
+  if(!l || !src) return false;
+  return l.url !== src.url || !!(l.modified && src.modified && l.modified !== src.modified);
+}
+async function fetchWithProgress(url, onProg){
+  const r = await fetch(url, {cache: 'no-store'});
+  if(!r.ok) throw new Error('the Intralox site answered ' + r.status);
+  const total = +r.headers.get('content-length') || 0;
+  if(!r.body || !r.body.getReader) return r.blob();
+  const reader = r.body.getReader(), parts = [];
+  let got = 0;
+  for(;;){
+    const {done, value} = await reader.read();
+    if(done) break;
+    parts.push(value); got += value.length;
+    onProg(got, total);
+  }
+  return new Blob(parts, {type: 'application/pdf'});
+}
+async function downloadManual(kind){
+  const d = ixDoc(kind), msg = $('manMsg');
+  if(!window.Manuals){ toast('manuals.js did not load'); return; }
+  if(!navigator.onLine){ showMsg(msg, 'warn', 'No signal. Downloading a manual needs a connection, ideally Wi-Fi.'); return; }
+  const btns = document.querySelectorAll('[data-ixget], #manBtn');
+  btns.forEach(b => b.disabled = true);
+  try {
+    showMsg(msg, 'info', 'Downloading the ' + esc(d.label) + String.fromCharCode(8230) + ' Leave this screen on.');
+    const blob = await fetchWithProgress(d.url, (got, total) => showMsg(msg, 'info',
+      'Downloading the ' + esc(d.label) + ': ' + mb(got) + (total ? ' of ' + mb(total) : '') + String.fromCharCode(8230) + ' Leave this screen on.'));
+    const file = new File([blob], decodeURIComponent(d.url.split('/').pop()), {type: 'application/pdf'});
+    const srcAll = await kvGet('manualSrc') || {};
+    const prev = srcAll[kind];
+    const meta = await Manuals.importManual(file, d.doc ? 'full' : $('manMode').value, (stage, done, total) => {
+      showMsg(msg, 'info', esc(stage) + ' ' + done + ' of ' + total + String.fromCharCode(8230) + ' Leave this screen on.');
+    }, d.doc ? {doc: d.doc} : null);
+    // a new edition that came in under another name replaces the old one
+    if(prev && prev.id && prev.id !== meta.id) await Manuals.deleteManual(prev.id).catch(e => console.warn('old manual', e));
+    srcAll[kind] = {url: d.url, modified: d.modified || '', id: meta.id, at: Date.now()};
+    await kvSet('manualSrc', srcAll);
+    showMsg(msg, 'ok', '<b>' + esc(meta.name) + '</b> downloaded from Intralox and imported' +
+      (meta.doc ? ', ' : ' - ' + meta.sections.length + ' series, ') + meta.renderedPages + ' page images stored.');
+    await logLoad(d.label + ' (intralox.com)', 'manual', meta.renderedPages + ' page images');
+    toast('Manual imported');
+    renderManStat(); renderManCount();
+  } catch(e){
+    console.error(e);
+    showMsg(msg, 'warn', 'That did not work: ' + esc(e.message) + '. The manuals already on this device are untouched.');
+  } finally {
+    btns.forEach(b => b.disabled = false);
+    renderIx().catch(() => {});
+  }
+}
+// asked once a week by a signed-in device; force for the Check now button
+async function checkManualEditions(force){
+  if(!sbClient || !sbUser || !navigator.onLine) return false;
+  const last = +(localStorage.getItem(LS('ixCheck')) || 0);
+  if(!force && Date.now() - last < 7 * 864e5) return false;
+  localStorage.setItem(LS('ixCheck'), String(Date.now()));
+  const {data, error} = await sbClient.functions.invoke('intralox-manuals');
+  if(error) throw error;
+  if(!data || !data.docs || !Object.keys(data.docs).length) throw new Error('the check found no manuals on the Intralox pages');
+  IX_LATEST = {checked: data.checked || new Date().toISOString(), docs: data.docs};
+  await kvSet('ixDocs', IX_LATEST);
+  await renderIx();
+  return true;
+}
+async function renderIx(){
+  const el = $('ixList');
+  if(!el) return;
+  if(!IX_LATEST) IX_LATEST = await kvGet('ixDocs') || {};
+  const src = await kvGet('manualSrc') || {};
+  let anyNew = false;
+  el.innerHTML = IX_DOWNLOADS.map(k => {
+    const d = ixDoc(k), mine = src[k], newer = ixNewer(k, mine);
+    if(newer) anyNew = true;
+    const state = !mine ? 'Not downloaded' : newer ? 'A newer edition is on the Intralox website'
+      : 'Downloaded ' + new Date(mine.at).toLocaleDateString();
+    return '<div class="ixrow' + (newer ? ' new' : '') + '"><div class="ixt"><b>' + esc(d.label[0].toUpperCase() + d.label.slice(1)) + '</b>' +
+      '<span>' + esc(state) + ' &middot; ' + mb(d.bytes) + '</span></div>' +
+      '<button type="button" class="btn' + (newer || !mine ? ' key' : '') + '" data-ixget="' + k + '">' +
+      (newer ? 'Get the new one' : mine ? 'Download again' : 'Download') + '</button></div>';
+  }).join('') +
+  '<p class="hint">' + (IX_LATEST && IX_LATEST.checked
+    ? 'Checked the Intralox website for new editions on ' + new Date(IX_LATEST.checked).toLocaleDateString() + '. '
+    : '') + (sbUser ? 'It checks once a week by itself. <span class="lnk" id="ixCheckNow">Check now</span>'
+    : 'Sign in to cloud sync and it checks for new editions once a week.') + '</p>';
+  el.querySelectorAll('[data-ixget]').forEach(b => b.addEventListener('click', () => downloadManual(b.dataset.ixget)));
+  const now = $('ixCheckNow');
+  if(now) now.addEventListener('click', () => {
+    showMsg($('manMsg'), 'info', 'Checking the Intralox website' + String.fromCharCode(8230));
+    checkManualEditions(true).then(() => showMsg($('manMsg'), '', ''))
+      .catch(e => showMsg($('manMsg'), 'warn', 'The check did not work: ' + esc(e.message || String(e))));
+  });
+  IX_ANY_NEW = anyNew;
+  renderSettingsSummary();
+}
+let IX_ANY_NEW = false;
+document.addEventListener('DOMContentLoaded', () => {
+  renderIx().catch(e => console.warn('manual links', e));
+  // after sign-in has had time to come back from storage
+  setTimeout(() => checkManualEditions().catch(e => console.warn('manual check', e)), 8000);
+});
+
+/* Links to the Intralox website, under Reference. They open in the browser
+   and need signal; the ThermoLace instructions follow the latest link. */
+function renderWebLinks(){
+  const el = $('webList');
+  if(!el) return;
+  const links = [
+    ['Modular plastic belting resources', 'Engineering and installation manuals, brochures', 'https://www.intralox.com/products/modular-plastic-belting/resources'],
+    ['ThermoDrive resources', 'Engineering manual, splicing, installation', 'https://www.intralox.com/products/thermodrive/resources'],
+    ['ThermoLace HDE installation instructions', 'PDF, ' + mb(ixDoc('thermolace').bytes), ixDoc('thermolace').url],
+    ['Technical resources', 'Everything Intralox publishes', 'https://www.intralox.com/resources'],
+    ['Belt Finder', 'Find a belt by application', 'https://www.intralox.com/belt-finder'],
+    ['Installation and maintenance videos', 'How-to videos', 'https://www.intralox.com/resources/how-to-videos']
+  ];
+  el.innerHTML = links.map(([t, sub, href]) =>
+    '<a class="rpt weblink" href="' + esc(href) + '" target="_blank" rel="noopener">' +
+      '<div class="rn">' + esc(t) + '</div><div class="rm">' + esc(sub) + '</div></a>').join('');
+}
+
 function renderSettingsSummary(){
   const put = (id, txt) => { const e = $(id); if(e) e.textContent = txt; };
   const first = id => (($(id) && $(id).innerText) || '').split('\n').map(x => x.trim()).filter(Boolean);
   put('sumCloud', first('sbStat').join(' \u00b7 ') || 'Not set up');
-  put('sumData', META ? META.counts.accounts + ' accounts' + (REF ? ', belt data' : '') + (ASSETS ? ', plant register' : '') : 'Nothing imported yet');
+  put('sumData', (META && META.counts ? META.counts.accounts + ' accounts' + (REF ? ', belt data' : '') + (ASSETS ? ', plant register' : '') : 'Nothing imported yet') +
+    (IX_ANY_NEW ? ' \u00b7 a new manual edition is out' : ''));
   put('sumBk', (first('bkStat')[0] || '').replace(/\s+/g, ' ') || 'No backup taken on this device');
   put('sumMe', ($('setEmail') && $('setEmail').value) || 'Email not set');
   put('sumLog', LOAD_LOG.length ? LOAD_LOG.length + ' recent' : 'None yet');
@@ -9793,11 +9943,13 @@ function renderDirPane(){
 function renderRefPane(){
   const man = refPane === 'man';
   $('paneMan').hidden = !man;
-  $('paneFlt').hidden = man;
+  $('paneFlt').hidden = refPane !== 'flt';
+  $('paneWeb').hidden = refPane !== 'web';
+  if(refPane === 'web') renderWebLinks();
   document.querySelectorAll('#refTabs button').forEach(b =>
     b.classList.toggle('on', b.dataset.pane === refPane));
   if(man){ if(window.Manuals) Manuals.render().catch(e=>console.error('manuals', e)); }
-  else { if(window.HealthLib) HealthLib.render(); }
+  else if(refPane === 'flt'){ if(window.HealthLib) HealthLib.render(); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

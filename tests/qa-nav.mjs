@@ -259,6 +259,39 @@ t('and returns to the call menu', g('screen') === 'dash');
   w.showScreen('dash');
 }
 
+// ---- v88: manuals from intralox.com ----
+{
+  await w.renderIx();
+  const rows = [...$('ixList').querySelectorAll('.ixrow')];
+  t('three manuals to download: MPB, ThermoDrive, installation',
+    rows.length === 3 && rows.map(r => r.querySelector('b').textContent).join('|') === 'MPB engineering manual|ThermoDrive engineering manual|MPB installation manual',
+    rows.map(r => r.textContent).join(' / '));
+  t('each says Download until it has been', rows.every(r => r.querySelector('[data-ixget]').textContent === 'Download'));
+  t('the check needs a signed-in device', (await w.checkManualEditions(true)) === false);
+  t('not signed in, it says how to get the weekly check', /Sign in to cloud sync/.test($('ixList').textContent));
+  // a device that downloaded the ThermoDrive manual, and a check that found a newer one
+  await w.kvSet('manualSrc', {td: {url: 'https://example.org/old-td.pdf', modified: 'Mon, 02 Feb 2026 20:21:12 GMT', id: 'THERMODRIVET', at: Date.now()}});
+  w.eval(`IX_LATEST = {checked: new Date().toISOString(), docs: {td: {url: 'https://example.org/new-td.pdf', modified: 'Mon, 01 Feb 2027 10:00:00 GMT', bytes: 17000000}}}`);
+  await w.renderIx();
+  const td = [...$('ixList').querySelectorAll('.ixrow')][1];
+  t('a newer edition is flagged on its row', td.classList.contains('new') && /newer edition/.test(td.textContent) && td.querySelector('[data-ixget]').textContent === 'Get the new one');
+  t('and the download uses the new link', w.eval(`ixDoc('td').url`) === 'https://example.org/new-td.pdf');
+  t('the Update data line says so too', /new manual edition/.test($('sumData').textContent), $('sumData').textContent);
+  w.eval(`IX_LATEST = {checked: new Date().toISOString(), docs: {td: {url: 'https://example.org/old-td.pdf', modified: 'Mon, 02 Feb 2026 20:21:12 GMT'}}}`);
+  await w.renderIx();
+  t('the same edition is not flagged', !$('ixList').querySelector('.ixrow.new') && /Downloaded/.test([...$('ixList').querySelectorAll('.ixrow')][1].textContent));
+  await w.kvSet('manualSrc', {}); w.eval('IX_LATEST = {}'); await w.renderIx();
+  // Reference: the Intralox website tab
+  w.showRef('web');
+  const links = [...$('webList').querySelectorAll('a')];
+  t('Reference has the Intralox website links', $('refTabs').querySelector('[data-pane="web"]').classList.contains('on') && links.length === 6 && !$('paneWeb').hidden);
+  t('they open outside the app, safely', links.every(a => a.target === '_blank' && a.rel === 'noopener' && /^https:\/\//.test(a.href)));
+  t('Belt Finder and the videos are there', links.some(a => /belt-finder/.test(a.href)) && links.some(a => /how-to-videos/.test(a.href)));
+  w.showRef('man');
+  t('the Manuals tab still works', !$('paneMan').hidden && $('paneWeb').hidden && $('paneFlt').hidden);
+  w.showScreen('home');
+}
+
 // Branding: red is never a button (v81). No rule that styles a button, or a
 // .big/.btn/.pri class, may fill or border it in the brand red.
 {

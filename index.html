@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v87">
+<meta name="build" content="v88">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -876,6 +876,17 @@ dialog.fsearch[open]{display:flex}
 .fs-acct .am{font-size:12px;color:var(--ink-3);margin-top:2px}
 .fs-all{margin:0 0 10px}
 .rptop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+/* Manuals from intralox.com (v88) */
+.ixrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-2)}
+.ixrow .ixt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ixrow .ixt span{font-size:12.5px;color:var(--ink-3)}
+.ixrow.new .ixt span{color:var(--warn);font-weight:600}
+.ixrow .btn{min-height:40px;flex:none}
+a.rpt.weblink{display:block;text-align:left;background:var(--surface);box-shadow:var(--lift);text-decoration:none;
+  border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
+  padding:12px;margin-bottom:8px;color:var(--ink)}
+a.rpt.weblink .rn{font-size:15px;font-weight:700;line-height:1.25}
+a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .rptop .hint{flex:1;margin:0}
 .dlg-h{padding:13px 16px;border-bottom:1px solid var(--line-2)}
 .dlg-h b{font-size:14px;font-weight:700} .dlg-h div{font-size:11.5px;color:var(--ink-3);margin-top:2px}
@@ -1266,6 +1277,9 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="fld">
     <label>Engineering manuals</label>
     <p class="stat" id="manStat">No manuals loaded.</p>
+    <!-- Download from Intralox (v88): rows filled by renderIx() -->
+    <div id="ixList"></div>
+    <p class="hint">Downloading needs signal, ideally Wi-Fi, and the screen left on: the app reads every page and keeps it as an image so it works with no reception. Or choose a PDF you already have:</p>
     <div class="gap"></div>
     <label>Pages to keep as images</label>
     <select id="manMode">
@@ -1383,7 +1397,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Leave the screen on until it says it has finished. It takes a few seconds.</li>
       </ol>
       <p>The newer audit form (FORM v1.2) doesn't import yet. Use Plant_Audit_Template_1.xlsm.</p>
-      <p>Also under Update data, if you have them: the <b>plant audit register</b> (which belts are installed where), the <b>engineering manuals</b> (PDFs, one at a time, several minutes each), and the <b>zone overrides</b> file.</p>
+      <p>Also under Update data: the <b>engineering manuals</b> (see How do I&hellip; Get the engineering manuals), and if you have them, the <b>plant audit register</b> (which belts are installed where) and the <b>zone overrides</b> file.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1601,10 +1615,25 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Get the engineering manuals</b><span class="sxs">Straight from Intralox</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Connect to Wi-Fi. The MPB manual is about 45 MB.</li>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Update data</b>.</li>
+        <li>Under <b>Engineering manuals</b>, tap <b>Download</b> next to the one you want.</li>
+        <li>Leave the screen on until it says it's imported.</li>
+        <li>Do the next one.</li>
+      </ol>
+      <p>There are three: the MPB engineering manual, the ThermoDrive engineering manual, and the MPB installation manual (installation, maintenance and troubleshooting). Once imported they work with no signal.</p>
+      <p>When signed in to cloud sync, the app checks the Intralox website once a week for a new edition. If there is one, that manual's line says so, and its button changes to <b>Get the new one</b>.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Look up a manual, a fault or a contact</b><span class="sxs">Reference and Directory</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>Reference</b> on Home for the engineering manuals and the fault library.</li>
+        <li>Tap <b>Reference</b> on Home for the manuals and the fault library.</li>
+        <li>Tap <b>Intralox website</b> there for Belt Finder, the how-to videos and the resource pages. These need signal.</li>
         <li>Tap <b>Directory</b> on Home for accounts and contacts.</li>
       </ol>
       <p>In a call, the book icon at the top opens the manuals without leaving the call.</p>
@@ -2438,6 +2467,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="seg tabs" id="refTabs">
     <button type="button" data-pane="man" class="on">Manuals</button>
     <button type="button" data-pane="flt">Fault library</button>
+    <button type="button" data-pane="web">Intralox website</button>
   </div>
   <div class="pane" id="paneMan">
   <div class="fld">
@@ -2458,6 +2488,10 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   </div>
   <div id="mBody"></div>
 </div>
+  <div class="pane" id="paneWeb" hidden>
+    <p class="hint">These open on the Intralox website and need signal.</p>
+    <div id="webList"></div>
+  </div>
   <div class="pane" id="paneFlt" hidden>
   <div class="wrap">
     <h1>Fault library</h1>
