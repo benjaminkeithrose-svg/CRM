@@ -176,9 +176,6 @@ he sees the new build.
 
 ## Known issues, not yet fixed
 
-- `bookUnplanned()` tests `c.type === 'Phone call'`, but the call-type dropdown
-  offers Site call / Phone / Teams / Quote request. Nothing produces
-  `'Phone call'`, so a phone call books as a site visit. His call to fix.
 - The Plant Audit Template **FORM v1.2** will not import. It has no `COLOR_IND`
   column, moved the dimension block to its own sheet, and replaced
   `SPROCKET SPILL DATA` with a per-series pitch-diameter layout. The importer

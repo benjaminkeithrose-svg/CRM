@@ -189,8 +189,10 @@ t('project back on a call', tile('project').hidden === false);
 t('headings back for a call', $('dashAddHead').textContent === 'Add to call');
 
 // ---------- 10. quote mode on the account screen ----------
-$('cType').value = 'Quote request'; w.syncQuoteMode();
-t('call type stays visible - it is the control', $('cTypeRow').hidden === false);
+// the New chooser is now the control (v77): tapping Quote request sets the type
+d.querySelector('#newPick [data-new="quote"]').click();
+t('the chooser sets quote mode', $('cType').value === 'Quote request' && w.eval('quoteMode') === true);
+t('Quote request highlighted in the chooser', d.querySelector('#newPick [data-new="quote"]').classList.contains('on'));
 t('required-by shown in quote mode', $('cReqByRow').hidden === false);
 t('date still visible in quote mode', $('cDate').closest('.fld').hidden !== true);
 t('date relabelled', $('cDateLbl').textContent === 'Date raised');
