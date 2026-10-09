@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v80">
+<meta name="build" content="v81">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -44,6 +44,8 @@
   --ok:#237F35;             /* $success-color                        */
   --ok-lt:#EEF5EF;
   --warn:#B2232F;           /* $error-color                          */
+  --act:#00287B;            /* primary action - brand colours never  */
+  --act-dk:#001A52;         /* carry action meaning, so not red      */
 
   /* Account focus. High reads in Intralox red; the rest step down through
      the orange and cyan families rather than a traffic light. */
@@ -187,15 +189,15 @@ textarea{min-height:88px;resize:vertical}
 .seg button.on{background:var(--ink-2);color:#fff;font-weight:700}
 
 /* ---------- buttons ---------- */
-/* Red is the primary action colour here, following the planner. The Belt Call
-   Log used #00287B and kept red off buttons entirely; that is the one visual
-   rule this app deliberately reverses, and it is applied everywhere. */
+/* Navy is the primary action colour. Red is Intralox's brand colour and the
+   guidelines give brand colours no action meaning, so red is never a button
+   (v81; until then this app used red, against the guidelines). */
 button.big{
-  width:100%;padding:15px 0;border:1px solid var(--red);border-radius:var(--r-sm);
-  background:var(--red);color:#fff;font-size:15px;font-weight:700;margin-top:8px;cursor:pointer;
+  width:100%;padding:15px 0;border:1px solid var(--act);border-radius:var(--r-sm);
+  background:var(--act);color:#fff;font-size:15px;font-weight:700;margin-top:8px;cursor:pointer;
   box-shadow:var(--lift);
 }
-button.big:active{background:var(--red-dark);border-color:var(--red-dark)}
+button.big:active{background:var(--act-dk);border-color:var(--act-dk)}
 button.ghost{
   width:100%;padding:13px 0;border:1px solid var(--edge);border-radius:var(--r-sm);
   box-shadow:var(--lift);
@@ -574,8 +576,8 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
   display:flex;gap:8px;z-index:30;
 }
 .bar button{flex:1;padding:12px 2px;border-radius:var(--r-sm);border:1px solid var(--edge);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
-.bar button.pri{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
-.bar button.pri:active{background:var(--red-dark);border-color:var(--red-dark)}
+.bar button.pri{background:var(--act);color:#fff;border-color:var(--act);font-weight:700}
+.bar button.pri:active{background:var(--act-dk);border-color:var(--act-dk)}
 
 /* ---------- global footer (Brand Guidelines p17) ---------- */
 .foot{
@@ -697,7 +699,7 @@ body.planning{padding-bottom:0}
 .exp .hint{margin:0}
 .btn{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px 12px;cursor:pointer;font-size:13px}
 .btn:hover{border-color:var(--ink-2)}
-.btn.key{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.btn.key{background:var(--act);border-color:var(--act);color:#fff;font-weight:700}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
 /* A gutter of hour labels, then the five days. */
 .week{display:grid;grid-template-columns:46px repeat(5,1fr);gap:8px;align-items:start}
@@ -713,7 +715,7 @@ body.planning{padding-bottom:0}
   touch-action:none;cursor:grab;font-size:11px;padding:3px 5px}
 .dbody.hours .appt.dragging{cursor:grabbing;z-index:5;box-shadow:var(--lift-2);opacity:.94}
 /* Too short to fit three lines, so show the one that matters. */
-.dbody.hours .appt.tiny{display:flex;align-items:center;padding:0 5px}
+.dbody.hours .appt.tiny{display:flex;align-items:center;padding:0 24px 0 5px}
 .dbody.hours .appt.tiny .t,.dbody.hours .appt.tiny .k{display:none}
 .dbody.hours .appt.tiny .a{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Outside business hours, clamped to the edge and marked rather than hidden. */
@@ -748,18 +750,24 @@ body.planning{padding-bottom:0}
 .dbody{padding:6px;display:flex;flex-direction:column;gap:5px;flex:1}
 .add{border:1px dashed var(--line);background:transparent;border-radius:var(--r);color:var(--ink-3);
   padding:5px;cursor:pointer;font-size:11.5px;margin-top:auto}
-.add:hover{border-color:var(--red);color:var(--red)}
+.add:hover{border-color:var(--act);color:var(--act)}
 /* Appointments carry their Outlook export state as the dominant cue: green means
    already downloaded, cyan not yet, orange edited since. Focus stays visible as
    the dot beside the name. */
 .appt{border-left:3px solid var(--cyan);background:var(--sunk);border-radius:0 var(--r) var(--r) 0;
-  padding:5px 7px;cursor:grab;font-size:11.5px;position:relative}
+  padding:5px 24px 5px 7px;cursor:grab;font-size:11.5px;position:relative}
 /* Sits over the card rather than reserving space for it - the time/name text
-   already ellipsizes, and a 25-minute call is only 20px tall to begin with. */
-.appt .del{position:absolute;top:2px;right:2px;width:16px;height:16px;padding:0;
-  border:0;background:transparent;color:var(--ink-3);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;border-radius:3px}
-.appt .del .ic{width:11px;height:11px}
+   already ellipsizes, and a 25-minute call is only 20px tall to begin with.
+   The bin you see is 24px; the ::after stretches the part you can hit to 40px,
+   inwards (left and down), because the hour grid clips anything that hangs
+   past the card. On a 25-minute card that leaves it as tall as the card.
+   Warning colour, as every bin is. */
+.appt .del{position:absolute;top:0;right:0;width:24px;height:24px;padding:0;
+  border:0;background:transparent;color:var(--warn);cursor:pointer;z-index:3;
+  display:flex;align-items:center;justify-content:center;border-radius:4px}
+.appt .del .ic{width:15px;height:15px}
+.appt .del::after{content:'';position:absolute;inset:0 0 -16px -16px}
+.pill .del::after{content:'';position:absolute;inset:-9px}
 .appt .del:active{background:var(--red-soft);color:var(--warn)}
 .dbody.hours .appt.tiny .del{top:50%;transform:translateY(-50%)}
 .appt .t{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:11px;display:flex;align-items:center;gap:5px}
@@ -784,12 +792,12 @@ body.planning{padding-bottom:0}
 .pill{border-left:3px solid var(--cyan);background:var(--sunk);border-radius:0 3px 3px 0;padding:2px 4px 2px 5px;
   font-size:10.5px;cursor:grab;line-height:1.3;display:flex;align-items:center;gap:3px;min-width:0}
 .pill .pt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-/* Smaller than the week/day card's delete icon - the pill itself is only
-   ~18px tall, so there's no room to spare, and it sits inline rather than
-   absolutely positioned since there's only ever the one line to clear. */
-.pill .del{flex:none;width:13px;height:13px;padding:0;border:0;background:transparent;
-  color:var(--ink-3);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:2px}
-.pill .del .ic{width:9px;height:9px}
+/* Smaller than the week/day card's bin - the pill is only ~18px tall - and
+   inline rather than over the card. The 22px bin hangs a little past the
+   pill's own height, and its ::after makes a 40px area to hit. */
+.pill .del{flex:none;width:22px;height:22px;margin:-3px -3px -3px 0;padding:0;border:0;background:transparent;
+  position:relative;color:var(--warn);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px}
+.pill .del .ic{width:13px;height:13px}
 .pill .del:active{background:var(--red-soft);color:var(--warn)}
 /* Tasks on the calendar: dark grey stripe, a tick box, and the right-hand half
    of the column so an appointment at the same time stays visible. */
@@ -808,7 +816,7 @@ body.planning{padding-bottom:0}
 /* task form: Done at the top right in the primary action colour, the bin at the far left */
 .dlg-h.tkh{display:flex;align-items:center;gap:10px}
 .dlg-h.tkh b{flex:1;text-align:center}
-.btn.go{background:#00287B;border-color:#00287B;color:#fff;font-weight:700;min-height:40px;padding:8px 18px;font-size:15px}
+.btn.go{background:var(--act);border-color:var(--act);color:#fff;font-weight:700;min-height:40px;padding:8px 18px;font-size:15px}
 .tkdel{width:40px;height:40px;border:0;background:transparent;color:var(--warn);cursor:pointer;padding:8px}
 .tkdel .ic{width:22px;height:22px}
 dialog{border:1px solid var(--line);border-radius:4px;padding:0;width:min(680px,94vw);

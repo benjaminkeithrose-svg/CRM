@@ -151,6 +151,19 @@ w.openPhoto(['only'], 0, 'Test');
 t('Remove hidden without a handler', $('pvDel').hidden === true);
 w.closePhoto();
 
+// Branding: red is never a button (v81). No rule that styles a button, or a
+// .big/.btn/.pri class, may fill or border it in the brand red.
+{
+  const css = [...d.querySelectorAll('style')].map(x => x.textContent).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+  const redBtn = [];
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim(), body = m[2];
+    if (/(^|[\s,>])button\b|\.big\b|\.btn\b|\.pri\b/.test(sel) && /background(-color)?:\s*(var\(--red(-dark)?\)|#ED1C24|#9D0A0E)/i.test(body)) redBtn.push(sel);
+  }
+  t('no red buttons: ' + redBtn.join(' | '), redBtn.length === 0);
+  t('primary action colour is navy', /--act:\s*#00287B/i.test(css));
+}
+
 console.log('\nPASS ' + ok.length);
 if(bad.length){ console.log('\nFAIL ' + bad.length); bad.forEach(b=>console.log('  x '+b)); }
 const real = errs.filter(e=>!/Not implemented|Could not parse CSS|zones\.js/i.test(e));
