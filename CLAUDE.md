@@ -30,6 +30,7 @@ work from a copy of a file anywhere other than this checkout.
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `supabase/migrations/` | Cloud database schema. Not served by the app |
+| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
 

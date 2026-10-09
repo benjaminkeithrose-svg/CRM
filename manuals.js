@@ -276,10 +276,15 @@
   }
 
   /* mode: 'series' (every page of every series section) | 'full'
-     onProgress(stage, done, total) */
-  function importManual(file, mode, onProgress) {
+     onProgress(stage, done, total)
+     opts.doc: {id, name, title} for a document that is not an engineering
+     manual (the MPB installation manual). It has no series in its contents, so
+     the whole document becomes one section under its title, every page kept. */
+  function importManual(file, mode, onProgress, opts) {
     var report = function (s, d, t) { if (onProgress) onProgress(s, d, t); };
     var doc, pageLines = [], meta = null;
+    var whole = opts && opts.doc;
+    if (whole) mode = 'full';
     if (mode !== 'full') mode = 'series';
 
     return loadPdfJs()
@@ -302,10 +307,16 @@
         return chain;
       })
       .then(function () {
-        var ident = identify([].concat.apply([], pageLines.slice(0, 4)));
-        var off = detectOffset(pageLines);
-        var toc = parseTOC(pageLines, 8);
-        var sections = buildSections(toc);
+        var ident, off, sections;
+        if (whole) {
+          ident = { id: whole.id, name: whole.name, year: '' };
+          off = { offset: 0, confidence: 0, agree: 0, disagree: 0, footers: 0 };
+          sections = [{ series: whole.title, title: whole.title, start: 1, end: doc.numPages }];
+        } else {
+          ident = identify([].concat.apply([], pageLines.slice(0, 4)));
+          off = detectOffset(pageLines);
+          sections = buildSections(parseTOC(pageLines, 8));
+        }
         if (!sections.length) {
           throw new Error('no belt series were found in the contents pages - ' +
                           'is this an Intralox engineering manual?');
@@ -315,7 +326,8 @@
           file: file.name, physicalPages: doc.numPages,
           offset: off.offset, offsetConfidence: off.confidence,
           offsetAgree: off.agree, offsetDisagree: off.disagree, footers: off.footers,
-          sections: sections, mode: mode, imported: Date.now(), renderedPages: 0
+          sections: sections, mode: mode, imported: Date.now(), renderedPages: 0,
+          doc: !!whole
         };
         return putMany('text', pageLines.map(function (ls, i) {
           return {
@@ -360,7 +372,7 @@
         m.sections.forEach(function (s) {
           var rec = {
             id: m.id + '/' + s.series, manual: m.id, manualName: m.name,
-            series: s.series, start: s.start, end: s.end,
+            series: s.series, title: s.title || '', start: s.start, end: s.end,
             pages: s.end - s.start + 1
           };
           sections.push(rec);
@@ -439,7 +451,7 @@
         var a = acc[k];
         return {
           id: a.sec.id, manual: a.sec.manual, manualName: a.sec.manualName,
-          series: a.sec.series, start: a.sec.start, end: a.sec.end, pages: a.sec.pages,
+          series: a.sec.series, title: a.sec.title, start: a.sec.start, end: a.sec.end, pages: a.sec.pages,
           hits: a.hits, score: a.score, exact: !!a.exact,
           bestPage: a.bestPage || a.sec.start, snippet: a.snippet
         };
@@ -621,8 +633,8 @@
             ' pages disagreed with the page numbering. Open a section and check ' +
             'a page number before sending anything to a customer.</span>';
         }
-        return '<b>' + esc(m.name) + '</b> ' + DASH + ' ' + m.physicalPages + ' pages, <b>' +
-          m.sections.length + '</b> series, <b>' + m.renderedPages + '</b> page images' + warn +
+        return '<b>' + esc(m.name) + '</b> ' + DASH + ' ' + m.physicalPages + ' pages, ' +
+          (m.doc ? '' : '<b>' + m.sections.length + '</b> series, ') + '<b>' + m.renderedPages + '</b> page images' + warn +
           '<br>Imported ' + d.toLocaleDateString() + ' ' +
           d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
           ' <span class="lnk" data-delman="' + esc(m.id) + '">Remove</span>';
@@ -673,7 +685,7 @@
         return;
       }
       $('mHint').textContent = ix.manuals.map(function (m) {
-        return m.name + ', ' + m.sections.length + ' series';
+        return m.doc ? m.name : m.name + ', ' + m.sections.length + ' series';
       }).join('   ');
       var done = (state.mode === 'browse') ? paintBrowse(ix, body) : paintSearch(ix, body);
       return Promise.resolve(done).then(renderSel);
@@ -711,7 +723,8 @@
   function sectionCard(sec, snippet, hits) {
     var sub = sec.manualName + ', pages ' + sec.start + ' to ' + sec.end +
       ' (' + sec.pages + ' page' + (sec.pages === 1 ? '' : 's') + ')';
-    var meta = '<div class="rn">Series ' + esc(sec.series) + '</div>' +
+    // a whole document (the installation manual) goes by its title
+    var meta = '<div class="rn">' + (sec.title ? esc(sec.title) : 'Series ' + esc(sec.series)) + '</div>' +
       '<div class="rm">' + esc(sub) +
       (hits ? ' \u00b7 ' + hits + ' page' + (hits === 1 ? '' : 's') + ' mention this' : '') + '</div>' +
       (snippet ? '<div class="rm">' + esc(snippet) + '</div>' : '');

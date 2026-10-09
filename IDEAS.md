@@ -479,15 +479,25 @@ it re-saves a call that's changed since it was last saved; and what happens
 to a call with no site (straight under the customer, or an "Unspecified
 site" folder).
 
-## Open: Download manuals and reference files from the Intralox website
-*Added 2026-10-09. Future idea — Ben will provide the link.*
+## Built (v88): Download manuals and reference files from the Intralox website
+*Added 2026-10-09; Ben gave the links and chose "button + new-edition check"
+and "links, plus save the installation manual offline".*
 
-Rather than importing the engineering manuals by hand on each device, the app
-would check the Intralox site for new files. A browser app can't fetch files
-straight from intralox.com (the site blocks it), so this needs a small
-function on the Supabase project to do the fetching. Manuals are also not in
-cloud sync today — each device keeps its own copy — which this would fix as a
-side effect.
+- The PDFs sit on Intralox's file host (kc-usercontent.com), which sends
+  `access-control-allow-origin: *`, so the app downloads them itself. Only
+  reading intralox.com's pages is blocked, so the `intralox-manuals` Supabase
+  function (supabase/functions/) reads the two resource pages and returns the
+  current link, title, date and size of the MPB and ThermoDrive engineering
+  manuals, the MPB installation manual and the ThermoLace HDE instructions.
+- Settings → Update data → Engineering manuals: Download for each of the
+  three, through the same importer. The installation manual has no series, so
+  it is kept whole as one section under its title.
+- A signed-in device asks the function once a week; a newer link or file date
+  than the one downloaded flags that row and the Update data line.
+- Reference → Intralox website: the resource pages, ThermoLace instructions,
+  technical resources, Belt Finder and how-to videos, opened in the browser.
+- Manuals are still per device (not in cloud sync); downloading on each
+  device is now one tap.
 
 ---
 

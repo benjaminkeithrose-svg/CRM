@@ -401,6 +401,17 @@ Shape, with Ben's answers (2026-10-09):
 the PC the archive folder should live (a OneDrive folder would give it a
 backup for free).
 
+### Extra — `intralox-manuals` function — **deployed 2026-10-09, v88**
+
+A Supabase Edge Function (source in `supabase/functions/intralox-manuals/`)
+that reads the public Intralox resource pages and returns where the current
+manual PDFs are. No secrets, no user data, nothing stored. Deployed with
+`verify_jwt` on; in practice the publishable key alone also reaches it, which
+is acceptable for a read of public pages. The app calls it once a week from a
+signed-in device. Tested from here: signed-in call, browser preflight, and a
+real browser downloading and importing the installation and ThermoDrive
+manuals.
+
 ---
 
 ## Who does what
