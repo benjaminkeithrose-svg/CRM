@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v81">
+<meta name="build" content="v82">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -86,7 +86,7 @@ body{
   /* Roboto is the Intralox digital typeface (p20); Arial is the sanctioned
      fallback (p19). No webfont request - the app must work offline. */
   font-family:Roboto,Arial,'Helvetica Neue',Helvetica,sans-serif;
-  font-size:15px; line-height:1.45; padding-bottom:128px; overscroll-behavior-y:contain;
+  font-size:15px; line-height:1.45; padding-bottom:40px; overscroll-behavior-y:contain;
 }
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--cyan-dk); outline-offset:1px}
@@ -469,6 +469,8 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .avsub{font-size:11.5px;color:var(--ink-3);margin-top:2px}
 .ct{display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--line-2);align-items:baseline}
 .ct:first-child{border-top:0}
+/* the page-wide input rule is width:100%, which stretched this tick box across the dialog */
+.ct > input[type=checkbox]{width:17px;height:17px;flex:none;padding:0;accent-color:var(--cyan-dk)}
 .ct .cn{font-weight:600;font-size:13.5px}
 .ct .cr{color:var(--ink-3);font-size:11.5px}
 .ct .cp{margin-left:auto;font-size:11.5px;text-align:right;white-space:nowrap}
@@ -564,20 +566,20 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 
 /* ---------- toast and photo bar ---------- */
 .toast{
-  position:fixed;left:50%;transform:translateX(-50%);bottom:126px;background:#363738;
+  position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom));background:#363738;
   border:none;color:#fff;padding:10px 15px;border-radius:var(--r);font-size:13.5px;
   z-index:60;max-width:88%;text-align:center;display:none;box-shadow:0 2px 10px rgba(34,34,34,.28);
 }
 .toast.show{display:block}
-.bar{
-  position:fixed;bottom:0;left:0;right:0;background:var(--surface);
-  border-top:1px solid var(--line);
-  padding:9px 12px calc(9px + max(18px, env(safe-area-inset-bottom)));
-  display:flex;gap:8px;z-index:30;
-}
-.bar button{flex:1;padding:12px 2px;border-radius:var(--r-sm);border:1px solid var(--edge);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer}
-.bar button.pri{background:var(--act);color:#fff;border-color:var(--act);font-weight:700}
-.bar button.pri:active{background:var(--act-dk);border-color:var(--act-dk)}
+.bar{position:sticky;top:var(--hdh,54px);z-index:19;background:var(--surface);
+  border-bottom:1px solid var(--line-2);box-shadow:var(--lift)}
+.barin{max-width:680px;margin:0 auto;padding:8px 12px;display:flex;gap:8px;align-items:center}
+.bar .bi{flex:none;width:44px;height:44px;padding:0;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--edge);border-radius:var(--r-sm);background:var(--surface);color:var(--ink-2);cursor:pointer}
+.bar .bi .ic{width:21px;height:21px}
+.bar .pri{flex:1;min-width:0;min-height:44px;padding:0 10px;border-radius:var(--r-sm);border:1px solid var(--act);
+  background:var(--act);color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+.bar .pri:active{background:var(--act-dk);border-color:var(--act-dk)}
 
 /* ---------- global footer (Brand Guidelines p17) ---------- */
 .foot{
@@ -827,6 +829,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 .dlg-b{padding:14px 16px;display:flex;flex-direction:column;gap:12px;max-height:62vh;overflow:auto}
 .dlg-b .row{display:flex;gap:10px;flex-wrap:wrap}
 .dlg-b .row .f{flex:1;min-width:120px}
+.dlg-b .row .f.wide{flex-basis:100%}   /* chips (v82): a line to themselves */
 .dlg-b textarea{width:100%;min-height:64px;padding:7px 8px;border:1px solid var(--line);border-radius:var(--r);resize:vertical;font-size:14px}
 .cts{border:1px solid var(--line-2);border-radius:var(--r);max-height:170px;overflow:auto}
 .cts .ct{display:flex;gap:8px;padding:5px 9px;border-bottom:1px solid var(--line-2);align-items:baseline;border-top:0}
@@ -1101,6 +1104,20 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <button class="menubtn" id="hdMenu" title="Home" aria-label="Home" style="display:none"></button>
 </header>
 <button class="callstrip" id="callStrip"></button>
+<!-- The call toolbar. Until v82 it was fixed to the bottom of every call screen
+     while Create and share sat at the top, so the controls were split between
+     the two ends. Now everything is up here and stays put while the form
+     scrolls: the photo and manual icons, then the one main action - Create and
+     share on the call menu, Done on a belt, project, note or fault. -->
+<div class="bar" id="bar" style="display:none">
+  <div class="barin">
+    <button type="button" class="bi" id="barCamera" title="Take a photo" aria-label="Take a photo"></button>
+    <button type="button" class="bi" id="barGallery" title="Add from photos" aria-label="Add from photos"></button>
+    <button type="button" class="bi" id="barManuals" title="Manuals" aria-label="Manuals"></button>
+    <button type="button" class="pri" id="doOutput">Create and share</button>
+    <button type="button" class="pri backcall" id="barDone">Done</button>
+  </div>
+</div>
 
 <div class="wrap">
 
@@ -1476,11 +1493,11 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="dlg-h"><b id="dTitle"></b><div id="dSub"></div></div>
   <div class="dlg-b">
     <div class="row">
-      <div class="f"><label>Type</label>
+      <div class="f wide"><label>Type</label>
         <select id="dType"><option>Intralox site visit</option><option>Planned phone call</option></select></div>
       <div class="f"><label>Date</label><input type="date" id="dDate"></div>
       <div class="f"><label>Start</label><input type="time" id="dTime"></div>
-      <div class="f"><label>Minutes</label>
+      <div class="f wide"><label>Minutes</label>
         <select id="dDur"><option selected>25</option><option>30</option><option>45</option><option>60</option><option>90</option><option>120</option><option>180</option></select></div>
     </div>
     <label class="ct" id="dHoldWrap"><input type="checkbox" id="dHold">
@@ -1653,14 +1670,10 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 <section class="scr" id="s-dash">
   <button type="button" class="fld dashhead" id="dashStat"></button>
 
-  <!-- Output lives at the top. It used to sit under the call log, which is fine
-       with three entries and unusable with fifteen belts - you scrolled past
-       everything you had just logged to reach the one button you wanted.
-
-       Only the button is on the screen. The three pickers moved into the sheet
-       it opens, so nothing can be fired off before the options have been seen,
-       which was the reason they sat above the button in the first place. -->
-  <button class="big" id="doOutput">Create and share</button>
+  <!-- Create and share is in the call toolbar at the top (v82). It used to sit
+       under the call log, which is fine with three entries and unusable with
+       fifteen belts. Only the button is there; the three pickers are in the
+       sheet it opens, so nothing can be fired off before they've been seen. -->
   <p class="hint" id="outHint"></p>
 
   <h2 id="dashAddHead">Add to call</h2>
@@ -1692,6 +1705,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <p class="err" id="bErr">Enter an asset no. or line description first</p>
     <p class="msg" id="draft_belt"></p>
     <p class="msg" id="bAssetHit"></p>
+    <button type="button" class="ghost" id="bFault">Log a fault on this belt</button>
   </div>
 
   <h2>Belt data</h2>
@@ -1888,8 +1902,6 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <input type="text" id="bQc" placeholder="Leave blank to use call contacts">
   </div>
   <button class="big" id="bSave" hidden>Add belt to call log</button>
-    <button type="button" class="ghost" id="bFault">Log a fault on this belt</button>
-  <button class="big backcall">Done</button>
 </section>
 
 <!-- PROJECT -->
@@ -1922,7 +1934,6 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   </div>
   <div class="thumbs" id="pShots"></div>
   <button class="big" id="pSave" hidden>Add project</button>
-  <button class="big backcall">Done</button>
 </section>
 
 <!-- GENERAL NOTE -->
@@ -1945,7 +1956,6 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   </div>
   <div class="thumbs" id="nShots"></div>
   <button class="big" id="nSave" hidden>Add note</button>
-  <button class="big backcall">Done</button>
 </section>
 
 <!-- HEALTH -->
@@ -1986,7 +1996,6 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
       starting with - or &bull; becomes a bullet list.</p>
   </div>
   <button class="big" id="hSave" hidden>Add fault</button>
-  <button class="big backcall">Done</button>
 </section>
 
 <!-- COMPILE -->
@@ -2110,12 +2119,6 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 
 <div class="foot">Field CRM <span>&middot; encrypted before it leaves this device</span><span class="tag2">Intralox</span></div>
 
-<div class="bar" id="bar" style="display:none">
-  <button id="barCamera">Camera</button>
-  <button id="barGallery">Photos</button>
-  <button id="barManuals" title="Manuals" aria-label="Manuals">Manuals</button>
-  <button id="barMenu" class="pri">Call menu</button>
-</div>
 
 <!-- shared by all four entry screens; shotsTarget says which one asked.
      capture="environment" on the camera input only - the gallery input must not

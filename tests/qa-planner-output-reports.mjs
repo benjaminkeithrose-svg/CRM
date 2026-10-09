@@ -81,13 +81,13 @@ t('the sheet is registered so back closes it', g('DIALOGS').includes('outdlg'));
 t('the pickers live in the sheet',
   ['outScope','outImg','outDest','outGo','compStat','detachWrap']
     .every(id => $(id).closest('dialog') && $(id).closest('dialog').id === 'outdlg'));
-t('only the button and its hint are on the dashboard',
-  $('doOutput').closest('section').id === 's-dash' &&
-  $('outHint').closest('section').id === 's-dash');
-t('the button sits above Add to call',
-  $('doOutput').compareDocumentPosition($('dashAddHead')) & 4);
-t('the button sits above the call log',
-  $('doOutput').compareDocumentPosition($('logList')) & 4);
+// v82: Create and share is in the call toolbar at the top, above every screen
+t('the button is in the call toolbar and its hint on the dashboard',
+  $('doOutput').closest('#bar') && $('outHint').closest('section').id === 's-dash');
+t('the toolbar sits above Add to call',
+  $('bar').compareDocumentPosition($('dashAddHead')) & 4);
+t('the toolbar sits above the call log',
+  $('bar').compareDocumentPosition($('logList')) & 4);
 t('the sheet has its own cancel', !!$('outCancel'));
 
 // the dashboard summary line reports state, not picker settings

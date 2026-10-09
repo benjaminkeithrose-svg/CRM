@@ -54,7 +54,7 @@ ok(d.querySelector('#newPick [data-new="site"]').classList.contains('on'), 'Site
 ok(/Today/.test($('cSummary').textContent) && /Ben/.test($('cSummary').textContent), 'date and manager on one line: ' + $('cSummary').textContent);
 ok(!shown($('cDate')), 'date field tucked away');
 $('cChange').click(); await tick();
-ok(shown($('cDate')) && shown($('cMgr')), 'Change shows the date and manager');
+ok(shown($('cDate')) && shown($('cMgrChips')), 'Change shows the date and manager');
 $('cDate').value = '2026-10-07'; $('cDate').dispatchEvent(new w.Event('change'));
 ok(/07\/10\/2026/.test($('cSummary').textContent), 'summary follows a changed date: ' + $('cSummary').textContent);
 $('cChange').click(); await tick();

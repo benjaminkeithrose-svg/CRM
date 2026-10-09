@@ -925,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v81';
+const APP_BUILD = 'v82';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -946,7 +946,8 @@ const ICONS = {
   check:  '<path d="M20 6L9 17l-5-5"/>',
   copy:   '<rect x="9" y="9" width="12" height="12" rx="2"/>'+
           '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-  person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
+  person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  book:   '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1316,6 +1317,11 @@ function paintHeaderMenu(name){
   $('hdMenu').title = name === 'home' ? 'Settings' : 'Home';
   $('hdMenu').setAttribute('aria-label', name === 'home' ? 'Settings, data and backup' : 'Home');
 }
+// the call toolbar is sticky just under the sticky header
+function headerHeight(){
+  const h = document.querySelector('header');
+  if(h) document.documentElement.style.setProperty('--hdh', h.offsetHeight + 'px');
+}
 function showScreen(name){
   if(CALL_SCREENS.includes(screen) && screen !== 'dash') captureDraft(screen);
   if(CALL_SCREENS.includes(name)) lastCallScreen = name;
@@ -1333,7 +1339,10 @@ function showScreen(name){
   $('title').textContent = TITLES[name] ? TITLES[name][0] : 'Field CRM';
   $('subtitle').textContent = call ? (call.customer + (call.site?' - '+call.site:'')) : 'No call open';
   const inCall = call && CALL_SCREENS.includes(name);
-  $('bar').style.display = inCall ? 'flex' : 'none';
+  $('bar').style.display = inCall ? 'block' : 'none';
+  // one main action in the toolbar: Create and share on the call menu, Done on a form
+  $('doOutput').hidden = name !== 'dash';
+  $('barDone').hidden = name === 'dash';
   window.scrollTo(0,0);
   if(name==='dash') renderDash();
   if(name==='home') renderHome();
@@ -6577,7 +6586,6 @@ $('outGo').addEventListener('click', ()=>{
 $('outScope').addEventListener('change', renderOutHint);
 $('outDest').addEventListener('change', renderOutHint);
 $('outImg').addEventListener('change', renderOutHint);
-$('barMenu').addEventListener('click', ()=>go('dash'));
 
 /* ================= entry: belt =================
    Ported from Belt Call Log v13. The fork was taken from a v8 snapshot in the
@@ -6692,6 +6700,50 @@ function setChip(id, v, otherId){
   return false;
 }
 function clearChip(id, otherId){ setChip(id, '', otherId); if(otherId) $(otherId).value = ''; }
+
+/* Chips for a dropdown with a short, known set of answers (v82). The <select>
+   stays in the page, hidden, and is still the one place the value lives, so
+   every reader, draft and change listener carries on using it unchanged. The
+   chips only show it and set it. A value set from code - opening a saved entry,
+   restoring a draft, resetting the form - repaints them, because this element's
+   own value setter is wrapped; a list rebuilt from code (the account managers)
+   repaints through the observer. */
+const SEL_VALUE = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+const SEL_INDEX = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+function selectChips(id){
+  const sel = $(id);
+  if(!sel || sel.dataset.chips) return;
+  sel.dataset.chips = '1';
+  const box = document.createElement('div');
+  box.className = 'chips'; box.id = id + 'Chips';
+  sel.after(box); sel.hidden = true;
+  const paint = () => {
+    const v = SEL_VALUE.get.call(sel);
+    box.innerHTML = [...sel.options].filter(o => o.value !== '').map(o => {
+      const on = o.value === v;
+      return '<button type="button" data-v="' + esc(o.value) + '" aria-pressed="' + on + '"' + (on ? ' class="on"' : '') + '>' + esc(o.textContent) + '</button>';
+    }).join('');
+  };
+  Object.defineProperty(sel, 'value', {configurable: true,
+    get(){ return SEL_VALUE.get.call(this); }, set(v){ SEL_VALUE.set.call(this, v); paint(); }});
+  Object.defineProperty(sel, 'selectedIndex', {configurable: true,
+    get(){ return SEL_INDEX.get.call(this); }, set(v){ SEL_INDEX.set.call(this, v); paint(); }});
+  new MutationObserver(paint).observe(sel, {childList: true, subtree: true});
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if(!b) return;
+    // tap again to clear - only where the dropdown itself allowed a blank answer
+    const blank = [...sel.options].some(o => o.value === '');
+    const v = (b.classList.contains('on') && blank) ? '' : b.dataset.v;
+    if(v === SEL_VALUE.get.call(sel)) return;
+    sel.value = v;
+    sel.dispatchEvent(new Event('change', {bubbles: true}));
+    sel.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  paint();
+}
+// note topic, project status, fault type, visit type and length, account manager
+['nTopic', 'pStat', 'hType', 'dType', 'dDur', 'cMgr'].forEach(selectChips);
 
 /* ---------- entry: belt ----------
    Mirrors the plant audit line entry form: the same Series > Style > Material > Colour
@@ -7754,6 +7806,9 @@ function barPhotoTap(input){
   photoTarget = call.entries.length ? null : 'loose';
   input.value=''; input.click();
 }
+$('barCamera').innerHTML = icon('camera');
+$('barGallery').innerHTML = icon('image');
+$('barManuals').innerHTML = icon('book');
 $('barCamera').addEventListener('click', ()=>barPhotoTap($('camInput')));
 $('barGallery').addEventListener('click', ()=>barPhotoTap($('galInput')));
 
@@ -8968,6 +9023,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   try { resetBelt(); } catch(e){ console.error('belt form', e); }
   try { history.replaceState({screen:'home'}, '', location.href); } catch(e){}
   paintHeaderMenu(screen);
+  headerHeight(); window.addEventListener('resize', headerHeight);
   try { await renderHome(); } catch(e){ console.error('home', e); }
   try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
   if(dbErr){
