@@ -62,8 +62,9 @@ await g(`(async () => {
 })()`);
 
 // ---- Home → Task: opens on today, next half hour, 30 minutes
-const tile = d.querySelector('#s-home [data-go="newtask"], [data-go="newtask"]');
-ok(!!tile, 'Task tile on Home');
+// Task lives under New (v77): New -> "What would you like to do?" -> Task
+ok(!d.querySelector('#s-home [data-go="newtask"]'), 'no separate Task tile on Home');
+const tile = { click(){ d.querySelector('[data-go="newcall"]').click(); d.querySelector('#newPick [data-new="task"]').click(); } };
 tile.click(); await tick();
 ok(dlgOpen(), 'task form opens');
 const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();

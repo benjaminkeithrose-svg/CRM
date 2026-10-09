@@ -926,7 +926,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v76';
+const APP_BUILD = 'v77';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -3607,7 +3607,8 @@ async function bookUnplanned(c, acc){
   const ap = {
     id: 'ap' + Date.now().toString(36) + (plan.seq++),
     acct: acc.a,
-    type: c.type === 'Phone call' ? 'Planned phone call' : 'Intralox site visit',
+    // Phone and Teams are remote; 'Phone call' is what a planned phone call's own call carries
+    type: ['Phone', 'Teams', 'Phone call'].includes(c.type) ? 'Planned phone call' : 'Intralox site visit',
     date: isoFromDdmmyyyy(c.date) || todayISOdate(),
     start: String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
     dur: DEF_DUR,
@@ -3712,6 +3713,7 @@ function startBooking(){
   if($('cType')) $('cType').value = 'Site call';
   syncQuoteMode();
   $('cDate').value = todayISO();
+  newMark('book');
   go('account'); renderAccSearch();
   $('accHint').textContent = 'Pick the account to book a visit at';
 }
@@ -3748,6 +3750,7 @@ $('tvUnplanned').addEventListener('click', ()=>{
   if($('cType')) $('cType').value = 'Site call';
   syncQuoteMode();
   $('cDate').value = todayISO();
+  newMark('site');
   go('account'); renderAccSearch();
 });
 $('tvPlanner').addEventListener('click', ()=>go('plan'));
@@ -6235,14 +6238,15 @@ async function renderHome(){
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', async ()=>{
   const t = b.dataset.go;
   if(t==='newcall'){
-    // a manual account is still possible with no database, so this warns rather than blocks
-    if(!ACCOUNTS.length) toast('No contact database - manual account entry only');
+    // nothing chosen yet: the screen shows only "What would you like to do?"
     cameFromAcct = false; bookingMode = false;
     $('cDate').value = todayISO();
     $('cReqBy').value = '';
     $('cRef').value = '';
     $('cType').value = 'Site call';
     syncQuoteMode();
+    newMark('');
+    $('s-account').classList.add('choosing');
     go('account'); renderAccSearch();
   } else if(t==='accounts'){
     browseScope = 'mine';
@@ -6350,7 +6354,50 @@ $('ovBtn').addEventListener('click', async ()=>{
 function renderAccSearch(){
   $('accQ').value=''; $('accRes').innerHTML='';
   $('accHint').textContent = META ? META.counts.accounts+' accounts loaded' : 'Import contact data first';
+  renderNewSummary();
 }
+
+/* ---------- New: "What would you like to do?" ----------
+   One tap picks what is being made; the next step - the account - appears on
+   the same screen. The date (today) and the account manager (the one last used)
+   are on one line with a Change link rather than two boxes to get past. Every
+   other way into this screen (the phone's + button, booking, an account's Start
+   call) arrives with the choice already made, and shows it highlighted. */
+const NEW_TYPE = {site: 'Site call', phone: 'Phone', teams: 'Teams', quote: 'Quote request'};   // QUOTE_TYPE is defined further down
+function newMark(kind){
+  $('newPick').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.new === kind));
+  $('s-account').classList.remove('choosing');
+  if(!kind) $('cMore').hidden = true;
+}
+function renderNewSummary(){
+  const el = $('cSummary');
+  if(!el) return;
+  if(bookingMode || $('s-account').classList.contains('choosing')){ el.innerHTML = ''; return; }
+  const d = $('cDate').value, today = todayISO();
+  el.innerHTML = esc(d === today ? 'Today' : ddmmyyyy(d)) + ' &middot; ' + esc($('cMgr').value || 'no account manager') +
+    ' <button type="button" class="lnk" id="cChange">' + ($('cMore').hidden ? 'Change' : 'Hide') + '</button>';
+  $('cChange').addEventListener('click', () => { $('cMore').hidden = !$('cMore').hidden; renderNewSummary(); });
+}
+$('newPick').addEventListener('click', e => {
+  const b = e.target.closest('button[data-new]'); if(!b) return;
+  const kind = b.dataset.new;
+  if(kind === 'task'){
+    $('s-account').classList.add('choosing');
+    go('home');
+    openTask(null);
+    return;
+  }
+  if(kind === 'book'){ startBooking(); return; }
+  if(!ACCOUNTS.length) toast('No contact database - manual account entry only');
+  bookingMode = false;
+  $('cType').value = NEW_TYPE[kind];
+  syncQuoteMode();
+  newMark(kind);
+  renderAccSearch();
+  setTimeout(() => { try { $('accQ').focus(); } catch(_){} }, 50);
+});
+$('cDate').addEventListener('change', renderNewSummary);
+$('cMgr').addEventListener('change', renderNewSummary);
 $('cMgr').addEventListener('change', ()=>{ localStorage.setItem(LS('mgr'), $('cMgr').value); updateMgrHint(); });
 $('accQ').addEventListener('input', ()=>{
   const q = $('accQ').value.trim().toLowerCase();
