@@ -237,6 +237,74 @@ w.__bk = new w.File([JSON.stringify(bk)], 'b.json', { type: 'application/json' }
 await g('doRestore(window.__bk)'); await tick(200);
 ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
 
+// ---- v86: quote requests on the calendar, on the day made ----
+{
+  const made = new Date(2026, 9, 13, 14, 7).getTime();   // Tue 13 Oct 2026, 2:07pm
+  await g(`(async () => { call = {id: 'q${made}', rectype: QUOTE, type: QUOTE_TYPE, date: '13/10/2026', customer: 'Acme Pty Ltd - Smithfield',
+    contacts: [], entries: [{type: 'belt', asset: 'CV-1', photos: []}], loose: [], status: 'in progress', closed: false}; await saveCall(); call = null; })()`);
+  const Q = g(`QUOTES.find(q => q.id === 'q${made}')`);
+  ok(Q && Q.date === '2026-10-13' && Q.start === '14:00' && Q.belts === 1, 'a new quote request is on the calendar the day it was made, at the time: ' + JSON.stringify(Q));
+  ok(!g(`APPTS.some(a => a.acct === 'Acme Pty Ltd - Smithfield' && a.date === '2026-10-13')`), 'it is not an appointment, so nothing goes to Outlook');
+  g(`(() => { plan.view = 'week'; plan.anchor = startOfWeek(new Date('2026-10-13T12:00')); renderPlan(); })()`); await tick();
+  const qel = [...d.querySelectorAll('#calBody .appt.quote')].find(e => /RFQ Acme/.test(e.textContent));
+  ok(!!qel, 'PC week view shows it');
+  g(`(() => { plan.view = 'month'; plan.anchor = new Date('2026-10-13T12:00'); renderPlan(); })()`); await tick();
+  ok([...d.querySelectorAll('#calBody .pill.quote')].some(e => /RFQ Acme/.test(e.textContent)), 'PC month view shows it');
+  g(`(() => { plan.view = 'week'; plan.anchor = startOfWeek(new Date('2026-10-13T12:00')); renderPlan(); })()`); await tick();
+  [...d.querySelectorAll('#calBody .appt.quote')].find(e => /RFQ Acme/.test(e.textContent)).click(); await tick(100);
+  ok(g('screen') === 'dash' && g('call && call.id') === `q${made}`, 'clicking it opens the quote request');
+  g(`(() => { call = null; showScreen('today'); tvCursor = '2026-10-13'; todayView = 'today'; renderToday(); })()`); await tick();
+  ok(!!$('tvBody').querySelector('.vis.quote [data-qopen]') && /1 quote request/.test($('tvHint').textContent), 'phone Day list shows it: ' + $('tvHint').textContent);
+  g(`(() => { todayView = 'month'; renderToday(); })()`); await tick();
+  const c13 = $('tvBody').querySelector('[data-mday="2026-10-13"]');
+  ok(c13 && c13.querySelector('.pm-q') && c13.querySelector('.pm-q').textContent === '1', 'phone Month counts it');
+  ok(/quotes/.test($('tvBody').querySelector('.pm-key').textContent), 'and the key names quotes');
+  g(`(() => { todayView = 'today'; renderToday(); })()`); await tick();
+  $('tvBody').querySelector('[data-qopen]').click(); await tick(100);
+  ok(g('screen') === 'dash' && g('call && call.id') === `q${made}`, 'tapping it on the phone opens it');
+  g(`call = null`);
+  const qrec = await g(`recordsAll().then(r => r.find(c => c.id === 'q${made}'))`);
+  w.__q = qrec;
+  await g(`deleteCallRecord(window.__q)`); await tick(50);
+  ok(!g(`QUOTES.some(q => q.id === 'q${made}')`), 'a deleted quote request leaves the calendar');
+  g(`(() => { todayView = 'week'; tvCursor = null; showScreen('home'); })()`);
+}
+
+// ---- v86: Start the call on a planned visit ----
+{
+  await g(`(async () => { const ap = {id: 'apS', acct: 'Acme Pty Ltd - Smithfield', type: 'Intralox site visit', date: '2026-10-14', start: '10:00', dur: 60,
+    agenda: 'Belt survey', contacts: [0], touchedAt: Date.now(), status: 'planned'}; APPTS.push(ap); await saveAppt(ap); })()`);
+  g(`openDialog(null, {acct: 'Acme Pty Ltd - Smithfield', date: '2026-10-15'})`); await tick();
+  ok($('dStart').hidden, 'a new appointment has no Start the call yet');
+  g(`(() => { const d = document.getElementById('dlg'); d.removeAttribute('open'); dlgAppt = null; editingAppt = null; })()`);
+  g(`openDialog('apS')`); await tick();
+  ok(!$('dStart').hidden && $('dStart').textContent === 'Start the call', 'a saved planned visit has Start the call');
+  ok($('dAgenda').value === 'Belt survey', 'with all its details still there');
+  $('dAgenda').value = 'Belt survey and sprocket check';
+  $('dStart').click(); await tick(300);
+  ok(!$('dlg').hasAttribute('open') && g('screen') === 'dash' && g('call && call.customer') === 'Acme Pty Ltd - Smithfield', 'Start the call goes into the call');
+  ok(g(`APPTS.find(a => a.id === 'apS').agenda`) === 'Belt survey and sprocket check', 'and keeps the edit made just before');
+  const cid = g('call.id');
+  ok(g(`APPTS.find(a => a.id === 'apS').callId`) === cid, 'the visit is linked to its call');
+  g(`(() => { call = null; showScreen('home'); })()`);
+  g(`openDialog('apS')`); await tick();
+  ok($('dStart').textContent === 'Open the call', 'once started it offers Open the call');
+  $('dStart').click(); await tick(200);
+  ok(g('call && call.id') === cid, 'which opens the same call, not a second one');
+  g(`(() => { call = null; showScreen('today'); })()`);
+  g(`openVisitMenu('apS')`); await tick();
+  const first = $('vmBody').querySelector('.vmacts button');
+  ok(first && first.textContent === 'Open the call', 'phone ⋯ menu leads with it: ' + (first && first.textContent));
+  g(`closeVisitMenu()`);
+  await g(`(async () => { const ap = {id: 'apT', acct: 'Acme Pty Ltd - Smithfield', type: 'Intralox site visit', date: '2026-10-16', start: '09:00', dur: 30,
+    agenda: '', contacts: [], touchedAt: Date.now(), status: 'planned'}; APPTS.push(ap); await saveAppt(ap); })()`);
+  g(`openVisitMenu('apT')`); await tick();
+  ok($('vmBody').querySelector('.vmacts button').textContent === 'Start the call', 'a visit not yet started says Start the call');
+  $('vmBody').querySelector('.vmacts button').click(); await tick(300);
+  ok(!$('vmdlg').hasAttribute('open') && g('screen') === 'dash' && g(`APPTS.find(a => a.id === 'apT').callId`) === g('call.id'), 'and it starts the call');
+  g(`(() => { call = null; showScreen('home'); })()`);
+}
+
 // ---- marked for cloud sync
 ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k.startsWith('tasks/')), 'task changes are marked for cloud sync');
 
