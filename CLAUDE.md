@@ -160,9 +160,11 @@ merge to `main` deploys to GitHub Pages immediately and reaches his phone on nex
 load, so merging the pull request is his decision and his deploy step.
 
 **Ben doesn't want to log into GitHub to merge** (his instruction, 2026-10-09).
-When a pull request is ready, ask him in the chat whether to merge it, saying
-in a line or two what it changes. When he says yes, merge it yourself through
-the GitHub tools. Never merge without that yes for that pull request.
+When a pull request is ready, end your message with a tap-to-answer options
+box (the AskUserQuestion tool) asking whether to merge it, with "Merge it" as
+the first option and a line or two saying what it changes. When he picks it,
+merge it yourself through the GitHub tools and remind him to reload the app.
+Never merge without that answer for that pull request.
 
 In the pull request description, say in plain language what changed, which files,
 and what he should test on the phone. He is new to git and reads the PR on
