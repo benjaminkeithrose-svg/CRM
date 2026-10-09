@@ -925,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v82';
+const APP_BUILD = 'v83';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -5407,9 +5407,10 @@ async function renderReports(){
     : 'No calls logged yet';
 
   const el = $('rpRes');
-  /* A row is a tap target plus two icon actions, so it cannot be one button any
-     more - a button inside a button is not valid and Android picks the wrong one.
-     The row is a div; the reading area is the button. */
+  /* A row is a tap target plus the ⋯, so it cannot be one button - a button
+     inside a button is not valid and Android picks the wrong one. The row is a
+     div; the reading area is the button. Mark done and Delete used to sit on
+     the row as a tick and a bin, side by side; they are behind the ⋯ (v83). */
   el.innerHTML = list.length
     ? list.slice(0, 60).map(c => {
         const st = callStatus(c);
@@ -5419,11 +5420,8 @@ async function renderReports(){
           '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
           '<div class="rn">'+esc(c.customer)+'</div>'+
           '<div class="rm">'+esc(reportLine(c))+'</div></button>'+
-          '<div class="rpacts">'+
-            (c.closed ? '' :
-              '<button class="rpi" data-rpdone="'+esc(c.id)+'" aria-label="Mark done" title="Mark done">'+icon('check')+'</button>')+
-            '<button class="rpi del" data-rpdel="'+esc(c.id)+'" aria-label="Delete" title="Delete">'+icon('trash')+'</button>'+
-          '</div></div>';
+          '<button class="rpmore" data-rpmenu="'+esc(c.id)+'" aria-label="More for '+esc(c.customer)+'">&#8943;</button>'+
+          '</div>';
       }).join('') + (list.length > 60 ? '<p class="hint">'+(list.length-60)+' more \u2014 narrow the search</p>' : '')
     : '<p class="empty">'+(all.length ? 'Nothing matches that.' : 'No calls logged yet.')+'</p>';
   el.querySelectorAll('[data-rpt]').forEach(b => b.addEventListener('click', async ()=>{
@@ -5435,21 +5433,28 @@ async function renderReports(){
     call.loose = call.loose || [];
     go('dash');
   }));
-  el.querySelectorAll('[data-rpdone]').forEach(b => b.addEventListener('click', async ()=>{
-    const found = (await callsAll()).find(c => c.id === b.dataset.rpdone);
+  el.querySelectorAll('[data-rpmenu]').forEach(b => b.addEventListener('click', ()=>{
+    const c = list.find(x => x.id === b.dataset.rpmenu);
+    if(c) openReportMenu(c);
+  }));
+}
+function openReportMenu(c){
+  const refresh = () => { renderReports().catch(e=>console.error('reports', e)); renderHome(); };
+  const fresh = async () => (await callsAll()).find(x => x.id === c.id);
+  const acts = [];
+  if(!c.closed) acts.push({label: 'Mark done', icon: 'check', run: async () => {
+    const found = await fresh();
     if(!found){ toast('That call could not be found'); return; }
     if(!await markCallDone(found)) return;
-    toast('Marked done');
-    renderReports().catch(e=>console.error('reports', e));
-    renderHome();
-  }));
-  el.querySelectorAll('[data-rpdel]').forEach(b => b.addEventListener('click', async ()=>{
-    const found = (await callsAll()).find(c => c.id === b.dataset.rpdel);
+    toast('Marked done'); refresh();
+  }});
+  acts.push({label: 'Delete', icon: 'trash', danger: true, run: async () => {
+    const found = await fresh();
     if(!found){ toast('That call could not be found'); return; }
     if(!await deleteCallRecord(found)) return;
-    renderReports().catch(e=>console.error('reports', e));
-    renderHome();
-  }));
+    refresh();
+  }});
+  openCardMenu(c.customer, c.date + ' \u00b7 ' + callStatus(c).label, acts);
 }
 $('rpQ').addEventListener('input', ()=>renderReports().catch(reportErr));
 $('rpView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
@@ -6128,10 +6133,11 @@ function renderDash(){
   if(!c.entries.length){ el.innerHTML = '<p class="empty">Nothing logged yet.</p>'; return; }
   el.innerHTML = c.entries.map((e,i)=>{
     let head='', body='';
-    if(e.type==='belt'){ head='Belt - '+e.asset; body=[e.beltdesc,e.width?e.width+' mm':'',e.beltmat,e.rodmat,e.retrofit?'retrofit '+e.retrofit:'',e.sprocket].filter(Boolean).join(' &middot; '); }
-    if(e.type==='project'){ head='Project - '+e.project; body=[e.status,e.next,e.target].filter(Boolean).join(' &middot; '); }
+    const line = parts => parts.filter(Boolean).map(esc).join(' &middot; ');
+    if(e.type==='belt'){ head='Belt - '+e.asset; body=line([e.beltdesc,e.width?e.width+' mm':'',e.beltmat,e.rodmat,e.retrofit?'retrofit '+e.retrofit:'',e.sprocket]); }
+    if(e.type==='project'){ head='Project - '+e.project; body=line([e.status,e.next,e.target]); }
     if(e.type==='note'){ head='Note - '+e.topic; body=esc(e.text); }
-    if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=[e.fault,e.severity].filter(Boolean).join(' &middot; '); }
+    if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=line([e.fault,e.severity]); }
     /* A comment is the thing most worth knowing is there, and it would otherwise
        be invisible on the dashboard until the file was compiled. */
     if(e.comment) body += (body ? '<br>' : '') + '<b>' + esc(e.comment.slice(0,120)) +
@@ -6148,70 +6154,20 @@ function renderDash(){
     const gone = e.detached
       ? '<p class="meta"><span class="tag">'+e.detached.n+' photo'+(e.detached.n===1?'':'s')+
         ' sent '+new Date(e.detached.at).toLocaleDateString()+', dropped from this phone</span></p>' : '';
-    /* One row of controls, in the same place on every card. Edit and Remove used
-       to sit on the title line - Edit as an unstyled default button - which put
-       two interactive things somewhere nothing else was interactive. */
-    return '<div class="card"><div class="hd"><span class="t">'+esc(head)+'</span></div>'+
-      '<p class="meta">'+body+'</p>'+ gone +
+    /* Tap the card to open it; everything else is behind the ⋯ (v83). It used to
+       carry a row of camera, photos, edit and bin buttons, bin and all, on every
+       entry. The photos stay on the card, because seeing them is the point. */
+    const phn = ph.length ? ph.length + ' photo' + (ph.length===1?'':'s') : '';
+    return '<div class="card entry"><div class="ehd">'+
+      '<button type="button" class="eopen" data-edit="'+i+'"><span class="t">'+esc(head)+'</span>'+
+        '<span class="meta">'+[body, phn].filter(Boolean).join(' &middot; ')+'</span></button>'+
+      '<button type="button" class="emore" data-emenu="'+i+'" aria-label="More for '+esc(head)+'">&#8943;</button>'+
+      '</div>'+ gone +
       (th?'<div class="thumbs">'+th+'</div>':'')+
-      '<div class="cardbar">'+
-      '<button data-cam="'+i+'" title="Take a photo" aria-label="Take a photo">'+icon('camera')+'</button>'+
-      '<button data-gal="'+i+'" title="Add from photos" aria-label="Add from photos">'+icon('image')+'</button>'+
-      '<button data-edit="'+i+'" title="Edit this entry" aria-label="Edit this entry">'+icon('edit')+'</button>'+
-      '<span class="phc">'+(ph.length? ph.length+' photo'+(ph.length===1?'':'s') : 'no photos')+'</span>'+
-      '<button class="bin" data-del="'+i+'" title="Remove this entry" aria-label="Remove this entry">'+icon('trash')+'</button>'+
-      '</div></div>';
+      '</div>';
   }).join('');
-  el.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
-    if(!confirm('Remove this entry and its photos?')) return;
-    (call.entries[+b.dataset.del].photos||[]).forEach(releasePhoto);
-    call.entries.splice(+b.dataset.del,1); await saveCall(); renderDash();
-  }));
-  el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>{
-    const i = +b.dataset.edit, e = call.entries[i];
-    if(!e) return;
-    editingIdx = i;
-    if(e.type==='belt'){
-      resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
-      fillBeltFromEntry(e);
-      go('belt');
-    } else if(e.type==='note'){
-      $('nTopic').value = e.topic || ''; $('nText').value = e.text || '';
-      $('nErr').classList.remove('show');
-      go('note');
-    } else if(e.type==='health'){
-      resetHealth(); editingIdx = i;
-      $('hAsset').value = e.asset || ''; $('hFault').value = e.fault || '';
-      $('hAction').value = e.action || ''; $('hComment').value = e.comment || '';
-      const opt = Array.from($('hType').options).find(o => o.value === e.htype);
-      if(!opt && e.htype){ const o=document.createElement('option'); o.value=o.textContent=e.htype; $('hType').appendChild(o); }
-      if(e.htype) $('hType').value = e.htype;
-      hSevVal = e.severity || '';
-      document.querySelectorAll('#hSev button').forEach(x=>x.classList.toggle('on', x.dataset.v===hSevVal));
-      /* The fault library fields ride along untouched, so editing the wording
-         does not strip the priority, risks or the link to the belt entry. */
-      healthExtra = {};
-      ['faultId','faultCode','libVersion','category','conditions','what','leads',
-       'priority','thresholds','source','owner','due','refImages','beltRef','beltSeries',
-       'risks','benefit'].forEach(k => { if(e[k] !== undefined) healthExtra[k] = e[k]; });
-      go('health');
-    } else if(e.type==='project'){
-      $('pName').value = e.project || ''; $('pStat').value = e.status || '';
-      $('pNext').value = e.next || ''; $('pTarg').value = e.target || '';
-      $('pOwner').value = e.owner || ''; $('pNotes').value = e.notes || '';
-      editingProject = {key: projKey(e.project), inThisCall: true, fromStatus: e.fromStatus || ''};
-      editingIdx = null;                // project replaces through its own path
-      $('pErr').classList.remove('show');
-      go('project');
-    }
-    toast('Editing - save to update');
-  }));
-  el.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click', ()=>{
-    photoTarget = +b.dataset.cam; $('camInput').value=''; $('camInput').click();
-  }));
-  el.querySelectorAll('[data-gal]').forEach(b=>b.addEventListener('click', ()=>{
-    photoTarget = +b.dataset.gal; $('galInput').value=''; $('galInput').click();
-  }));
+  el.querySelectorAll('[data-emenu]').forEach(b=>b.addEventListener('click', ()=>openEntryMenu(+b.dataset.emenu)));
+  el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openLogged(+b.dataset.edit)));
   el.querySelectorAll('[data-view]').forEach(img=>img.addEventListener('click', ()=>{
     const p = img.dataset.view.split(':').map(Number);
     openPhoto(call.entries[p[0]].photos, p[1],
@@ -6224,6 +6180,95 @@ function renderDash(){
     releasePhoto(call.entries[p[0]].photos[p[1]]);
     call.entries[p[0]].photos.splice(p[1],1); await saveCall(); renderDash();
   }));
+}
+function entryHead(e){
+  if(e.type==='belt') return 'Belt - ' + e.asset;
+  if(e.type==='project') return 'Project - ' + e.project;
+  if(e.type==='note') return 'Note - ' + e.topic;
+  if(e.type==='health') return 'Health - ' + (e.asset || 'unspecified');
+  return 'Entry';
+}
+function openEntryMenu(i){
+  const e = call && call.entries[i];
+  if(!e) return;
+  const n = (e.photos || []).length;
+  openCardMenu(entryHead(e), n ? n + ' photo' + (n===1?'':'s') : 'No photos', [
+    {label: 'Take a photo', icon: 'camera', run: () => { photoTarget = i; $('camInput').value=''; $('camInput').click(); }},
+    {label: 'Add from photos', icon: 'image', run: () => { photoTarget = i; $('galInput').value=''; $('galInput').click(); }},
+    {label: 'Duplicate', icon: 'copy', run: () => openLogged(i, true)},
+    {label: 'Delete', icon: 'trash', danger: true, run: () => deleteEntry(i)}
+  ]);
+}
+async function deleteEntry(i){
+  const e = call && call.entries[i];
+  if(!e) return;
+  const n = (e.photos || []).length;
+  if(!confirm('Delete ' + entryHead(e) + (n ? ' and its ' + n + ' photo' + (n===1?'':'s') : '') + '?\n\nThis cannot be undone.')) return;
+  (e.photos||[]).forEach(releasePhoto);
+  call.entries.splice(i,1); await saveCall(); renderDash();
+}
+/* Open an entry in its form. With copy, the form opens filled from it but cut
+   loose: Done adds a new entry and the original is untouched. Photos are not
+   copied - they belong to the thing that was photographed. A project's name is
+   cleared, because one project logged twice in a visit is what the project form
+   exists to stop. */
+function openLogged(i, copy){
+  const e = call && call.entries[i];
+  if(!e) return;
+  editingIdx = i;
+  if(e.type==='belt'){
+    resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
+    fillBeltFromEntry(e);
+  } else if(e.type==='note'){
+    $('nTopic').value = e.topic || ''; $('nText').value = e.text || '';
+    $('nErr').classList.remove('show');
+  } else if(e.type==='health'){
+    resetHealth(); editingIdx = i;
+    $('hAsset').value = e.asset || ''; $('hFault').value = e.fault || '';
+    $('hAction').value = e.action || ''; $('hComment').value = e.comment || '';
+    const opt = Array.from($('hType').options).find(o => o.value === e.htype);
+    if(!opt && e.htype){ const o=document.createElement('option'); o.value=o.textContent=e.htype; $('hType').appendChild(o); }
+    if(e.htype) $('hType').value = e.htype;
+    hSevVal = e.severity || '';
+    document.querySelectorAll('#hSev button').forEach(x=>x.classList.toggle('on', x.dataset.v===hSevVal));
+    /* The fault library fields ride along untouched, so editing the wording
+       does not strip the priority, risks or the link to the belt entry. */
+    healthExtra = {};
+    ['faultId','faultCode','libVersion','category','conditions','what','leads',
+     'priority','thresholds','source','owner','due','refImages','beltRef','beltSeries',
+     'risks','benefit'].forEach(k => { if(e[k] !== undefined) healthExtra[k] = e[k]; });
+  } else if(e.type==='project'){
+    $('pName').value = e.project || ''; $('pStat').value = e.status || '';
+    $('pNext').value = e.next || ''; $('pTarg').value = e.target || '';
+    $('pOwner').value = e.owner || ''; $('pNotes').value = e.notes || '';
+    editingProject = {key: projKey(e.project), inThisCall: true, fromStatus: e.fromStatus || ''};
+    editingIdx = null;                // project replaces through its own path
+    if(copy){ editingProject = null; $('pName').value = ''; }
+    $('pErr').classList.remove('show');
+  } else return;
+  if(copy) editingIdx = null;
+  go(e.type);
+  toast(copy ? 'A copy \u2014 change what differs, then Done. Photos are not copied.' : 'Editing - save to update');
+}
+
+/* A ⋯ menu for any card: a title, a line under it, then the actions. It uses
+   the visit menu's sheet. Delete goes last, set apart, in the warning colour. */
+function openCardMenu(title, sub, actions){
+  $('vmName').textContent = title;
+  $('vmWhen').textContent = sub || '';
+  const body = $('vmBody');
+  body.innerHTML = '<div class="vmacts">' + actions.map((a, k) =>
+    '<button type="button" data-cm="' + k + '"' + (a.danger ? ' class="danger"' : '') + '>' +
+      (a.icon ? icon(a.icon) : '') + esc(a.label) + '</button>').join('') + '</div>';
+  /* closed first, synchronously in the tap: the camera and photo pickers only
+     open from inside a user's tap */
+  body.querySelectorAll('[data-cm]').forEach(b => b.addEventListener('click', () => {
+    closeVisitMenu();
+    actions[+b.dataset.cm].run();
+  }));
+  const dlg = $('vmdlg');
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
+  try { history.pushState({screen: screen, dialog: true}, '', location.href); } catch(e){}
 }
 function renderLoose(){
   const el = $('looseWrap');

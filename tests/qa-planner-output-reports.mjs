@@ -143,10 +143,16 @@ const rows = async (view) => {
 await rows('all');
 t('a report row renders as a wrapper, not a bare button',
   $('rpRes').querySelectorAll('.rprow').length === 2);
-t('an open row offers a tick', !!$('rpRes').querySelector('[data-rpdone="r1"]'));
-t('a done row offers no tick', !$('rpRes').querySelector('[data-rpdone="r2"]'));
-t('every row offers a bin',
-  $('rpRes').querySelectorAll('[data-rpdel]').length === 2);
+// v83: tick and bin moved behind a ⋯ on each row
+t('every row has a ⋯ and no tick or bin on the row',
+  $('rpRes').querySelectorAll('[data-rpmenu]').length === 2 && !$('rpRes').querySelector('.rpi'));
+const menuOf = id => { $('rpRes').querySelector('[data-rpmenu="' + id + '"]').click();
+  return [...$('vmBody').querySelectorAll('button')].map(b => b.textContent.trim()); };
+t('an open row offers Mark done, then Delete', menuOf('r1').join() === 'Mark done,Delete', menuOf('r1').join());
+w.closeVisitMenu();
+t('a done row offers only Delete', menuOf('r2').join() === 'Delete', menuOf('r2').join());
+t('Delete is set apart in the warning colour', $('vmBody').querySelector('button.danger').textContent.trim() === 'Delete');
+w.closeVisitMenu();
 t('the reading area is still its own button',
   $('rpRes').querySelectorAll('button.rpt').length === 2);
 t('no button is nested inside another button',
