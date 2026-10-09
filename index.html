@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v79">
+<meta name="build" content="v80">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -442,6 +442,22 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .dayblk h3 .dt{color:var(--ink-3);letter-spacing:0;text-transform:none;font-weight:400}
 .dayblk.isToday h3{color:var(--red)}
 .dayblk .none{font-size:12px;color:var(--ink-3);padding:2px 0 6px}
+/* phone month: seven columns, a count of visits (navy) and tasks (cyan) per day */
+.pm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.pm-hd{font-size:11px;font-weight:700;color:var(--ink-3);text-align:center;padding:2px 0}
+.pm-cell{min-height:64px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 2px;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:8px;cursor:pointer;
+  font:inherit;color:var(--ink)}
+.pm-cell.pad{background:transparent;border:0;cursor:default}
+.pm-cell .pm-n{font-size:13px;font-weight:700;line-height:1}
+.pm-cell.isToday{border:2px solid #00287B}
+.pm-cell.isToday .pm-n{color:#00287B}
+.pm-v,.pm-t{display:inline-block;min-width:18px;padding:1px 4px;border-radius:999px;font-size:11px;
+  font-weight:700;line-height:15px;text-align:center}
+.pm-v{background:#00287B;color:#fff}
+.pm-t{background:var(--cyan-lt);color:var(--cyan-dk)}
+.pm-key{font-size:12px;color:var(--ink-3);margin:10px 0 0;display:flex;align-items:center;gap:6px}
+.pm-key .pm-t{margin-left:8px}
 .late h2{color:var(--warn)}
 .vis.late .when{color:var(--warn)}   /* the time as well as the name on a late card */
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin-top:8px}
@@ -1332,6 +1348,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="seg" id="tvView">
     <button type="button" data-v="today">Day</button>
     <button type="button" data-v="week" class="on">Week</button>
+    <button type="button" data-v="month">Month</button>
   </div>
   <p class="hint" id="tvHint"></p>
   <div id="tvBody"></div>

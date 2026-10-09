@@ -925,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v79';
+const APP_BUILD = 'v80';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -3208,10 +3208,18 @@ function tvShift(days){
   tvCursor = iso(addDays(parseIso(tvDate()), days));
   renderToday();
 }
+// a month at a time, landing on the 1st so a 31st never skips a short month
+function tvShiftMonth(n){
+  const d = parseIso(tvDate());
+  tvCursor = iso(new Date(d.getFullYear(), d.getMonth() + n, 1));
+  renderToday();
+}
 function renderToday(){
   const el = $('tvBody');
   $('tvPlanner').hidden = isPhone();
-  if(todayView === 'today') renderTodayList(el); else renderWeekList(el);
+  if(todayView === 'today') renderTodayList(el);
+  else if(todayView === 'month') renderMonthGrid(el);
+  else renderWeekList(el);
   wireVisitCards(el);
   /* Today is a no-op when you are already on today, so it dims rather than
      disappearing - a control that comes and goes is harder to aim at. */
@@ -3222,6 +3230,10 @@ function renderToday(){
 function tvTitle(){
   if(todayView === 'today'){
     return tvDate() === todayISOdate() ? 'Today' : dayLabel(tvDate());
+  }
+  if(todayView === 'month'){
+    const d = parseIso(tvDate());
+    return MONNM[d.getMonth()] + ' ' + d.getFullYear();
   }
   const mon = tvWeekStart();
   return iso(mon) === iso(startOfWeek(new Date())) ? 'This week'
@@ -3297,6 +3309,46 @@ function renderWeekList(el){
       (items || '<div class="none">Nothing planned.</div>')+
       '</div>';
   }).join('');
+}
+
+/* Month on the phone: a Monday-to-Sunday grid with a count of visits and tasks
+   on each day. Tapping a day opens that day's list - the grid is for seeing
+   where the month is full, the Day list is where the work is. */
+function renderMonthGrid(el){
+  const c = parseIso(tvDate()), y = c.getFullYear(), m = c.getMonth();
+  const first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
+  const from = iso(first), to = iso(last), t = todayISOdate();
+  const nv = {}, nt = {};
+  APPTS.forEach(a => { if(a.date >= from && a.date <= to) nv[a.date] = (nv[a.date] || 0) + 1; });
+  TASKS.forEach(x => { if(x.date >= from && x.date <= to) nt[x.date] = (nt[x.date] || 0) + 1; });
+  const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+  const v = sum(nv), k = sum(nt);
+  $('tvHint').textContent = (v || k) ? countWords(v, k) + ' in ' + MONNM[m]
+    : 'Nothing planned in ' + MONNM[m] + '.';
+  let cells = '';
+  for(let i = (first.getDay() + 6) % 7; i > 0; i--) cells += '<span class="pm-cell pad"></span>';
+  for(let n = 1; n <= last.getDate(); n++){
+    const key = iso(new Date(y, m, n)), a = nv[key] || 0, b = nt[key] || 0;
+    const words = [DAYNM7[new Date(y, m, n).getDay()] + ' ' + n + ' ' + MONNM[m], countWords(a, b) || 'nothing planned'].join(', ');
+    cells += '<button type="button" class="pm-cell' + (key === t ? ' isToday' : '') + (a || b ? ' busy' : '') +
+      '" data-mday="' + key + '" aria-label="' + esc(words) + '">' +
+      '<span class="pm-n">' + n + '</span>' +
+      (a ? '<span class="pm-v">' + a + '</span>' : '') +
+      (b ? '<span class="pm-t">' + b + '</span>' : '') +
+    '</button>';
+  }
+  el.innerHTML = '<div class="pm-grid">' +
+    ['M','T','W','T','F','S','S'].map(x => '<span class="pm-hd">' + x + '</span>').join('') + cells + '</div>' +
+    '<p class="pm-key"><span class="pm-v">2</span> visits <span class="pm-t">1</span> tasks</p>';
+  el.querySelectorAll('[data-mday]').forEach(b => b.addEventListener('click', () => {
+    tvCursor = b.dataset.mday;
+    tvSetView('today');
+  }));
+}
+function tvSetView(v){
+  todayView = v;
+  $('tvView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === v));
+  renderToday();
 }
 
 /* ---- contacts out of the app and into the phone ----
@@ -3642,19 +3694,16 @@ async function moveTo(k){
 }
 $('mvCancel').addEventListener('click', closeMove);
 
-$('tvView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
-  todayView = b.dataset.v;
-  $('tvView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-  renderToday();
-}));
-/* Paging is by day in day view and by week in week view, so the arrows always
+$('tvView').querySelectorAll('button').forEach(b => b.addEventListener('click', () => tvSetView(b.dataset.v)));
+/* Paging is by day, week or month to match the view, so the arrows always
    move by whatever is on the screen. */
 $('tvPrev').innerHTML = icon('chev');
 $('tvNext').innerHTML = icon('chev');
 $('tvUnplanned').innerHTML = icon('plus');
 $('tvBook').innerHTML = icon('calplus');
-$('tvPrev').addEventListener('click', ()=>tvShift(todayView === 'today' ? -1 : -7));
-$('tvNext').addEventListener('click', ()=>tvShift(todayView === 'today' ?  1 :  7));
+const tvStep = n => todayView === 'month' ? tvShiftMonth(n) : tvShift(todayView === 'today' ? n : 7 * n);
+$('tvPrev').addEventListener('click', ()=>tvStep(-1));
+$('tvNext').addEventListener('click', ()=>tvStep(1));
 $('tvNow').addEventListener('click', ()=>{ tvCursor = null; renderToday(); });
 /* Booking ahead from the phone. The unplanned path already creates an
    appointment as a side effect of starting a call; this is the same thing
@@ -9029,8 +9078,7 @@ async function pullLatestVersion(){
     return;
   }
   const reg = await navigator.serviceWorker.ready.catch(()=>null);
-  const sw = reg && (reg.active || navigator.serviceWorker.controller);
-  if(!sw){
+  if(!reg || !(reg.active || navigator.serviceWorker.controller)){
     showMsg(stat, 'warn', 'The app is not running from its cache yet. Reload once and try again.');
     return;
   }
@@ -9038,12 +9086,44 @@ async function pullLatestVersion(){
   showMsg(stat, 'info', 'Checking for a newer version...');
   $('upBtn').disabled = true;
 
-  // ask the worker to re-fetch sw.js itself as well, in case it changed
+  // ask for sw.js itself first: a new version comes with a new worker
   try { await reg.update(); } catch(e){}
 
+  /* A new worker means a new version. It downloads every file as it installs
+     and then takes over - so wait for that and reload. Sending the refresh to
+     the old worker instead was the "took too long" on the first tap: the new
+     one replaced it mid-request and the answer never came. */
+  const fresh = reg.installing || reg.waiting;
+  if(fresh){
+    showMsg(stat, 'info', 'Downloading the new version...');
+    const ok = await new Promise(res => {
+      if(fresh.state === 'activated') return res(true);
+      const timer = setTimeout(() => res(false), 120000);
+      fresh.addEventListener('statechange', () => {
+        if(fresh.state === 'activated'){ clearTimeout(timer); res(true); }
+        if(fresh.state === 'redundant'){ clearTimeout(timer); res(false); }
+      });
+    });
+    $('upBtn').disabled = false;
+    if(!ok){
+      showMsg(stat, 'warn', 'The new version did not finish downloading. It carries on next time the app opens with signal.');
+      return;
+    }
+    showMsg(stat, 'ok', 'New version ready. Reloading...');
+    if(call && !confirm('A call is open.\n\nReloading keeps everything saved, but anything ' +
+         'typed into a form and not yet saved will be lost.\n\nReload now?')){
+      showMsg(stat, 'ok', 'Ready. Reload when you have finished the call.');
+      return;
+    }
+    location.reload();
+    return;
+  }
+
+  // the same version: refresh its files through whichever worker is in charge now
+  const sw = reg.active || navigator.serviceWorker.controller;
   const result = await new Promise(res => {
     const ch = new MessageChannel();
-    const timer = setTimeout(()=>res({ok:false, reason:'timeout'}), 30000);
+    const timer = setTimeout(()=>res({ok:false, reason:'timeout'}), 60000);
     ch.port1.onmessage = ev => { clearTimeout(timer); res(ev.data || {ok:false, reason:'empty'}); };
     sw.postMessage({type:'refresh'}, [ch.port2]);
   });

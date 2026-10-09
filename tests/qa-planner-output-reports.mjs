@@ -24,9 +24,10 @@ const t = (name, ok) => ok ? pass++ : fails.push(name);
 t('week is the default view', g('todayView') === 'week');
 t('the week button is the one marked on',
   $('tvView').querySelector('[data-v="week"]').classList.contains('on'));
-t('view labels are Day and Week',
+t('view labels are Day, Week and Month',
   $('tvView').querySelector('[data-v="today"]').textContent === 'Day' &&
-  $('tvView').querySelector('[data-v="week"]').textContent === 'Week');
+  $('tvView').querySelector('[data-v="week"]').textContent === 'Week' &&
+  $('tvView').querySelector('[data-v="month"]').textContent === 'Month');
 
 t('the header carries all six controls',
   ['tvPrev','tvNow','tvNext','tvUnplanned','tvBook'].every(id => !!$(id)));

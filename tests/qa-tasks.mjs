@@ -179,6 +179,27 @@ await g(`(async () => { const t = {id: 'tsat', title: 'Saturday task', date: '20
 await tick();
 ok(/Saturday/.test($('tvBody').textContent) && /Saturday task/.test($('tvBody').textContent), 'a weekend day shows when something is on it');
 
+// the phone's Month grid: counts per day, tap a day to open its list
+ok([...$('tvView').querySelectorAll('button')].map(b => b.textContent).join() === 'Day,Week,Month', 'phone views are Day, Week and Month');
+$('tvView').querySelector('[data-v="month"]').click(); await tick();
+ok(g('todayView') === 'month' && $('tvView').querySelector('[data-v="month"]').classList.contains('on'), 'Month is selected');
+ok($('title').textContent === 'October 2026', 'title is the month: ' + $('title').textContent);
+const cells = $('tvBody').querySelectorAll('.pm-cell[data-mday]');
+ok(cells.length === 31, 'October has 31 day cells: ' + cells.length);
+ok($('tvBody').querySelectorAll('.pm-cell.pad').length === 3, 'October 2026 starts on a Thursday, so three blank cells');
+const c8 = $('tvBody').querySelector('[data-mday="2026-10-08"]');
+ok(c8 && c8.querySelector('.pm-t') && c8.querySelector('.pm-t').textContent === '1', 'the 8th shows one task');
+ok(/task/.test($('tvHint').textContent) && /October/.test($('tvHint').textContent), 'hint counts the month: ' + $('tvHint').textContent);
+$('tvNext').click(); await tick();
+ok($('title').textContent === 'November 2026' && $('tvBody').querySelectorAll('.pm-cell[data-mday]').length === 30, 'next goes to November');
+$('tvPrev').click(); $('tvPrev').click(); await tick();
+ok($('title').textContent === 'September 2026', 'previous goes back a month at a time');
+$('tvNext').click(); await tick();
+$('tvBody').querySelector('[data-mday="2026-10-08"]').click(); await tick();
+ok(g('todayView') === 'today' && g('tvCursor') === '2026-10-08' && $('tvView').querySelector('[data-v="today"]').classList.contains('on'), 'tapping a day opens that day');
+ok(/Late task/.test($('tvBody').textContent), 'and its list shows the task');
+g(`(() => { todayView = 'week'; tvCursor = '2026-10-08'; })()`);
+
 // + Task on a given day
 g(`openTask(null, {date: '2026-10-14'})`); await tick();
 ok($('tkDate').value === '2026-10-14', '+ Task on a day starts on that day');
