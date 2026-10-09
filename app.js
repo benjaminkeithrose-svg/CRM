@@ -926,7 +926,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v74';
+const APP_BUILD = 'v75';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2051,6 +2051,8 @@ function renderCalendar(){
         el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(t))) + 'px';
         el.style.height = Math.max(18, TASK_DUR * PX_MIN) + 'px';
         if(!oneDay) el.classList.add('tiny');
+        const ts = minOf(t.start || '00:00');
+        if(ts < DAY_FROM * 60 || ts >= DAY_TO * 60){ el.classList.add('oob'); el.title += '\nOutside 7am-5pm, shown at the edge'; }
         makeDraggableAppt(el, t, taskMoved);
         b.appendChild(el);
       });
@@ -4628,10 +4630,14 @@ let taskEdit = null, taskIsNew = false, taskBefore = '';
 
 function tasksOn(dISO){ return TASKS.filter(t => t.date === dISO).sort((x,y)=>(x.start||'').localeCompare(y.start||'')); }
 const taskTitle = t => t.title || t.type || 'Untitled task';
-// the next half hour after now: added at 10:12, it sits at 10:30
+/* The next half hour after now - added at 10:12, it sits at 10:30 - kept
+   inside the hours the calendar shows (7am to 5pm). Added at 9pm it would
+   otherwise sit at 9:30pm, squeezed off the bottom of the day where it is
+   easy to miss; it goes to the last slot, 4:30pm, instead. */
 function nextHalfHour(d){
   const m = d.getHours() * 60 + d.getMinutes();
-  return hhmm(Math.min(Math.ceil((m + 1) / 30) * 30, 23 * 60 + 30));
+  const next = Math.ceil((m + 1) / 30) * 30;
+  return hhmm(Math.max(DAY_FROM * 60, Math.min(next, DAY_TO * 60 - TASK_DUR)));
 }
 async function taskMoved(t){ t.updated = Date.now(); await tasksPut(t); }
 async function taskToggle(t){
@@ -4639,7 +4645,7 @@ async function taskToggle(t){
   t.doneAt = t.done ? Date.now() : null;
   t.updated = Date.now();
   await tasksPut(t);
-  toast(t.done ? 'Done: ' + taskTitle(t) : 'Not done: ' + taskTitle(t));
+  toast(t.done ? 'Completed: ' + taskTitle(t) : 'Not completed: ' + taskTitle(t));
   taskRefresh();
 }
 function taskRefresh(){
@@ -4651,8 +4657,8 @@ function taskEl(t, pill){
   const el = document.createElement('div');
   el.className = (pill ? 'pill' : 'appt') + ' task' + (t.done ? ' done' : '');
   el.tabIndex = 0;
-  const tick = '<button type="button" class="tick" aria-label="' + (t.done ? 'Mark not done' : 'Mark done') +
-    '" title="' + (t.done ? 'Done - tap to undo' : 'Mark done') + '">' + (t.done ? icon('check') : '') + '</button>';
+  const tick = '<button type="button" class="tick" aria-label="' + (t.done ? 'Mark not completed' : 'Mark completed') +
+    '" title="' + (t.done ? 'Completed - tap to undo' : 'Mark completed') + '">' + (t.done ? icon('check') : '') + '</button>';
   if(pill){
     el.innerHTML = tick + '<span class="pt"></span>';
     el.querySelector('.pt').textContent = (t.start || '') + ' ' + taskTitle(t);
@@ -4661,7 +4667,7 @@ function taskEl(t, pill){
     el.innerHTML = tick + '<div class="a"><span></span></div>';
     el.querySelector('.a span').textContent = (t.start || '') + ' ' + taskTitle(t);
   }
-  el.title = 'Task: ' + taskTitle(t) + (t.acct ? '\n' + t.acct : '') + (t.done ? '\nDone' : '');
+  el.title = 'Task: ' + taskTitle(t) + (t.acct ? '\n' + t.acct : '') + (t.done ? '\nCompleted' : '');
   el.querySelector('.tick').addEventListener('click', e => {
     e.stopPropagation();
     taskToggle(t).catch(err => { console.error(err); toast('Could not update the task: ' + err.message); });
