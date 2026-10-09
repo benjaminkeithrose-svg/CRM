@@ -95,6 +95,12 @@ closed with nothing to report is a normal finished state (`noReport`).
 Any new `<dialog>` must be added there. Guard `showModal` —
 `if(d.showModal) d.showModal(); else d.setAttribute('open','')`.
 
+**Help lives in two places with the same words:** the Help screen
+(`s-help` in `index.html`, opened from ⋯ on Home) and `MANUAL.md`. When a flow,
+button name or screen changes, update the matching Help section in the same
+pull request, then regenerate or edit `MANUAL.md` to match. Help steps are
+numbered, plain English, one action per step.
+
 **No output format that has already been rejected.** EML was tried and dropped:
 on Android, Outlook opens it in a browser rather than as a draft. PDF was dropped
 deliberately. Output is self-contained HTML handed to the share sheet.

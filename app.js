@@ -925,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v84';
+const APP_BUILD = 'v85';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -949,7 +949,9 @@ const ICONS = {
   person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   book:   '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>',
-  close:  '<path d="M18 6L6 18M6 6l12 12"/>'
+  close:  '<path d="M18 6L6 18M6 6l12 12"/>',
+  gear:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  help:   '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1271,7 +1273,7 @@ const TITLES = {
   accounts:['Accounts',''], acct:['Account',''], plan:['Plan',''], today:['Today',''],
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
-  settings:['Settings',''], directory:['Directory',''], reference:['Reference',''],
+  settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'],
   note:['General note',''], health:['Health check','']
 };
@@ -1316,8 +1318,8 @@ const CALL_SCREENS = ['dash','belt','project','note','health'];
 function paintHeaderMenu(name){
   $('hdMenu').style.display = 'block';
   $('hdMenu').innerHTML = name === 'home' ? '<span class="dots" aria-hidden="true">&#8943;</span>' : icon('home');
-  $('hdMenu').title = name === 'home' ? 'Settings' : 'Home';
-  $('hdMenu').setAttribute('aria-label', name === 'home' ? 'Settings, data and backup' : 'Home');
+  $('hdMenu').title = name === 'home' ? 'Settings and help' : 'Home';
+  $('hdMenu').setAttribute('aria-label', name === 'home' ? 'Settings and help' : 'Home');
 }
 // the call toolbar is sticky just under the sticky header
 function headerHeight(){
@@ -1401,7 +1403,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home'
+  today:'home', settings:'home', help:'home'
 };
 function parentOf(name){
   const up = PARENT[name] || 'home';
@@ -5618,7 +5620,14 @@ $('hdMenu').innerHTML = icon('home');
    call stays open and the call strip keeps saying so - which is what makes going
    in and out of two calls possible. */
 $('hdMenu').addEventListener('click', ()=>{
-  if(screen === 'home'){ go('settings'); return; }
+  // on Home it is the ⋯ menu: Settings, and Help (v85)
+  if(screen === 'home'){
+    openCardMenu('Field CRM', 'Version ' + APP_BUILD, [
+      {label: 'Settings', icon: 'gear', run: () => go('settings')},
+      {label: 'Help', icon: 'help', run: () => go('help')}
+    ]);
+    return;
+  }
   if(CALL_SCREENS.includes(screen) && screen !== 'dash' && leaveEntry(screen)) return;
   go('home', true);
 });
@@ -6585,12 +6594,10 @@ $('pvClose').addEventListener('click', ()=>{
 async function deleteCallRecord(c){
   if(!c) return false;
   const ph = c.entries.reduce((a,e)=>a+(e.photos?e.photos.length:0),0) + (c.loose?c.loose.length:0);
-  const synced = !!c.pushedAt || !!c.ghAt;
   if(!confirm('Delete ' + c.customer + ' on ' + c.date + '?\n\n' +
       c.entries.length + ' entr' + (c.entries.length===1?'y':'ies') + ' and ' + ph +
       ' photo' + (ph===1?'':'s') + ' will be erased. This cannot be undone.' +
-      (sbUser ? '\n\nIt is also deleted from your other devices when they next sync.' : '') +
-      (synced ? '\n\nA copy has already gone to the GitHub sync repository and could come back from there on the next GitHub pull.' : ''))) return false;
+      (sbUser ? '\n\nIt is also deleted from your other devices when they next sync.' : ''))) return false;
   (c.entries||[]).forEach(e => (e.photos||[]).forEach(releasePhoto));
   (c.loose||[]).forEach(releasePhoto);
   await callsDel(c.id);

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v84">
+<meta name="build" content="v85">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1061,6 +1061,11 @@ details.sx > summary b{font-size:15px}
 details.sx .sxs{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 details.sx[open] > summary{border-bottom:1px solid var(--line-2)}
 details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
+/* Help (v85): numbered steps, one action each */
+.help ol{margin:4px 0 8px;padding-left:22px}
+.help li{margin:5px 0;line-height:1.45}
+.help p{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2)}
+#s-help h2:first-child{margin-top:4px}
 .pick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
 .pick button{min-height:56px;padding:10px 8px;border:1px solid var(--cyan-md);border-radius:var(--r);background:var(--surface);
   font-size:15px;font-weight:700;color:var(--ink);cursor:pointer}
@@ -1309,6 +1314,316 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 </section>
 
 <!-- ACCOUNT SEARCH -->
+<!-- HELP (v85). Built into the page so it works with no signal. MANUAL.md in
+     the repo carries the same words; change both together. -->
+<section class="scr" id="s-help">
+  <h2>Getting started</h2>
+  <details class="sx hx">
+    <summary><b>1. Install it on your phone</b><span class="sxs">Once, from Chrome</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the app's web address in Chrome on your phone.</li>
+        <li>Tap the three dots at the top right of Chrome.</li>
+        <li>Tap <b>Add to Home screen</b>, then <b>Install</b>.</li>
+        <li>From now on, open Field CRM from its icon on your home screen, not from Chrome.</li>
+      </ol>
+      <p>Once it has opened once, it works with no signal.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>2. Open it on your PC</b><span class="sxs">Chrome or Edge</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the same web address in Chrome or Edge.</li>
+        <li>Bookmark it.</li>
+      </ol>
+      <p>Plan the week on the PC. Do the calls on the phone. Cloud sync keeps the two in step.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>3. Load your accounts</b><span class="sxs">On the PC, from Dynamics</span></summary>
+    <div class="fld help">
+      <p>The app arrives empty. You load your own customers, and they stay on your devices and your encrypted cloud copy.</p>
+      <ol>
+        <li>In Dynamics, open the <b>ANZ Active Food Contacts</b> view.</li>
+        <li>Export it to Excel (.xlsx).</li>
+        <li>In Field CRM, tap <b>&#8943;</b> at the top right of Home, then <b>Settings</b>.</li>
+        <li>Tap <b>Update data</b>.</li>
+        <li>Under <b>Contact database</b>, choose the file.</li>
+        <li>Tap <b>Import CRM export</b>.</li>
+      </ol>
+      <p>Do this again whenever the CRM changes. Monthly is plenty. With cloud sync on, your phone gets the accounts by itself.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>4. Load the belt data</b><span class="sxs">Fills the pickers on the belt form</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Update data</b>.</li>
+        <li>Under <b>Belt reference data</b>, choose <b>Plant_Audit_Template_1.xlsm</b>.</li>
+        <li>Tap <b>Import plant audit workbook</b>.</li>
+        <li>Leave the screen on until it says it has finished. It takes a few seconds.</li>
+      </ol>
+      <p>The newer audit form (FORM v1.2) doesn't import yet. Use Plant_Audit_Template_1.xlsm.</p>
+      <p>Also under Update data, if you have them: the <b>plant audit register</b> (which belts are installed where), the <b>engineering manuals</b> (PDFs, one at a time, several minutes each), and the <b>zone overrides</b> file.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>5. Turn on cloud sync</b><span class="sxs">On every device you use</span></summary>
+    <div class="fld help">
+      <p>You get the project address, the key and your sign-in from whoever set up the cloud project.</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Cloud sync</b>.</li>
+        <li>Paste the <b>Project address</b> and the <b>Publishable key</b>.</li>
+        <li>Type your email and password.</li>
+        <li>Tap <b>Sign in</b>.</li>
+        <li>Type your passphrase. On your first device, type it twice to set it.</li>
+        <li>Tap <b>Unlock</b>.</li>
+      </ol>
+      <p>Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.</p>
+      <p>After that it runs by itself: when the app opens, when signal comes back, and a few seconds after any change.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>6. Add your email address</b><span class="sxs">So Outlook invites work</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Your details</b>.</li>
+        <li>Type your email address.</li>
+      </ol>
+      <p>Outlook uses it as the organiser on the invites. Without it, the people you invite are left off.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>7. Do your first call</b><span class="sxs">On the phone</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>New</b> on Home.</li>
+        <li>Tap <b>Site call</b>.</li>
+        <li>Type part of the account name, and tap the account.</li>
+        <li>Tick the people you're seeing.</li>
+        <li>Tap <b>Start the call</b>.</li>
+        <li>Tap <b>Belt</b>, <b>Project</b>, <b>Note</b>, <b>Health check</b> or <b>Task</b> to log something.</li>
+        <li>Tap <b>Done</b> at the top to save it.</li>
+        <li>When you're ready to send the notes, tap <b>Create and share</b> at the top of the call.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h2>How do I&hellip;</h2>
+  <details class="sx hx">
+    <summary><b>Plan a week</b><span class="sxs">On the PC</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Pick a <b>Zone</b> to see that patch, or click <b>Search the whole account book</b>.</li>
+        <li>Click an account, or drag it onto a day.</li>
+        <li>Set the time, how long, what it's for, and who you'll see.</li>
+        <li>Click <b>Save</b>.</li>
+      </ol>
+      <p>Drag a visit to another day to move it. The coloured chips filter by focus.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Put visits in Outlook</b><span class="sxs">On the PC</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>On <b>Plan</b>, click <b>&#8943;</b> at the top right of the calendar.</li>
+        <li>Click <b>Download to Outlook</b>.</li>
+        <li>Open the file it gives you, and accept it in Outlook.</li>
+      </ol>
+      <p>Only visits that changed since last time are in the file, and downloading again updates Outlook rather than adding a second copy. The colour on a visit: blue is not in Outlook yet, green is in Outlook, orange has changed since. Download again.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>See my week on the phone</b><span class="sxs">Day, Week or Month</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Tap <b>Day</b>, <b>Week</b> or <b>Month</b>.</li>
+        <li>Use the arrows to move. Tap <b>Today</b> to come back.</li>
+      </ol>
+      <p>In Month, each day shows how many visits (navy) and tasks (light blue) it has. Tap a day to see it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Start a planned visit</b><span class="sxs">From Plan</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Tap the visit.</li>
+      </ol>
+      <p>The call opens with the account and the people already filled in.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Log a call that wasn't planned</b><span class="sxs">Site, phone or Teams</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>New</b> on Home.</li>
+        <li>Tap <b>Site call</b>, <b>Phone call</b> or <b>Teams call</b>.</li>
+        <li>Type part of the account name, and tap the account.</li>
+        <li>Tick the people, and tap <b>Start the call</b>.</li>
+      </ol>
+      <p>It goes on the calendar by itself, at the time you started it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Book a visit for later</b><span class="sxs">Without starting it</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>New</b> on Home.</li>
+        <li>Tap <b>Book a visit</b>.</li>
+        <li>Tap the account.</li>
+        <li>Pick the day.</li>
+      </ol>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Close out, move or cancel a visit</b><span class="sxs">The &#8943; on the visit</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Tap <b>&#8943;</b> on the visit.</li>
+        <li>Tap <b>Close out</b>, <b>Move</b>, <b>Missed</b> or <b>Cancel</b>.</li>
+      </ol>
+      <p>Close out is for a visit with nothing to write up. It still counts as a visit. The same menu has the contacts' numbers, and <b>Reopen</b> for a visit that's already closed.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Log a belt, note, project or health check</b><span class="sxs">Inside a call</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>In the call, tap <b>Belt</b>, <b>Project</b>, <b>Note</b> or <b>Health check</b>.</li>
+        <li>Fill it in.</li>
+        <li>Tap <b>Done</b> at the top.</li>
+      </ol>
+      <p>Leave a form with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Add photos</b><span class="sxs">To an entry, or loose</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap the camera icon at the top of the call to photograph whatever you logged last.</li>
+        <li>Or tap <b>&#8943;</b> on an entry's card, then <b>Take a photo</b> or <b>Add from photos</b>.</li>
+      </ol>
+      <p>Photos with nothing logged yet go in <b>Loose photos</b> and come out at the end of the notes. Tap a photo to look at it. The &times; on it deletes it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Change, copy or delete an entry</b><span class="sxs">Belt, note, project, health check</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap the entry's card to change it.</li>
+        <li>Or tap <b>&#8943;</b> on the card, then <b>Duplicate</b> to start a copy, or <b>Delete</b>.</li>
+      </ol>
+      <p>A copy opens without being saved. Change what's different and tap Done. Photos aren't copied.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Add a task</b><span class="sxs">From New, a call or the calendar</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>New</b> on Home, then <b>Task</b>. In a call, tap <b>Task</b>. On the PC, click <b>+ Task</b> on a day.</li>
+        <li>Type what it is.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>It goes on the calendar at the next half hour, for 30 minutes. Change the day or time on the form. Tick its box when it's done.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Request a quote</b><span class="sxs">An RFQ to customer service</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>New</b> on Home.</li>
+        <li>Tap <b>Quote request</b>.</li>
+        <li>Fill in when it's <b>Required by</b>, then pick the account and the people.</li>
+        <li>Log the belts the same way as on a call.</li>
+        <li>Tap <b>Create and share</b> to send it.</li>
+      </ol>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Send the notes out</b><span class="sxs">Create and share</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>In the call, tap <b>Create and share</b> at the top.</li>
+        <li>Choose what to include, the photo size, and where to send it.</li>
+        <li>Tap <b>Create and share</b>.</li>
+        <li>Pick Outlook, Teams or OneDrive from the list.</li>
+      </ol>
+      <p>Only the people ticked for customer documents are named in it. Tap the card at the top of the call to change who.</p>
+      <p>Once the file has gone, open Create and share again and tap <b>Drop the photos, keep the record</b> to free up space. The photos are in the file you sent.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Find an old call, or mark one done</b><span class="sxs">Reports</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Reports</b> on Home.</li>
+        <li>Tap the search icon and type an account, a person, an asset number or a word from a note.</li>
+        <li>Tap the call to open it.</li>
+      </ol>
+      <p>To finish a call, tap <b>&#8943;</b> on it in Reports, then <b>Mark done</b>. Done with nothing to report is a normal finish.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Look up a manual, a fault or a contact</b><span class="sxs">Reference and Directory</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Reference</b> on Home for the engineering manuals and the fault library.</li>
+        <li>Tap <b>Directory</b> on Home for accounts and contacts.</li>
+      </ol>
+      <p>In a call, the book icon at the top opens the manuals without leaving the call.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Get the latest version</b><span class="sxs">It updates itself once a day</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>App version</b>.</li>
+        <li>Tap <b>Get the latest version</b>.</li>
+      </ol>
+      <p>Your calls, accounts and photos aren't touched.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Back up, or restore a backup</b><span class="sxs">Your undo</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Backup and restore</b>.</li>
+        <li>Tap <b>Back up</b>.</li>
+        <li>Save the file somewhere that isn't the phone.</li>
+      </ol>
+      <p>To restore, choose the file under <b>Restore</b> and tap <b>Restore from backup</b>. It adds and updates. It never deletes anything already there.</p>
+      <p>Cloud sync isn't a backup: a delete reaches every device. The backup file is your undo.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Set up a new phone</b><span class="sxs">Everything comes back from the cloud</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Install the app (Getting started, step 1).</li>
+        <li>Turn on cloud sync with the same sign-in and passphrase (step 5).</li>
+        <li>Leave it open for a minute with signal.</li>
+      </ol>
+      <p>Uninstalling the app deletes everything on that phone. Make sure it has synced, or back up, first.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Something's not right</b><span class="sxs">Common fixes</span></summary>
+    <div class="fld help">
+      <p><b>A fix isn't there yet.</b> Get the latest version (above), or close the app fully and open it again.</p>
+      <p><b>Nothing shows on Plan.</b> Either nothing is planned, or this device hasn't synced yet. <b>Cloud sync</b> in Settings says when it last synced.</p>
+      <p><b>Sync failed.</b> The line under Cloud sync says why, usually no signal. It tries again when signal comes back.</p>
+      <p><b>An account is missing.</b> It wasn't in the export. Check the view in Dynamics, then import again.</p>
+      <p><b>Field CRM isn't in the share list.</b> It only appears once the app is installed from Chrome (Getting started, step 1).</p>
+      <p><b>The belt pickers are empty.</b> Load the belt data (Getting started, step 4).</p>
+    </div>
+  </details>
+</section>
+
 <section class="scr" id="s-account">
   <!-- New starts here: one tap says what is being made, then the next step
        appears below it on the same screen. Ben, 2026-10-09: touch buttons, not
