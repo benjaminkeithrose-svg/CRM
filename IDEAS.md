@@ -231,18 +231,33 @@ On voice-to-text specifically: Ben's message asks whether an online step can be 
 - **Plain dictation** into the existing comment fields is already free today via the phone keyboard's own mic (see the first entry in this file) — no app change, no network call from this app's side. Whether *that* itself runs fully offline depends on the keyboard's own settings (Gboard/Samsung voice typing can use an on-device language model, but may default to a cloud one) — worth checking on his phone rather than assumed either way.
 - **AI clean-up of what was dictated** (tidying rambling voice notes into structured call notes) is a different, heavier task that a phone keyboard cannot do, and does need a real model — there is no offline way around that part. This is exactly what step 3 above ("Copy for Claude" button, pasted back, no API key in the app) already proposes, specifically so the one piece that must be online stays a deliberate, occasional action rather than something the whole app depends on.
 
+**Follow-up 2026-10-09 (second message) — restated in plain terms:**
+
+Ben restated the actual complaints, which sharpen two things above rather than add new ones:
+
+1. **"I don't want to jump out of the app to clean up call notes via Claude copy/paste."** This answers the first "Not decided" item below: chat-based AI (step 3's "Copy for Claude" button) is *not* acceptable after all — the round trip itself is the complaint, not just whether it's online. That means the small backend/key-holding proxy is the real requirement, not an optional upgrade: there is no way to call an AI model **from inside the app**, without ever leaving it, without something other than the static site holding the API key — a key embedded in the page is public the instant it ships (same reasoning as the belt-catalogue block earlier: GitHub Pages serves whatever it's given to anyone). A small serverless function (e.g. a Cloudflare Worker) that holds the key and the app calls directly is the standard way to do this, and fits "lightweight" — but it is new infrastructure this project has never had: something to create, host, and keep an eye on, even on a free tier. Worth being upfront that "AI inside the app, no copy/paste" and "no backend, ever" cannot both be true at once; one of them has to give.
+
+2. **"Call reports should be visible on the PC almost instantly, not after a manual sync tap."** Two different answers depending on how literal "instant" needs to be:
+   - **Fast, still no new infrastructure:** change call-report sync from a manual button press to automatic polling of the existing private repo every 15–30 seconds while the app is open on both ends — not real-time, but close, and it's the same GitHub-repo mechanism already built, just triggered on a timer instead of a tap. This is a real departure from this app's existing "nothing happens automatically, every sync is a deliberate button press" pattern (MANUAL.md), which was presumably chosen on purpose — worth Ben confirming he's fine trading that away specifically for call-report sync, not assuming it.
+   - **Genuinely instant (push, not poll):** needs a backend that can notify the other device the moment something changes — GitHub's API has no push mechanism for this. That means a realtime-capable service (e.g. Supabase/Firebase's free tiers) in place of, or alongside, the GitHub repo — a bigger architecture change than the polling option, and a second new moving part on top of the AI proxy above.
+
+Both the AI piece and true-instant sync point the same direction: this app moving from "fully static, no backend, ever" to "mostly static, with one small piece of infrastructure behind it." That's a real line to cross, not a detail — worth deciding deliberately rather than drifting into it one feature at a time.
+
 **Not decided:**
-- Whether the AI step stays in chat or moves into the app. In the app it would need a key and a small server, which this project has never had.
+- Whether Ben is fine adding one small piece of backend infrastructure (a serverless function, likely Cloudflare Workers or similar) to get AI cleanup inside the app and/or faster sync — see the follow-up above. Everything else in this entry assumed "no backend, ever" stays true; it may not, after this.
+- Whether "almost instantaneous" sync means fast polling (no new infrastructure) or genuinely real-time push (does need new infrastructure).
 - Whether IT allows Microsoft 365 storage or Graph permissions.
 - Whether it is only Ben using the app or the team.
 - What the encryption is actually meant to defend against (see threat model above) — this decides the design, so it has to come before any encryption work starts.
 
 **Questions for Ben before building:**
 1. Is steps 1 to 4 the right scope, in that order?
-2. Is the chat-based AI step acceptable?
-3. Should the sync investigation come first?
-4. Should IT be asked about Microsoft 365 storage?
-5. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
+2. ~~Is the chat-based AI step acceptable?~~ **Answered 2026-10-09: no** — Ben wants AI cleanup inside the app, no copy/paste round trip. See the follow-up above: this means accepting one small piece of backend infrastructure, which is now the real open question —
+3. Is Ben fine with that one small backend piece (likely a Cloudflare Worker or similar, holding the AI API key so the app can call it directly)? Everything about this project being "no backend, ever" was built assuming the answer was no.
+4. Should the sync investigation come first?
+5. Should IT be asked about Microsoft 365 storage?
+6. For encryption: what's the threat model — a lost/stolen phone, a leaked GitHub token, a compromised private repo, something else? And does call-report sync (which currently sends full customer names and notes, not just a hashed key like appointments do) need encrypting before anything else does?
+7. For "almost instantaneous" sync: is fast polling (every 15-30s, no new infrastructure, but drops the "every sync is a deliberate button press" pattern) good enough, or does it need to be genuinely real-time (needs a second new piece of infrastructure beyond the AI proxy)?
 
 ---
 
