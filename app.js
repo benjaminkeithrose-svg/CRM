@@ -927,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v88';
+const APP_BUILD = 'v89';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4133,7 +4133,12 @@ async function routeIncomingFileInner(file, opts){
     await importOverrides(file);
     return Object.keys(OVERRIDES.acctZone).length + ' zone overrides loaded';
   }
-  throw new Error('that JSON file is not a Field CRM plan, call file, backup or zone overrides');
+  if(data && data.source === TS_SOURCE){
+    const rep = await importTaskSlaughterer(data);
+    await logLoad(file.name || 'Task Slaughterer tasks', 'tasks', rep.line);
+    return rep.line;
+  }
+  throw new Error('that JSON file is not a Field CRM plan, call file, backup, zone overrides or Task Slaughterer tasks');
 }
 
 /* ---------- share target hand-off ----------
@@ -4184,7 +4189,8 @@ const LOAD_KIND = {
   assets:'Plant audit register',
   manual:'Engineering manual', ghpull:'Pulled from GitHub', ghpush:'Pushed to GitHub',
   ghtest:'GitHub connection', cloud:'Cloud sync', plan:'Plan from PC',
-  calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
+  calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder',
+  tasks:'Task Slaughterer tasks'
 };
 async function logLoad(filename, kind, detail, failed){
   LOAD_LOG.unshift({at: Date.now(), file: filename || '(no name)', kind: kind,
@@ -4211,6 +4217,102 @@ function renderLoadLog(){
         d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})+'</div></div>';
   }).join('');
 }
+
+/* ================= Task Slaughterer import (v89) =================
+   A one-off move of the tasks out of Task Slaughterer 9000 (a Claude artifact
+   that kept them in its own database). Tasks only, by Ben's decision: its
+   emails, saved notes, appointments and Not stocked list stay where they are.
+   The file is {source: TS_SOURCE, tasks: [...]} with Task Slaughterer's own
+   records. Its fields are the ones the CRM's tasks were modelled on, so the
+   mapping is one to one.
+
+   Where they land (Ben, 2026-10-09): open tasks on the import day, from 8am,
+   half an hour apart, in the order they were made, so they are in front of
+   him; done tasks on the day they were ticked off, as history.
+
+   Each keeps its Task Slaughterer id as 'ts-<id>', so a second import of the
+   same file adds nothing, and a task edited here since is never overwritten. */
+const TS_SOURCE = 'task-slaughterer-9000';
+const TS_KIND = {add_project: 'Add project to Dynamics', update_project: 'Update project',
+  contact_update: 'Update contact details', email: 'Write email', book_travel: 'Book travel',
+  book_call: 'Book customer call', call: 'Call', other: 'Other'};
+// Task Slaughterer accounts were typed freely: exact name first, then the one
+// CRM account whose name holds every word typed. Otherwise the text is kept.
+function tsAccount(text){
+  const t = String(text || '').trim();
+  if(!t) return {acct: '', how: 'none'};
+  const norm = x => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const n = norm(t);
+  const exact = ACCOUNTS.find(a => norm(a.a) === n);
+  if(exact) return {acct: exact.a, how: 'matched'};
+  const words = n.split(' ').filter(w => w.length > 1);
+  const hits = words.length ? ACCOUNTS.filter(a => { const h = ' ' + norm(a.a) + ' '; return words.every(w => h.includes(' ' + w + ' ')); }) : [];
+  if(hits.length === 1) return {acct: hits[0].a, how: 'matched'};
+  return {acct: t, how: 'kept'};
+}
+async function importTaskSlaughterer(data){
+  const list = Array.isArray(data.tasks) ? data.tasks.filter(x => x && x.id && (x.title || x.kind)) : [];
+  if(!list.length) throw new Error('that Task Slaughterer file has no tasks in it');
+  const have = new Set(TASKS.map(t => t.id));
+  const today = todayISOdate();
+  const open = list.filter(x => !x.done).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const done = list.filter(x => x.done);
+  const kept = new Set();
+  let added = 0, skipped = 0, slot = 0;
+  const str = v => v == null ? '' : String(v);
+  const make = (x, date, start) => {
+    const a = tsAccount(x.account);
+    if(a.how === 'kept') kept.add(a.acct);
+    return {
+      id: 'ts-' + x.id, type: TS_KIND[x.kind] || 'Other', title: str(x.title).trim(),
+      date, start, dur: TASK_DUR, acct: a.acct, contact: str(x.contact), email: str(x.email),
+      mobile: str(x.mobile), project: str(x.project), revenue: x.revenue == null ? '' : str(x.revenue),
+      notes: str(x.notes), done: !!x.done, doneAt: x.done ? (x.doneAt || null) : null, callId: null,
+      created: x.createdAt || Date.now(), updated: Date.now(), from: TS_SOURCE
+    };
+  };
+  for(const x of open){
+    if(have.has('ts-' + x.id)){ skipped++; continue; }
+    const mins = Math.min(8 * 60 + 30 * slot++, 23 * 60 + 30);
+    await tasksPut(make(x, today, hhmm(mins)));
+    added++;
+  }
+  for(const x of done){
+    if(have.has('ts-' + x.id)){ skipped++; continue; }
+    const when = new Date(x.doneAt || x.createdAt || Date.now());
+    await tasksPut(make(x, iso(when), hhmm(Math.floor((when.getHours() * 60 + when.getMinutes()) / 30) * 30)));
+    added++;
+  }
+  TASKS = await tasksAll();
+  taskRefresh();
+  const nOpen = open.filter(x => !have.has('ts-' + x.id)).length, nDone = added - nOpen;
+  const line = added
+    ? added + ' task' + (added === 1 ? '' : 's') + ' brought in: ' + nOpen + ' open on today, ' + nDone + ' done on the day done' +
+      (skipped ? '. ' + skipped + ' were already here' : '') +
+      (kept.size ? '. ' + kept.size + ' account name' + (kept.size === 1 ? '' : 's') + ' not in the CRM, kept as typed: ' + [...kept].join(', ') : '')
+    : 'Nothing new: all ' + skipped + ' tasks in that file are already here';
+  return {added, skipped, open: nOpen, done: nDone, kept: [...kept], line};
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const b = $('tsBtn');
+  if(b) b.addEventListener('click', async () => {
+    const f = $('tsFile').files[0], msg = $('tsMsg');
+    if(!f){ toast('Choose the Task Slaughterer file first'); return; }
+    b.disabled = true;
+    try {
+      let data;
+      try { data = JSON.parse(await f.text()); } catch(e){ throw new Error('that is not a Task Slaughterer file'); }
+      if(!data || data.source !== TS_SOURCE) throw new Error('that is not a Task Slaughterer file');
+      const rep = await importTaskSlaughterer(data);
+      showMsg(msg, 'ok', esc(rep.line) + '.');
+      await logLoad(f.name, 'tasks', rep.line);
+      toast(rep.added ? rep.added + ' tasks brought in' : 'Nothing new to bring in');
+    } catch(e){
+      console.error(e);
+      showMsg(msg, 'warn', 'That did not work: ' + esc(e.message) + '. Nothing was changed.');
+    } finally { b.disabled = false; }
+  });
+});
 
 /* ================= tasks =================
 

@@ -434,9 +434,21 @@ Task Slaughterer import.
   visible. Natural home: a Write email task that carries its draft (To,
   Subject, Body) and a Copy / Outlook action, rather than a separate Emails
   list. Design separately.
-- **Needed before building:** one export file from Task Slaughterer, to see
-  its format. It is Ben's data — used in the session to build and test the
-  mapping, never committed.
+- **Built (v89).** Task Slaughterer keeps its data in the artifact's own
+  database (collections tasks, emails, appointments, products, templates); it
+  has no task export. The session read the tasks collection directly (53
+  tasks, every one with a created date, 39 of them made on 30 Sep), wrote
+  them to a file in the shape {source: 'task-slaughterer-9000', tasks: [...]}
+  and gave Ben the file. The file is never committed.
+- **Placement changed after seeing the data** (Ben, 2026-10-09): every task
+  had a created date and most were from one day last week, so "the day
+  created" would have hidden the open ones. Open tasks go on the import day
+  from 8am, half an hour apart, oldest first; done tasks on the day done.
+- Import: Settings → Update data → Tasks from Task Slaughterer, or share the
+  file to Field CRM. Ids become 'ts-<id>', so a second import adds nothing and
+  never overwrites a task edited in the CRM. Accounts match exactly, then by
+  the one CRM account holding every word typed; otherwise kept as typed and
+  listed in the report.
 
 **Worth knowing:** the app already links an appointment to its call in
 places (`callSummary`, `bookUnplanned()`). The known `'Phone call'` bug in

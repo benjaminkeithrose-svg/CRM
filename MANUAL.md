@@ -183,6 +183,15 @@ A copy opens without being saved. Change what's different and tap Done. Photos a
 
 It goes on the calendar at the next half hour, for 30 minutes. Change the day or time on the form. Tick its box when it's done.
 
+### Bring tasks across from Task Slaughterer
+
+1. Save the Task Slaughterer file you were given to the PC.
+2. In Field CRM on the PC, tap **⋯** on Home, then **Settings**, then **Update data**.
+3. Under **Tasks from Task Slaughterer**, choose the file.
+4. Tap **Import tasks**.
+
+Open tasks go on today from 8am. Done ones go on the day you ticked them off. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.
+
 ### Request a quote
 
 1. Tap **New** on Home.

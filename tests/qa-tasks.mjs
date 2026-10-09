@@ -364,6 +364,50 @@ ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
   g(`(() => { calKind = 'all'; tvCursor = null; todayView = 'week'; showScreen('home'); })()`);
 }
 
+// ---- v89: Task Slaughterer import (invented records in its format) ----
+{
+  const made = Date.UTC(2026, 8, 30, 0, 0);
+  const ts = {source: 'task-slaughterer-9000', exported: '2026-10-09T00:00:00Z', tasks: [
+    {id: 'a1', kind: 'update_project', title: 'Update freezer project', account: 'Acme Pty Ltd - Smithfield', contact: 'Jo Bloggs', email: null, mobile: null,
+     project: 'Freezer', revenue: 25000, notes: 'Quote sent', done: false, createdAt: made + 2000, doneAt: null},
+    {id: 'a2', kind: 'email', title: 'Email Jo the drawings', account: 'acme smithfield', contact: null, email: 'jo@acme.example', mobile: null,
+     project: null, revenue: null, notes: null, done: false, createdAt: made + 1000, doneAt: null},
+    {id: 'a3', kind: 'call', title: 'Ring Sam', account: 'Riverside Foods', contact: 'Sam', email: null, mobile: '0400 000 000',
+     project: null, revenue: null, notes: null, done: true, createdAt: made, doneAt: Date.UTC(2026, 9, 7, 3, 40)},
+    {id: 'a4', kind: 'mystery', title: 'Something else', account: null, contact: null, email: null, mobile: null,
+     project: null, revenue: null, notes: null, done: false, createdAt: made + 3000, doneAt: null}
+  ]};
+  w.__ts = ts;
+  const rep = await g('importTaskSlaughterer(window.__ts)');
+  ok(rep.added === 4 && rep.open === 3 && rep.done === 1, 'all four come in, three open and one done: ' + rep.line);
+  const T = id => g(`TASKS.find(t => t.id === '${id}')`);
+  const today = g('todayISOdate()');
+  ok(T('ts-a2').date === today && T('ts-a2').start === '08:00' && T('ts-a1').start === '08:30' && T('ts-a4').start === '09:00',
+    'open tasks go on today from 8am, half an hour apart, oldest first');
+  const a3 = T('ts-a3');
+  ok(a3.done && a3.date === g(`iso(new Date(${Date.UTC(2026, 9, 7, 3, 40)}))`), 'a done task goes on the day it was done');
+  const a1 = T('ts-a1');
+  ok(a1.type === 'Update project' && a1.project === 'Freezer' && a1.revenue === '25000' && a1.notes === 'Quote sent' && a1.contact === 'Jo Bloggs' && a1.dur === 30,
+    'fields carry across one to one: ' + JSON.stringify({type: a1.type, revenue: a1.revenue}));
+  ok(T('ts-a2').type === 'Write email' && T('ts-a2').email === 'jo@acme.example' && T('ts-a4').type === 'Other', 'types map to the CRM list; an unknown one is Other');
+  ok(a1.acct === 'Acme Pty Ltd - Smithfield' && T('ts-a2').acct === 'Acme Pty Ltd - Smithfield', 'account names are matched to the CRM account, exactly or by its words');
+  ok(a3.acct === 'Riverside Foods' && rep.kept.includes('Riverside Foods') && /kept as typed: Riverside Foods/.test(rep.line), 'a name not in the CRM is kept as typed and reported');
+  ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k === 'tasks/ts-a1'), 'imported tasks are marked for cloud sync');
+  // edited here since: a second import must not touch it
+  await g(`(async () => { const t = TASKS.find(x => x.id === 'ts-a1'); t.title = 'Changed in the CRM'; t.updated = Date.now(); await tasksPut(t); })()`);
+  const rep2 = await g('importTaskSlaughterer(window.__ts)');
+  ok(rep2.added === 0 && rep2.skipped === 4 && /Nothing new/.test(rep2.line), 'the same file again adds nothing');
+  ok(T('ts-a1').title === 'Changed in the CRM', 'and leaves a task edited here alone');
+  // shared to the app, the file is recognised
+  const f = new w.File([JSON.stringify(Object.assign({}, ts, {tasks: [Object.assign({}, ts.tasks[0], {id: 'b1'})]}))], 'task-slaughterer-tasks.json', {type: 'application/json'});
+  w.__f = f;
+  const msg = await g('routeIncomingFile(window.__f, {silent: true})');
+  ok(/1 task brought in/.test(msg) && !!T('ts-b1'), 'shared to Field CRM, the file is recognised: ' + msg);
+  ok(!!$('tsFile') && !!$('tsBtn'), 'Update data has the Task Slaughterer import');
+  for (const id of ['ts-a1', 'ts-a2', 'ts-a3', 'ts-a4', 'ts-b1']) await g(`tasksDel('${id}')`);
+  await g('tasksAll().then(l => { TASKS = l; })');
+}
+
 // ---- marked for cloud sync
 ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k.startsWith('tasks/')), 'task changes are marked for cloud sync');
 
