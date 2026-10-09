@@ -897,7 +897,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v70';
+const APP_BUILD = 'v71';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4689,7 +4689,6 @@ function renderSb(){
   $('sbSignOut').hidden = !signedIn;
   $('sbSync').hidden = !open;
   $('sbSync').disabled = !!cloudRun;
-  $('sbSignIn').disabled = !sbClient;
   const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
   $('sbLock').hidden = !ask;
   if(ask){
@@ -4726,7 +4725,8 @@ function renderSb(){
 $('sbSignIn').addEventListener('click', async ()=>{
   const btn = $('sbSignIn');
   const email = $('sbEmail').value.trim(), pass = $('sbPass').value;
-  if(!sbClient){ toast('Set the project address and key first'); return; }
+  // never greyed out: a button that ignores a tap looks broken, so it says what is missing
+  if(!sbClient){ toast(sbErr || 'Paste the project address and the publishable key (below) first'); return; }
   if(!email || !pass){ toast('Type the email and password first'); return; }
   btn.disabled = true;
   try {
@@ -4738,7 +4738,7 @@ $('sbSignIn').addEventListener('click', async ()=>{
     await logLoad(SB.url, 'cloud', 'Signed in as ' + (sbUser.email || email));
     await sbLoadKey();
   } catch(e){ console.warn(e); toast(sbSay(e)); }
-  finally { btn.disabled = !sbClient; renderSb(); }
+  finally { btn.disabled = false; renderSb(); }
   if(sbUser) await sbCheckVault();
 });
 $('sbSignOut').addEventListener('click', async ()=>{

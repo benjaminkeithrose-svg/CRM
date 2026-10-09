@@ -135,7 +135,8 @@ const phone = newDevice();
 let a = await boot(phone);
 ok(typeof a.w.supabase?.createClient === 'function', 'library loaded into the page');
 ok(/Not set up/.test(a.stat()), 'fresh device says not set up: ' + a.stat());
-ok(a.$('sbSignIn').disabled, 'sign-in disabled until set up');
+a.$('sbSignIn').click(); await tick(100);
+ok(!a.$('sbSignIn').disabled && /project address and the publishable key/.test(a.$('toast').textContent), 'sign-in before set-up says what is missing: ' + a.$('toast').textContent);
 ok(a.$('sbSignOut').hidden, 'no sign-out button before signing in');
 
 // ---- the secret key is refused, not stored for use
@@ -145,7 +146,8 @@ await setField(a, 'sbKey', 'sb_secret_abc123');
 ok(/not saved/.test(a.$('toast').textContent) && /secret key/.test(a.$('toast').textContent), 'secret key refused: ' + a.$('toast').textContent);
 ok(a.$('sbKey').value === '', 'secret key cleared from the field');
 ok(!JSON.stringify(await a.w.eval('kvGet("cloud")') || {}).includes('sb_secret'), 'secret key never stored');
-ok(a.$('sbSignIn').disabled, 'cannot sign in with a secret key');
+a.$('sbSignIn').click(); await tick(100);
+ok(/project address and the publishable key/.test(a.$('toast').textContent), 'cannot sign in with a secret key');
 await setField(a, 'sbKey', jwt({ iss: 'supabase', ref: REF, role: 'service_role' }));
 ok(/service_role/.test(a.$('toast').textContent), 'legacy service_role key refused: ' + a.$('toast').textContent);
 ok(!JSON.stringify(await a.w.eval('kvGet("cloud")') || {}).includes('eyJ'), 'service_role key never stored');
@@ -153,7 +155,7 @@ ok(!JSON.stringify(await a.w.eval('kvGet("cloud")') || {}).includes('eyJ'), 'ser
 // ---- publishable key, then wrong and right passwords
 await setField(a, 'sbKey', 'sb_publishable_test');
 ok(/Not signed in/.test(a.stat()), 'set up, not signed in: ' + a.stat());
-ok(!a.$('sbSignIn').disabled, 'sign-in enabled');
+
 
 a.$('sbEmail').value = USER.email; a.$('sbPass').value = 'wrong';
 a.$('sbSignIn').click(); await tick(300);
