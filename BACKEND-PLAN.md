@@ -387,6 +387,22 @@ real sign-in, real passphrase and real sync were not possible: creating test
 accounts directly in the project was blocked, and Ben's account did not exist
 yet.
 
+**Real-project run, 2026-10-09 (v70):** with a throwaway test account Ben
+created, `tests/browser-cloud-live.mjs` ran the same two-profile test against
+the real Supabase project, nothing stood in. 23 of 23 passed: real sign-in;
+passphrase set, a short one refused, the locked key in `vaults` at 600,000
+rounds with no passphrase in it; data sent automatically and unreadable in
+the database; the second profile refused a wrong passphrase, unlocked, and
+brought in the accounts and reassignment; a newer import arrived on Sync now;
+**the real server kept the newer copy when an older one was sent straight at
+it** (records_before_write works); an older import on the PC was replaced by
+the newer cloud copy; still unlocked after reopening; offline change waited
+and was sent; the PC brought it in; sign out forgot the key and the project
+then showed no records. The first run also found that Sync now did not show
+"syncing..." or grey out while running — fixed in v70. **Still not checked:**
+a second real account (so one user seeing another's rows, which the access
+rules forbid, was not tried with two real accounts), and any real phone.
+
 - **Can check:** the encryption (round trip, wrong passphrase, tampered data
   rejected), the sync rules (newest wins, deletes travel, offline changes
   queue and send later), the screens, and that nothing breaks the existing

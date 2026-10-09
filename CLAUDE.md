@@ -131,7 +131,10 @@ The pre-existing referenced-but-absent IDs are harmless and guarded:
 
 `tests/browser-cloud.mjs` drives the real app in Playwright's Chromium with two
 browser profiles as two devices (not part of `npm test`; how to run it is at
-the top of the file). It is a real-browser test, still not a phone test.
+the top of the file). `tests/browser-cloud-live.mjs` runs the same against the
+real Supabase project with a throwaway test account passed in the environment —
+never Ben's own account, and never written to the repo. Both are real-browser
+tests, still not phone tests.
 
 **Say which kind of verification applies.** Headless tests catch runtime errors,
 escaping faults and broken flows. They cannot test the camera, the share sheet,
