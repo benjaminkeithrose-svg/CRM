@@ -64,8 +64,11 @@ failure.
 
 **Cloud sync (Supabase) marks changes at the storage layer.** `kvSet()` on a
 key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
-waiting to send. Write reference data only through those functions, or the
-change never reaches the other devices. Anything applying a copy pulled from
+waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()` mark that
+record. Bump `call.updated` / `appointment.touchedAt` on a real edit, or the
+change can lose to an older copy. Photos stay Blobs in `entry.photos` and
+`call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never
+reaches the other devices. Anything applying a copy pulled from
 the cloud must set `cloudQuiet`, or it bounces straight back up. Everything
 leaving the device is encrypted with `sbSeal()` first. Unlike the GitHub
 sync, this one runs automatically (on open, on reconnect, after a change),
@@ -155,6 +158,11 @@ GitHub does not exist to the next session.
 Work on a branch and open a pull request. **Never push to `main` directly** — a
 merge to `main` deploys to GitHub Pages immediately and reaches his phone on next
 load, so merging the pull request is his decision and his deploy step.
+
+**Ben doesn't want to log into GitHub to merge** (his instruction, 2026-10-09).
+When a pull request is ready, ask him in the chat whether to merge it, saying
+in a line or two what it changes. When he says yes, merge it yourself through
+the GitHub tools. Never merge without that yes for that pull request.
 
 In the pull request description, say in plain language what changed, which files,
 and what he should test on the phone. He is new to git and reads the PR on

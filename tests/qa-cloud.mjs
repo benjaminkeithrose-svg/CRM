@@ -3,6 +3,8 @@
 // the two-device race, and encryption round trips between devices.
 // Step 4: reference data imported on one device arrives on another; newest
 // import wins; offline changes wait; a pulled copy is not sent back.
+// Step 5: calls (with photos), quote requests and appointments, deletes, the
+// open-call guard, and the GitHub sync's 800px copies.
 // Loads the real shipped Supabase library and real Web Crypto; only the network
 // is a stand-in, so this proves the app, the library and the crypto work
 // together - not that the real project accepts them. That needs a device.
@@ -29,6 +31,9 @@ const calls = [];
 const VAULTS = {};     // the stand-in server's vaults table, by owner
 const RECORDS = {};    // the stand-in server's records table, 'owner|store|id' -> row
 const posts = [];      // record uploads, for "was anything sent" checks
+const STORAGE = {};    // the stand-in photos bucket: path -> bytes
+const storageGets = [];
+let clock = 0;         // server_updated, strictly increasing
 const subOf = (w, opts) => {
   const tok = (new w.Headers(opts.headers || {}).get('authorization') || '').replace(/^Bearer /, '');
   try { return JSON.parse(Buffer.from(tok.split('.')[1], 'base64url').toString()).sub || null; } catch (e) { return null; }
@@ -56,26 +61,60 @@ function fakeFetch(w) {
       if (!sub) return res(401, { code: '42501', message: 'permission denied for table records' });
       const q = new URL(u).searchParams;
       if ((opts.method || 'GET') === 'GET') {
-        const store = (q.get('store') || '').replace(/^eq\./, '');
-        const ids = q.get('id') ? q.get('id').replace(/^in\.\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')) : null;
+        const inList = v => v.replace(/^in\.\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, ''));
+        const st = q.get('store') || '';
+        const stores = st.startsWith('in.') ? inList(st) : st ? [st.replace(/^eq\./, '')] : null;
+        const ids = q.get('id') ? inList(q.get('id')) : null;
+        const gt = q.get('server_updated') ? q.get('server_updated').replace(/^gt\./, '') : null;
         const cols = (q.get('select') || '*').split(',');
-        const rows = Object.values(RECORDS).filter(r => r.owner === sub && (!store || r.store === store) && (!ids || ids.includes(r.id)))
-          .map(r => cols[0] === '*' ? r : Object.fromEntries(cols.map(c => [c, r[c]])));
+        let rows = Object.values(RECORDS).filter(r => r.owner === sub && (!stores || stores.includes(r.store)) && (!ids || ids.includes(r.id))
+          && (!gt || Date.parse(r.server_updated) > Date.parse(gt)));
+        if (q.get('order')) rows.sort((a, b) => a.server_updated.localeCompare(b.server_updated) || a.store.localeCompare(b.store) || a.id.localeCompare(b.id));
+        const off = Number(q.get('offset') || 0), lim = q.get('limit') ? Number(q.get('limit')) : rows.length;
+        rows = rows.slice(off, off + lim).map(r => cols[0] === '*' ? r : Object.fromEntries(cols.map(c => [c, r[c]])));
         return res(200, rows);
       }
       if (opts.method === 'POST') {
-        const b = JSON.parse(opts.body);
+        const b = JSON.parse(opts.body), written = [];
         for (const row of Array.isArray(b) ? b : [b]) {
           if (row.owner && row.owner !== sub) return res(403, { code: '42501', message: 'new row violates row-level security policy' });
           const k = sub + '|' + row.store + '|' + row.id, old = RECORDS[k];
           posts.push(row.store + '/' + row.id);
           // records_before_write: an older edit never replaces a newer one
           if (old && Number(row.client_updated) < Number(old.client_updated)) continue;
-          RECORDS[k] = Object.assign({}, row, { owner: sub, server_updated: new Date().toISOString() });
+          RECORDS[k] = Object.assign({}, row, { owner: sub, server_updated: new Date(Date.UTC(2026, 9, 9) + (++clock) * 1000).toISOString() });
+          written.push(RECORDS[k]);
+        }
+        const h = new w.Headers(opts.headers || {});
+        if (/return=representation/.test(h.get('prefer') || '')) {
+          const cols = (q.get('select') || 'store,id').split(',');
+          return res(201, written.map(r => Object.fromEntries(cols.map(c => [c, r[c]]))));
         }
         return new w.Response(null, { status: 201 });
       }
       return res(405, {});
+    }
+    if (u.includes('/storage/v1/object')) {
+      const sub = subOf(w, opts);
+      if (!sub) return res(400, { statusCode: '403', error: 'Unauthorized', message: 'no token' });
+      const path = decodeURIComponent(u.split('/storage/v1/object/')[1].split('?')[0]);
+      const m = opts.method || 'GET';
+      if (path.startsWith('list/photos')) {
+        const prefix = JSON.parse(opts.body).prefix.replace(/\/$/, '') + '/';
+        if (!prefix.startsWith(sub + '/')) return res(200, []);
+        return res(200, Object.keys(STORAGE).filter(k => k.startsWith(prefix)).map(k => ({ name: k.slice(prefix.length) })));
+      }
+      if (m === 'DELETE') {
+        const gone = JSON.parse(opts.body).prefixes.filter(p => p.startsWith(sub + '/'));
+        gone.forEach(p => delete STORAGE[p]);
+        return res(200, gone.map(name => ({ name })));
+      }
+      const key = path.replace(/^photos\//, '');
+      if (!key.startsWith(sub + '/')) return res(400, { statusCode: '403', error: 'Unauthorized', message: 'row-level security' });
+      if (m === 'POST') { STORAGE[key] = Buffer.from(opts.body); return res(200, { Key: 'photos/' + key, Id: key }); }
+      storageGets.push(key);
+      if (!STORAGE[key]) return res(400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+      return new w.Response(STORAGE[key], { status: 200, headers: { 'content-type': 'application/octet-stream' } });
     }
     if (u.includes('/rest/v1/vaults')) {
       const h = new w.Headers(opts.headers || {});
@@ -116,6 +155,7 @@ async function boot(dev) {
   w.console.error = (...a) => errs.push(a.join(' ')); w.console.warn = () => {};
   w.Response = Response; w.Headers = Headers; w.Request = Request;
   w.CompressionStream = CompressionStream; w.DecompressionStream = DecompressionStream;
+  w.Blob = Blob;   // fake-indexeddb only round-trips Node's own Blob; Chrome's IndexedDB keeps its Blobs
   w.fetch = fakeFetch(w);
   for (const [k, v] of Object.entries(dev.ls)) w.localStorage.setItem(k, v);
   for (const f of ['zones.js', 'manuals.js', 'healthlib.js', LIB, 'app.js']) {
@@ -135,7 +175,8 @@ const phone = newDevice();
 let a = await boot(phone);
 ok(typeof a.w.supabase?.createClient === 'function', 'library loaded into the page');
 ok(/Not set up/.test(a.stat()), 'fresh device says not set up: ' + a.stat());
-ok(a.$('sbSignIn').disabled, 'sign-in disabled until set up');
+a.$('sbSignIn').click(); await tick(100);
+ok(!a.$('sbSignIn').disabled && /project address and the publishable key/.test(a.$('toast').textContent), 'sign-in before set-up says what is missing: ' + a.$('toast').textContent);
 ok(a.$('sbSignOut').hidden, 'no sign-out button before signing in');
 
 // ---- the secret key is refused, not stored for use
@@ -145,7 +186,8 @@ await setField(a, 'sbKey', 'sb_secret_abc123');
 ok(/not saved/.test(a.$('toast').textContent) && /secret key/.test(a.$('toast').textContent), 'secret key refused: ' + a.$('toast').textContent);
 ok(a.$('sbKey').value === '', 'secret key cleared from the field');
 ok(!JSON.stringify(await a.w.eval('kvGet("cloud")') || {}).includes('sb_secret'), 'secret key never stored');
-ok(a.$('sbSignIn').disabled, 'cannot sign in with a secret key');
+a.$('sbSignIn').click(); await tick(100);
+ok(/project address and the publishable key/.test(a.$('toast').textContent), 'cannot sign in with a secret key');
 await setField(a, 'sbKey', jwt({ iss: 'supabase', ref: REF, role: 'service_role' }));
 ok(/service_role/.test(a.$('toast').textContent), 'legacy service_role key refused: ' + a.$('toast').textContent);
 ok(!JSON.stringify(await a.w.eval('kvGet("cloud")') || {}).includes('eyJ'), 'service_role key never stored');
@@ -153,7 +195,7 @@ ok(!JSON.stringify(await a.w.eval('kvGet("cloud")') || {}).includes('eyJ'), 'ser
 // ---- publishable key, then wrong and right passwords
 await setField(a, 'sbKey', 'sb_publishable_test');
 ok(/Not signed in/.test(a.stat()), 'set up, not signed in: ' + a.stat());
-ok(!a.$('sbSignIn').disabled, 'sign-in enabled');
+
 
 a.$('sbEmail').value = USER.email; a.$('sbPass').value = 'wrong';
 a.$('sbSignIn').click(); await tick(300);
@@ -172,7 +214,7 @@ const allLs = keys.map(k => a.w.localStorage.getItem(k)).join(' ');
 ok(!allLs.includes('right-pass'), 'password not stored anywhere in localStorage');
 const kv = await a.w.eval('kvGet("cloud")');
 ok(kv && kv.url && kv.key && !JSON.stringify(kv).includes('right-pass'), 'kv holds address and key, no password');
-ok(/Cloud sign-in/.test(a.$('loadLog').textContent), 'sign-in shows in the load log');
+ok(/Cloud sync/.test(a.$('loadLog').textContent), 'sign-in shows in the load log');
 a.save();
 
 // ---- reopen: still signed in, with no network call needed
@@ -386,6 +428,7 @@ ok(Number(ds('crm').client_updated) === T2, 'and the cloud copy is untouched');
 
 // a damaged cloud copy is refused, and nothing on the device changes
 const k = USER.id + '|datasets|overrides';
+const goodOverrides = RECORDS[k];
 const bad = Buffer.from(RECORDS[k].body, 'base64'); bad[5] ^= 1;
 RECORDS[k] = Object.assign({}, RECORDS[k], { body: bad.toString('base64'), client_updated: Date.now() });
 const before4 = O.w.eval('JSON.stringify(OVERRIDES)');
@@ -396,6 +439,139 @@ ok(O.w.eval('JSON.stringify(OVERRIDES)') === before4, 'damaged copy: nothing on 
 for (const x of [P, Q, O]) {
   real = x.errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
   ok(!real.length, 'no console errors (step 4): ' + real.slice(0, 3).join(' | '));
+}
+RECORDS[k] = goodOverrides;      // put the damaged copy right for the steps below
+
+// ================= Step 5: calls, quote requests, appointments, photos =================
+const syncW = async x => {       // sync and wait for it to finish, however long the photos take
+  x.$('sbSync').click(); await tick(100);
+  for (let i = 0; i < 200 && x.w.eval('!!cloudRun'); i++) await tick(50);
+  await tick(50);
+};
+const jpeg = (n, size) => { const b = Buffer.alloc(size, n); b[0] = 0xFF; b[1] = 0xD8; b[2] = 0xFF; return b; };
+const PH1 = jpeg(1, 300000), PH2 = jpeg(2, 250000), PH3 = jpeg(3, 200000);
+const mkCall = (x, id, extra) => x.w.eval(`(async () => {
+  const B = (n, size) => { const a = new Uint8Array(size).fill(n); a[0] = 0xFF; a[1] = 0xD8; a[2] = 0xFF; return new Blob([a], {type: 'image/jpeg'}); };
+  const c = Object.assign({id: ${JSON.stringify(id)}, customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', type: 'Site call', mgr: 'Ben', site: '',
+    contacts: [{name: 'Jo Bloggs', crm: true}], status: 'open', closed: false, updated: Date.now(),
+    entries: [{kind: 'belt', asset: 'Line 3 infeed', notes: 'Sprocket wear', photos: [B(1, 300000), B(2, 250000)]}],
+    loose: [B(3, 200000)]}, ${JSON.stringify(extra || {})});
+  await callsPut(c);
+})()`);
+const localCall = (x, id) => x.w.eval(`recGet('calls', ${JSON.stringify(id)})`);
+const photoBytesIn = async (x, c) => {
+  const all = [].concat(...c.entries.map(e => e.photos || []), c.loose || []);
+  x.w.__all = all;
+  return x.w.eval('Promise.all(window.__all.map(p => blobBytes(p).then(b => Array.from(b.slice(0, 4)).join(",") + ":" + b.length)))');
+};
+const objs = id => Object.keys(STORAGE).filter(p => p.startsWith(USER.id + '/' + id + '/'));
+const row5 = (st, id) => RECORDS[USER.id + '|' + st + '|' + id];
+
+// a call written on the phone, with photos, reaches the PC at full quality
+await mkCall(Q, 'c100');
+await Q.w.eval(`(async () => { await saveAppt({id: 'a100', acct: 'Acme Pty Ltd - Wetherill Park', date: '2026-10-14', time: '09:00', mins: 60, status: 'booked', agenda: 'Belt survey'}); })()`);
+await tick(100);
+ok(/waiting to send/.test(Q.stat()), 'new call and appointment waiting to send: ' + Q.stat());
+await syncW(Q);
+ok(row5('calls', 'c100') && row5('appts', 'a100'), 'call and appointment sent');
+ok(objs('c100').length === 3, 'three photos stored, one each: ' + objs('c100').length);
+ok(objs('c100').every(p => STORAGE[p][0] !== 0xFF || STORAGE[p][1] !== 0xD8), 'stored photos are not readable JPEGs (encrypted)');
+ok(!/Acme|Bloggs|Sprocket|Line 3/.test(Buffer.from(row5('calls', 'c100').body, 'base64').toString('latin1')), 'call body unreadable in the cloud');
+ok(/sent 1 call, 1 appointment, 3 photos/.test(Q.$('toast').textContent) || /sent/.test(Q.$('toast').textContent), 'sync says what it sent: ' + Q.$('toast').textContent);
+await syncW(P);
+let pcC = await localCall(P, 'c100');
+ok(pcC && pcC.entries[0].notes === 'Sprocket wear' && pcC.contacts[0].name === 'Jo Bloggs', 'PC has the call');
+const pcBytes = await photoBytesIn(P, pcC);
+ok(JSON.stringify(pcBytes) === JSON.stringify(['255,216,255,1:300000', '255,216,255,2:250000', '255,216,255,3:200000']), 'PC has all three photos, byte for byte: ' + pcBytes.join(' '));
+ok(P.w.eval('APPTS.some(a => a.id === "a100")'), 'PC has the appointment');
+ok(/Brought in 1 call, 1 appointment, 3 photos/.test(P.$('loadLog').textContent), 'load log says what came in');
+const postsC100 = posts.filter(x => x === 'calls/c100').length;
+await syncW(P);
+ok(posts.filter(x => x === 'calls/c100').length === postsC100, 'a call brought in is not sent back up');
+
+// an edit on the PC, with a photo removed, goes back; the phone downloads nothing it already has
+await P.w.eval(`(async () => { const c = await recGet('calls', 'c100'); c.entries[0].notes = 'Sprocket wear - replace at next shutdown'; c.entries[0].photos.splice(1, 1); c.updated = Date.now(); await callsPut(c); })()`);
+await syncW(P);
+ok(objs('c100').length === 2, 'the removed photo is removed from the cloud too: ' + objs('c100').length);
+const getsBefore = storageGets.length;
+await syncW(Q);
+let qcC = await localCall(Q, 'c100');
+ok(qcC.entries[0].notes === 'Sprocket wear - replace at next shutdown' && qcC.entries[0].photos.length === 1 && qcC.loose.length === 1, 'phone has the PC\'s edit');
+ok(storageGets.length === getsBefore, 'phone downloaded no photos it already held');
+
+// newest edit wins: an older offline edit on the phone does not replace the PC's newer one
+await Q.w.eval(`(async () => { const c = await recGet('calls', 'c100'); c.entries[0].notes = 'older phone edit'; c.updated = Date.now() - 600000; await callsPut(c); })()`);
+await syncW(Q);
+qcC = await localCall(Q, 'c100');
+ok(qcC.entries[0].notes === 'Sprocket wear - replace at next shutdown', 'phone\'s older edit lost to the PC\'s newer one: ' + qcC.entries[0].notes);
+
+// a quote request stays a quote request
+await Q.w.eval(`(async () => { await callsPut({id: 'q100', rectype: 'quote', customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', contacts: [], entries: [], loose: [], updated: Date.now(), reqby: 'soon'}); })()`);
+await syncW(Q); await syncW(P);
+ok(await P.w.eval(`(async () => { const q = await recGet('calls', 'q100'); return !!q && isQuote(q) && !(await callsAll()).some(c => c.id === 'q100') && (await quotesAll()).some(c => c.id === 'q100'); })()`),
+  'quote request arrives as a quote, not a call');
+
+// a call open on the PC is not changed under you; it updates once you leave it
+await mkCall(Q, 'c200');
+await syncW(Q); await syncW(P);
+await P.w.eval(`(async () => { call = await recGet('calls', 'c200'); })()`);
+await Q.w.eval(`(async () => { const c = await recGet('calls', 'c200'); c.entries[0].notes = 'edited on the phone'; c.updated = Date.now(); await callsPut(c); })()`);
+await syncW(Q); await syncW(P);
+ok((await localCall(P, 'c200')).entries[0].notes === 'Sprocket wear', 'open call left alone');
+ok(/when you leave it/.test(P.$('toast').textContent), 'and the sync says it will update: ' + P.$('toast').textContent);
+await P.w.eval('call = null');
+await syncW(P);
+ok((await localCall(P, 'c200')).entries[0].notes === 'edited on the phone', 'after leaving the call, the update lands');
+
+// deleting on the phone deletes on the PC, photos and all
+await Q.w.eval(`callsDel('c200')`);
+await syncW(Q);
+ok(row5('calls', 'c200').deleted === true && objs('c200').length === 0, 'delete sent; its photos removed from the cloud');
+await syncW(P);
+ok(!(await localCall(P, 'c200')), 'PC no longer has the deleted call');
+await Q.w.eval(`apptsDel('a100')`);
+await syncW(Q); await syncW(P);
+ok(!P.w.eval('APPTS.some(a => a.id === "a100")'), 'appointment delete reaches the PC');
+
+// calls from before cloud sync go up on the first sync
+const seedDev = newDevice();
+let S = await boot(seedDev);
+await mkCall(S, 'c300');
+await tick(200);
+await S.w.eval(`(async () => { cloudDirty = {}; await kvSet('cloudDirty', {}); await kvSet('cloudSeeded', false); })()`);
+S.save();
+S = await unlocked(seedDev);
+await syncW(S);
+ok(row5('calls', 'c300') && objs('c300').length === 3, 'a call from before cloud sync is sent, with its photos');
+
+// the GitHub sync's 800px copies lose to the originals of the same edit
+const T5 = Date.now() - 5000;
+await mkCall(Q, 'c400', {updated: T5});
+await P.w.eval(`(async () => { const a = new Uint8Array(90000).fill(9); a[0] = 0xFF; a[1] = 0xD8; a[2] = 0xFF;
+  await callsPut({id: 'c400', customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', contacts: [], status: 'open', closed: false,
+    updated: ${T5}, syncedPhotos: true, entries: [{kind: 'belt', asset: 'Line 3 infeed', notes: 'Sprocket wear', photos: [new Blob([a], {type: 'image/jpeg'})]}], loose: []}); })()`);
+await syncW(P);                  // the PC's copies go up first
+await syncW(Q);                  // the phone's originals replace them
+await syncW(P);                  // and the PC takes the originals
+pcC = await localCall(P, 'c400');
+ok(pcC.entries[0].photos.length === 2 && pcC.loose.length === 1 && !pcC.syncedPhotos, 'PC swapped its 800px copies for the originals');
+ok(objs('c400').length === 3, 'only the originals are left in the cloud: ' + objs('c400').length);
+
+// and the other order: originals first, then the copies - the copies must not overwrite them
+const T6 = Date.now() - 4000;
+await mkCall(Q, 'c401', {updated: T6});
+await P.w.eval(`(async () => { const a = new Uint8Array(90000).fill(9); a[0] = 0xFF; a[1] = 0xD8; a[2] = 0xFF;
+  await callsPut({id: 'c401', customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', contacts: [], status: 'open', closed: false,
+    updated: ${T6}, syncedPhotos: true, entries: [{kind: 'belt', asset: 'Line 3 infeed', notes: 'Sprocket wear', photos: [new Blob([a], {type: 'image/jpeg'})]}], loose: []}); })()`);
+await syncW(Q);                  // originals up first
+await syncW(P);                  // the PC's copies must lose
+ok(objs('c401').length === 3, 'copies sent after the originals do not replace them: ' + objs('c401').length);
+pcC = await localCall(P, 'c401');
+ok(pcC.entries[0].photos.length === 2 && !pcC.syncedPhotos, 'and the PC ends up with the originals');
+
+for (const x of [P, Q, S]) {
+  real = x.errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
+  ok(!real.length, 'no console errors (step 5): ' + real.slice(0, 3).join(' | '));
 }
 
 console.log(`PASS ${pass}`); if (fail) console.log(`FAIL ${fail}`);

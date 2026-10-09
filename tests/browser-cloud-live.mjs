@@ -157,6 +157,38 @@ ok(await until(async () => (await cloudRows(ph)).some?.(x => x.id === 'weeks')),
 await syncNow(pc);
 ok(await ev(pc, () => WEEKS['2026-10-12'] && WEEKS['2026-10-12'].zone) === 'Z3', 'PC brings in the phone\'s change');
 
+// ---------------------------------------------------------------- calls and photos (Step 5)
+console.log('Calls with real photos, real storage');
+const callId = 'live-' + Date.now();
+const made = await ev(ph, async (callId) => {
+  const shot = n => new Promise(res => { const c = document.createElement('canvas'); c.width = 1400; c.height = 1050;
+    const g = c.getContext('2d'); g.fillStyle = ['#00287B', '#B2232F', '#4D4D4F'][n]; g.fillRect(0, 0, 1400, 1050);
+    g.fillStyle = '#fff'; g.font = '120px sans-serif'; g.fillText('Test photo ' + n, 200, 500); c.toBlob(res, 'image/jpeg', 0.72); });
+  const photos = [await shot(0), await shot(1)], loose = [await shot(2)];
+  await callsPut({id: callId, customer: 'Test Account - Wetherill Park', date: '09/10/2026', type: 'Site call', mgr: 'Test Manager', site: '',
+    contacts: [{name: 'Test Contact', crm: true}], status: 'open', closed: false, updated: Date.now(),
+    entries: [{kind: 'belt', asset: 'Test line', notes: 'Test notes', photos}], loose});
+  const sizes = [...photos, ...loose].map(b => b.size);
+  return sizes;
+}, callId);
+await syncNow(ph);
+const listed = await ev(ph, async (id) => (await cloudPhotoList(id)).size, callId);
+ok(listed === 3, 'three photos stored in the real bucket: ' + listed);
+await syncNow(pc);
+const got = await ev(pc, async (id) => { const c = await recGet('calls', id); if (!c) return null;
+  return [...c.entries[0].photos, ...c.loose].map(b => b.size); }, callId);
+ok(JSON.stringify(got) === JSON.stringify(made), 'PC has the call with every photo at full size: ' + JSON.stringify(got) + ' vs ' + JSON.stringify(made));
+const raw = await ev(pc, async (id) => { const r = await sbClient.storage.from('photos').download(cloudPhotoDir(id) + '/' + [...await cloudPhotoList(id)][0]);
+  const b = new Uint8Array(await r.data.arrayBuffer()); return [b[0], b[1]]; }, callId);
+ok(!(raw[0] === 0xFF && raw[1] === 0xD8), 'the stored file is not a readable JPEG');
+const other = await ev(pc, async () => { const r = await sbClient.storage.from('photos').list('00000000-0000-0000-0000-000000000000', {limit: 10}); return r.error ? 'error' : r.data.length; });
+ok(other === 0 || other === 'error', 'another user\'s photo folder shows nothing');
+await ev(ph, async (id) => { await callsDel(id); }, callId);
+await syncNow(ph);
+ok(await ev(ph, async (id) => (await cloudPhotoList(id)).size, callId) === 0, 'deleting the call removes its photos from the bucket');
+await syncNow(pc);
+ok(!(await ev(pc, (id) => recGet('calls', id), callId)), 'and the call is gone from the PC');
+
 // ---------------------------------------------------------------- sign out
 await ph.page.click('#sbSignOut'); await tick(1000);
 ok(/Not signed in/.test(await stat(ph)) && !(await ev(ph, () => kvGet('cloudKey'))), 'sign out: signed out and the key forgotten');

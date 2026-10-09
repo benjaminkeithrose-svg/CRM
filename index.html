@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v70">
+<meta name="build" content="v73">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1158,7 +1158,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <label>Publishable key</label>
     <input type="text" id="sbKey" autocomplete="off" placeholder="sb_publishable_...">
     <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Signing out also locks this device.</p>
-    <p class="hint">What syncs so far: the CRM accounts and contacts, belt reference data, plant audit register, zone overrides, planning weeks and reassignments &mdash; import on one device and the others bring it in. Calls, quote requests and appointments are not synced here yet.</p>
+    <p class="hint">What syncs: calls and quote requests with their photos (full size), appointments, the CRM accounts and contacts, belt reference data, plant audit register, zone overrides, planning weeks and reassignments. Everything is locked with your passphrase before it leaves this device. A call you have open is not changed under you &mdash; an update to it waits until you leave it.</p>
   </div>
 
   <h2>Exchange</h2>

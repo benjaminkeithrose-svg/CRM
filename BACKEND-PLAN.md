@@ -267,7 +267,7 @@ copy is refused. **Not checked:** the real project, or a phone or PC.
 **Test:** import the CRM export on the PC only; open the phone, sync, and
 confirm the accounts are there without importing anything on the phone.
 
-### Step 5 — Calls, quote requests and appointments
+### Step 5 — Calls, quote requests and appointments — **built 2026-10-09, v73**
 
 Every record change is marked as unsent. Sync sends unsent changes, then
 fetches everything changed elsewhere since the last sync, newest edit
@@ -279,6 +279,46 @@ from a Sync button. The GitHub sync buttons stay, for a parallel run.
 photos at full quality. Edit it on the PC; open the phone — the edit is
 there. Delete one on either — it disappears on the other. Do some of this
 with the phone in flight mode, then reconnect.
+
+As built, and where it differs from the plan above:
+- One encrypted row per call / quote request (store `calls`, quotes still
+  marked by `rectype` inside) and per appointment (store `appts`). Newest
+  wins by `call.updated` / `appointment.touchedAt`; the server enforces it.
+  Deletes travel as a deleted row.
+- `callsPut`/`callsDel`/`apptsPut`/`apptsDel` mark each change as waiting
+  (kv `cloudDirty`), so nothing written offline is lost. Sync ten seconds
+  after the last change (a call saves often while it's being written), on
+  open, on reconnect, and from Sync now.
+- **Photos:** named by a hash of their own bytes, encrypted, stored once at
+  `<user>/<call>/<hash>`, 1400px and not recompressed. Nothing about how the
+  app holds or shows photos changed. A photo removed from a call, or a
+  deleted call's photos, are removed from the cloud.
+- **Differs from the plan:** photos are fetched when a call arrives, not
+  when it's opened. Simpler, and the PC has them offline afterwards; about
+  50 photos a week is far inside the free download allowance.
+- A call **open on this device** is never changed under you: its update
+  waits and lands when you leave it.
+- First sync after this sends every call and appointment already on the
+  device. Calls the GitHub sync brought in (800px copies) lose to the
+  originals of the same edit, and a device holding copies swaps them for
+  the originals when they arrive.
+- **Worth knowing:**
+  - Appointments go newest-edit-wins as a whole. The GitHub sync split an
+    appointment between the phone (visit outcome) and the PC (invite
+    fields); here, if both are edited between syncs, the later edit wins
+    whole.
+  - Dropping photos from the phone after sending notes ("detach") now
+    removes them from the PC too, once synced — before, they only ever lived
+    on the phone. Ben's call whether the PC should keep them.
+
+**Checked:** `tests/qa-cloud.mjs` (133 checks, stand-in server) and
+`tests/browser-cloud-live.mjs` against the real project in real Chromium
+(29 of 29), including a call with three real photos going phone → PC at
+identical sizes, the stored files unreadable, another user's folder empty,
+and a delete removing the call and its photos. Five protections broken on
+purpose: three caught directly; the two that weren't led to two new tests,
+one of which found and fixed stray photo files left by a losing upload.
+**Not checked:** a real phone, or a real camera photo.
 
 ### Step 6 — Realtime
 

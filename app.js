@@ -62,17 +62,19 @@ async function kvSet(k,v){
 }
 async function callsPut(c){
   const d = await ready();
-  return new Promise((res,rej)=>{
+  await new Promise((res,rej)=>{
     const t = d.transaction('calls','readwrite').objectStore('calls').put(c);
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
+  cloudMarkRec('calls', c.id, c.updated);       // cloud sync sends it
 }
 async function callsDel(id){
   const d = await ready();
-  return new Promise((res,rej)=>{
+  await new Promise((res,rej)=>{
     const t = d.transaction('calls','readwrite').objectStore('calls').delete(id);
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
+  cloudMarkRec('calls', id, Date.now(), true);  // and the delete reaches the other devices
 }
 async function accAll(){
   const d = await ready();
@@ -109,17 +111,19 @@ async function apptsAll(){
 }
 async function apptsPut(ap){
   const d = await ready();
-  return new Promise((res,rej)=>{
+  await new Promise((res,rej)=>{
     const t = d.transaction('appts','readwrite').objectStore('appts').put(ap);
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
+  cloudMarkRec('appts', ap.id, ap.touchedAt);
 }
 async function apptsDel(id){
   const d = await ready();
-  return new Promise((res,rej)=>{
+  await new Promise((res,rej)=>{
     const t = d.transaction('appts','readwrite').objectStore('appts').delete(id);
     t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
   });
+  cloudMarkRec('appts', id, Date.now(), true);
 }
 async function recordsAll(){
   const d = await ready();
@@ -897,7 +901,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v70';
+const APP_BUILD = 'v73';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4212,7 +4216,7 @@ const LOAD_KIND = {
   crm:'CRM export', overrides:'Zone overrides', beltref:'Belt reference data',
   assets:'Plant audit register',
   manual:'Engineering manual', ghpull:'Pulled from GitHub', ghpush:'Pushed to GitHub',
-  ghtest:'GitHub connection', cloud:'Cloud sign-in', plan:'Plan from PC',
+  ghtest:'GitHub connection', cloud:'Cloud sync', plan:'Plan from PC',
   calls:'Calls from phone', backup:'Backup restore', sent:'Sent', folder:'Folder'
 };
 async function logLoad(filename, kind, detail, failed){
@@ -4638,7 +4642,7 @@ async function loadSb(){
       if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
     } catch(e){ console.warn('cloud key', e); }
   }
-  await cloudSetsLoad();
+  await cloudSetsLoad(); await cloudDirtyLoad();
   renderSb();
   sbCheckVault();     // not awaited: a slow network must not hold up the app opening
   if(cloudCan()) cloudSync().catch(e => console.warn('cloud sync', e));
@@ -4678,8 +4682,9 @@ function renderSb(){
   const open = signedIn && sbVault === 'open';
   if(open){
     const last = Number(localStorage.getItem(LS('cloudSync')) || 0);
-    const waiting = cloudSets ? CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length : 0;
-    line += '<br>Reference data: ' + (cloudRun ? 'syncing&hellip;'
+    const waiting = (cloudSets ? CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length : 0) +
+      (cloudDirty ? Object.keys(cloudDirty).length : 0);
+    line += '<br>Sync: ' + (cloudRun ? 'syncing&hellip;' + (cloudProgress ? ' ' + esc(cloudProgress) : '')
       : cloudLast.failed ? '<span class="flagline">last sync failed &mdash; ' + esc(cloudLast.msg) + '</span>'
       : last ? 'last synced ' + new Date(last).toLocaleString() : 'not synced from this device yet') +
       (waiting ? ' &middot; <span class="flagline">' + waiting + ' change' + (waiting === 1 ? '' : 's') + ' waiting to send</span>' : '');
@@ -4689,7 +4694,6 @@ function renderSb(){
   $('sbSignOut').hidden = !signedIn;
   $('sbSync').hidden = !open;
   $('sbSync').disabled = !!cloudRun;
-  $('sbSignIn').disabled = !sbClient;
   const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
   $('sbLock').hidden = !ask;
   if(ask){
@@ -4726,7 +4730,8 @@ function renderSb(){
 $('sbSignIn').addEventListener('click', async ()=>{
   const btn = $('sbSignIn');
   const email = $('sbEmail').value.trim(), pass = $('sbPass').value;
-  if(!sbClient){ toast('Set the project address and key first'); return; }
+  // never greyed out: a button that ignores a tap looks broken, so it says what is missing
+  if(!sbClient){ toast(sbErr || 'Paste the project address and the publishable key (below) first'); return; }
   if(!email || !pass){ toast('Type the email and password first'); return; }
   btn.disabled = true;
   try {
@@ -4738,7 +4743,7 @@ $('sbSignIn').addEventListener('click', async ()=>{
     await logLoad(SB.url, 'cloud', 'Signed in as ' + (sbUser.email || email));
     await sbLoadKey();
   } catch(e){ console.warn(e); toast(sbSay(e)); }
-  finally { btn.disabled = !sbClient; renderSb(); }
+  finally { btn.disabled = false; renderSb(); }
   if(sbUser) await sbCheckVault();
 });
 $('sbSignOut').addEventListener('click', async ()=>{
@@ -5098,9 +5103,11 @@ async function cloudSyncOnce(){
       }
       if(got.length) await cloudAfterPull(got);
     }
+    const recs = await cloudSyncRecs();
     const bits = [];
     if(sent.length) bits.push('sent ' + sent.map(n => CLOUD_NAME[n]).join(', '));
     if(got.length) bits.push('brought in ' + got.map(n => CLOUD_NAME[n]).join(', '));
+    bits.push(...recs);
     cloudLast = {at: Date.now(), msg: bits.length ? bits.join('; ') : 'everything already in step', failed: false};
     localStorage.setItem(LS('cloudSync'), String(cloudLast.at));
     return cloudLast.msg;
@@ -5136,8 +5143,346 @@ async function cloudAfterPull(names){
   toast('Brought in ' + names.map(n => CLOUD_NAME[n]).join(', '));
 }
 async function cloudWaiting(){
-  await cloudSetsLoad();
-  return CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length;
+  await cloudSetsLoad(); await cloudDirtyLoad();
+  return CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length + Object.keys(cloudDirty).length;
+}
+
+/* ---------- Step 5: calls, quote requests and appointments ----------
+
+   One encrypted row per record in 'records': store 'calls' (calls and quote
+   requests together - quotes stay marked by rectype inside the body, as
+   everywhere else) and store 'appts'. Newest edit wins by the time the app
+   already keeps: call.updated, appointment.touchedAt. Deletes travel as a row
+   marked deleted, so they reach the other devices.
+
+   callsPut()/callsDel()/apptsPut()/apptsDel() mark the record as waiting to send
+   (kv 'cloudDirty'), whether or not cloud sync is set up, so nothing written
+   offline is lost. Applying a pulled record is done with cloudQuiet set.
+
+   PHOTOS stay exactly as the app keeps them - Blobs (or old data-URI strings)
+   in entry.photos and call.loose - so nothing that shows or compiles photos
+   changes. On the way out each photo is named by a hash of its own bytes,
+   encrypted, and stored once at <user>/<call>/<hash> in the private 'photos'
+   bucket, at the 1400px it was taken at, not recompressed. The call's row
+   carries the names in place of the pictures. A device bringing a call in
+   downloads only the photos it does not already hold. Photos are fetched when
+   the call arrives rather than when it is opened: simpler, works offline
+   afterwards, and about 50 photos a week is far inside the free download
+   allowance.
+
+   A call still open on this device is never overwritten under you: its update
+   waits (kv 'cloudLater') and is applied once you have left it.
+
+   The first sync after this arrives sends every call and appointment already
+   on the device. Calls the GitHub sync brought in carry 800px copies
+   (syncedPhotos); they go up one millisecond older than their own time, so the
+   device holding the 1400px originals wins, and a device holding the copies
+   takes the originals when they arrive. */
+
+var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
+var cloudProgress = '';
+var cloudRecTimer = null;
+const CLOUD_REC_STORES = ['calls', 'appts'];
+
+async function cloudDirtyLoad(){
+  if(!cloudDirty){
+    try { cloudDirty = (await kvGet('cloudDirty')) || {}; } catch(e){ cloudDirty = {}; }
+  }
+  return cloudDirty;
+}
+async function cloudDirtySave(){ await kvSet('cloudDirty', cloudDirty); }
+
+async function cloudMarkRec(store, id, v, del){
+  if(cloudQuiet || id == null) return;
+  try {
+    await cloudDirtyLoad();
+    cloudDirty[store + '/' + id] = {v: v || Date.now(), del: !!del, at: Date.now()};
+    await cloudDirtySave();
+    // a little longer than for an import: a call being written saves often
+    clearTimeout(cloudRecTimer);
+    cloudRecTimer = setTimeout(() => { if(cloudCan()) cloudSync().catch(()=>{}); }, 10000);
+    renderSb();
+  } catch(e){ console.warn('cloud mark', store, id, e); }
+}
+
+function recGet(store, id){
+  return ready().then(d => new Promise((res,rej)=>{
+    const t = d.transaction(store,'readonly').objectStore(store).get(id);
+    t.onsuccess = ()=>res(t.result || null); t.onerror = ()=>rej(t.error);
+  }));
+}
+const recVer = (store, r) => store === 'calls' ? (r.updated || 0) : (r.touchedAt || 0);
+
+/* Everything already here before cloud sync goes up once. */
+async function cloudSeed(){
+  if(await kvGet('cloudSeeded')) return;
+  await cloudDirtyLoad();
+  const now = Date.now();
+  for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
+  for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
+  await cloudDirtySave();
+  await kvSet('cloudSeeded', true);
+}
+
+/* ---- photos ---- */
+function blobBytes(b){
+  if(b.arrayBuffer) return b.arrayBuffer().then(x => new Uint8Array(x));
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(new Uint8Array(r.result)); r.onerror = ()=>rej(r.error);
+    r.readAsArrayBuffer(b);
+  });
+}
+// anything Blob-like, not only this window's Blob: a Blob read back from storage
+// can come from another realm, and instanceof would call it a data URI
+const blobLike = p => !!p && typeof p === 'object' && typeof p.arrayBuffer === 'function';
+const photoBytesOf = p => blobBytes(isBlobPhoto(p) || blobLike(p) ? p : dataURLToBlob(p));
+async function photoId(bytes){
+  return toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).slice(0, 32);
+}
+const cloudPhotoDir = callId => sbUser.id + '/' + callId;
+const photoAad = (callId, pid) => TE.encode(sbKeyRec.uid + '/photo/' + callId + '/' + pid);
+async function sbSealBytes(aad, bytes){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:aad}, sbKeyRec.key, bytes));
+  const out = new Uint8Array(12 + ct.length);
+  out.set(iv); out.set(ct, 12);
+  return out;
+}
+async function sbOpenBytes(aad, u8){
+  return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv:u8.subarray(0, 12), additionalData:aad},
+    sbKeyRec.key, u8.subarray(12)));
+}
+async function cloudPhotoList(callId){
+  const r = await sbClient.storage.from('photos').list(cloudPhotoDir(callId), {limit: 1000});
+  if(r.error) throw r.error;
+  return new Set((r.data || []).map(x => x.name));
+}
+async function cloudPhotoGet(callId, pid){
+  const r = await sbClient.storage.from('photos').download(cloudPhotoDir(callId) + '/' + pid);
+  if(r.error || !r.data) return null;
+  try { return new Blob([await sbOpenBytes(photoAad(callId, pid), await blobBytes(r.data))], {type: 'image/jpeg'}); }
+  catch(e){ console.warn('photo would not open', callId, pid, e); return null; }
+}
+
+/* The call as it travels: photos replaced by their names, their bytes kept aside. */
+async function cloudCallOut(c){
+  const files = new Map();
+  const refs = async list => {
+    const out = [];
+    for(const p of list){
+      try { const b = await photoBytesOf(p), id = await photoId(b); files.set(id, b); out.push({ph: id}); }
+      catch(e){ console.warn('photo left out of sync', e); }
+    }
+    return out;
+  };
+  const body = Object.assign({}, c);
+  body.entries = [];
+  for(const e of c.entries || []){
+    const o = Object.assign({}, e);
+    if(Array.isArray(e.photos)) o.photos = await refs(e.photos);
+    body.entries.push(o);
+  }
+  if(Array.isArray(c.loose)) body.loose = await refs(c.loose);
+  return {body: body, files: files};
+}
+/* And back: names replaced by pictures, reusing any this device already holds. */
+async function cloudCallIn(body, local){
+  const have = new Map();
+  if(local){
+    const all = [].concat(...(local.entries || []).map(e => e.photos || []), local.loose || []);
+    for(const p of all){ try { have.set(await photoId(await photoBytesOf(p)), isBlobPhoto(p) || blobLike(p) ? p : dataURLToBlob(p)); } catch(e){} }
+  }
+  let fetched = 0, missing = 0;
+  const back = async list => {
+    const out = [];
+    for(const x of list || []){
+      if(!x || !x.ph){ out.push(x); continue; }
+      let b = have.get(x.ph);
+      if(!b){ b = await cloudPhotoGet(body.id, x.ph); if(b) fetched++; }
+      if(b) out.push(b); else missing++;
+    }
+    return out;
+  };
+  const c = Object.assign({}, body);
+  c.entries = [];
+  for(const e of body.entries || []){
+    const o = Object.assign({}, e);
+    if(Array.isArray(e.photos)) o.photos = await back(e.photos);
+    c.entries.push(o);
+  }
+  if(Array.isArray(body.loose)) c.loose = await back(body.loose);
+  return {call: c, fetched: fetched, missing: missing};
+}
+
+/* ---- push ---- */
+async function cloudUpsert(rows){
+  const r = await sbClient.from('records').upsert(rows.map(x => Object.assign({owner: sbUser.id}, x)),
+    {onConflict: 'owner,store,id'}).select('store,id');
+  if(r.error) throw r.error;
+  // rows the server skipped as older than its own copy are not returned
+  return new Set((r.data || []).map(x => x.store + '/' + x.id));
+}
+async function cloudPushRecs(stats){
+  await cloudDirtyLoad();
+  const keys = Object.keys(cloudDirty);
+  const done = (k, at) => { if(cloudDirty[k] && cloudDirty[k].at === at) delete cloudDirty[k]; };
+  const batch = [];
+  const flush = async () => {
+    if(!batch.length) return;
+    const written = await cloudUpsert(batch.map(b => b.row));
+    for(const b of batch){
+      if(written.has(b.key) && b.row.deleted && b.row.store === 'calls'){
+        const gone = [...await cloudPhotoList(b.row.id)];
+        if(gone.length) await sbClient.storage.from('photos').remove(gone.map(n => cloudPhotoDir(b.row.id) + '/' + n));
+      }
+      done(b.key, b.at);
+    }
+    batch.length = 0;
+    await cloudDirtySave();
+  };
+  let i = 0;
+  for(const k of keys){
+    const d = cloudDirty[k]; if(!d) continue;
+    const [store, id] = [k.slice(0, k.indexOf('/')), k.slice(k.indexOf('/') + 1)];
+    i++;
+    cloudProgress = 'sending ' + i + ' of ' + keys.length;
+    renderSb();
+    const rec = d.del ? null : await recGet(store, id);
+    if(!d.del && !rec){ done(k, d.at); continue; }                  // gone since; its delete is marked separately
+    if(d.del){
+      batch.push({key: k, at: d.at, row: Object.assign({store: store, id: id, client_updated: d.v, deleted: true},
+        await sbSeal(store, id, null))});
+      stats.gone++;
+    } else if(store === 'appts'){
+      batch.push({key: k, at: d.at, row: Object.assign({store: store, id: id, client_updated: recVer(store, rec) || d.v, deleted: false},
+        await sbSeal(store, id, rec))});
+      stats.appts++;
+    } else {
+      await flush();
+      // the 800px copies from the GitHub sync lose to the originals of the same edit
+      const ver = (recVer(store, rec) || d.v) - (rec.syncedPhotos ? 1 : 0);
+      const out = await cloudCallOut(rec);
+      const listed = await cloudPhotoList(id);
+      let n = 0;
+      const added = [];
+      for(const [pid, bytes] of out.files){
+        if(listed.has(pid)) continue;
+        cloudProgress = 'sending photos for call ' + i + ' of ' + keys.length + ' (' + (++n) + ' of ' + out.files.size + ')';
+        renderSb();
+        const r = await sbClient.storage.from('photos').upload(cloudPhotoDir(id) + '/' + pid,
+          await sbSealBytes(photoAad(id, pid), bytes), {upsert: true, contentType: 'application/octet-stream'});
+        if(r.error) throw r.error;
+        added.push(pid);
+        stats.photosUp++;
+      }
+      const written = await cloudUpsert([Object.assign({store: store, id: id, client_updated: ver, deleted: false},
+        await sbSeal(store, id, out.body))]);
+      // photos this call no longer uses - only once its new version is the one in the cloud
+      if(written.has(k)){
+        const stale = [...listed].filter(x => !out.files.has(x));
+        if(stale.length) await sbClient.storage.from('photos').remove(stale.map(x => cloudPhotoDir(id) + '/' + x));
+      } else if(added.length){
+        // the cloud kept a newer version, which cannot use photos that were not there before this push
+        await sbClient.storage.from('photos').remove(added.map(x => cloudPhotoDir(id) + '/' + x));
+        stats.photosUp -= added.length;
+      }
+      done(k, d.at);
+      await cloudDirtySave();
+      stats.calls++;
+    }
+    if(batch.length >= 50) await flush();
+  }
+  await flush();
+}
+
+/* ---- pull ---- */
+async function cloudApplyRec(row, stats){
+  const store = row.store, id = row.id, k = store + '/' + id, v = Number(row.client_updated);
+  const local = await recGet(store, id);
+  const lv = local ? recVer(store, local) : -1;
+  if(cloudDirty[k] && (cloudDirty[k].del ? cloudDirty[k].v : lv) >= v) return;   // ours is newer: it goes up instead
+  // newer wins; the same edit wins too when this device only holds the 800px copies
+  if(!(v > lv || (store === 'calls' && local && local.syncedPhotos && !row.deleted && v >= lv))) return;
+  if(store === 'calls' && call && call.id === id){
+    const later = (await kvGet('cloudLater')) || [];
+    if(!later.includes(id)){ later.push(id); await kvSet('cloudLater', later); }
+    stats.waiting++;
+    return;
+  }
+  cloudQuiet = true;
+  try {
+    if(row.deleted){
+      if(local){ store === 'calls' ? await callsDel(id) : await apptsDel(id); stats.gone++; }
+    } else if(store === 'appts'){
+      await apptsPut(await sbOpen(store, id, row));
+      stats.appts++;
+    } else {
+      const got = await cloudCallIn(await sbOpen(store, id, row), local);
+      await callsPut(got.call);
+      stats.calls++; stats.photosDown += got.fetched; stats.missing += got.missing;
+    }
+  } finally { cloudQuiet = false; }
+  delete cloudDirty[k];
+}
+async function cloudPullRecs(stats){
+  const cols = 'store,id,key_id,iv,body,client_updated,deleted,server_updated';
+  // updates held back while their call was open
+  const later = (await kvGet('cloudLater')) || [];
+  const ready_ = later.filter(id => !(call && call.id === id));
+  if(ready_.length){
+    await kvSet('cloudLater', later.filter(id => !ready_.includes(id)));
+    const r = await sbClient.from('records').select(cols).eq('store', 'calls').in('id', ready_);
+    if(r.error) throw r.error;
+    for(const row of r.data || []) await cloudApplyRec(row, stats);
+  }
+  const cursor = (await kvGet('cloudCursor')) || '1970-01-01T00:00:00Z';
+  let newest = Date.parse(cursor), from = 0, page;
+  do {
+    const r = await sbClient.from('records').select(cols).in('store', CLOUD_REC_STORES)
+      .gt('server_updated', cursor).order('server_updated').order('store').order('id').range(from, from + 199);
+    if(r.error) throw r.error;
+    page = r.data || [];
+    for(const row of page){
+      await cloudApplyRec(row, stats);
+      newest = Math.max(newest, Date.parse(row.server_updated));
+    }
+    from += page.length;
+  } while(page.length === 200);
+  await cloudDirtySave();
+  /* A minute's overlap: a write that began before this read but finished after
+     it carries an earlier server time. Re-reading a minute is harmless - the
+     versions match and nothing is applied twice. */
+  const next = Math.max(Date.parse(cursor), newest - 60000);
+  await kvSet('cloudCursor', new Date(next).toISOString());
+}
+
+async function cloudSyncRecs(){
+  const stats = {calls: 0, appts: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  await cloudSeed();
+  const up = {calls: 0, appts: 0, gone: 0, photosUp: 0};
+  try {
+    await cloudPushRecs(up);
+    const down = stats;
+    await cloudPullRecs(down);
+  } finally { cloudProgress = ''; }
+  const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
+  const sentN = up.calls + up.appts + up.gone;
+  if(sentN) bits.push('sent ' + [up.calls && n(up.calls, 'call'), up.appts && n(up.appts, 'appointment'),
+    up.gone && n(up.gone, 'deletion'), up.photosUp && n(up.photosUp, 'photo')].filter(Boolean).join(', '));
+  const gotN = stats.calls + stats.appts + stats.gone;
+  if(gotN){
+    bits.push('brought in ' + [stats.calls && n(stats.calls, 'call'), stats.appts && n(stats.appts, 'appointment'),
+      stats.gone && n(stats.gone, 'deletion'), stats.photosDown && n(stats.photosDown, 'photo')].filter(Boolean).join(', '));
+    await logLoad('Cloud', 'cloud', 'Brought in ' + [stats.calls && n(stats.calls, 'call'), stats.appts && n(stats.appts, 'appointment'),
+      stats.gone && n(stats.gone, 'deletion'), stats.photosDown && n(stats.photosDown, 'photo')].filter(Boolean).join(', '));
+    APPTS = await apptsAll();
+    try { await renderHome(); } catch(e){ console.error('home', e); }
+    if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
+  }
+  if(stats.missing) bits.push(n(stats.missing, 'photo') + ' could not be fetched');
+  if(stats.waiting) bits.push('the open call will update when you leave it');
+  return bits;
 }
 
 /* ================= contacts and accounts, outside a call =================
@@ -6295,7 +6640,8 @@ async function deleteCallRecord(c){
   if(!confirm('Delete ' + c.customer + ' on ' + c.date + '?\n\n' +
       c.entries.length + ' entr' + (c.entries.length===1?'y':'ies') + ' and ' + ph +
       ' photo' + (ph===1?'':'s') + ' will be erased. This cannot be undone.' +
-      (synced ? '\n\nThis only deletes it from this device. A copy has already gone to the sync repository and could come back on the next pull.' : ''))) return false;
+      (sbUser ? '\n\nIt is also deleted from your other devices when they next sync.' : '') +
+      (synced ? '\n\nA copy has already gone to the GitHub sync repository and could come back from there on the next GitHub pull.' : ''))) return false;
   (c.entries||[]).forEach(e => (e.photos||[]).forEach(releasePhoto));
   (c.loose||[]).forEach(releasePhoto);
   await callsDel(c.id);

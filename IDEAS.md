@@ -337,4 +337,36 @@ Ben asked what call-report sync currently does (hasn't used it in a while, assum
 
 ---
 
+## Open: The calendar as the backbone — everything lives under a call
+*Added 2026-10-09, Ben's words summarised. Not built; to be talked through first.*
+
+**The ask:** every task, call and quote request Ben adds is placed in the
+calendar. When he goes to a planned call, he opens it from the calendar and
+everything from that visit is saved under it — documenting as he goes — so
+the calendar shows what's coming *and*, afterwards, what was done. The call
+becomes the main item everything else hangs off.
+
+**To settle before building (Ben's answers needed):**
+1. A **task** with no date — does it go on the calendar on the day it's
+   added, on a due date he picks, or stay off the calendar until it has one?
+2. A **quote request** — is it its own calendar item, or always under the
+   call it came out of? (Today a quote request is its own record.)
+3. A call added **without** an appointment (an unplanned visit or a phone
+   call) — create the calendar item automatically, at the time it was
+   started?
+4. Opening a planned appointment from the calendar — straight into the call
+   (creating it the first time), rather than via Start call today?
+5. What "everything" under the call covers: belts, health checks, projects,
+   notes, photos, quotes and tasks raised in the meeting?
+
+**Worth knowing:** the app already links an appointment to its call in
+places (`callSummary`, `bookUnplanned()`). The known `'Phone call'` bug in
+`bookUnplanned()` (CLAUDE.md) sits right in this path and would need deciding
+as part of it. Tasks don't exist yet — they're in the "One app" entry above —
+so this and that entry are one piece of design. Cloud sync (Step 5) already
+carries calls, quote requests and appointments, so nothing here needs new
+sync work.
+
+---
+
 <!-- Add new ideas above this line. -->
