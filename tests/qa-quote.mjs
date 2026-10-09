@@ -65,10 +65,7 @@ t('recordsAll sees both', everyRec.length === 2, 'got '+everyRec.length);
 t('callsAll excludes the quote', onlyCalls.length === 1 && onlyCalls[0].id === 'c1');
 t('quotesAll returns only the quote', onlyQuotes.length === 1 && onlyQuotes[0].id === 'q1');
 
-// ---------- 3. sync would strip a record-level `kind`, which is why rectype is used ----------
-const slim = w.slimCall(mkQuote('q2'));
-t('slimCall overwrites kind (the collision rectype avoids)', slim.kind === 'field-crm-call');
-t('slimCall preserves rectype through the sync envelope', slim.rectype === 'quote');
+// ---------- 3. (the GitHub call sync that overwrote `kind` was removed in v78; rectype stays the marker) ----------
 
 // ---------- 4. image modes ----------
 t('IMG_MODES', JSON.stringify(g('IMG_MODES')) === '["full","thumb","thumbonly"]');

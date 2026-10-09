@@ -56,7 +56,11 @@ $('hdMenu').click();
 t('home button works from inside a call', g('screen') === 'home');
 t('the call is still open after going home', g('call') !== null);
 w.showScreen('home');
-t('home button hides on home', $('hdMenu').style.display === 'none');
+// v78: on Home the right-hand button is the ⋯ menu, and it opens Settings
+t('on Home the right-hand button is the Settings menu', $('hdMenu').style.display !== 'none' && $('hdMenu').getAttribute('aria-label') === 'Settings, data and backup');
+$('hdMenu').click();
+t('the ⋯ menu opens Settings', g('screen') === 'settings');
+w.showScreen('home');
 t('back button hides on home', $('back').style.display === 'none');
 
 // ---- photo buffers on all four ----

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v77">
+<meta name="build" content="v78">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -109,6 +109,7 @@ header .sub{font-size:11px;color:var(--ink-3);margin-top:1px;white-space:nowrap;
 /* One tap home from any depth, in a call or out of it. The back arrow walks up
    the screen tree; this jumps straight to the top. Both are icons: they sit
    either side of the title and words would crowd it. */
+.menubtn .dots{font-size:24px;line-height:1;font-weight:700}
 .menubtn{align-self:center;flex:none;margin-left:8px;background:var(--surface);
   border:1px solid var(--line);border-radius:var(--r);color:var(--ink-2);
   padding:9px 11px;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -988,6 +989,16 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
    Six equal targets, icon over label, no count line. The subtitles were useful
    while setting the app up and became noise once everything was loaded. */
 .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:8px 0 0}
+details.sx{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin:0 0 8px}
+details.sx > summary{list-style:none;cursor:pointer;padding:13px 40px 13px 14px;min-height:48px;position:relative;display:flex;flex-direction:column;gap:2px}
+details.sx > summary::-webkit-details-marker{display:none}
+details.sx > summary::after{content:'';position:absolute;right:16px;top:50%;width:8px;height:8px;margin-top:-6px;
+  border-right:2px solid var(--ink-2);border-bottom:2px solid var(--ink-2);transform:rotate(45deg);transition:transform .15s}
+details.sx[open] > summary::after{transform:rotate(225deg);margin-top:-2px}
+details.sx > summary b{font-size:15px}
+details.sx .sxs{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.sx[open] > summary{border-bottom:1px solid var(--line-2)}
+details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 .pick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
 .pick button{min-height:56px;padding:10px 8px;border:1px solid var(--cyan-md);border-radius:var(--r);background:var(--surface);
   font-size:15px;font-weight:700;color:var(--ink);cursor:pointer}
@@ -1082,36 +1093,55 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
   <span hidden id="peopleInfo"></span><span hidden id="manInfo"></span>
   <span hidden id="flInfo"></span><span hidden id="reportsInfo"></span>
 
-  <div class="homefoot">
-    <button class="ghost" data-go="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> Settings, data and backup</button>
-    <p class="stat" id="bkHomeStat"></p>
-    <div class="gap"></div>
-    <p class="stat" id="upStat"></p>
-    <button class="ghost" id="upBtn">Get the latest version</button>
-    <p class="hint">Checks the server for newer app files and reloads once. Nothing downloads unless you tap it. Your calls, accounts and photos are not affected.</p>
-    <p class="hint" id="appVer"></p>
-  </div>
 </section>
 
 <!-- SETTINGS -->
 <section class="scr" id="s-settings">
-  <h2>Your details</h2>
-  <div class="fld">
-    <label>Your email address</label>
-    <input type="email" id="setEmail" placeholder="you@intralox.com" autocomplete="email">
-    <div class="gap"></div>
-    <label>Photos in compiled files</label>
-    <select id="setImgMode">
-      <option value="full">Full size</option>
-      <option value="thumb">Thumbnails, expandable</option>
-      <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
-    </select>
-    <p class="hint">The starting point for every output. The dashboard picker
-      overrides it for one file without changing this.</p>
-    <p class="hint">Used as the organiser on calendar invites. Without it Outlook has nobody to send from, so invitees are left off.</p>
-  </div>
+  <!-- One line per section, each showing its state; tap to open just that one.
+       Ben, 2026-10-09: nothing on show until it is needed. The old folder and
+       GitHub syncs are gone (v78) - cloud sync carries everything they did. -->
+  <details class="sx" id="sxCloud">
+    <summary><b>Cloud sync</b><span class="sxs" id="sumCloud"></span></summary>
 
-  <h2>Data</h2>
+  <div class="fld">
+    <p class="stat" id="sbStat"></p>
+    <div id="sbIn">
+      <div class="gap"></div>
+      <label>Email</label>
+      <input type="email" id="sbEmail" autocomplete="username" placeholder="you@example.com">
+      <div class="gap"></div>
+      <label>Password</label>
+      <input type="password" id="sbPass" autocomplete="current-password">
+      <div class="gap"></div>
+      <button class="big" id="sbSignIn">Sign in</button>
+    </div>
+    <div id="sbLock" hidden>
+      <div class="gap"></div>
+      <label id="sbPhLbl">Passphrase</label>
+      <input type="password" id="sbPh" autocomplete="off">
+      <div id="sbPh2Wrap" hidden>
+        <div class="gap"></div>
+        <label>Type it again</label>
+        <input type="password" id="sbPh2" autocomplete="off">
+      </div>
+      <p class="hint" id="sbPhHint"></p>
+      <button class="big" id="sbPhGo">Unlock</button>
+    </div>
+    <button class="big" id="sbSync" hidden>Sync now</button>
+    <button class="ghost" id="sbSignOut" hidden>Sign out of this device</button>
+    <div class="gap"></div>
+    <label>Project address</label>
+    <input type="text" id="sbUrl" autocomplete="off" placeholder="https://xxxx.supabase.co">
+    <div class="gap"></div>
+    <label>Publishable key</label>
+    <input type="text" id="sbKey" autocomplete="off" placeholder="sb_publishable_...">
+    <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Signing out also locks this device.</p>
+    <p class="hint">What syncs: calls and quote requests with their photos (full size), appointments, the CRM accounts and contacts, belt reference data, plant audit register, zone overrides, planning weeks and reassignments. Everything is locked with your passphrase before it leaves this device. A call you have open is not changed under you &mdash; an update to it waits until you leave it.</p>
+  </div>
+  </details>
+
+  <details class="sx" id="sxData">
+    <summary><b>Import data</b><span class="sxs" id="sumData"></span></summary>
   <div class="fld">
     <label>Contact database</label>
     <p class="stat" id="dbStat">No data loaded.</p>
@@ -1154,120 +1184,10 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button class="ghost" id="ovBtn">Load zone overrides</button>
     <p class="hint">The account-name zone pins and the suburb spelling corrections. They contain customer account names, so they load from a file rather than shipping with the app. Zones themselves are built in.</p>
   </div>
+  </details>
 
-  <h2>Cloud sync</h2>
-
-  <div class="fld">
-    <p class="stat" id="sbStat"></p>
-    <div id="sbIn">
-      <div class="gap"></div>
-      <label>Email</label>
-      <input type="email" id="sbEmail" autocomplete="username" placeholder="you@example.com">
-      <div class="gap"></div>
-      <label>Password</label>
-      <input type="password" id="sbPass" autocomplete="current-password">
-      <div class="gap"></div>
-      <button class="big" id="sbSignIn">Sign in</button>
-    </div>
-    <div id="sbLock" hidden>
-      <div class="gap"></div>
-      <label id="sbPhLbl">Passphrase</label>
-      <input type="password" id="sbPh" autocomplete="off">
-      <div id="sbPh2Wrap" hidden>
-        <div class="gap"></div>
-        <label>Type it again</label>
-        <input type="password" id="sbPh2" autocomplete="off">
-      </div>
-      <p class="hint" id="sbPhHint"></p>
-      <button class="big" id="sbPhGo">Unlock</button>
-    </div>
-    <button class="big" id="sbSync" hidden>Sync now</button>
-    <button class="ghost" id="sbSignOut" hidden>Sign out of this device</button>
-    <div class="gap"></div>
-    <label>Project address</label>
-    <input type="text" id="sbUrl" autocomplete="off" placeholder="https://xxxx.supabase.co">
-    <div class="gap"></div>
-    <label>Publishable key</label>
-    <input type="text" id="sbKey" autocomplete="off" placeholder="sb_publishable_...">
-    <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Signing out also locks this device.</p>
-    <p class="hint">What syncs: calls and quote requests with their photos (full size), appointments, the CRM accounts and contacts, belt reference data, plant audit register, zone overrides, planning weeks and reassignments. Everything is locked with your passphrase before it leaves this device. A call you have open is not changed under you &mdash; an update to it waits until you leave it.</p>
-  </div>
-
-  <h2>Exchange</h2>
-
-  <div class="fld">
-    <div class="dirhdr"><span class="dirtag out">PC &rarr; Phone</span></div>
-    <p class="hint">The <b>PC writes</b> the week's plan into this folder. The <b>phone reads</b> it. Nothing else belongs in here.</p>
-    <p class="stat" id="exOutStat"></p>
-    <button class="ghost" id="exPickOut" hidden>Set the PC &rarr; Phone folder (on the PC)</button>
-    <button class="ghost" id="exSendPlan">Send the plan to the phone</button>
-  </div>
-
-  <div class="fld">
-    <div class="dirhdr"><span class="dirtag in">Phone &rarr; PC</span></div>
-    <p class="hint">The <b>phone writes</b> the week's calls into this folder. The <b>PC reads</b> it. Keep it separate from the folder above, or each device ends up reading back what it just wrote.</p>
-    <p class="stat" id="exInStat"></p>
-    <button class="ghost" id="exPickIn" hidden>Set the Phone &rarr; PC folder (on the PC)</button>
-    <button class="ghost" id="exSendCalls">Send the calls to the PC</button>
-  </div>
-
-  <div class="fld">
-    <div class="dirhdr"><span class="dirtag sync">Phone &harr; PC</span></div>
-    <p class="hint">Appointments only, over a <b>private</b> GitHub repository. The plan syncs both ways automatically; call reports stay on the device that made them.</p>
-    <p class="stat" id="ghStat"></p>
-    <div class="gap"></div>
-    <div class="row">
-      <div class="f"><label>GitHub user or org</label><input type="text" id="ghOwner" autocomplete="off" placeholder="your-username"></div>
-      <div class="f"><label>Private repo name</label><input type="text" id="ghRepo" autocomplete="off" placeholder="field-crm-data"></div>
-    </div>
-    <div class="gap"></div>
-    <div class="row">
-      <div class="f"><label>Branch</label><input type="text" id="ghBranch" autocomplete="off" placeholder="main"></div>
-      <div class="f"><label>File path</label><input type="text" id="ghPath" autocomplete="off" placeholder="exchange/appointments.json"></div>
-    </div>
-    <div class="gap"></div>
-    <label>Access token</label>
-    <input type="password" id="ghToken" autocomplete="off" placeholder="github_pat_...">
-    <p class="hint">A fine-grained token with <b>Contents: read and write</b> on that one repository, and an expiry date. It is stored on this device only. If you lose the device, revoke it on GitHub and it is dead.</p>
-    <div class="gap"></div>
-    <button class="ghost" id="ghTest">Test the connection</button>
-    <button class="big" id="ghSync">Sync appointments now</button>
-    <p class="hint">What goes up: account key, date, time, duration, contact numbers, status, and your agenda line. What never goes up: account names, contact names, phone numbers, emails, call notes, photos.</p>
-    <div class="gap"></div>
-    <label>Call reports</label>
-    <p class="stat" id="ghCallStat"></p>
-    <button class="big" id="ghCalls">Sync call reports now</button>
-    <p class="hint">Sends your calls and their photos to the same private repository, and brings back any written on the other device &mdash; so a report written on the phone can be reviewed on the PC. Photos go up at a reduced size, readable on screen but much smaller; the device that took them keeps the originals. <b>This does send account names, contact names and call notes</b>, unlike the appointment sync above. Anything pushed stays in the repository's history even after it is deleted.</p>
-    <div class="gap"></div>
-    <label>Belt reference data</label>
-    <p class="stat" id="ghBeltStat"></p>
-    <button class="ghost" id="ghBeltPull">Pull belt reference data</button>
-    <button class="ghost" id="ghBeltPush">Push belt reference data</button>
-    <p class="hint">The belt/sprocket product catalogue, over this same private repository &mdash; not the public app itself. Push it here after importing a newer workbook under <b>Belt reference data</b> below, so other devices can pull it. Neither happens automatically, except a one-off pull on a device that has no belt data loaded yet at all.</p>
-  </div>
-
-  <div class="fld">
-    <label>Bring a file in</label>
-    <button class="ghost" id="exPull" hidden>Check both folders for new files (PC only)</button>
-    <input type="file" id="exFile" accept=".json,.xlsx,.csv">
-    <button class="ghost" id="exBtn">Load that file</button>
-    <p class="hint">Takes a plan, a call file, a backup, the zone overrides or a CRM export &mdash; it works out which. Everything merges by record id; nothing already on this device is overwritten. On the phone you can also tap <b>Share</b> on a file in OneDrive and pick Field CRM.</p>
-  </div>
-
-  <div class="fld">
-    <label>Files loaded on this device</label>
-    <div id="loadLog"></div>
-    <p class="hint">Newest first. Shows the filename and what each file did, so it is obvious what has and has not been loaded on this device.</p>
-  </div>
-
-  <div class="fld">
-    <p class="stat" id="exStat"></p>
-    <button class="ghost" id="exReassignCsv" hidden>Export reassignments as CSV</button>
-    <button class="ghost" id="exCallNotes">Export call notes as CSV</button>
-    <p class="hint">Both CSVs are for Dynamics, not for the other device.</p>
-  </div>
-
-  <h2>Backup</h2>
+  <details class="sx" id="sxBk">
+    <summary><b>Backup and restore</b><span class="sxs" id="sumBk"></span></summary>
   <div class="fld">
     <p class="stat" id="bkStat"></p>
     <button class="ghost" id="bkBtn">Back up</button>
@@ -1279,6 +1199,53 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
     <button class="ghost" id="rsBtn">Restore from backup</button>
     <p class="hint">Adds and updates records by id. Nothing already here is deleted.</p>
   </div>
+  </details>
+
+  <details class="sx" id="sxMe">
+    <summary><b>Your details</b><span class="sxs" id="sumMe"></span></summary>
+  <div class="fld">
+    <label>Your email address</label>
+    <input type="email" id="setEmail" placeholder="you@intralox.com" autocomplete="email">
+    <div class="gap"></div>
+    <label>Photos in compiled files</label>
+    <select id="setImgMode">
+      <option value="full">Full size</option>
+      <option value="thumb">Thumbnails, expandable</option>
+      <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
+    </select>
+    <p class="hint">The starting point for every output. The dashboard picker
+      overrides it for one file without changing this.</p>
+    <p class="hint">Used as the organiser on calendar invites. Without it Outlook has nobody to send from, so invitees are left off.</p>
+  </div>
+  </details>
+
+  <details class="sx" id="sxDyn">
+    <summary><b>Export for Dynamics</b><span class="sxs">Call notes and reassignments as CSV</span></summary>
+  <div class="fld">
+    <button class="ghost" id="exCallNotes">Export call notes as CSV</button>
+    <button class="ghost" id="exReassignCsv" hidden>Export reassignments as CSV</button>
+    <p class="hint">For importing into Dynamics.</p>
+  </div>
+  </details>
+
+  <details class="sx" id="sxVer">
+    <summary><b>App version</b><span class="sxs" id="sumVer"></span></summary>
+  <div class="fld">
+    <p class="stat" id="upStat"></p>
+    <button class="ghost" id="upBtn">Get the latest version</button>
+    <p class="hint">Checks the server for newer app files and reloads once. Nothing downloads unless you tap it. Your calls, accounts and photos are not affected.</p>
+    <p class="hint" id="appVer"></p>
+  </div>
+  </details>
+
+  <details class="sx" id="sxLog">
+    <summary><b>Files loaded on this device</b><span class="sxs" id="sumLog"></span></summary>
+  <div class="fld">
+    <label>Files loaded on this device</label>
+    <div id="loadLog"></div>
+    <p class="hint">Newest first. Shows the filename and what each file did, so it is obvious what has and has not been loaded on this device.</p>
+  </div>
+  </details>
 </section>
 
 <!-- ACCOUNT SEARCH -->
@@ -2132,7 +2099,7 @@ dialog::backdrop{background:rgba(34,34,34,.38)}
 
 </div>
 
-<div class="foot">Field CRM <span>&middot; data stays on this device</span><span class="tag2">Intralox</span></div>
+<div class="foot">Field CRM <span>&middot; encrypted before it leaves this device</span><span class="tag2">Intralox</span></div>
 
 <div class="bar" id="bar" style="display:none">
   <button id="barCamera">Camera</button>

@@ -161,11 +161,10 @@ async function recordsAll(){
    device merge keep working untouched. They are told apart by rectype, and this
    is the only place that filter lives.
 
-   Not 'kind'. slimCall() sets kind = GHC_KIND on the way out to the sync repo
-   and pullCall() deletes it on the way back, so a record-level 'kind' would be
-   overwritten on push and stripped on pull - a quote request would return from a
-   sync as an ordinary call, land in Reports and reset the account's cadence,
-   with nothing to show it had happened.
+   Not 'kind'. The old GitHub call sync (removed in v78) overwrote 'kind' on the
+   way out and stripped it on the way back, so a quote marked that way returned
+   as an ordinary call, landed in Reports and reset the account's cadence. Call
+   files and backups from that time still carry 'kind', so it stays off-limits.
 
    Everything downstream reads callsAll(), so anything that has not been told
    about quote requests excludes them. That is the safe answer, and it is the
@@ -926,7 +925,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v77';
+const APP_BUILD = 'v78';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1134,9 +1133,6 @@ async function loadAccounts(){
   APPTS = await apptsAll();
   TASKS = await tasksAll();
   REF = await kvGet('beltref') || null;
-  if(!REF && ghReady() && navigator.onLine){
-    try { await pullBeltRefGh(); } catch(e){ console.warn('belt reference auto-pull', e); }
-  }
   ASSETS = await kvGet('assets') || null;
   await loadUse();
   WEEKS = await kvGet('weeks') || {};
@@ -1312,6 +1308,14 @@ function pushDialog(id){
    entry after the call was closed, a back gesture into a finished call - threw on
    the first property read and left a blank screen with no way forward. */
 const CALL_SCREENS = ['dash','belt','project','note','health'];
+/* On Home the right-hand header button is the ⋯ menu (Settings); everywhere
+   else it goes home. Also run at boot, which shows Home without showScreen. */
+function paintHeaderMenu(name){
+  $('hdMenu').style.display = 'block';
+  $('hdMenu').innerHTML = name === 'home' ? '<span class="dots" aria-hidden="true">&#8943;</span>' : icon('home');
+  $('hdMenu').title = name === 'home' ? 'Settings' : 'Home';
+  $('hdMenu').setAttribute('aria-label', name === 'home' ? 'Settings, data and backup' : 'Home');
+}
 function showScreen(name){
   if(CALL_SCREENS.includes(screen) && screen !== 'dash') captureDraft(screen);
   if(CALL_SCREENS.includes(name)) lastCallScreen = name;
@@ -1325,7 +1329,7 @@ function showScreen(name){
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
   $('back').style.display = (name==='home') ? 'none' : 'block';
-  $('hdMenu').style.display = (name==='home') ? 'none' : 'block';
+  paintHeaderMenu(name);
   $('title').textContent = TITLES[name] ? TITLES[name][0] : 'Field CRM';
   $('subtitle').textContent = call ? (call.customer + (call.site?' - '+call.site:'')) : 'No call open';
   const inCall = call && CALL_SCREENS.includes(name);
@@ -1337,7 +1341,8 @@ function showScreen(name){
   if(name==='reference') renderRefPane();
   if(name==='ccontacts') renderCallContacts();
   if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers();
-    if($('setImgMode')) $('setImgMode').value = defaultImgMode(); }
+    if($('setImgMode')) $('setImgMode').value = defaultImgMode();
+    renderSettingsSummary(); }
   if(name==='reports') renderReports().catch(e=>console.error('reports', e));
   if(name==='plan') renderPlan();
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
@@ -3987,213 +3992,15 @@ async function receiveExchange(file){
   throw new Error('unrecognised exchange file: ' + data.kind);
 }
 
-/* ---------- transport ----------
-   Phone: the share sheet, exactly as the compiled notes already work.
-   Desktop: the File System Access API, pointed once at the OneDrive-synced
-   folder and the handle kept in IndexedDB. OneDrive's own client does the
-   upload. The API is not supported on Android Chrome, which is why the phone
-   uses the share sheet instead. */
-/* Two folders, not one, and each is named for the device that owns it and the
-   direction the data travels. A single shared folder meant "did I already read
-   that one?" every time, and a plan the PC had just written could be re-read by
-   the PC itself. Separate folders make each one a one-way pipe:
-
-     PC -> Phone    the PC writes plan files here; the phone reads them
-     Phone -> PC    the phone writes call files here; the PC reads them
-
-   The phone cannot hold a folder handle at all - Android Chrome has no File
-   System Access API - so on the phone these are OneDrive folders reached through
-   the share sheet, and the buttons are hidden. */
-let DIR_OUT = null, DIR_IN = null;
-const DIR_LABEL = {
-  out: 'PC \u2192 Phone (the PC writes plans here)',
-  in:  'Phone \u2192 PC (the phone writes calls here)'
-};
-const hasFS = () => typeof window.showDirectoryPicker === 'function';
-async function dirOk(handle, mode){
-  if(!handle || !handle.queryPermission) return !!handle;
-  const opts = {mode: mode || 'readwrite'};
-  if(await handle.queryPermission(opts) === 'granted') return true;
-  return await handle.requestPermission(opts) === 'granted';
-}
-async function loadDir(){
-  try {
-    DIR_OUT = await kvGet('dirOut') || null;
-    DIR_IN  = await kvGet('dirIn')  || null;
-    // one folder was used for both before this; keep it as the outbound one
-    if(!DIR_OUT){
-      const old = await kvGet('dirHandle');
-      if(old){ DIR_OUT = old; await kvSet('dirOut', old); }
-    }
-  } catch(e){ DIR_OUT = DIR_IN = null; }
-  renderExchange();
-}
-async function pickDir(which){
-  if(!hasFS()){
-    toast('This device cannot hold a folder. Use the share sheet, or the Receive button.');
-    return;
-  }
-  const h = await window.showDirectoryPicker({mode:'readwrite'});
-  if(which === 'in'){ DIR_IN = h; await kvSet('dirIn', h); }
-  else { DIR_OUT = h; await kvSet('dirOut', h); }
-  renderExchange();
-  logLoad(h.name || 'folder', 'folder', 'Set as ' + DIR_LABEL[which === 'in' ? 'in' : 'out']);
-  toast('Folder set: ' + (h.name || 'chosen') + ' \u2014 ' + DIR_LABEL[which === 'in' ? 'in' : 'out']);
-}
-async function writeToDir(dir, name, text){
-  if(!dir) return false;
-  if(!await dirOk(dir, 'readwrite')){ toast('Permission to that folder was declined'); return false; }
-  const fh = await dir.getFileHandle(name, {create:true});
-  const wr = await fh.createWritable();
-  await wr.write(text);
-  await wr.close();
-  return true;
-}
-async function readFromDir(dir, name){
-  if(!dir) return null;
-  if(!await dirOk(dir, 'read')) return null;
-  try {
-    const fh = await dir.getFileHandle(name);
-    return await fh.getFile();
-  } catch(e){ return null; }
-}
-async function sendFile(name, text, dir, where){
-  if(dir && await writeToDir(dir, name, text)){
-    toast('Written to ' + (dir.name || 'the folder') + '/' + name + ' \u2014 ' + where);
-    logLoad(name, 'sent', 'Written to ' + (dir.name || 'folder') + ' \u2014 ' + where);
-    return;
-  }
-  const file = new File([text], name, {type:'application/json'});
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    try {
-      await navigator.share({files:[file], title:name});
-      toast('Shared ' + name + ' \u2014 save it to the ' + where + ' folder');
-      logLoad(name, 'sent', 'Shared \u2014 ' + where);
-      return;
-    }
-    catch(e){ if(e.name === 'AbortError') return; console.error(e); }
-  }
-  downloadFile(name, text, 'application/json');
-  toast('Saved ' + name + ' to Downloads \u2014 move it to the ' + where + ' folder');
-  logLoad(name, 'sent', 'Downloaded \u2014 ' + where);
-}
-function exchangeName(kind){
-  const d = new Date(), p = n => String(n).padStart(2,'0');
-  return kind + '-' + d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()) + '.json';
-}
-async function sendPlan(){
-  if(!APPTS.length){ toast('Nothing planned to send'); return; }
-  const withAccounts = confirm('Include the account database in this plan file?\n\n' +
-    'Say yes the first time, or after re-importing from Dynamics. Say no for a ' +
-    'routine weekly plan - it keeps the file small.');
-  const data = await buildPlanFile(withAccounts);
-  await sendFile(exchangeName(PLAN_KIND), JSON.stringify(data), DIR_OUT, DIR_LABEL.out);
-  localStorage.setItem(LS('lastPlanSent'), String(Date.now()));
-  renderExchange();
-}
-async function sendCalls(){
-  const calls = await callsAll();
-  if(!calls.length){ toast('No calls to send'); return; }
-  const withPhotos = confirm('Include the photos?\n\nThey are already in the notes you shared, ' +
-    'so no is usually right and keeps the file small.');
-  const data = await buildCallFile(withPhotos);
-  await sendFile(exchangeName(CALL_KIND), JSON.stringify(data), DIR_IN, DIR_LABEL['in']);
-  localStorage.setItem(LS('lastCallsSent'), String(Date.now()));
-  renderExchange();
-}
-/* Each folder is read for the one kind that belongs in it. Reading a plan out of
-   the outbound folder would mean the PC re-importing what it just wrote. */
-async function receiveFromFolder(){
-  const jobs = [[DIR_IN, CALL_KIND, DIR_LABEL['in']], [DIR_OUT, PLAN_KIND, DIR_LABEL.out]];
-  if(!jobs.some(j => j[0])){ toast('No folders set yet'); return; }
-  let found = 0;
-  for(const [dir, kind, where] of jobs){
-    if(!dir) continue;
-    for(const name of await dirCandidates(dir, kind)){
-      const f = await readFromDir(dir, name);
-      if(!f) continue;
-      try {
-        const msg = await receiveExchange(f);
-        logLoad(name, kind === PLAN_KIND ? 'plan' : 'calls', msg);
-        toast(name + ': ' + msg);
-        found++;
-      }
-      catch(e){ console.error(e); toast(name + ': ' + e.message); }
-      break;
-    }
-  }
-  if(!found) toast('No new files found in the folders that are set');
-  renderExchange();
-}
-async function dirCandidates(dir, kind){
-  // newest first, so a folder with several weeks of files takes the current one
-  const names = [];
-  if(dir && dir.entries){
-    for await (const [n, h] of dir.entries()){
-      if(typeof n === 'string' && n.startsWith(kind) && n.endsWith('.json')) names.push(n);
-    }
-  }
-  names.sort().reverse();
-  names.push(kind + '.json');
-  return names;
-}
+/* What is left of the old Exchange panel: the reassignment CSV (only when
+   something has been reassigned) and the load log. The folder and GitHub
+   syncs were removed in v78 - cloud sync carries everything they did. */
 function renderExchange(){
-  const phone = isPhone();
-  const dirLine = (dir, which) => {
-    if(dir) return 'Folder set: <b>' + esc(dir.name || 'chosen folder') + '</b>';
-    if(!hasFS()) return which === 'out'
-      ? 'This device cannot hold a folder. On the phone, open the plan in OneDrive and tap Share &rarr; Field CRM.'
-      : 'This device cannot hold a folder. Send the calls with the share sheet and save them into the Phone &rarr; PC folder in OneDrive.';
-    return '<span class="flagline">No folder set.</span> Set it on the PC and point it at a OneDrive folder that syncs.';
-  };
-  const out = $('exOutStat'), inn = $('exInStat');
-  if(out) out.innerHTML = dirLine(DIR_OUT, 'out') +
-    '<br><span class="cov">' + (phone ? 'You read from this folder.' : 'You write to this folder.') + '</span>';
-  if(inn) inn.innerHTML = dirLine(DIR_IN, 'in') +
-    '<br><span class="cov">' + (phone ? 'You write to this folder.' : 'You read from this folder.') + '</span>';
-  $('exPickOut').hidden = !hasFS();
-  $('exPickIn').hidden = !hasFS();
-  $('exPull').hidden = !(DIR_OUT || DIR_IN);
-
-  const el = $('exStat');
-  if(el){
-    const bits = [];
-    bits.push('This device is acting as the <b>' + (phone ? 'phone' : 'PC') + '</b>.');
-    bits.push(APPTS.length + ' appointment' + (APPTS.length===1?'':'s') + ' held');
-    const unsent = APPTS.filter(a => a.origin && !a.acked).length;
-    if(unsent) bits.push('<span class="flagline">' + unsent + ' made here and not yet sent</span>');
-    const withNotes = APPTS.filter(a => a.callSummary).length;
-    if(withNotes) bits.push(withNotes + ' visit' + (withNotes===1?'':'s') + ' written up');
-    const wk = weeksList().length;
-    if(wk) bits.push(wk + ' territory week' + (wk===1?'':'s') + ' set');
-    const moved = ACCOUNTS.filter(isMoved).length;
-    if(moved) bits.push(moved + ' account' + (moved===1?'':'s') + ' reassigned');
-    el.innerHTML = bits.join('<br>');
-    $('exReassignCsv').hidden = !moved;
-  }
+  const b = $('exReassignCsv');
+  if(b) b.hidden = !ACCOUNTS.some(isMoved);
   renderLoadLog();
 }
-$('exPickOut').addEventListener('click', ()=>pickDir('out').catch(e=>{
-  if(e && e.name === 'AbortError') return; reportErr(e);
-}));
-$('exPickIn').addEventListener('click', ()=>pickDir('in').catch(e=>{
-  if(e && e.name === 'AbortError') return; reportErr(e);
-}));
 $('exReassignCsv').addEventListener('click', exportReassignments);
-$('exSendPlan').addEventListener('click', ()=>sendPlan().catch(reportErr));
-$('exSendCalls').addEventListener('click', ()=>sendCalls().catch(reportErr));
-$('exPull').addEventListener('click', ()=>receiveFromFolder().catch(reportErr));
-$('exBtn').addEventListener('click', async ()=>{
-  const f = $('exFile').files[0];
-  if(!f){ toast('Choose a file first'); return; }
-  try {
-    const msg = await routeIncomingFile(f);
-    renderExchange(); renderDbStat(); fillManagers(); renderBackupStat();
-    await renderHome();
-    toast(msg);
-  }
-  catch(e){ console.error(e); toast('Could not read that file: ' + e.message); }
-});
 
 /* ================= one door for every incoming file =================
 
@@ -4330,327 +4137,6 @@ function renderLoadLog(){
         d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})+'</div></div>';
   }).join('');
 }
-
-/* ================= appointment sync over GitHub =================
-
-   The schedule, and only the schedule, moves between the phone and the PC over a
-   private GitHub repository. Call reports stay on the device that made them.
-
-   WHAT GOES UP. Nothing that names a customer. An appointment is written as its
-   account KEY (see acctKey above), a date, a time, a duration, contact indices
-   into the account's own contact list, and a status. No account names, no
-   contact names, no phone numbers, no emails, no notes, no photos. The only
-   free text is the agenda line, which is yours to write - treat it as a subject
-   line, because it is the one field that will be readable.
-
-   WHAT STAYS. callSummary - the whole call write-up - is deliberately NOT synced.
-   It is the largest part of an appointment record and it holds contact names,
-   belts, health items and notes. Sending it would put call notes into git
-   history permanently, which is the thing this scope was narrowed to avoid.
-   The consequence is real and worth remembering: the PC cannot put the write-up
-   into the Outlook invite, because it never receives it.
-
-   OWNERSHIP is unchanged from the file exchange. The phone owns the outcome -
-   whether a visit happened, was moved, was missed. The desktop owns the invite -
-   the agenda, who is listed, and the Outlook export state. So exp, expAt and
-   icsSeq are never overwritten by an incoming record that does not carry them. */
-
-const GH_KIND = 'field-crm-appts', GH_VER = 1;
-let GH = {owner:'', repo:'', branch:'main', path:'exchange/appointments.json', token:''};
-let ghSha = null;
-
-async function loadGh(){
-  try { GH = Object.assign(GH, await kvGet('github') || {}); } catch(e){}
-  renderGh();
-}
-async function saveGh(){ await kvSet('github', GH); renderGh(); }
-const ghReady = () => !!(GH.owner && GH.repo && GH.token);
-function ghHeaders(){
-  return {'Accept':'application/vnd.github+json', 'Authorization':'Bearer '+GH.token,
-          'X-GitHub-Api-Version':'2022-11-28'};
-}
-function ghUrl(){
-  return 'https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
-    encodeURIComponent(GH.repo)+'/contents/'+GH.path.split('/').map(encodeURIComponent).join('/');
-}
-/* base64 that survives non-ASCII. The agenda can contain anything you typed. */
-function b64encode(str){
-  const bytes = new TextEncoder().encode(str);
-  let bin = '';
-  for(const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
-}
-function b64decode(b64){
-  const bin = atob(String(b64).replace(/\s/g, ''));
-  const arr = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(arr);
-}
-
-/* The repository must be private. Pushing a schedule into a public repo would
-   undo the one rule this project has held since the first day, so it is checked
-   before anything is written and refused rather than warned about.
-
-   GitHub answers 404 for a repository a fine-grained token has not been granted,
-   exactly as it does for one that does not exist - it will not confirm existence
-   to a token that cannot see it. "Not found" is therefore almost never a typo in
-   the name, and saying so was useless. This asks three questions in order and
-   reports which one actually failed:
-
-     GET /user        does the token work at all?
-     GET /user/repos  which repositories has it been granted?
-     GET /repos/o/r   can it see this one, is it private, can it write?
-
-   The middle call is what turns a dead end into an answer, because a
-   fine-grained token only lists repositories it has been given. */
-async function ghWhoAmI(){
-  const r = await fetch('https://api.github.com/user', {headers: ghHeaders()});
-  if(r.status === 401) return {ok:false, why:'the token was rejected. It has expired, been revoked, ' +
-    'or was pasted short - they are long and phone keyboards truncate them.'};
-  if(!r.ok) return {ok:false, why:'GitHub returned ' + r.status + ' checking the token.'};
-  const j = await r.json();
-  return {ok:true, login: j.login};
-}
-async function ghGrantedRepos(){
-  try {
-    const r = await fetch('https://api.github.com/user/repos?per_page=100&affiliation=owner,collaborator,organization_member',
-      {headers: ghHeaders()});
-    if(!r.ok) return null;
-    const j = await r.json();
-    return Array.isArray(j) ? j.map(x => x.full_name) : null;
-  } catch(e){ return null; }
-}
-async function ghCheckRepo(){
-  const who = await ghWhoAmI();
-  if(!who.ok) throw new Error(who.why);
-
-  const wanted = GH.owner + '/' + GH.repo;
-  const r = await fetch('https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
-    encodeURIComponent(GH.repo), {headers: ghHeaders()});
-
-  if(r.status === 404){
-    const granted = await ghGrantedRepos();
-    if(granted && !granted.length)
-      throw new Error('the token works (signed in as ' + who.login + ') but has not been given ' +
-        'ANY repository. On GitHub, edit the token: Repository access \u2192 Only select ' +
-        'repositories \u2192 pick ' + GH.repo + '.');
-    if(granted && granted.length){
-      const near = granted.filter(n => n.toLowerCase().includes(GH.repo.toLowerCase().slice(0,6)));
-      throw new Error('the token works (signed in as ' + who.login + ') but cannot see ' + wanted +
-        '. It has been given: ' + granted.slice(0,6).join(', ') +
-        (granted.length > 6 ? ' and ' + (granted.length-6) + ' more' : '') + '.' +
-        (near.length ? ' Did you mean ' + near[0] + '?' : ''));
-    }
-    // the repos list itself was refused, which points at the metadata permission
-    throw new Error('the token works (signed in as ' + who.login + ') but cannot see ' + wanted +
-      '. Either it was not granted that repository, or Metadata is set to No access - ' +
-      'Contents needs Metadata: Read-only alongside it.');
-  }
-  if(r.status === 403) throw new Error('GitHub refused the request. If the repository belongs to an ' +
-    'organisation, a fine-grained token needs an owner to approve it.');
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' for ' + wanted);
-
-  const j = await r.json();
-  if(!j.private) throw new Error('that repository is PUBLIC. Appointments must go to a private one.');
-  if(j.permissions && j.permissions.push === false)
-    throw new Error('the token can read ' + wanted + ' but not write to it. ' +
-      'Set Contents to Read and write, not Read-only.');
-  if(who.login && GH.owner.toLowerCase() !== who.login.toLowerCase() && !j.organization)
-    console.warn('signed in as ' + who.login + ' but the owner is set to ' + GH.owner);
-  return j;
-}
-async function ghGet(){
-  /* The default response puts the file in j.content as base64 - but only up to
-     1 MB. Above that GitHub returns the field EMPTY with no error, so the read
-     appears to succeed and hands back nothing. The raw media type has no such
-     limit up to 100 MB. */
-  const r = await fetch(ghUrl()+'?ref='+encodeURIComponent(GH.branch), {headers: ghHeaders()});
-  if(r.status === 404){ ghSha = null; return null; }   // nothing pushed yet
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading the file');
-  const j = await r.json();
-  ghSha = j.sha;
-  return JSON.parse(b64decode(j.content));
-}
-async function ghPut(doc, message){
-  const body = {message: message, content: b64encode(JSON.stringify(doc, null, 1)),
-                branch: GH.branch};
-  if(ghSha) body.sha = ghSha;
-  const r = await fetch(ghUrl(), {method:'PUT', headers:
-    Object.assign({'Content-Type':'application/json'}, ghHeaders()), body: JSON.stringify(body)});
-  if(r.status === 409 || r.status === 422) return false;   // someone else moved it
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' writing the file');
-  const j = await r.json();
-  ghSha = j.content && j.content.sha;
-  return true;
-}
-
-/* ---------- the slim record ---------- */
-const GH_FIELDS = ['id','type','date','start','dur','agenda','contacts','status',
-                   'origin','acked','unplanned','touchedAt','exp','expAt','icsSeq'];
-function slimAppt(ap){
-  const out = {ak: acctKey(ap.acct)};
-  GH_FIELDS.forEach(k => { if(ap[k] !== undefined && ap[k] !== null) out[k] = ap[k]; });
-  return out;   // note: no acct, no callId, no callSummary
-}
-function fattenAppt(sl){
-  const name = KEY_TO_ACCT.get(sl.ak);
-  const out = {acct: name || ''};
-  GH_FIELDS.forEach(k => { if(sl[k] !== undefined) out[k] = sl[k]; });
-  out.ak = sl.ak;
-  return out;
-}
-function buildApptDoc(){
-  const from = iso(startOfWeek(new Date()));
-  return {
-    kind: GH_KIND, version: GH_VER, made: Date.now(),
-    device: isPhone() ? 'phone' : 'desktop',
-    range: {from: from, to: '9999-12-31'},
-    appts: APPTS.filter(a => a.date >= from).map(slimAppt)
-  };
-}
-
-/* The merge is the file exchange's rules, applied to the slim record. */
-async function mergeApptDoc(doc){
-  if(!doc || doc.kind !== GH_KIND) throw new Error('that file is not an appointment sync document');
-  const incoming = Array.isArray(doc.appts) ? doc.appts : [];
-  const byId = new Map(APPTS.map(a => [a.id, a]));
-  let added = 0, updated = 0, kept = 0, removed = 0, unknown = 0;
-
-  for(const sl of incoming){
-    if(!sl || !sl.id) continue;
-    const fat = fattenAppt(sl);
-    if(!fat.acct){ unknown++; continue; }   // key resolves to no account here
-    const mine = byId.get(sl.id);
-    if(!mine){ await apptsPut(Object.assign(fat, {acked:true})); added++; continue; }
-    if(mine.origin && !mine.acked) mine.acked = true;
-    if((mine.touchedAt||0) > (sl.touchedAt||0)){ await apptsPut(mine); kept++; continue; }
-    /* Merge onto the local record rather than replacing it: callId and
-       callSummary live only here and must not be lost, and the Outlook export
-       state is the desktop's, so an incoming record without it never clears it. */
-    const merged = Object.assign({}, mine, fat, {acked:true});
-    if(mine.callId && !fat.callId) merged.callId = mine.callId;
-    if(mine.callSummary) merged.callSummary = mine.callSummary;
-    ['exp','expAt','icsSeq'].forEach(k => {
-      if(sl[k] === undefined && mine[k] !== undefined) merged[k] = mine[k];
-    });
-    if(mine.status && !sl.status) merged.status = mine.status;
-    await apptsPut(merged);
-    updated++;
-  }
-
-  const inDoc = new Set(incoming.map(a => a.id));
-  const r = doc.range || {from:'0000-00-00', to:'9999-12-31'};
-  for(const mine of APPTS){
-    if(inDoc.has(mine.id)) continue;
-    if(mine.date < r.from || mine.date > r.to) continue;
-    if(mine.origin && !mine.acked){ kept++; continue; }        // made here, never sent
-    if((mine.touchedAt||0) > (doc.made||0)){ kept++; continue; }
-    await apptsDel(mine.id);
-    removed++;
-  }
-  APPTS = await apptsAll();
-  return {added, updated, kept, removed, unknown};
-}
-
-/* ---------- pull, push, and both ---------- */
-async function ghPull(){
-  const doc = await ghGet();
-  if(!doc) return 'Nothing has been pushed to that repository yet';
-  const r = await mergeApptDoc(doc);
-  renderPlanCount(); renderGh();
-  if(screen === 'today') renderToday();
-  if(screen === 'plan') renderPlan();
-  await renderHome();
-  const bits = [r.added+' added', r.updated+' updated'];
-  if(r.removed) bits.push(r.removed+' removed');
-  if(r.kept) bits.push(r.kept+' kept, changed here since');
-  if(r.unknown) bits.push(r.unknown+' for accounts not in this device\u2019s CRM export');
-  const msg = 'Pulled: ' + bits.join(', ');
-  await logLoad(GH.owner+'/'+GH.repo+'/'+GH.path, 'ghpull', msg);
-  return msg;
-}
-async function ghPush(){
-  // read first so the merge happens here, not by overwriting whatever is up there
-  const remote = await ghGet();
-  if(remote){
-    try { await mergeApptDoc(remote); }
-    catch(e){ console.warn('remote merge', e); }
-  }
-  const doc = buildApptDoc();
-  let ok = await ghPut(doc, 'Field CRM: appointments from the ' + doc.device);
-  if(!ok){
-    // someone pushed between the read and the write: take theirs, merge, try once more
-    const again = await ghGet();
-    if(again) await mergeApptDoc(again);
-    ok = await ghPut(buildApptDoc(), 'Field CRM: appointments from the ' + doc.device + ' (retry)');
-    if(!ok) throw new Error('the file changed twice while pushing - try again');
-  }
-  localStorage.setItem(LS('ghPush'), String(Date.now()));
-  renderGh();
-  const msg = 'Pushed ' + doc.appts.length + ' appointment' + (doc.appts.length===1?'':'s');
-  await logLoad(GH.owner+'/'+GH.repo+'/'+GH.path, 'ghpush', msg);
-  return msg;
-}
-async function ghSync(){
-  if(!ghReady()) throw new Error('set the repository and token first');
-  if(!navigator.onLine) throw new Error('no connection - try again when you have signal');
-  const pulled = await ghPull();
-  const pushed = await ghPush();
-  localStorage.setItem(LS('ghSync'), String(Date.now()));
-  renderGh();
-  return pulled + '. ' + pushed + '.';
-}
-
-function renderGh(){
-  const el = $('ghStat');
-  if(!el) return;
-  ['ghOwner','ghRepo','ghBranch','ghPath','ghToken'].forEach(id => {
-    const f = $(id); if(!f) return;
-    const k = id.replace('gh','').toLowerCase();
-    const map = {owner:'owner', repo:'repo', branch:'branch', path:'path', token:'token'};
-    if(document.activeElement !== f) f.value = GH[map[k]] || '';
-  });
-  const bits = [];
-  if(!ghReady()) bits.push('<span class="flagline">Not set up.</span> Needs a private repository and a token.');
-  else bits.push('Syncing <b>'+esc(GH.owner+'/'+GH.repo)+'</b> &middot; '+esc(GH.path));
-  const last = localStorage.getItem(LS('ghSync'));
-  bits.push(last ? 'Last synced ' + new Date(Number(last)).toLocaleString() : 'Never synced from this device');
-  const unsent = APPTS.filter(a => a.origin && !a.acked).length;
-  if(unsent) bits.push('<span class="flagline">'+unsent+' made here and not yet pushed</span>');
-  bits.push('<span class="cov">Appointments only. No customer names, no contacts, no call notes.</span>');
-  el.innerHTML = bits.join('<br>');
-  $('ghSync').disabled = !ghReady();
-  $('ghTest').disabled = !ghReady();
-  renderGhBeltStat();
-}
-['ghOwner','ghRepo','ghBranch','ghPath','ghToken'].forEach(id => {
-  const f = $(id);
-  if(!f) return;
-  f.addEventListener('change', async ()=>{
-    const map = {ghOwner:'owner', ghRepo:'repo', ghBranch:'branch', ghPath:'path', ghToken:'token'};
-    GH[map[id]] = f.value.trim();
-    ghSha = null;
-    await saveGh();
-  });
-});
-$('ghTest').addEventListener('click', async ()=>{
-  try {
-    const j = await ghCheckRepo();
-    toast('Connected to ' + j.full_name + ' - private, writable');
-    await logLoad(j.full_name, 'ghtest', 'Private repository, token accepted');
-  } catch(e){ console.error(e); toast('Cannot use that repository: ' + e.message);
-    await logLoad(GH.owner+'/'+GH.repo, 'ghtest', e.message, true); }
-});
-$('ghSync').addEventListener('click', async ()=>{
-  const btn = $('ghSync');
-  btn.disabled = true;
-  try {
-    await ghCheckRepo();          // never write to a public repo, every time
-    toast(await ghSync());
-  } catch(e){ console.error(e); toast('Sync failed: ' + e.message);
-    await logLoad(GH.owner+'/'+GH.repo, 'ghpush', e.message, true); }
-  finally { btn.disabled = !ghReady(); }
-});
 
 /* ================= tasks =================
 
@@ -6081,7 +5567,7 @@ $('hdMenu').innerHTML = icon('home');
    call stays open and the call strip keeps saying so - which is what makes going
    in and out of two calls possible. */
 $('hdMenu').addEventListener('click', ()=>{
-  if(screen === 'home') return;
+  if(screen === 'home'){ go('settings'); return; }
   if(CALL_SCREENS.includes(screen) && screen !== 'dash' && leaveEntry(screen)) return;
   go('home', true);
 });
@@ -9476,8 +8962,6 @@ $('rsBtn').addEventListener('click', async ()=>{
   renderDbStat(); renderRefStat(); renderAssetStat(); renderHomeSetup();
   fillManagers(); renderBackupStat();
   renderManStat(); renderManCount();
-  await loadDir();
-  await loadGh();
   try { await loadSb(); } catch(e){ console.error('cloud', e); }
   $('cMgr').addEventListener('change', renderHomeCounts);
   $('cDate').value = todayISO();
@@ -9489,6 +8973,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   try { buildBeltRef(); } catch(e){ console.error('belt reference', e); }
   try { resetBelt(); } catch(e){ console.error('belt form', e); }
   try { history.replaceState({screen:'home'}, '', location.href); } catch(e){}
+  paintHeaderMenu(screen);
   try { await renderHome(); } catch(e){ console.error('home', e); }
   try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
   if(dbErr){
@@ -9674,6 +9159,18 @@ function closeOpenPicker(){
 
 /* Everything lives on one device and clearing site data takes the lot, so the
    age of the last backup is worth seeing without going looking for it. */
+/* The one line under each Settings heading, so the closed list says where
+   things stand without opening anything. */
+function renderSettingsSummary(){
+  const put = (id, txt) => { const e = $(id); if(e) e.textContent = txt; };
+  const first = id => (($(id) && $(id).innerText) || '').split('\n').map(x => x.trim()).filter(Boolean);
+  put('sumCloud', first('sbStat').join(' \u00b7 ') || 'Not set up');
+  put('sumData', META ? META.counts.accounts + ' accounts' + (REF ? ', belt data' : '') + (ASSETS ? ', plant register' : '') : 'Nothing imported yet');
+  put('sumBk', (first('bkStat')[0] || '').replace(/\s+/g, ' ') || 'No backup taken on this device');
+  put('sumMe', ($('setEmail') && $('setEmail').value) || 'Email not set');
+  put('sumLog', LOAD_LOG.length ? LOAD_LOG.length + ' recent' : 'None yet');
+  put('sumVer', 'Build ' + APP_BUILD);
+}
 function renderBackupAge(){
   const el = $('bkHomeStat');
   if(!el) return;
@@ -9688,266 +9185,6 @@ function renderBackupAge(){
   el.textContent = days <= 0 ? 'Backed up today.'
     : 'Last backup ' + days + ' day' + (days === 1 ? '' : 's') + ' ago.';
 }
-
-
-/* ================= file store =================
-   Two functions between the sync and wherever the bytes actually live. GitHub
-   implements them now. If an Entra app registration ever appears, OneDrive
-   implements the same two and everything below this comment is unchanged. */
-
-function ghPathFor(rel){
-  const dir = GH.path.indexOf('/') >= 0 ? GH.path.slice(0, GH.path.lastIndexOf('/')) : '';
-  return (dir ? dir + '/' : '') + rel;
-}
-function ghContentsUrl(path){
-  return 'https://api.github.com/repos/'+encodeURIComponent(GH.owner)+'/'+
-    encodeURIComponent(GH.repo)+'/contents/'+path.split('/').map(encodeURIComponent).join('/');
-}
-
-/* Text read. Uses the raw media type so a file over 1 MB comes back whole
-   rather than as an empty content field. */
-async function getFile(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.raw'})});
-  if(r.status === 404) return null;
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading ' + path);
-  return await r.text();
-}
-async function getBlob(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.raw'})});
-  if(r.status === 404) return null;
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' reading ' + path);
-  return await r.blob();
-}
-/* The sha of what is already there, needed to overwrite it. Kept separate from
-   the read so a push does not have to download a file it is about to replace. */
-async function getSha(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: Object.assign({}, ghHeaders(), {'Accept':'application/vnd.github.object'})});
-  if(r.status === 404) return null;
-  if(!r.ok) return null;
-  const j = await r.json();
-  return j.sha || null;
-}
-async function putFile(path, b64, message){
-  const sha = await getSha(path);
-  const body = {message: message || ('field crm: ' + path), content: b64, branch: GH.branch};
-  if(sha) body.sha = sha;
-  const r = await fetch(ghContentsUrl(path), {method:'PUT',
-    headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
-    body: JSON.stringify(body)});
-  if(r.status === 409 || r.status === 422) return false;   // moved under us
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' writing ' + path);
-  return true;
-}
-async function listDir(path){
-  const r = await fetch(ghContentsUrl(path)+'?ref='+encodeURIComponent(GH.branch),
-    {headers: ghHeaders()});
-  if(r.status === 404) return [];
-  if(!r.ok) throw new Error('GitHub returned ' + r.status + ' listing ' + path);
-  const j = await r.json();
-  return Array.isArray(j) ? j : [];
-}
-
-/* base64 for binary. b64encode() runs text through TextEncoder, which would
-   mangle JPEG bytes, so photos need their own path. */
-async function blobToB64(blob){
-  const buf = new Uint8Array(await blob.arrayBuffer());
-  let bin = '';
-  const CH = 0x8000;   // btoa in one go blows the stack on a large photo
-  for(let i = 0; i < buf.length; i += CH){
-    bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
-  }
-  return btoa(bin);
-}
-
-/* ================= belt reference sync =================
-   The belt/sprocket catalogue (including part numbers) is Intralox product
-   data, not something to ship in this app's public repo - GitHub Pages
-   serves it to anyone regardless of whether the source repo is public or
-   private. Instead it rides the same private repository and token already
-   set up for appointment sync, under its own path alongside
-   exchange/appointments.json. Deliberately manual, like every other sync in
-   this app - nothing here runs on its own except the one-time pull below,
-   which only fires when a device has no belt reference data at all yet. */
-function beltRefGhPath(){ return ghPathFor('beltref.json'); }
-
-async function pullBeltRefGh(){
-  if(!ghReady()) throw new Error('set the repository and token first');
-  const text = await getFile(beltRefGhPath());
-  if(!text) throw new Error('nothing has been pushed to ' + beltRefGhPath() + ' yet');
-  const payload = JSON.parse(text);
-  if(!payload || !Array.isArray(payload.combos) || !payload.combos.length){
-    throw new Error('that file did not look like belt reference data');
-  }
-  await kvSet('beltref', payload);
-  await logLoad(GH.owner+'/'+GH.repo+'/'+beltRefGhPath(), 'beltref',
-    'pulled '+payload.combos.length+' belt combinations, '+payload.sprockets.length+' sprocket rows');
-  REF = payload;
-  renderRefStat(); renderHomeSetup(); buildBeltRef();
-  return 'Pulled '+payload.counts.combos+' belt specs, '+payload.counts.sprockets+' sprockets';
-}
-async function pushBeltRefGh(){
-  if(!ghReady()) throw new Error('set the repository and token first');
-  if(!REF) throw new Error('no belt reference data loaded on this device to push');
-  const ok = await putFile(beltRefGhPath(), b64encode(JSON.stringify(REF)),
-    'Field CRM: belt reference data (' + REF.counts.combos + ' combos, ' + REF.counts.sprockets + ' sprockets)');
-  if(!ok) throw new Error('the file changed while pushing - try again');
-  await logLoad(GH.owner+'/'+GH.repo+'/'+beltRefGhPath(), 'beltref',
-    'pushed '+REF.counts.combos+' belt combinations, '+REF.counts.sprockets+' sprocket rows');
-  return 'Pushed '+REF.counts.combos+' belt specs, '+REF.counts.sprockets+' sprockets';
-}
-function renderGhBeltStat(){
-  const el = $('ghBeltStat');
-  if(!el) return;
-  el.innerHTML = REF
-    ? '<b>'+REF.counts.combos+'</b> belt specs, <b>'+REF.counts.sprockets+'</b> sprockets on this device.'
-    : 'No belt reference data on this device yet.';
-  const pullBtn = $('ghBeltPull'), pushBtn = $('ghBeltPush');
-  if(pullBtn) pullBtn.disabled = !ghReady();
-  if(pushBtn) pushBtn.disabled = !ghReady() || !REF;
-}
-if($('ghBeltPull')) $('ghBeltPull').addEventListener('click', async ()=>{
-  $('ghBeltPull').disabled = true;
-  try { await ghCheckRepo(); toast(await pullBeltRefGh()); }
-  catch(e){ console.error(e); toast('Pull failed: ' + e.message);
-    await logLoad(GH.owner+'/'+GH.repo, 'beltref', e.message, true); }
-  finally { renderGhBeltStat(); }
-});
-if($('ghBeltPush')) $('ghBeltPush').addEventListener('click', async ()=>{
-  $('ghBeltPush').disabled = true;
-  try { await ghCheckRepo(); toast(await pushBeltRefGh()); }
-  catch(e){ console.error(e); toast('Push failed: ' + e.message);
-    await logLoad(GH.owner+'/'+GH.repo, 'beltref', e.message, true); }
-  finally { renderGhBeltStat(); }
-});
-
-/* ================= call sync =================
-   Photos go up at 800px rather than the 1400px held on the device. The synced
-   copy is for reading a report on a laptop, where the difference is invisible,
-   and it takes a call with fifteen photos from several megabytes to under one. */
-const SYNC_PX = 800, SYNC_Q = 0.6;
-const GHC_KIND = 'field-crm-call', GHC_VER = 1;
-
-function callDir(){ return ghPathFor('calls'); }
-function photoDir(id){ return ghPathFor('photos/' + id); }
-
-/* The call as it travels: everything except the photo Blobs, which go as their
-   own files and are referenced by path. */
-function slimCall(c){
-  const out = JSON.parse(JSON.stringify(c, (k, v) => (k === 'photos' || k === 'loose') ? undefined : v));
-  out.kind = GHC_KIND; out.version = GHC_VER;
-  out.device = isPhone() ? 'phone' : 'desktop';
-  out.photoMap = {};
-  (c.entries || []).forEach((e, i) => {
-    if(e.photos && e.photos.length) out.photoMap[i] = e.photos.length;
-  });
-  if(c.loose && c.loose.length) out.photoMap.loose = c.loose.length;
-  return out;
-}
-
-async function pushCall(c, note){
-  const slim = slimCall(c);
-  let sent = 0;
-  for(const [key, n] of Object.entries(slim.photoMap)){
-    const list = key === 'loose' ? (c.loose || []) : ((c.entries[+key] || {}).photos || []);
-    for(let j = 0; j < list.length; j++){
-      const path = photoDir(c.id) + '/' + key + '-' + j + '.jpg';
-      // already there from a previous sync - photos never change once taken
-      if(await getSha(path)) continue;
-      let small;
-      try { small = await shrink(list[j], SYNC_PX, SYNC_Q); }
-      catch(e){ continue; }   // a photo that will not re-encode must not stop the call
-      if(await putFile(path, await blobToB64(small), 'call photo')) sent++;
-    }
-  }
-  await putFile(callDir() + '/' + c.id + '.json',
-    b64encode(JSON.stringify(slim, null, 1)), note || ('call: ' + c.customer));
-  return sent;
-}
-
-async function pullCall(name){
-  const txt = await getFile(callDir() + '/' + name);
-  if(!txt) return null;
-  let doc;
-  try { doc = JSON.parse(txt); } catch(e){ return null; }
-  if(!doc || doc.kind !== GHC_KIND || !doc.id) return null;
-
-  const existing = (await callsAll()).find(x => x.id === doc.id);
-  /* Last writer wins, by the timestamp the app already keeps. A call edited
-     here since the remote copy was written is not overwritten by it. */
-  if(existing && (existing.updated || 0) >= (doc.updated || 0)) return 'kept';
-
-  const incoming = Object.assign({}, doc);
-  delete incoming.kind; delete incoming.version; delete incoming.device;
-  delete incoming.photoMap;
-  incoming.entries = incoming.entries || [];
-  incoming.loose = [];
-
-  for(const [key, n] of Object.entries(doc.photoMap || {})){
-    const bucket = [];
-    for(let j = 0; j < n; j++){
-      const b = await getBlob(photoDir(doc.id) + '/' + key + '-' + j + '.jpg').catch(()=>null);
-      if(b) bucket.push(b);
-    }
-    if(key === 'loose') incoming.loose = bucket;
-    else if(incoming.entries[+key]) incoming.entries[+key].photos = bucket;
-  }
-  /* Photos arriving here are the 800px copies. The device that took them still
-     holds the originals, so this is marked rather than passed off as the real
-     thing. */
-  incoming.syncedPhotos = true;
-  await callsPut(incoming);
-  return existing ? 'updated' : 'added';
-}
-
-async function syncCalls(){
-  if(!ghReady()) throw new Error('set the repository and token first');
-  if(!navigator.onLine) throw new Error('no connection - try again when you have signal');
-
-  const local = await callsAll();
-  const lastPush = JSON.parse(localStorage.getItem(LS('callPush')) || '{}');
-  let pushed = 0, photos = 0;
-  for(const c of local){
-    if((lastPush[c.id] || 0) >= (c.updated || 0)) continue;   // unchanged since last time
-    photos += await pushCall(c);
-    lastPush[c.id] = c.updated || Date.now();
-    pushed++;
-  }
-  localStorage.setItem(LS('callPush'), JSON.stringify(lastPush));
-
-  const remote = (await listDir(callDir())).filter(f => f.type === 'file' && /\.json$/.test(f.name));
-  let added = 0, updated = 0;
-  for(const f of remote){
-    const r = await pullCall(f.name).catch(()=>null);
-    if(r === 'added') added++;
-    else if(r === 'updated') updated++;
-  }
-  localStorage.setItem(LS('callSync'), String(Date.now()));
-  await renderHome();
-  return 'Sent ' + pushed + ' call' + (pushed===1?'':'s') +
-    (photos ? ' and ' + photos + ' photo' + (photos===1?'':'s') : '') +
-    '. Brought in ' + added + ' new, ' + updated + ' updated';
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const b = $('ghCalls');
-  if(!b) return;
-  b.addEventListener('click', async () => {
-    b.disabled = true;
-    showMsg($('ghCallStat'), 'info', 'Syncing calls...');
-    try {
-      /* The public-repo refusal is already written and is the one rule this
-         project has held from the first day, so calls go through it too. */
-      await ghCheckRepo();
-      showMsg($('ghCallStat'), 'ok', await syncCalls());
-    } catch(e){
-      console.error('call sync', e);
-      showMsg($('ghCallStat'), 'warn', 'Call sync failed: ' + esc(e.message));
-    } finally { b.disabled = false; }
-  });
-});
 
 
 document.addEventListener('DOMContentLoaded', () => {
