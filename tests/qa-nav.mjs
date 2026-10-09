@@ -27,7 +27,11 @@ const mk=id=>({id,customer:'Acme',date:'01/09/2026',type:'Site call',mgr:'B',sit
 
 // ---- header icons ----
 t('back button is an icon', $('back').querySelector('svg.ic') !== null);
+// v78: on Home (where the app opens) it is the ⋯ menu; anywhere else, the home icon
+t('on opening, the right-hand button is the ⋯ menu', /\u22ef/.test($('hdMenu').textContent) && $('hdMenu').style.display !== 'none');
+w.showScreen('reports');
 t('home button is an icon', $('hdMenu').querySelector('svg.ic') !== null);
+w.showScreen('home');
 t('home icon exists in the set', !!g('ICONS').home && !!g('ICONS').chev);
 
 // ---- hierarchical back ----
