@@ -202,9 +202,9 @@ which is new infrastructure this project has never had before).
 **What Task Slaughterer 9000 holds today (to bring across):**
 - **Tasks:** type (add project to Dynamics, update project, update contact details, write email, book travel, book customer call, call, other), title, contact, account, email, mobile, project, estimated revenue, notes, done and done date. Open and Done lists. Edit with the sword button.
 - **Emails:** drafts with To, Subject and Body, ticked off when used, with copy and Outlook export.
-- **Saved notes:** reusable text, such as closing notes for Dynamics opportunities, with a status reason.
+- **Saved notes:** reusable text, such as closing notes for Dynamics opportunities, with a status reason. **Built (v97)** on the Lists tile, reasons Won / Lost / Not Qualified / Other.
 - **Appointments:** title, date, start time, minutes, invitees, body, exported to Outlook as a calendar file.
-- **New products and not stocked:** product, part number, status (Not stocked, New product, Requested to stock), account, details, ticked when stocked.
+- **New products and not stocked:** product, part number, status (Not stocked, New product, Requested to stock), account, details, ticked when stocked. **Built (v97)** as the Products tab on the Lists tile (Open / Stocked), synced as its own record store; the Task Slaughterer import brings both lists across.
 
 **Proposed order of work (each step usable on its own):**
 1. **Add the new stores to the CRM.** Tasks, Emails, Saved notes and Not stocked, linked to the CRM's own accounts and contacts. Bump the database version with a migration. Reuse the existing sync, with account names hashed as now.

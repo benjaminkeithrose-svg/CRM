@@ -23,7 +23,7 @@ work from a copy of a file anywhere other than this checkout.
 | File | Purpose |
 |---|---|
 | `index.html` | Every screen as a `<section class="scr">`, every dialog, all CSS |
-| `app.js` | Everything else: storage (IndexedDB v4: `kv`, `calls`, `accounts`, `appts`, `tasks`), import, navigation, planner, calls, tasks, output, sync |
+| `app.js` | Everything else: storage (IndexedDB v5: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`), import, navigation, planner, calls, tasks, output, sync |
 | `sw.js` | Service worker, cache-first, offline |
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
@@ -65,7 +65,8 @@ failure.
 **Cloud sync (Supabase) marks changes at the storage layer.** `kvSet()` on a
 key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
 waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()`/
-`tasksPut()`/`tasksDel()` mark that record. Bump `call.updated` /
+`tasksPut()`/`tasksDel()`/`snippetsPut()`/`snippetsDel()`/`productsPut()`/
+`productsDel()` mark that record. Bump `call.updated` /
 `appointment.touchedAt` / `task.updated` on a real edit, or the change can
 lose to an older copy. Photos stay Blobs in `entry.photos` and
 `call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never

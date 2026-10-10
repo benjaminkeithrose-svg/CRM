@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v96">
+<meta name="build" content="v97">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -153,6 +153,9 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .aibtn{color:var(--act);border-color:var(--act);font-weight:700}
 .aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
 #aidlg{width:min(640px,96vw)}
+/* Lists (v97): the add button on top, then the count and the search icon */
+#s-lists .big{width:100%;margin:0 0 10px}
+.lsrow{margin-bottom:8px}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
 .stat b{color:var(--ink);font-weight:700}
 .empty{color:var(--ink-3);font-size:12.5px;padding:14px 2px}
@@ -1205,7 +1208,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- The tiles no longer carry a count line. These keep the existing render
@@ -1304,11 +1307,11 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <p class="hint">One manual at a time. Import the MPB manual, wait for it to finish, then the ThermoDrive one. Each takes several minutes and needs the screen left on &mdash; every page is read and turned into an image so it works with no reception afterwards. The first import needs a connection once, to fetch the PDF reader. These are stored separately from the Belt Call Log's copy, so loading them here does not touch that app.</p>
   </div>
   <div class="fld">
-    <label>Tasks from Task Slaughterer</label>
+    <label>From Task Slaughterer</label>
     <input type="file" id="tsFile" accept=".json,application/json">
-    <button class="ghost" id="tsBtn">Import tasks</button>
+    <button class="ghost" id="tsBtn">Import</button>
     <p class="msg" id="tsMsg"></p>
-    <p class="hint">A one-off move of your Task Slaughterer tasks. Open ones go on today from 8am; done ones go on the day you ticked them off. Importing the same file again adds nothing.</p>
+    <p class="hint">A one-off move out of Task Slaughterer. Open tasks go on today from 8am; done ones go on the day you ticked them off. Saved notes and products go to Lists. Importing the same file again adds nothing.</p>
   </div>
   <div class="fld">
     <label>Zone overrides</label>
@@ -1618,10 +1621,10 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
       <ol>
         <li>Save the Task Slaughterer file you were given to the PC.</li>
         <li>In Field CRM on the PC, tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Update data</b>.</li>
-        <li>Under <b>Tasks from Task Slaughterer</b>, choose the file.</li>
-        <li>Tap <b>Import tasks</b>.</li>
+        <li>Under <b>From Task Slaughterer</b>, choose the file.</li>
+        <li>Tap <b>Import</b>.</li>
       </ol>
-      <p>Open tasks go on today from 8am. Done ones go on the day you ticked them off. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.</p>
+      <p>Open tasks go on today from 8am. Done ones go on the day you ticked them off. Saved notes and products go to <b>Lists</b>. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1640,6 +1643,34 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
       <p>Open in Outlook starts a new email in your phone's or PC's mail app with everything filled in. Nothing is downloaded. A very long body is copied instead, for you to paste in. <b>Copy</b> copies the body on its own.</p>
       <p>If your phone opens a different mail app, set Outlook as the default email app in Android's settings.</p>
       <p>Draft it works like <b>Tidy</b>: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Keep saved notes</b><span class="sxs">Text you paste again and again</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Lists</b> on Home.</li>
+        <li>Tap <b>Saved notes</b> at the top.</li>
+        <li>Tap <b>+ Saved note</b>.</li>
+        <li>Give it a label, tap its reason, and type or dictate the text.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>To use one, tap <b>&#8943;</b> on it and tap <b>Copy the text</b>, then paste it into Dynamics. The ones you copy most recently stay at the top.</p>
+      <p>Tap a saved note to change it. <b>Duplicate</b> on the <b>&#8943;</b> opens a copy to change before it's saved.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Keep the Not stocked list</b><span class="sxs">Products to chase</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Lists</b> on Home.</li>
+        <li>Tap <b>Products</b> at the top.</li>
+        <li>Tap <b>+ Product</b>.</li>
+        <li>Fill in the product, part number, status and account.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>When it's stocked, tap <b>&#8943;</b> on it and tap <b>Mark stocked</b>. It moves to the <b>Stocked</b> tab with the date.</p>
+      <p>Tap a product to change it. Delete is the bin at the top left of the product.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2016,6 +2047,39 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea></div>
     <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Completed</div><div class="cr">The task itself is finished. Ticked tasks stay on the calendar, greyed out.</div></div></label>
     <p class="note" id="tkFrom" hidden></p>
+  </div>
+</dialog>
+
+<!-- A saved note (v97): reusable text, such as closing notes for Dynamics. -->
+<dialog id="snipdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="snDel" aria-label="Delete saved note" title="Delete saved note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="snHead">Saved note</b>
+    <button type="button" class="btn go" id="snOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <button type="button" class="btn act2" id="snCopy">Copy the text</button>
+    <div class="f"><label for="snLabel">Label</label><input type="text" id="snLabel" autocomplete="off" placeholder="What it's for, e.g. Close: went with another supplier"></div>
+    <div class="f"><label>Reason</label><div class="chips" id="snReason"></div>
+      <input type="text" id="snOther" autocomplete="off" placeholder="Type the reason" hidden></div>
+    <div class="f"><label for="snText">Text</label><textarea id="snText" rows="8" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
+  </div>
+</dialog>
+
+<!-- A product on the Not stocked list (v97). -->
+<dialog id="proddlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="prDel" aria-label="Delete product" title="Delete product"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="prHead">Product</b>
+    <button type="button" class="btn go" id="prOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <div class="f"><label for="prName">Product</label><input type="text" id="prName" autocomplete="off" placeholder="e.g. S1600 flush grid, 6 in wide"></div>
+    <div class="f"><label for="prPart">Part number</label><input type="text" id="prPart" autocomplete="off"></div>
+    <div class="f"><label>Status</label><div class="chips" id="prStatus"></div></div>
+    <div class="f"><label for="prAcct">Account</label><input type="text" id="prAcct" list="prAcctList" autocomplete="off" placeholder="Start typing an account"><datalist id="prAcctList"></datalist></div>
+    <div class="f"><label for="prNotes">Notes</label><textarea id="prNotes" rows="4"></textarea></div>
+    <label class="ct"><input type="checkbox" id="prStocked"><div><div class="cn">Now stocked</div><div class="cr" id="prStockedAt">Tick it when it's on the shelf. It moves to the Stocked tab.</div></div></label>
   </div>
 </dialog>
 
@@ -2597,6 +2661,35 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div style="height:10px"></div>
   <div id="peRes"></div>
 </div>
+</section>
+
+<!-- LISTS (v97): saved notes and the Not stocked products, from Task Slaughterer -->
+<section class="scr" id="s-lists">
+  <div class="seg tabs" id="lsTabs">
+    <button type="button" data-pane="notes" class="on">Saved notes</button>
+    <button type="button" data-pane="prods">Products</button>
+  </div>
+  <div class="pane" id="paneNotes">
+    <button class="big" id="snNew" type="button">+ Saved note</button>
+    <div class="rptop lsrow">
+      <p class="hint" id="snHint"></p>
+      <button type="button" class="tvi" id="snSearch" aria-label="Search saved notes" title="Search saved notes"></button>
+    </div>
+    <div id="snRes"></div>
+  </div>
+  <div class="pane" id="paneProds" hidden>
+    <button class="big" id="prNew" type="button">+ Product</button>
+    <div class="rptop lsrow">
+      <p class="hint" id="prHint"></p>
+      <button type="button" class="tvi" id="prSearch" aria-label="Search products" title="Search products"></button>
+    </div>
+    <div class="seg" id="prView">
+      <button type="button" data-v="open" class="on">Open</button>
+      <button type="button" data-v="stocked">Stocked</button>
+    </div>
+    <div style="height:10px"></div>
+    <div id="prRes"></div>
+  </div>
 </section>
 
 <section class="scr" id="s-reference">

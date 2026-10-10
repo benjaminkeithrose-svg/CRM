@@ -203,10 +203,10 @@ It goes on the calendar at the next half hour, for 30 minutes. Change the day or
 
 1. Save the Task Slaughterer file you were given to the PC.
 2. In Field CRM on the PC, tap **⋯** on Home, then **Settings**, then **Update data**.
-3. Under **Tasks from Task Slaughterer**, choose the file.
-4. Tap **Import tasks**.
+3. Under **From Task Slaughterer**, choose the file.
+4. Tap **Import**.
 
-Open tasks go on today from 8am. Done ones go on the day you ticked them off. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.
+Open tasks go on today from 8am. Done ones go on the day you ticked them off. Saved notes and products go to **Lists**. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.
 
 ### Write an email as a task
 
@@ -224,6 +224,30 @@ Open in Outlook starts a new email in your phone's or PC's mail app with everyth
 If your phone opens a different mail app, set Outlook as the default email app in Android's settings.
 
 Draft it works like **Tidy**: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows.
+
+### Keep saved notes
+
+1. Tap **Lists** on Home.
+2. Tap **Saved notes** at the top.
+3. Tap **+ Saved note**.
+4. Give it a label, tap its reason, and type or dictate the text.
+5. Tap **Done**.
+
+To use one, tap **⋯** on it and tap **Copy the text**, then paste it into Dynamics. The ones you copy most recently stay at the top.
+
+Tap a saved note to change it. **Duplicate** on the **⋯** opens a copy to change before it's saved.
+
+### Keep the Not stocked list
+
+1. Tap **Lists** on Home.
+2. Tap **Products** at the top.
+3. Tap **+ Product**.
+4. Fill in the product, part number, status and account.
+5. Tap **Done**.
+
+When it's stocked, tap **⋯** on it and tap **Mark stocked**. It moves to the **Stocked** tab with the date.
+
+Tap a product to change it. Delete is the bin at the top left of the product.
 
 ### Request a quote
 
