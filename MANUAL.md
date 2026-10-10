@@ -95,6 +95,8 @@ Outlook uses it as the organiser on the invites. Without it, the people you invi
 
 Drag a visit to another day to move it. The coloured chips filter by focus.
 
+Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. A visit booked on a weekend stays there.
+
 ### Put visits in Outlook
 
 1. On **Plan**, click **⋯** at the top right of the calendar.
@@ -235,6 +237,26 @@ Once the file has gone, open Create and share again and tap **Drop the photos, k
 
 To finish a call, tap **⋯** on it in Reports, then **Mark done**. Done with nothing to report is a normal finish.
 
+### Save done calls to a folder on the PC
+
+1. On the PC, open **Reports** from Home.
+2. Click **Save to PC folder** at the top.
+3. The first time, pick a folder, for example one inside OneDrive. Click **Select folder**.
+4. When Chrome asks whether the app can edit files there, click **Edit files**.
+5. Wait for the message saying what was saved.
+
+Each done call goes in **Customer\Site\2026-10-09**: the call notes (the same file Create and share makes) and every photo as its own file. Quote requests go in **Customer\Quote requests\2026-10-09**.
+
+The account name is split at its first " - " into customer and site. With no " - ", the call's own Site is used.
+
+Next time, click **Save to PC folder**, then **Save new and changed**. Only calls that are new or changed since last time are written; a changed call replaces its old copy. The number on the button is how many are waiting.
+
+To use another folder, click **Save to PC folder**, then **Choose a different folder**. Everything done is saved again into the new one.
+
+On a later day Chrome may ask again before it saves. Click **Allow this time** (or **Allow on every visit**, if it offers it).
+
+The button isn't on the phone.
+
 ### Get the engineering manuals
 
 1. Connect to Wi-Fi. The MPB manual is about 45 MB.
@@ -252,6 +274,7 @@ When signed in to cloud sync, the app checks the Intralox website once a week fo
 1. Tap **Reference** on Home for the manuals and the fault library.
 2. Tap **Intralox website** there for Belt Finder, the how-to videos and the resource pages. These need signal.
 3. Tap **Directory** on Home for accounts and contacts.
+4. To find one, tap the search icon at the top of Accounts or Contacts and type.
 
 In a call, the book icon at the top opens the manuals without leaving the call.
 
