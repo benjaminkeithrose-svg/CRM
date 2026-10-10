@@ -480,6 +480,17 @@ ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
   g(`showScreen('home')`);
 }
 
+// ---- v93: a saved flight material the dropdown no longer lists comes back ----
+{
+  g(`(() => { const sel = document.getElementById('bFlMat'); sel.innerHTML = '<option value="">Select flight material...</option><option>ACETAL</option>';
+    fillBeltFromEntry({asset: 'CV-9', flmat: 'POLYPROPYLENE'}); })()`);
+  ok($('bFlMat').value === 'POLYPROPYLENE', 'reopening a belt keeps its own flight material: ' + $('bFlMat').value);
+  ok([...$('bFlMat').options].filter(o => o.value === 'POLYPROPYLENE').length === 1, 'by adding that one option back, once');
+  g(`(() => { fillBeltFromEntry({asset: 'CV-9', flmat: 'POLYPROPYLENE'}); })()`);
+  ok([...$('bFlMat').options].filter(o => o.value === 'POLYPROPYLENE').length === 1, 'and not again on a second reopen');
+  g(`resetBelt()`);
+}
+
 // ---- marked for cloud sync
 ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k.startsWith('tasks/')), 'task changes are marked for cloud sync');
 

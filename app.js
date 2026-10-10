@@ -736,7 +736,7 @@ function renderAssetMatch(){
 }
 function applyAssetRecord(r, opts){
   opts = opts || {};
-  const setVal = (id, v) => { const f = $(id); if(f && v) f.value = v; };
+  const setVal = (id, v) => { const f = $(id); if(f && v){ if(f.tagName === 'SELECT') selEnsure(f, v); f.value = v; } };
   const missed = [];
 
   /* The belt cascade already has a function for this - the same one the "copy
@@ -896,7 +896,15 @@ function fillBeltFromEntry(e){
   if(e.sprdrive){ $('bSprDrive').value = e.sprdrive; sprDriveTouched = true; $('bSprDrvAuto').classList.add('off'); }
   if(e.spridle){ $('bSprIdle').value = e.spridle; sprIdleTouched = true; $('bSprIdlAuto').classList.add('off'); }
   if(e.beltlen){ $('bLen').value = e.beltlen; lenTouched = true; $('bLenAuto').classList.add('off'); }
-  if(e.flmat){ $('bFlMat').value = e.flmat; flMatTouched = true; $('bFlMatAuto').classList.add('off'); }
+  if(e.flmat){ selEnsure($('bFlMat'), e.flmat); $('bFlMat').value = e.flmat; flMatTouched = true; $('bFlMatAuto').classList.add('off'); }
+}
+/* A saved value a dropdown no longer lists (the flight material when it differs
+   from the belt material: the picker only ever adds the current belt material)
+   gets its option back, or setting .value silently does nothing and the field
+   falls back to matching the belt (fixed v93). */
+function selEnsure(sel, v){
+  if(!sel || !v || [...sel.options].some(o => o.value === v)) return;
+  const o = document.createElement('option'); o.value = o.textContent = v; sel.appendChild(o);
 }
 
 // selects are matched case- and punctuation-insensitively, because the register
@@ -927,7 +935,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v92';
+const APP_BUILD = 'v93';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
