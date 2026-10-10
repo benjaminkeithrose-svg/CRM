@@ -47,7 +47,8 @@ await g(`(async () => {
 
 // ---- storage
 const stores = await g(`ready().then(d => [...d.objectStoreNames].sort().join(','))`);
-ok(g('DB_VER') === 5 && stores === 'accounts,appts,calls,kv,products,snippets,tasks', 'database v5 with snippets and products stores: ' + stores);
+// v106 moved the database to v6 for the account plans; these two stores are unchanged
+ok(g('DB_VER') >= 5 && ['snippets', 'products'].every(x => stores.split(',').includes(x)), 'database has the snippets and products stores: ' + stores);
 ok(g('CLOUD_REC_STORES').includes('snippets') && g('CLOUD_REC_STORES').includes('products'), 'both sync through the cloud as record stores');
 ok(g('DIALOGS').includes('snipdlg') && g('DIALOGS').includes('proddlg'), 'both editors registered in DIALOGS');
 

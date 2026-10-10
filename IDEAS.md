@@ -145,6 +145,34 @@ checked in an actual browser tab or on a phone.
 
 ---
 
+## Built (v106): Sales coach, round two — account plan, tasks, Prepare tomorrow, questions in the call
+*Proposed and agreed 2026-10-10.* Ben asked for a proposal on how the coach
+should work; he chose all four parts, and to record how each person sees the
+change.
+
+- **Account plan:** a card on the account screen opens a plan form — goal,
+  people (name, role chip: Signs the order / Uses it / Checks the spec / On
+  our side; How they see it: Growth / Trouble / Steady / Overconfident; a
+  note), red flags, strengths. Its own record store (`plans`, IndexedDB v6),
+  synced and encrypted like tasks. The brief and coaching read it first.
+- **Suggested plan changes:** coaching ends with a Plan changes section in a
+  fixed form; the app shows each as a tick box. Nothing changes until ticked;
+  a goal never replaces one already there; a person's role, view or note
+  only fills a gap.
+- **Make a task:** a Task button beside each next step opens the task form
+  filled in with the step, account and call.
+- **Prepare tomorrow:** on the Day view (phone and PC planner), writes a
+  brief for each of tomorrow's visits that has none.
+- **Questions in the call:** a folded Questions to ask section at the top of
+  a call started from a visit with a brief; ticks stay on the call
+  (`call.asked`), never in a report, and Coach me is told which were asked.
+
+Checked live with the test account and an invented customer: Haiku wrote the
+plan changes in the expected form and the brief used the plan's people. Not
+yet tried on Ben's real accounts or on the phone.
+
+---
+
 ## Built (v102): Sales coach — a brief before a visit, coaching after a call
 *Asked 2026-10-10; built 2026-10-10.* Ben wanted the call records used
 strategically for the next visit, along the lines of a friend's sales coach
