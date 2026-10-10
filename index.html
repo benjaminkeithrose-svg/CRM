@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v93">
+<meta name="build" content="v94">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -239,8 +239,6 @@ ul.rep{margin:8px 0 0;padding-left:18px;font-size:11.5px;color:var(--ink-2);line
 ul.rep li{margin-bottom:2px}
 .flagline{color:var(--warn);font-weight:700}
 /* ---------- contacts, accounts and reports ---------- */
-#peQ{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:16px}
-#peQ:focus{outline:none;border-color:var(--cyan-dk)}
 .pgroup{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
   font-weight:700;margin:14px 0 6px}
 .pcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan);
@@ -722,8 +720,10 @@ body.planning{padding-bottom:0}
 .mailacts .btn{min-height:40px;flex:1}
 .autotag{font-size:11px;font-weight:600;color:var(--cyan-dk);background:var(--cyan-lt);border-radius:999px;padding:1px 7px;margin-left:6px}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
-/* A gutter of hour labels, then the five days. */
-.week{display:grid;grid-template-columns:46px repeat(5,1fr);gap:8px;align-items:start}
+/* A gutter of hour labels, then the seven days (v94). Saturday and Sunday are
+   narrower and shaded, as on the month. */
+.week{display:grid;grid-template-columns:46px repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:8px;align-items:start}
+.day.wknd{background:var(--sunk)}
 .gut{padding-top:30px}          /* clears the day header */
 .gh{font-size:10.5px;color:var(--ink-3);text-align:right;padding-right:6px;
   line-height:1;position:relative;top:-5px}
@@ -892,6 +892,8 @@ a.rpt.weblink{display:block;text-align:left;background:var(--surface);box-shadow
 a.rpt.weblink .rn{font-size:15px;font-weight:700;line-height:1.25}
 a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .rptop .hint{flex:1;margin:0}
+#rpFolder{width:100%;min-height:40px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+#rpFolder .ic{width:18px;height:18px}
 .dlg-h{padding:13px 16px;border-bottom:1px solid var(--line-2)}
 .dlg-h b{font-size:14px;font-weight:700} .dlg-h div{font-size:11.5px;color:var(--ink-3);margin-top:2px}
 .dlg-b{padding:14px 16px;display:flex;flex-direction:column;gap:12px;max-height:62vh;overflow:auto}
@@ -1465,6 +1467,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Click <b>Save</b>.</li>
       </ol>
       <p>Drag a visit to another day to move it. The coloured chips filter by focus.</p>
+      <p>Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. A visit booked on a weekend stays there.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1654,6 +1657,24 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Save done calls to a folder on the PC</b><span class="sxs">Chrome or Edge on the PC</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>On the PC, open <b>Reports</b> from Home.</li>
+        <li>Click <b>Save to PC folder</b> at the top.</li>
+        <li>The first time, pick a folder, for example one inside OneDrive. Click <b>Select folder</b>.</li>
+        <li>When Chrome asks whether the app can edit files there, click <b>Edit files</b>.</li>
+        <li>Wait for the message saying what was saved.</li>
+      </ol>
+      <p>Each done call goes in <b>Customer\Site\2026-10-09</b>: the call notes (the same file Create and share makes) and every photo as its own file. Quote requests go in <b>Customer\Quote requests\2026-10-09</b>.</p>
+      <p>The account name is split at its first " - " into customer and site. With no " - ", the call's own Site is used.</p>
+      <p>Next time, click <b>Save to PC folder</b>, then <b>Save new and changed</b>. Only calls that are new or changed since last time are written; a changed call replaces its old copy. The number on the button is how many are waiting.</p>
+      <p>To use another folder, click <b>Save to PC folder</b>, then <b>Choose a different folder</b>. Everything done is saved again into the new one.</p>
+      <p>On a later day Chrome may ask again before it saves. Click <b>Allow this time</b> (or <b>Allow on every visit</b>, if it offers it).</p>
+      <p>The button isn't on the phone.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Get the engineering manuals</b><span class="sxs">Straight from Intralox</span></summary>
     <div class="fld help">
       <ol>
@@ -1674,6 +1695,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Tap <b>Reference</b> on Home for the manuals and the fault library.</li>
         <li>Tap <b>Intralox website</b> there for Belt Finder, the how-to videos and the resource pages. These need signal.</li>
         <li>Tap <b>Directory</b> on Home for accounts and contacts.</li>
+        <li>To find one, tap the search icon at the top of Accounts or Contacts and type.</li>
       </ol>
       <p>In a call, the book icon at the top opens the manuals without leaving the call.</p>
     </div>
@@ -1841,6 +1863,8 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <p class="hint" id="rpHint"></p>
     <button type="button" class="tvi" id="rpSearch" aria-label="Search calls" title="Search calls"></button>
   </div>
+  <!-- PC only (v94): done calls into a folder, Customer\Site\date. Hidden on the phone. -->
+  <button type="button" class="btn act2" id="rpFolder" hidden></button>
   <!-- Compiled and done are separate states in the data and always have been:
        compiled means a document was produced, done means the call is finished.
        This used to collapse both into "Finished". -->
@@ -2486,10 +2510,10 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <button type="button" data-pane="ppl">Contacts</button>
   </div>
   <div class="pane" id="paneAcc">
-  <div class="fld">
-    <label>Search</label>
-    <input type="text" id="abQ" placeholder="Account or suburb" autocomplete="off">
+  <!-- No permanent search box (v94): the icon opens the full-screen search. -->
+  <div class="rptop">
     <p class="hint" id="abHint"></p>
+    <button type="button" class="tvi" id="abSearch" aria-label="Search accounts" title="Search accounts"></button>
   </div>
   <div class="seg" id="abScope">
     <button type="button" data-v="mine" class="on">Mine</button>
@@ -2500,9 +2524,9 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="res" id="abRes"></div>
 </div>
   <div class="pane" id="panePpl" hidden>
-  <div class="fld">
-    <input type="search" id="peQ" placeholder="Name, account, role, email or number" autocomplete="off">
+  <div class="rptop">
     <p class="hint" id="peHint"></p>
+    <button type="button" class="tvi" id="peSearch" aria-label="Search contacts" title="Search contacts"></button>
   </div>
   <div class="seg" id="peView">
     <button type="button" data-v="all" class="on">Everything</button>

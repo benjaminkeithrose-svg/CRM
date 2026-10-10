@@ -935,7 +935,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v93';
+const APP_BUILD = 'v94';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -959,6 +959,7 @@ const ICONS = {
   person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   book:   '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>',
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
   close:  '<path d="M18 6L6 18M6 6l12 12"/>',
   gear:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   help:   '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>'
@@ -1367,7 +1368,7 @@ function showScreen(name){
   if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers();
     if($('setImgMode')) $('setImgMode').value = defaultImgMode();
     renderSettingsSummary(); }
-  if(name==='reports') renderReports().catch(e=>console.error('reports', e));
+  if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
   if(name==='plan') renderPlan();
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
@@ -1549,12 +1550,16 @@ const DUE_CLS = {covered:'done', booked:'open', due:'overdue', never:'overdue'};
 
 /* ---------- account browse ---------- */
 let browseScope = 'mine';
-function renderBrowse(){
-  const q = ($('abQ').value||'').trim().toLowerCase();
+/* The list on the screen, or (given q, el and hint) the results inside the
+   full-screen search, which replaced the permanent search box in v94. */
+function renderBrowse(q, el, hint, before){
+  const search = typeof q === 'string';
+  q = search ? q.trim().toLowerCase() : '';
+  el = el || $('abRes'); hint = hint || $('abHint');
   const mgr = $('cMgr').value;
-  const el = $('abRes');
+  if(search && !q){ el.innerHTML = ''; hint.textContent = ACCOUNTS.length ? 'Type an account name or suburb' : ''; return; }
   if(!ACCOUNTS.length){
-    $('abHint').textContent = 'Import the CRM export first';
+    hint.textContent = 'Import the CRM export first';
     el.innerHTML = '<p class="empty">No accounts loaded.</p>';
     return;
   }
@@ -1584,10 +1589,16 @@ function renderBrowse(){
   const cover = ACCOUNTS.length
     ? '<br><span class="cov">'+cv.covered+' covered &middot; '+cv.booked+' booked &middot; '+
       (cv.due+cv.never)+' to book, of '+cv.total+' yours</span>' : '';
-  $('abHint').innerHTML = (out.length
-    ? out.length+' account'+(out.length===1?'':'s')+(out.length>40?' - showing 40':'')+
-      (outOfZone ? ' <span class="tag">'+outOfZone+' under another manager</span>' : '')
-    : 'No matches') + cover;
+  if(search){
+    hint.textContent = out.length
+      ? out.length+' account'+(out.length===1?'':'s')+(out.length>40?' - showing 40':'')+
+        (outOfZone ? ', '+outOfZone+' under another manager' : '')
+      : 'No matches';
+  } else {
+    hint.innerHTML = (out.length
+      ? out.length+' account'+(out.length===1?'':'s')+(out.length>40?' - showing 40':'')
+      : 'No matches') + cover;
+  }
   el.innerHTML = out.slice(0,40).map(a=>{
     const d = dueState(a);
     /* Suburb is already in the account name and a day count is a number to
@@ -1601,9 +1612,13 @@ function renderBrowse(){
       '</button>';
   }).join('');
   el.querySelectorAll('[data-acct]').forEach(b =>
-    b.addEventListener('click', ()=>openAccount(b.dataset.acct)));
+    b.addEventListener('click', ()=>{ if(before) before(); openAccount(b.dataset.acct); }));
 }
-$('abQ').addEventListener('input', renderBrowse);
+$('abSearch').innerHTML = icon('search');
+$('abSearch').addEventListener('click', () => openSearch({
+  placeholder: 'Account or suburb',
+  render: (q, el, hint) => renderBrowse(q, el, hint, closeSearch)
+}));
 $('abScope').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
   browseScope = b.dataset.v;
   $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
@@ -1712,7 +1727,7 @@ $('avStart').addEventListener('click', ()=>{
    Planning is desktop-shaped on purpose. Drag and drop onto a calendar grid is a
    mouse gesture; the phone gets Today and This Week as a read-and-act list. */
 
-const DAYNM = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const DAYNM = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const MONNM = ['January','February','March','April','May','June','July','August',
                'September','October','November','December'];
 const LEVELS = [['High','high'],['Medium','med'],['Low','low'],['No Focus','none']];
@@ -1913,7 +1928,9 @@ function renderRail(){
 }
 
 /* ---------- calendar ---------- */
-function weekDays(){ const s = startOfWeek(plan.anchor); return [0,1,2,3,4].map(i => addDays(s,i)); }
+/* Monday to Sunday (v94), as the month has been since v90: a task or quote
+   request on a Saturday was in the data but nowhere on the PC's Week or Day. */
+function weekDays(){ const s = startOfWeek(plan.anchor); return [0,1,2,3,4,5,6].map(i => addDays(s,i)); }
 function apptsOn(dISO){ return APPTS.filter(a => a.date === dISO).sort((x,y)=>x.start.localeCompare(y.start)); }
 function apptFocusCls(ap){ const a = ACC_BY_NAME.get(ap.acct); return a ? FOC_CLS[a.foc] : 'none'; }
 
@@ -2053,7 +2070,7 @@ function renderCalendar(){
       ? DAYNM[(days[0].getDay()+6)%7]+' '+days[0].getDate()+' '+
         MONNM[days[0].getMonth()].slice(0,3)+' '+days[0].getFullYear()
       : days[0].getDate()+' '+MONNM[days[0].getMonth()].slice(0,3)+' \u2013 '+
-        days[4].getDate()+' '+MONNM[days[4].getMonth()].slice(0,3)+' '+days[4].getFullYear();
+        days[6].getDate()+' '+MONNM[days[6].getMonth()].slice(0,3)+' '+days[6].getFullYear();
     const grid = document.createElement('div');
     grid.className = 'week' + (oneDay ? ' oneday' : '');
     fitDayHours(days.map(iso));
@@ -2061,8 +2078,8 @@ function renderCalendar(){
     days.forEach((d,i)=>{
       const k = iso(d);
       const col = document.createElement('div');
-      col.className = 'day' + (k === TODAY ? ' today' : '');
-      col.innerHTML = '<div class="dh"><b>'+DAYNM[oneDay ? (d.getDay()+6)%7 : i]+'</b><span>'+d.getDate()+' '+
+      col.className = 'day' + (k === TODAY ? ' today' : '') + (!oneDay && !isWeekday(d) ? ' wknd' : '');
+      col.innerHTML = '<div class="dh"><b>'+(oneDay ? DAYNM[(d.getDay()+6)%7] : DAYNM[i].slice(0,3))+'</b><span>'+d.getDate()+' '+
         MONNM[d.getMonth()].slice(0,3)+'</span></div>';
       col.dataset.k = k;
       const b = document.createElement('div'); b.className = 'dbody hours';
@@ -2326,9 +2343,8 @@ async function saveDialog(keepOpen){
   ap.agenda = $('dAgenda').value;
   ap.hold = $('dHold').checked;
   ap.contacts = [...$('dCts').querySelectorAll('input:checked')].map(x => +x.dataset.i);
-  // a call dropped on a weekend moves to the Monday rather than sitting there unseen
-  const d = parseIso(ap.date);
-  if(!isWeekday(d)) ap.date = iso(addDays(d, d.getDay()===0 ? 1 : 2));
+  /* A visit on a Saturday or Sunday stays there (v94). It used to move to the
+     Monday because the Week view had no weekend to show it on; it has now. */
   if(!editingAppt){
     ap.id = 'ap' + Date.now().toString(36) + (plan.seq++);
     APPTS.push(ap);
@@ -3267,9 +3283,8 @@ function visitCard(ap, opts){
     '<button class="vmore" data-vmenu="'+tapId+'" aria-label="More for '+esc(ap.acct)+'">&#8943;</button>'+
   '</div>';
 }
-/* DAYNM is Monday to Friday, because the planner only ever grids weekdays. A
-   label has to cope with a weekend: today is a Saturday often enough, and an
-   appointment can be dragged onto one before the weekday check moves it. */
+/* DAYNM runs Monday first, for the planner's grid; this one is in getDay()
+   order, for labelling any date straight from a Date. */
 const DAYNM7 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function dayLabel(dISO){
   const d = parseIso(dISO);
@@ -5731,11 +5746,14 @@ function peopleIndex(){
   return out;
 }
 let peView = 'all';
-function renderPeople(){
-  const q = ($('peQ').value || '').trim().toLowerCase();
-  const el = $('peRes');
+/* As renderBrowse: the screen's list, or the full-screen search's results. */
+function renderPeople(q, el, hint, before){
+  const search = typeof q === 'string';
+  q = search ? q.trim().toLowerCase() : '';
+  el = el || $('peRes'); hint = hint || $('peHint');
+  if(search && !q){ el.innerHTML = ''; hint.textContent = ACCOUNTS.length ? 'Type a name, account, role, email or number' : ''; return; }
   if(!ACCOUNTS.length){
-    $('peHint').textContent = 'Import the CRM export first';
+    hint.textContent = 'Import the CRM export first';
     el.innerHTML = '<p class="empty">No contacts loaded.</p>';
     return;
   }
@@ -5748,14 +5766,14 @@ function renderPeople(){
     : (q ? peopleIndex().filter(p => hit(p.hay)) : []);
 
   if(!q){
-    $('peHint').textContent = peView === 'people'
-      ? 'Type a name, role, email or number'
-      : ACCOUNTS.length + ' accounts loaded. Type to search people as well.';
+    hint.textContent = peView === 'people'
+      ? 'Search to find a name, role, email or number'
+      : ACCOUNTS.length + ' accounts loaded. Search to find people as well.';
   } else {
     const bits = [];
     if(folk.length) bits.push(folk.length + ' ' + (folk.length===1?'person':'people'));
     if(accts.length) bits.push(accts.length + ' account' + (accts.length===1?'':'s'));
-    $('peHint').textContent = bits.length ? bits.join(', ') : 'Nothing matches that';
+    hint.textContent = bits.length ? bits.join(', ') : 'Nothing matches that';
   }
 
   const P = [];
@@ -5793,9 +5811,14 @@ function renderPeople(){
   }
   el.innerHTML = P.join('') || '<p class="empty">Nothing matches that.</p>';
   el.querySelectorAll('[data-peacct]').forEach(b =>
-    b.addEventListener('click', ()=>openAccount(b.dataset.peacct)));
+    b.addEventListener('click', ()=>{ if(before) before(); openAccount(b.dataset.peacct); }));
 }
-$('peQ').addEventListener('input', renderPeople);
+$('peSearch').innerHTML = icon('search');
+$('peSearch').addEventListener('click', () => {
+  if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
+  openSearch({placeholder: 'Name, account, role, email or number',
+    render: (q, el, hint) => renderPeople(q, el, hint, closeSearch)});
+});
 $('peView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
   peView = b.dataset.v;
   $('peView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
@@ -5927,6 +5950,180 @@ $('rpView').querySelectorAll('button').forEach(b => b.addEventListener('click', 
   $('rpView').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
   renderReports().catch(reportErr);
 }));
+/* ================= save to a PC folder (v94) =================
+   Done calls and quote requests written into a folder on the PC. Pick one
+   inside OneDrive and they are backed up and searchable like any other file:
+
+     Customer\Site\2026-10-09\            the call notes and its photos
+     Customer\Quote requests\2026-10-09\  a quote request and its photos
+
+   The account name is split at its first " - " into customer and site. With
+   no " - " the call's own Site field is used, and with neither the date
+   folder sits straight under the customer.
+
+   Chrome and Edge on a PC only - it needs the File System Access API, and the
+   button is not shown anywhere else. The folder is remembered on this device
+   and Chrome asks once a session to allow it again. Only done calls that are
+   new or changed since they were last saved are written; a changed call
+   replaces its earlier copy by removing the files this app wrote for it -
+   never anything else in the folder. None of this goes to the cloud. */
+const PC_DIR = 'pcFolder', PC_SAVED = 'pcSaved';
+const pcFolderOk = () => !!window.showDirectoryPicker && !isPhone();
+// Windows will not take <>:"/\|?* or a trailing dot or space, or a device name
+function pcName(v, fallback){
+  let n = String(v == null ? '' : v).replace(/[<>:"\/\\|?*\x00-\x1f]+/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 80).replace(/[. ]+$/, '');
+  if(/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(n)) n += '_';
+  return n || fallback;
+}
+function pcPath(c){
+  let date = isoFromDdmmyyyy(c.date);
+  if(!/^\d{4}-\d\d-\d\d$/.test(date || '')) date = iso(new Date(c.updated || Date.now()));
+  const name = String(c.customer || ''), cut = name.indexOf(' - ');
+  const cust = pcName(cut > 0 ? name.slice(0, cut) : name, 'No customer');
+  if(isQuote(c)) return [cust, 'Quote requests', date];
+  const site = pcName(cut > 0 ? name.slice(cut + 3) : c.site, '');
+  return site ? [cust, site, date] : [cust, date];
+}
+// what each photo is called in the folder: the entry it belongs to, then a count
+function pcPhotos(c){
+  const out = [], used = new Set(), n = {belt: 0, health: 0};
+  const add = (p, base) => {
+    let blob;
+    try { blob = isBlobPhoto(p) ? p : dataURLToBlob(String(p)); } catch(e){ return; }
+    const ext = /png/.test(blob.type) ? '.png' : /webp/.test(blob.type) ? '.webp' : '.jpg';
+    let name = pcName(base, 'Photo') + ext;
+    for(let k = 2; used.has(name.toLowerCase()); k++) name = pcName(base, 'Photo') + ' (' + k + ')' + ext;
+    used.add(name.toLowerCase());
+    out.push({name, blob});
+  };
+  (c.entries || []).forEach(e => {
+    const label = e.type === 'belt' ? 'Belt ' + (++n.belt)
+                : e.type === 'health' ? 'Health ' + (++n.health) : (e.type || 'Entry');
+    (e.photos || []).forEach((p, k) => add(p, label + (e.asset ? ' ' + e.asset : '') + ' - ' + (k + 1)));
+  });
+  (c.loose || []).forEach((p, k) => add(p, 'Additional - ' + (k + 1)));
+  return out;
+}
+async function pcSavedMap(){
+  try { return (await kvGet(PC_SAVED)) || {}; } catch(e){ return {}; }
+}
+async function pcPending(saved){
+  saved = saved || await pcSavedMap();
+  return (await recordsAll()).filter(c => c.closed && (!saved[c.id] || saved[c.id].u !== (c.updated || 0)));
+}
+let pcHandle = null;   // also kept in kv, so the folder survives a restart
+async function pcStored(){
+  if(!pcHandle){ try { pcHandle = (await kvGet(PC_DIR)) || null; } catch(e){} }
+  return pcHandle;
+}
+async function pcRoot(pick){
+  const h = pick ? null : await pcStored();
+  if(h){
+    const o = {mode: 'readwrite'};
+    if(h.queryPermission && await h.queryPermission(o) === 'granted') return h;
+    if(h.requestPermission && await h.requestPermission(o) === 'granted') return h;
+    return null;
+  }
+  let picked;
+  try { picked = await window.showDirectoryPicker({id: 'fieldcrm', mode: 'readwrite'}); }
+  catch(e){ if(e.name === 'AbortError') return null; throw e; }
+  pcHandle = picked;
+  try { await kvSet(PC_DIR, picked); } catch(e){ console.warn('pc folder not remembered', e); }
+  await kvSet(PC_SAVED, {});     // a new folder starts empty, so everything done goes in
+  return picked;
+}
+async function pcSub(root, parts, create){
+  let d = root;
+  for(const p of parts) d = await d.getDirectoryHandle(p, {create: !!create});
+  return d;
+}
+async function pcWrite(dir, name, data){
+  const w = await (await dir.getFileHandle(name, {create: true})).createWritable();
+  await w.write(data);
+  await w.close();
+}
+/* Removes the files written for this call last time, and the folders that
+   leaves empty if the call has moved (a changed date or account). A folder
+   with anything else in it is left alone - removeEntry without recursive
+   refuses, which is the point. */
+async function pcClear(root, prev, parts){
+  let d;
+  try { d = await pcSub(root, prev.dir); } catch(e){ return; }   // moved or deleted by hand
+  for(const f of prev.files || []){ try { await d.removeEntry(f); } catch(e){} }
+  if(prev.dir.join('/') === parts.join('/')) return;
+  for(let i = prev.dir.length - 1; i >= 0; i--){
+    try { await (await pcSub(root, prev.dir.slice(0, i))).removeEntry(prev.dir[i]); }
+    catch(e){ break; }
+  }
+}
+async function pcSaveOne(root, c, saved){
+  const parts = pcPath(c);
+  // two calls at one site on one day get a folder each
+  const taken = new Set(Object.keys(saved).filter(id => id !== c.id).map(id => (saved[id].dir || []).join('/')));
+  const day = parts[parts.length - 1];
+  for(let k = 2; taken.has(parts.join('/')); k++) parts[parts.length - 1] = day + ' (' + k + ')';
+  if(saved[c.id]) await pcClear(root, saved[c.id], parts);
+  const dir = await pcSub(root, parts, true);
+  const q = isQuote(c), mode = defaultImgMode();
+  const html = q ? await buildRFQHTML(mode, c) : await buildNotesHTML('full', mode, c);
+  const files = [fileName(q ? 'rfq' : 'full', c)];
+  await pcWrite(dir, files[0], new Blob([html], {type: 'text/html'}));
+  const photos = pcPhotos(c);
+  for(const ph of photos){ await pcWrite(dir, ph.name, ph.blob); files.push(ph.name); }
+  return {u: c.updated || 0, dir: parts, files, photos: photos.length};
+}
+let pcBusy = false;
+async function pcSaveAll(pick){
+  if(pcBusy){ toast('Already saving'); return; }
+  pcBusy = true;
+  try {
+    let root;
+    try { root = await pcRoot(pick); }
+    catch(e){ console.error('pc folder', e); toast('Could not open that folder: ' + e.message); return; }
+    if(!root){ toast('Nothing saved — the folder was not allowed'); return; }
+    const saved = await pcSavedMap();
+    const todo = await pcPending(saved);
+    const where = root.name || 'the folder';
+    if(!todo.length){ toast('Every done call is already in ' + where); renderPcFolder(); return; }
+    let calls = 0, quotes = 0, photos = 0, failed = 0;
+    for(let i = 0; i < todo.length; i++){
+      const c = todo[i];
+      toast('Saving ' + (i + 1) + ' of ' + todo.length + '...');
+      try {
+        saved[c.id] = await pcSaveOne(root, c, saved);
+        await kvSet(PC_SAVED, saved);
+        if(isQuote(c)) quotes++; else calls++;
+        photos += saved[c.id].photos;
+      } catch(e){ console.error('pc folder', c.id, e); failed++; }
+    }
+    const bits = [];
+    if(calls) bits.push(calls + ' call' + (calls === 1 ? '' : 's'));
+    if(quotes) bits.push(quotes + ' quote request' + (quotes === 1 ? '' : 's'));
+    toast((bits.length ? 'Saved ' + bits.join(' and ') + (photos ? ', ' + photos + ' photo' + (photos === 1 ? '' : 's') : '') +
+      ' to ' + where : 'Nothing saved') + (failed ? '. ' + failed + ' could not be saved — try again' : ''));
+    renderPcFolder();
+  } finally { pcBusy = false; }
+}
+// the button on Reports: PC only, and it says how many are waiting
+async function renderPcFolder(){
+  const b = $('rpFolder');
+  if(!b) return;
+  b.hidden = !pcFolderOk();
+  if(b.hidden) return;
+  const n = (await pcPending()).length;
+  b.innerHTML = icon('folder') + '<span>Save to PC folder' + (n ? ' (' + n + ')' : '') + '</span>';
+}
+$('rpFolder') && $('rpFolder').addEventListener('click', async () => {
+  const h = await pcStored();
+  if(!h){ pcSaveAll(true).catch(reportErr); return; }
+  const n = (await pcPending()).length;
+  openCardMenu('Save to PC folder', 'Folder: ' + (h.name || 'the one you picked'), [
+    {label: 'Save new and changed' + (n ? ' (' + n + ')' : ''), icon: 'folder', run: () => pcSaveAll(false).catch(reportErr)},
+    {label: 'Choose a different folder', icon: 'folder', run: () => pcSaveAll(true).catch(reportErr)}
+  ]);
+});
+
 async function renderReportsCount(){
   const el = $('reportsInfo');
   if(!el) return;
@@ -6218,11 +6415,10 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   } else if(t==='accounts'){
     browseScope = 'mine';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'mine'));
-    $('abQ').value = '';
     showDir('acc');
   } else if(t==='people'){
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
-    $('peQ').value = ''; showDir('ppl');
+    showDir('ppl');
   } else if(t==='newtask'){
     openTask(null);
   } else if(t==='calltask'){
@@ -6245,7 +6441,6 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   } else if(t==='due'){
     browseScope = 'due';
     $('abScope').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === 'due'));
-    $('abQ').value = '';
     showDir('acc');
   } else if(t==='resume'){
     /* Calls and quote requests together. They were separate tiles briefly; one
@@ -8867,8 +9062,9 @@ function insertCommentBullet(id){
 }
 $('bCommentBullet').addEventListener('click', () => insertCommentBullet('bComment'));
 $('hCommentBullet').addEventListener('click', () => insertCommentBullet('hComment'));
-async function buildNotesHTML(scope, mode){
-  const c = call;
+// c is the open call unless one is passed - the PC folder save passes each one
+async function buildNotesHTML(scope, mode, c){
+  c = c || call;
   mode = IMG_MODES.includes(mode) ? mode : defaultImgMode();
   /* 'full' is the call record. 'health' and 'belts' are documents that leave
      for a customer, so general notes and project discovery are excluded from
@@ -9023,8 +9219,8 @@ async function buildNotesHTML(scope, mode){
    Same stylesheet and masthead, so it reads as part of the same family, and the
    same beltSpecRows(), so a belt specified on the phone and a belt logged in a
    plant say the same things in the same order. */
-async function buildRFQHTML(mode){
-  const c = call;
+async function buildRFQHTML(mode, c){
+  c = c || call;
   mode = IMG_MODES.includes(mode) ? mode : defaultImgMode();
   const p = [];
   const TITLE = 'Belt request for quote';
@@ -9174,10 +9370,11 @@ function historyBlock(c){
   }
   return p.join('');
 }
-function fileName(scope){
-  const cust = (call.customer||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
-  const site = call.site ? '_'+call.site.replace(/[^A-Za-z0-9]+/g,'_') : '';
-  const date = (call.date||'').replace(/\//g,'-');
+function fileName(scope, c){
+  c = c || call;
+  const cust = (c.customer||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40);
+  const site = c.site ? '_'+c.site.replace(/[^A-Za-z0-9]+/g,'_') : '';
+  const date = (c.date||'').replace(/\//g,'-');
   const tag = scope === 'health' ? 'health_check'
             : scope === 'belts'  ? 'belt_requirements'
             : scope === 'rfq'    ? 'belt_RFQ'

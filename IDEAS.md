@@ -505,24 +505,30 @@ sync work.
 
 ---
 
-## Open: Save completed calls to a folder structure on the PC
-*Added 2026-10-09. Future idea, not to build yet.*
+## Built (v94): Save done calls to a folder structure on the PC
+*Added 2026-10-09; built 2026-10-10. Ben chose: notes file plus photos as
+separate files; done calls, new or changed since last saved (a changed call
+replaces its old copy); 2026-10-09 date folders; quote requests in their own
+folder.*
 
-**The ask:** on the PC only, download the completed calls into folders — one
-folder per customer, then one folder per site under it, then the call report
-in a folder named for the date of that visit — so there's a physical copy on
-the PC that can later be dropped into OneDrive.
-
-**Worth knowing:** desktop Chrome and Edge can write into a folder you pick
-(the File System Access API the old folder exchange used), so this is
-possible on the PC without anything new on the server; Android can't, which
-fits it being PC-only. The report itself would be the same self-contained
-HTML that Create and share makes, with its photos.
-
-**To settle when it's built:** the date format for the folder names; whether
-it re-saves a call that's changed since it was last saved; and what happens
-to a call with no site (straight under the customer, or an "Unspecified
-site" folder).
+- Reports → **Save to PC folder**, PC only (Chrome or Edge; the File System
+  Access API). Hidden on the phone and in browsers without the API.
+- First time picks the folder (e.g. inside OneDrive). The folder is
+  remembered on that device only (kv `pcFolder`, never synced); Chrome asks
+  once a session to allow it again. Later taps open a menu naming the folder:
+  **Save new and changed** or **Choose a different folder** (which saves
+  everything done again into the new one).
+- Layout `Customer\Site\2026-10-09\`. The account name is split at its first
+  " - "; with none, the call's Site field; with neither, the date folder sits
+  straight under the customer. Quote requests go in
+  `Customer\Quote requests\2026-10-09\`. Two calls at one site on one day get
+  `2026-10-09 (2)`.
+- In each: the full call notes (or the RFQ), the same HTML Create and share
+  makes, plus every photo as its own JPG, named for its entry
+  (`Belt 1 <asset> - 1.jpg`, `Additional - 1.jpg`).
+- What was saved, and when it was last changed, is kept on the device (kv
+  `pcSaved`). A changed call removes only the files the app wrote for it last
+  time, then writes again; anything else in the folder is never touched.
 
 ## Built (v88): Download manuals and reference files from the Intralox website
 *Added 2026-10-09; Ben gave the links and chose "button + new-edition check"
