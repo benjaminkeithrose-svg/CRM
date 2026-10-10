@@ -7,7 +7,7 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
-const DB_NAME = 'fieldcrm', DB_VER = 5;
+const DB_NAME = 'fieldcrm', DB_VER = 6;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
 /* Set while the account and contacts screens are being used to raise a quote
@@ -36,6 +36,8 @@ function openDB(){
       // v5 (app v97): the Lists tile - saved notes and the Not stocked products list
       if(!d.objectStoreNames.contains('snippets')) d.createObjectStore('snippets', {keyPath:'id'});
       if(!d.objectStoreNames.contains('products')) d.createObjectStore('products', {keyPath:'id'});
+      // v6 (app v106): the sales coach's account plans, one per account
+      if(!d.objectStoreNames.contains('plans')) d.createObjectStore('plans', {keyPath:'id'});
     };
     r.onsuccess = e => { db = e.target.result; res(db); };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
@@ -180,6 +182,7 @@ async function storeDel(name, id){
 }
 const snippetsAll = () => storeAll('snippets'), snippetsPut = r => storePut('snippets', r), snippetsDel = id => storeDel('snippets', id);
 const productsAll = () => storeAll('products'), productsPut = r => storePut('products', r), productsDel = id => storeDel('products', id);
+const plansAll = () => storeAll('plans'), plansPut = r => storePut('plans', r), plansDel = id => storeDel('plans', id);
 async function recordsAll(){
   const d = await ready();
   return new Promise((res,rej)=>{
@@ -965,7 +968,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v105';
+const APP_BUILD = 'v106';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1333,7 +1336,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1348,8 +1351,11 @@ function closeDialogsNow(){
   dlgAppt = null; editingAppt = null; movingAppt = null;
 }
 // Push an entry when a dialog opens, so back closes it. Called by the openers.
+let dlgSeq = 0;
+const dlgOrder = {};             // when each dialog's entry was added, so back closes only what is above it
 function pushDialog(id){
   const st = {screen: screen, dialog: id};
+  dlgOrder[id] = ++dlgSeq;
   try {
     if(staleEntry()) history.replaceState(st, '', location.href);
     else history.pushState(st, '', location.href);
@@ -1459,6 +1465,11 @@ window.addEventListener('popstate', e => {
   if(st.dialog !== 'aidlg' && $('aidlg').hasAttribute('open')){ closeAi(); return; }
   // and so can the coach's sheet, over the visit editor (v102)
   if(st.dialog !== 'coachdlg' && $('coachdlg').hasAttribute('open')){ closeCoach(); return; }
+  // back onto a dialog that is still open: close whatever was opened over it (a task over the coaching, v106)
+  if(st.dialog && dlgOrder[st.dialog]){
+    const above = openDialogs().filter(id => id !== st.dialog && (dlgOrder[id] || 0) > dlgOrder[st.dialog]);
+    if(above.length){ above.forEach(id => { const d = $(id); if(d.close) d.close(); else d.removeAttribute('open'); }); return; }
+  }
   if(openDialogs().length && !st.dialog){ closeDialogsNow(); return; }
   if(st.dialog) return;      // going forward into a dialog entry: leave it be
   // off a menu's leftover entry onto the screen already showing: one more, so one back is one step
@@ -1698,6 +1709,7 @@ function openAccount(name){
   viewAcct = ACC_BY_NAME.get(name);
   if(!viewAcct){ toast('That account is not in the database'); return; }
   renderAccount();
+  renderPlanCard();
   go('acct');
 }
 function renderAccount(){
@@ -2122,6 +2134,7 @@ function makeDraggableAppt(el, ap, save){
 
 function renderCalendar(){
   renderKinds();
+  $('calPrepTom').hidden = plan.view !== 'day';
   const body = $('calBody'), TODAY = todayISOdate();
   body.innerHTML = '';
   const openTasks = TASKS.filter(t => !t.done).length;
@@ -3378,6 +3391,7 @@ function renderToday(){
   renderKinds();
   const el = $('tvBody');
   $('tvPlanner').hidden = isPhone();
+  $('tvPrepTom').hidden = todayView !== 'today';
   if(todayView === 'today') renderTodayList(el);
   else if(todayView === 'month') renderMonthGrid(el);
   else renderWeekList(el);
@@ -4880,12 +4894,12 @@ $('taskdlg').addEventListener('close', () => { if(taskEdit) taskFinish().catch(c
    Both behave like tasks: tap the card to open it, Done leaves and saves,
    nothing entered is dropped, the bin asks first, Duplicate opens an unsaved
    copy. Both sync through the cloud as their own record stores. */
-let SNIPS = [], PRODS = [];
+let SNIPS = [], PRODS = [], PLANS = [];
 const SN_REASONS = ['Won', 'Lost', 'Not Qualified', 'Other'];
 const PR_STATUS = ['Not stocked', 'New product', 'Requested to stock'];
 let listsPane = 'notes', prView = 'open';
 async function loadLists(){
-  try { SNIPS = await snippetsAll(); PRODS = await productsAll(); }
+  try { SNIPS = await snippetsAll(); PRODS = await productsAll(); PLANS = await plansAll(); }
   catch(e){ console.error('lists', e); }
 }
 function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
@@ -5852,7 +5866,7 @@ async function cloudWaiting(){
 var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
 var cloudProgress = '';
 var cloudRecTimer = null;
-const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products'];
+const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans'];
 
 async function cloudDirtyLoad(){
   if(!cloudDirty){
@@ -5891,7 +5905,7 @@ async function cloudSeed(){
   for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
   for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
   for(const t of await tasksAll()) if(!cloudDirty['tasks/' + t.id]) cloudDirty['tasks/' + t.id] = {v: recVer('tasks', t) || now, del: false, at: now};
-  for(const st of ['snippets', 'products'])
+  for(const st of ['snippets', 'products', 'plans'])
     for(const r of await storeAll(st)) if(!cloudDirty[st + '/' + r.id]) cloudDirty[st + '/' + r.id] = {v: recVer(st, r) || now, del: false, at: now};
   await cloudDirtySave();
   await kvSet('cloudSeeded', true);
@@ -6086,9 +6100,9 @@ async function cloudApplyRec(row, stats){
   cloudQuiet = true;
   try {
     if(row.deleted){
-      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel})[store](id); stats.gone++; }
+      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel})[store](id); stats.gone++; }
     } else if(store !== 'calls'){
-      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut})[store](await sbOpen(store, id, row));
+      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut})[store](await sbOpen(store, id, row));
       stats[store]++;
     } else {
       const got = await cloudCallIn(await sbOpen(store, id, row), local);
@@ -6131,9 +6145,9 @@ async function cloudPullRecs(stats){
 }
 
 async function cloudSyncRecs(){
-  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
-  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, gone: 0, photosUp: 0};
+  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosUp: 0};
   try {
     await cloudPushRecs(up);
     const down = stats;
@@ -6141,10 +6155,10 @@ async function cloudSyncRecs(){
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
   const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
-    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'),
+    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'),
     x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
-  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
-  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.gone){
+  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
+  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.gone){
     const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
@@ -6153,6 +6167,7 @@ async function cloudSyncRecs(){
     await loadQuotes();
     await loadLists();
     if(screen === 'lists') try { renderLists(); } catch(e){ console.error('lists', e); }
+    if(screen === 'acct') try { renderPlanCard(); } catch(e){ console.error('plan card', e); }
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -9956,6 +9971,7 @@ function renderVisitSummary(){
   const t = (call.summary || '').replace(/\s+/g, ' ').trim();
   $('sumVisit').textContent = t ? (t.length > 70 ? t.slice(0, 70) + '…' : t) : 'Not written yet';
   $('vCoach').textContent = call.coaching && call.coaching.text ? 'Coaching' : 'Coach me';
+  renderCallQs();
 }
 $('vSummary').addEventListener('input', () => {
   if(!call) return;
@@ -10097,7 +10113,7 @@ $('taUse').addEventListener('click', async () => {
 });
 $('tidydlg').addEventListener('cancel', () => { taSeq++; });
 
-/* ---------- the sales coach (v102) ----------
+/* ---------- the sales coach (v102, v106) ----------
    Prepare: before a visit, a brief for the account from its records - where
    things stand, the aim, SPIN questions to ask, what was promised, and the
    buying influences and red flags to watch for. Saved on the visit, so it
@@ -10105,29 +10121,182 @@ $('tidydlg').addEventListener('cancel', () => { taSeq++; });
    Coach me: after a call, coaching on it - what went well, what is still
    unknown, next steps, what to ask next time. Saved on the call, never in a
    report, and read back into the next brief for the account.
+   v106 adds the account plan (Strategic Selling's account sheet, cut down),
+   which both read and coaching suggests changes to; Make a task from a next
+   step; Prepare tomorrow; and the brief's questions, ticked off in the call.
    The method (SPIN Selling, Strategic Selling, Value First Then Price, The
    Speed of Trust) lives in the ai-tidy function; Claude Haiku 5.5, by Ben's
    choice on cost. Only that one account's records go, only when tapped. */
 const COACH_HEADS = ['Where things stand', 'Aim for this visit', 'Questions to ask', 'Promised last time', 'Watch for',
   'What went well', 'Still unknown', 'Next steps', 'Ask next time'];
+const coachHead = l => l.replace(/^#+\s*/, '').replace(/^\*+/, '').replace(/[:*#\s]+$/, '').trim();
+const isBullet = l => /^[•\-*]\s+/.test(l);
+const unBullet = l => l.replace(/^[•\-*]\s+/, '');
 function coachHTML(text){
   const out = [];
   let list = false;
   for(const raw of String(text || '').split('\n')){
     const l = raw.trim();
     if(!l) continue;
-    if(/^[•\-*]\s+/.test(l)){
+    if(isBullet(l)){
       if(!list){ out.push('<ul>'); list = true; }
-      out.push('<li>' + esc(l.replace(/^[•\-*]\s+/, '')) + '</li>');
+      out.push('<li>' + esc(unBullet(l)) + '</li>');
     } else {
       if(list){ out.push('</ul>'); list = false; }
-      const h = l.replace(/^#+\s*/, '').replace(/^\*+/, '').replace(/[:*#\s]+$/, '').trim();
+      const h = coachHead(l);
       out.push(COACH_HEADS.some(x => x.toLowerCase() === h.toLowerCase()) ? '<h3>' + esc(h) + '</h3>' : '<p>' + esc(l) + '</p>');
     }
   }
   if(list) out.push('</ul>');
   return out.join('');
 }
+// the bullets under one heading of a brief or coaching
+function coachSection(text, head){
+  const got = [];
+  let inside = false;
+  for(const raw of String(text || '').split('\n')){
+    const l = raw.trim();
+    if(!l) continue;
+    if(!isBullet(l)){ inside = coachHead(l).toLowerCase() === head.toLowerCase(); continue; }
+    if(inside) got.push(unBullet(l));
+  }
+  return got;
+}
+// coaching ends with Plan changes, which is shown as ticks rather than read
+function coachMain(text){
+  const L = String(text || '').split('\n');
+  const i = L.findIndex(l => !isBullet(l.trim()) && coachHead(l.trim()).toLowerCase() === 'plan changes');
+  return i < 0 ? String(text || '') : L.slice(0, i).join('\n');
+}
+
+/* ---- the account plan (v106) ----
+   One per account, its own record store so it syncs like a task. The people
+   are named, not linked to a CRM contact by position: a re-import reorders
+   contacts, and a person who matters is not always on file. */
+const PL_ROLES = ['Signs the order', 'Uses it', 'Checks the spec', 'On our side'];
+const PL_MODES = ['Growth', 'Trouble', 'Steady', 'Overconfident'];
+// two devices can each start a plan before they sync; the latest one is the plan
+const planFor = name => PLANS.filter(p => p.acct === name).sort((x, y) => (y.updated || 0) - (x.updated || 0))[0] || null;
+const plPersonLine = x => [x.role, x.mode && 'sees it as ' + x.mode, x.note].filter(Boolean).join(', ');
+function planText(name){
+  const p = planFor(name);
+  if(!p) return '';
+  const L = [];
+  if((p.goal || '').trim()) L.push('Goal: ' + p.goal.trim());
+  for(const x of p.people || []) if(x.n) L.push('Person: ' + x.n + (plPersonLine(x) ? ' - ' + plPersonLine(x) : ''));
+  const lines = t => String(t || '').split('\n').map(s => s.trim()).filter(Boolean).join('; ');
+  if(lines(p.flags)) L.push('Red flags: ' + lines(p.flags));
+  if(lines(p.strengths)) L.push('Strengths: ' + lines(p.strengths));
+  return L.length ? 'Account plan, kept by the engineer:\n' + L.join('\n') : '';
+}
+function renderPlanCard(){
+  const a = viewAcct, el = $('avPlan');
+  if(!a || !el) return;
+  const p = planFor(a.a);
+  const ppl = p ? (p.people || []).filter(x => x.n).map(x => x.n + (x.role ? ' (' + x.role + ')' : '')) : [];
+  el.innerHTML = '<div class="hd"><span class="t">Account plan</span></div>' +
+    (!p ? '<p class="meta">None yet. Tap to start one.</p>'
+      : ((p.goal || '').trim() ? '<p>' + esc(p.goal.trim()) + '</p>' : '<p class="meta">No goal yet.</p>') +
+        (ppl.length ? '<div class="meta">' + esc(ppl.join(' · ')) + '</div>' : ''));
+  el.setAttribute('aria-label', 'Account plan for ' + a.a);
+}
+let plEdit = null, plIsNew = false, plBefore = '';
+function plDraw(list){
+  const box = $('plPeople');
+  box.innerHTML = list.map(x => '<div class="plp">' +
+    '<div class="plrow"><input type="text" class="plname" list="plNames" autocomplete="off" placeholder="Name" aria-label="Name" value="' + esc(x.n || '') + '">' +
+    '<button type="button" class="plx" aria-label="Remove this person" title="Remove this person">' + icon('trash') + '</button></div>' +
+    '<div class="chips plrole"></div>' +
+    '<div class="sub">How they see it</div><div class="chips plmode"></div>' +
+    '<input type="text" class="plnote" autocomplete="off" placeholder="Note, e.g. cares most about downtime" aria-label="Note" value="' + esc(x.note || '') + '">' +
+    '</div>').join('');
+  [...box.querySelectorAll('.plp')].forEach((row, i) => {
+    chipRow(row.querySelector('.plrole'), PL_ROLES, list[i].role || ''); chipTap(row.querySelector('.plrole'));
+    chipRow(row.querySelector('.plmode'), PL_MODES, list[i].mode || ''); chipTap(row.querySelector('.plmode'));
+    row.querySelector('.plx').addEventListener('click', () => {
+      const now = plPeopleRead(true), gone = now[i];
+      if(gone && gone.n && !confirm('Remove ' + gone.n + ' from this account plan?')) return;
+      plDraw(now.filter((_, j) => j !== i));
+    });
+  });
+}
+// keepBlank: a row just added and not filled in yet stays on screen
+function plPeopleRead(keepBlank){
+  return [...$('plPeople').querySelectorAll('.plp')].map(row => ({
+    n: row.querySelector('.plname').value.trim(),
+    role: chipVal(row.querySelector('.plrole')), mode: chipVal(row.querySelector('.plmode')),
+    note: row.querySelector('.plnote').value.trim()
+  })).filter(x => keepBlank || x.n || x.role || x.mode || x.note);
+}
+function plRead(){
+  return Object.assign({}, plEdit, {goal: $('plGoal').value.trim(), people: plPeopleRead(),
+    flags: $('plFlags').value, strengths: $('plStrengths').value});
+}
+function openPlan(name){
+  if(!name) return;
+  const p = planFor(name);
+  plIsNew = !p;
+  plEdit = p ? JSON.parse(JSON.stringify(p))
+    : {id: newId('pl'), acct: name, goal: '', people: [], flags: '', strengths: '', created: Date.now()};
+  $('plSub').textContent = name;
+  $('plGoal').value = plEdit.goal || '';
+  plDraw(plEdit.people || []);
+  $('plFlags').value = plEdit.flags || '';
+  $('plStrengths').value = plEdit.strengths || '';
+  const a = ACC_BY_NAME.get(name);
+  $('plNames').innerHTML = (a ? a.c || [] : []).filter(c => c.n)
+    .map(c => '<option value="' + esc(c.n) + '">' + esc(c.t || c.r || '') + '</option>').join('');
+  $('plDel').hidden = plIsNew;
+  plBefore = JSON.stringify(plRead());
+  const d = $('plandlg');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('plandlg');
+  }
+}
+async function plFinish(){
+  if(!plEdit) return;
+  // Done, or Escape: go back off the form's entry, and let that close it (which comes back here)
+  if($('plandlg').open && history.state && history.state.dialog === 'plandlg'){ history.back(); return; }
+  const r = plRead();
+  plEdit = null;
+  const d = $('plandlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  if(plIsNew && !r.goal && !r.people.length && !r.flags.trim() && !r.strengths.trim()) return;   // nothing entered: nothing kept
+  if(!plIsNew && JSON.stringify(r) === plBefore) return;
+  r.updated = Date.now();
+  await plansPut(r);
+  PLANS = PLANS.filter(x => x.id !== r.id).concat([r]);
+  toast('Account plan saved');
+  renderPlanCard();
+}
+$('plAdd').addEventListener('click', () => {
+  plDraw(plPeopleRead(true).concat([{n: '', role: '', mode: '', note: ''}]));
+  const names = $('plPeople').querySelectorAll('.plname');
+  try { names[names.length - 1].focus(); } catch(_){}
+});
+$('plOk').addEventListener('click', () => plFinish().catch(e => { console.error(e); toast('Could not save the plan: ' + e.message); }));
+$('plDel').addEventListener('click', async () => {
+  const r = plEdit;
+  if(!r) return;
+  const n = (r.people || []).length;
+  if(!confirm('Delete the account plan for ' + r.acct + '?\n\nIts goal, ' + n + (n === 1 ? ' person' : ' people') +
+      ', red flags and strengths are gone from this device' + (sbUser ? ' and from your other devices when they next sync' : '') +
+      '. This cannot be undone.')) return;
+  plEdit = null;                                  // the close handler must not save it back
+  await plansDel(r.id);
+  PLANS = PLANS.filter(x => x.id !== r.id);
+  const d = $('plandlg');
+  if(history.state && history.state.dialog === 'plandlg') history.back();
+  else if(d.close) d.close(); else d.removeAttribute('open');
+  toast('Account plan deleted');
+  renderPlanCard();
+});
+$('plandlg').addEventListener('cancel', e => { e.preventDefault(); plFinish().catch(console.error); });
+$('plandlg').addEventListener('close', () => { if(plEdit) plFinish().catch(console.error); });
+$('avPlan').addEventListener('click', () => { if(viewAcct) openPlan(viewAcct.a); });
+$('avPlan').addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && viewAcct){ e.preventDefault(); openPlan(viewAcct.a); } });
+
 // who and what the account is
 function accountText(name){
   const a = ACC_BY_NAME.get(name);
@@ -10141,7 +10310,7 @@ function accountText(name){
   }
   return L.join('\n');
 }
-// its history, newest first: each call with its summary and the coaching after it, then open tasks and products
+// its plan, then its history, newest first: each call with its summary and the coaching after it, then open tasks and products
 function accountHistory(name, skipId){
   const calls = callsFor(name).filter(c => c.id !== skipId).slice().sort((x, y) => callWhen(y) - callWhen(x)).slice(0, 6);
   const parts = calls.map(c => {
@@ -10149,9 +10318,11 @@ function accountHistory(name, skipId){
     if((c.summary || '').trim()) L.push('Summary: ' + c.summary.trim());
     const d = callDigest(c).split('\n').filter(l => !/^(Customer|Date|Call type):/.test(l)).join('\n');
     if(d.trim()) L.push(d);
-    if(c.coaching && c.coaching.text) L.push('Coaching after that call:\n' + c.coaching.text);
+    if(c.coaching && c.coaching.text) L.push('Coaching after that call:\n' + coachMain(c.coaching.text).trim());
     return L.join('\n');
   });
+  const plan = planText(name);
+  if(plan) parts.unshift(plan);
   const tasks = (typeof TASKS !== 'undefined' ? TASKS : []).filter(t => t.acct === name && !t.done).map(t => t.title || t.type).filter(Boolean);
   if(tasks.length) parts.push('Open tasks: ' + tasks.join('; '));
   const prods = (typeof PRODS !== 'undefined' ? PRODS : []).filter(p => p.acct === name && !p.stocked).map(p => [p.name, p.status].filter(Boolean).join(' - '));
@@ -10192,7 +10363,7 @@ $('coClose').addEventListener('click', coachLeave);
 $('coAgain').addEventListener('click', () => { if(coAgain) coAgain().catch(reportErr); });
 $('coachdlg').addEventListener('cancel', () => { coSeq++; });
 const writtenOn = t => new Date(t).toLocaleDateString();
-async function coachAsk(n, payload){
+async function coachAsk(n, payload, show){
   showMsg($('coMsg'), 'info', 'Writing' + String.fromCharCode(8230) + ' usually 10 to 30 seconds.');
   try {
     const r = await aiAsk(payload);
@@ -10200,12 +10371,26 @@ async function coachAsk(n, payload){
     const text = String(r.text || '').trim();
     if(!text) throw new Error('the answer came back empty');
     showMsg($('coMsg'), '', '');
-    $('coBody').innerHTML = coachHTML(text);
+    if(show) show(text); else $('coBody').innerHTML = coachHTML(text);
     return text;
   } catch(e){
     if(n === coSeq) showMsg($('coMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e)) + '.');
     return null;
   } finally { if(n === coSeq) $('coAgain').disabled = false; }
+}
+function briefPayload(name, ap){
+  const a = ACC_BY_NAME.get(name);
+  const seeing = ap && a ? (ap.contacts || []).map(i => a.c[i]).filter(Boolean).map(c => [c.n, c.t || c.r].filter(Boolean).join(', ')) : [];
+  const visit = ap ? [dayLabel(ap.date) + ' at ' + ap.start, ap.type, (ap.agenda || '').trim() && 'Agenda: ' + ap.agenda.trim(),
+    seeing.length && 'Seeing: ' + seeing.join('; ')].filter(Boolean).join('\n') : '';
+  return {kind: 'brief', a: accountText(name), b: accountHistory(name), visit};
+}
+async function keepBrief(apId, text){
+  const cur = APPTS.find(x => x.id === apId);
+  if(!cur) return null;
+  cur.brief = {text, at: Date.now()};
+  await saveAppt(cur);
+  return cur;
 }
 async function prepareBrief(name, apId, fresh){
   if(!name) return;
@@ -10222,18 +10407,171 @@ async function prepareBrief(name, apId, fresh){
   if(why){ toast(why); return; }
   const n = coachOpen(head, ap ? 'For the visit on ' + dayLabel(ap.date) + ' at ' + ap.start + '.'
     : 'No visit booked, so this brief is not kept. Book a visit and prepare from it to keep one.');
-  const a = ACC_BY_NAME.get(name);
-  const seeing = ap && a ? (ap.contacts || []).map(i => a.c[i]).filter(Boolean).map(c => [c.n, c.t || c.r].filter(Boolean).join(', ')) : [];
-  const visit = ap ? [dayLabel(ap.date) + ' at ' + ap.start, ap.type, (ap.agenda || '').trim() && 'Agenda: ' + ap.agenda.trim(),
-    seeing.length && 'Seeing: ' + seeing.join('; ')].filter(Boolean).join('\n') : '';
-  const text = await coachAsk(n, {kind: 'brief', a: accountText(name), b: accountHistory(name), visit});
+  const text = await coachAsk(n, briefPayload(name, ap));
   if(!text || !ap) return;
-  const cur = APPTS.find(x => x.id === ap.id);
-  if(cur){
-    cur.brief = {text, at: Date.now()};
-    await saveAppt(cur);
-    if(n === coSeq) $('coSub').textContent = 'Written just now, for the visit on ' + dayLabel(cur.date) + ' at ' + cur.start + '. Saved with the visit.';
+  const cur = await keepBrief(ap.id, text);
+  if(cur && n === coSeq) $('coSub').textContent = 'Written just now, for the visit on ' + dayLabel(cur.date) + ' at ' + cur.start + '. Saved with the visit.';
+}
+
+/* ---- Prepare tomorrow (v106): a brief for each of tomorrow's visits that has
+   none, one after another, in the brief sheet. Closing the sheet stops it. */
+async function prepareTomorrow(){
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const day = iso(addDays(parseIso(todayISOdate()), 1));
+  const aps = APPTS.filter(a => a.date === day && a.acct && !apSettled(a)).sort((x, y) => (x.start || '').localeCompare(y.start || ''));
+  if(!aps.length){ toast('No visits booked tomorrow'); return; }
+  coAgain = null;
+  const n = coachOpen('Briefs for tomorrow', dayLabel(day) + ': ' + aps.length + (aps.length === 1 ? ' visit.' : ' visits.'));
+  $('coBody').innerHTML = aps.map(a => '<button type="button" class="prow" data-ap="' + esc(a.id) + '"><b>' + esc(a.start + ' ' + a.acct) +
+    '</b><span>' + (a.brief && a.brief.text ? 'Already has a brief' : 'Waiting') + '</span></button>').join('');
+  $('coBody').querySelectorAll('[data-ap]').forEach(b => b.addEventListener('click', () => {
+    const a = APPTS.find(x => x.id === b.dataset.ap);
+    if(a && a.brief && a.brief.text) prepareBrief(a.acct, a.id).catch(reportErr);
+  }));
+  const line = (id, t) => { const b = $('coBody').querySelector('[data-ap="' + id + '"] span'); if(b && n === coSeq) b.textContent = t; };
+  let wrote = 0, failed = 0;
+  for(const a of aps){
+    if(n !== coSeq) return;                      // the sheet was closed: stop
+    if(a.brief && a.brief.text) continue;
+    line(a.id, 'Writing' + String.fromCharCode(8230));
+    try {
+      const r = await aiAsk(briefPayload(a.acct, a));
+      const text = String(r.text || '').trim();
+      if(!text) throw new Error('the answer came back empty');
+      await keepBrief(a.id, text);
+      wrote++;
+      line(a.id, 'Written. Tap to read it.');
+    } catch(e){
+      failed++;
+      line(a.id, 'That did not work: ' + (e.message || String(e)));
+    }
   }
+  if(n === coSeq) $('coSub').textContent = dayLabel(day) + ': ' + (wrote ? wrote + ' written' : 'none written') +
+    (failed ? ', ' + failed + ' did not work' : '') + '. Each is saved with its visit. Tap a visit to read its brief.';
+}
+$('tvPrepTom').addEventListener('click', () => prepareTomorrow().catch(reportErr));
+$('calPrepTom').addEventListener('click', () => prepareTomorrow().catch(reportErr));
+
+/* ---- the brief's questions, in the call (v106) ---- */
+function callBrief(c){
+  const ap = c && APPTS.find(a => a.callId === c.id && a.brief && a.brief.text);
+  return ap ? ap.brief.text : '';
+}
+function renderCallQs(){
+  const box = $('dashQs');
+  if(!box) return;
+  const qs = call && !isQuote(call) ? coachSection(callBrief(call), 'Questions to ask') : [];
+  box.hidden = !qs.length;
+  if(!qs.length) return;
+  const asked = new Set(call.asked || []);
+  $('qsCount').textContent = qs.filter(q => asked.has(q)).length + ' of ' + qs.length + ' asked';
+  $('qsList').innerHTML = qs.map((q, i) => '<label' + (asked.has(q) ? ' class="asked"' : '') + '><input type="checkbox" data-q="' + i + '"' +
+    (asked.has(q) ? ' checked' : '') + '><span>' + esc(q) + '</span></label>').join('');
+  $('qsList').querySelectorAll('input').forEach(b => b.addEventListener('change', () => {
+    const q = qs[+b.dataset.q], s = new Set(call.asked || []);
+    if(b.checked) s.add(q); else s.delete(q);
+    call.asked = [...s];
+    saveCall().catch(reportErr);
+    renderCallQs();
+  }));
+}
+
+/* ---- coaching: Make a task, and the suggested plan changes (v106) ---- */
+function planChanges(text){
+  const L = String(text || '').split('\n');
+  const i = L.findIndex(l => !isBullet(l.trim()) && coachHead(l.trim()).toLowerCase() === 'plan changes');
+  const out = [];
+  if(i < 0) return out;
+  const pick = (list, v) => list.find(x => x.toLowerCase() === String(v || '').trim().toLowerCase()) || '';
+  for(const raw of L.slice(i + 1)){
+    const l = unBullet(raw.trim()).trim();
+    let m;
+    if(!l || /^none\.?$/i.test(l)) continue;
+    if((m = l.match(/^goal\s*:\s*(.+)$/i))) out.push({k: 'goal', text: m[1].trim()});
+    else if((m = l.match(/^person\s*:\s*(.+)$/i))){
+      const f = m[1].split('|').map(x => x.trim()).map(x => x === '-' ? '' : x);
+      if(f[0]) out.push({k: 'person', n: f[0], role: pick(PL_ROLES, f[1]), mode: pick(PL_MODES, f[2]), note: f[3] || ''});
+    }
+    else if((m = l.match(/^red flags?\s*:\s*(.+)$/i))) out.push({k: 'flag', text: m[1].trim()});
+    else if((m = l.match(/^strengths?\s*:\s*(.+)$/i))) out.push({k: 'strength', text: m[1].trim()});
+  }
+  return out;
+}
+const changeLabel = ch => ch.k === 'goal' ? 'Goal: ' + ch.text : ch.k === 'flag' ? 'Red flag: ' + ch.text
+  : ch.k === 'strength' ? 'Strength: ' + ch.text : ch.n + (plPersonLine(ch) ? ': ' + plPersonLine(ch) : '');
+// why a change cannot be ticked, or '' when it can
+function changeBlock(ch, p){
+  const has = (t, s) => String(t || '').toLowerCase().includes(String(s || '').toLowerCase());
+  if(!p) return '';
+  if(ch.k === 'goal') return !(p.goal || '').trim() ? '' : p.goal.trim() === ch.text ? 'already in the plan'
+    : 'your plan has a goal already; change it in the plan if you agree';
+  if(ch.k === 'flag') return has(p.flags, ch.text) ? 'already in the plan' : '';
+  if(ch.k === 'strength') return has(p.strengths, ch.text) ? 'already in the plan' : '';
+  const x = (p.people || []).find(y => y.n.toLowerCase() === ch.n.toLowerCase());
+  if(!x) return '';
+  return (ch.role && !x.role) || (ch.mode && !x.mode) || (ch.note && !x.note) ? '' : 'already in the plan';
+}
+function showCoaching(c, text){
+  const body = $('coBody');
+  body.innerHTML = coachHTML(coachMain(text));
+  // Make a task: each next step opens the task form, filled in, to check
+  const h = [...body.querySelectorAll('h3')].find(x => x.textContent.toLowerCase() === 'next steps');
+  const ul = h && h.nextElementSibling && h.nextElementSibling.tagName === 'UL' ? h.nextElementSibling : null;
+  if(ul) ul.querySelectorAll('li').forEach(li => {
+    const step = li.textContent;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mktask'; b.textContent = 'Task';
+    b.setAttribute('aria-label', 'Make a task: ' + step);
+    b.addEventListener('click', () => openTask(null, {title: step.slice(0, 200), acct: c.customer, callId: c.id}));
+    li.appendChild(b);
+  });
+  const chs = planChanges(text);
+  if(!chs.length) return;
+  const p = planFor(c.customer), applied = new Set((c.coaching && c.coaching.applied) || []);
+  const box = document.createElement('div');
+  box.className = 'plch';
+  box.innerHTML = '<h3>Suggested plan changes</h3><p class="hint">Tick the ones you agree with. Nothing in the plan changes until you do.</p>' +
+    '<button type="button" class="btn go" id="coApply" disabled>Add ticked to the plan</button>' +
+    chs.map((ch, i) => {
+      const done = applied.has(i), why = done ? 'added' : changeBlock(ch, p);
+      return '<label' + (why ? ' class="dim"' : '') + '><input type="checkbox" data-ch="' + i + '"' + (done ? ' checked' : '') +
+        (why ? ' disabled' : '') + '><span>' + esc(changeLabel(ch)) + (why ? ' (' + esc(why) + ')' : '') + '</span></label>';
+    }).join('');
+  body.appendChild(box);
+  const ticks = [...box.querySelectorAll('input[data-ch]:not([disabled])')];
+  const apply = box.querySelector('#coApply');
+  apply.hidden = !ticks.length;
+  ticks.forEach(t => t.addEventListener('change', () => { apply.disabled = !ticks.some(x => x.checked); }));
+  apply.addEventListener('click', () => applyChanges(c, chs, ticks.filter(x => x.checked).map(x => +x.dataset.ch)).catch(reportErr));
+}
+async function applyChanges(c, chs, idx){
+  if(!idx.length) return;
+  const cur = planFor(c.customer);
+  const p = cur ? JSON.parse(JSON.stringify(cur))
+    : {id: newId('pl'), acct: c.customer, goal: '', people: [], flags: '', strengths: '', created: Date.now()};
+  p.people = p.people || [];
+  const addLine = (t, s) => (String(t || '').trim() ? String(t).replace(/\s+$/, '') + '\n' : '') + s;
+  for(const i of idx){
+    const ch = chs[i];
+    if(!ch || changeBlock(ch, p)) continue;
+    if(ch.k === 'goal'){ if(!(p.goal || '').trim()) p.goal = ch.text; }
+    else if(ch.k === 'flag') p.flags = addLine(p.flags, ch.text);
+    else if(ch.k === 'strength') p.strengths = addLine(p.strengths, ch.text);
+    else {
+      // fills gaps only: a role, view or note already in the plan is never replaced
+      const x = p.people.find(y => y.n.toLowerCase() === ch.n.toLowerCase());
+      if(!x) p.people.push({n: ch.n, role: ch.role, mode: ch.mode, note: ch.note});
+      else { if(!x.role) x.role = ch.role; if(!x.mode) x.mode = ch.mode; if(!x.note) x.note = ch.note; }
+    }
+  }
+  p.updated = Date.now();
+  await plansPut(p);
+  PLANS = PLANS.filter(x => x.id !== p.id).concat([p]);
+  c.coaching.applied = [...new Set(((c.coaching.applied) || []).concat(idx))];
+  if(call === c) await saveCall(); else { c.updated = Date.now(); await callsPut(c); }
+  toast(idx.length === 1 ? 'Added to the account plan' : idx.length + ' added to the account plan');
+  showCoaching(c, c.coaching.text);
 }
 async function coachCall(fresh){
   const c = call;
@@ -10242,7 +10580,7 @@ async function coachCall(fresh){
   const head = 'Coaching: ' + c.customer;
   if(c.coaching && c.coaching.text && !fresh){
     coachOpen(head, 'Written ' + writtenOn(c.coaching.at) + ', on the call of ' + c.date + '.');
-    $('coBody').innerHTML = coachHTML(c.coaching.text);
+    showCoaching(c, c.coaching.text);
     $('coAgain').disabled = false;
     return;
   }
@@ -10250,14 +10588,24 @@ async function coachCall(fresh){
   const why = aiBlocked();
   if(why){ toast(why); return; }
   const n = coachOpen(head, 'On the call of ' + c.date + '.');
-  const text = await coachAsk(n, {kind: 'coach',
-    a: callDigest(c) + ((c.summary || '').trim() ? '\nSummary written for the report: ' + c.summary.trim() : ''),
-    b: accountHistory(c.customer, c.id)});
+  let a = callDigest(c) + ((c.summary || '').trim() ? '\nSummary written for the report: ' + c.summary.trim() : '');
+  const qs = coachSection(callBrief(c), 'Questions to ask');
+  if(qs.length){
+    const asked = new Set(c.asked || []);
+    a += '\nQuestions from the brief that were asked: ' + (qs.filter(q => asked.has(q)).join('; ') || 'none ticked') +
+      '\nQuestions from the brief not asked: ' + (qs.filter(q => !asked.has(q)).join('; ') || 'none');
+  }
+  // new coaching, new suggestions: what was added from the last one stays in the plan.
+  // Shown plain until it is saved on the call; the Task and plan buttons come with the saved copy.
+  const text = await coachAsk(n, {kind: 'coach', a, b: accountHistory(c.customer, c.id)}, t => { $('coBody').innerHTML = coachHTML(coachMain(t)); });
   if(!text) return;
   c.coaching = {text, at: Date.now()};
   if(call === c){ await saveCall(); renderVisitSummary(); }
   else { c.updated = Date.now(); await callsPut(c); }
-  if(n === coSeq) $('coSub').textContent = 'Written just now, on the call of ' + c.date + '. Kept with the call; not in any report.';
+  if(n === coSeq){
+    showCoaching(c, text);
+    $('coSub').textContent = 'Written just now, on the call of ' + c.date + '. Kept with the call; not in any report.';
+  }
 }
 $('vCoach').addEventListener('click', () => coachCall(false).catch(reportErr));
 $('avPrep').addEventListener('click', () => { if(viewAcct) prepareBrief(viewAcct.a).catch(reportErr); });
@@ -10865,6 +11213,7 @@ async function buildBackup(withPhotos){
     tasks: TASKS,
     snippets: SNIPS,
     products: PRODS,
+    plans: PLANS,
     weeks: WEEKS,
     mgrOf: MGR_OF,
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos)
@@ -10938,6 +11287,7 @@ async function doRestore(file){
   // saved notes and products (v97), by id like everything else
   for(const r of (Array.isArray(data.snippets) ? data.snippets : [])) if(r && r.id) await snippetsPut(r);
   for(const r of (Array.isArray(data.products) ? data.products : [])) if(r && r.id) await productsPut(r);
+  for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }

@@ -209,6 +209,21 @@ The photo of the sheet is kept with the belt. It needs signal and cloud sync sig
 
 ### Prepare for a visit, and get coaching after it
 
+Keep an account plan:
+
+1. Open the account.
+2. Tap the **Account plan** card.
+3. Type the goal for this account.
+4. Tap **Add a person**.
+5. Type their name, or pick it from the account's contacts.
+6. Tap their role: **Signs the order**, **Uses it**, **Checks the spec** or **On our side**.
+7. Under **How they see it**, tap **Growth**, **Trouble**, **Steady** or **Overconfident**.
+8. Add a short note if it helps.
+9. Fill in **Red flags** and **Strengths**.
+10. Tap **Done**.
+
+Growth means they want more of something; Trouble means something is going wrong for them now; Steady means they see no need to change; Overconfident means they think all is well when it isn't. The brief and the coaching both read the plan. The bin removes a person; the bin at the top deletes the whole plan.
+
 Before a visit:
 
 1. Tap **⋯** on the visit, then **Prepare**. On the PC, open the visit and click **Prepare**, or open the account and click **Prepare for a visit**.
@@ -218,15 +233,32 @@ Before a visit:
 
 The brief is saved with the visit, so it's on your phone with no signal. Tap **⋯** on the visit, then **Brief**, to read it again. **Write it again** writes a fresh one.
 
+To prepare all of tomorrow's visits at once:
+
+1. Open the calendar on the **Day** view.
+2. Tap **Prepare tomorrow**.
+3. Wait while each visit is written. Visits that already have a brief are left as they are.
+4. Tap a visit to read its brief.
+
+During the call:
+
+1. Tap **Questions to ask** at the top of the call. It shows when the call was started from a visit with a brief.
+2. Tick each question as you ask it.
+
+The ticks stay with the call and are never in a report.
+
 After the call:
 
 1. In the call, tap **Summary for the report**.
 2. Tap **Coach me**.
 3. Read what went well, what's still unknown, the next steps, and what to ask next time.
+4. To turn a next step into a task, tap **Task** beside it, check the task, then tap **Done**.
+5. Under **Suggested plan changes**, tick the ones you agree with.
+6. Tap **Add ticked to the plan**.
 
-The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.
+Nothing in the plan changes until you tick it, and a suggestion never replaces something already in the plan. The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.
 
-The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records to Anthropic, and counts towards the 200 a day.
+The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records and plan to Anthropic, and counts towards the 200 a day; Prepare tomorrow counts one for each brief it writes.
 
 ### Add photos
 

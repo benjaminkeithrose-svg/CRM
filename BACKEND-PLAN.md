@@ -387,7 +387,10 @@ Anthropic, the same exception as the note text. v102 added the sales coach:
 **Prepare for a visit** (`kind: 'brief'`) and **Coach me** (`kind:
 'coach'`). Each sends one account's records — its details, its last six
 calls, open tasks and unstocked products — only when tapped, and the answer
-is kept encrypted on the visit or the call like everything else.
+is kept encrypted on the visit or the call like everything else. v106 added
+the account plan, a new record store (`plans`) synced like tasks; the plan
+goes to Anthropic with the account's records when Prepare or Coach me is
+tapped, and Prepare tomorrow sends each of tomorrow's visited accounts in turn.
 
 
 A Supabase Edge Function holds the Anthropic API key (in Supabase's secret

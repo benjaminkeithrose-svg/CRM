@@ -534,6 +534,16 @@ await Q.w.eval(`snippetsDel('sn100')`);
 await syncW(Q); await syncW(P);
 ok(!P.w.eval('SNIPS.some(x => x.id === "sn100")'), 'saved note delete reaches the PC');
 
+// account plans (v106) too: the cloud row's id carries no account name
+await Q.w.eval(`plansPut({id: 'pl100', acct: 'Acme Pty Ltd - Wetherill Park', goal: 'Win the spiral', people: [{n: 'Jo Bloggs', role: 'Signs the order', mode: 'Growth', note: ''}], flags: '', strengths: '', created: Date.now(), updated: Date.now()})`);
+await syncW(Q);
+ok(row5('plans', 'pl100') && !/Acme|Jo Bloggs|spiral/.test(Buffer.from(row5('plans', 'pl100').body, 'base64').toString('latin1')), 'account plan sent, unreadable in the cloud');
+await syncW(P);
+ok(P.w.eval('PLANS.some(x => x.id === "pl100" && x.people[0].n === "Jo Bloggs")'), 'PC has the account plan');
+await P.w.eval(`plansDel('pl100')`);
+await syncW(P); await syncW(Q);
+ok(!Q.w.eval('PLANS.some(x => x.id === "pl100")'), 'plan delete reaches the phone');
+
 // a quote request stays a quote request
 await Q.w.eval(`(async () => { await callsPut({id: 'q100', rectype: 'quote', customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', contacts: [], entries: [], loose: [], updated: Date.now(), reqby: 'soon'}); })()`);
 await syncW(Q); await syncW(P);

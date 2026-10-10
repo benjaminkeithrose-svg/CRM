@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v105">
+<meta name="build" content="v106">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -161,6 +161,30 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .coach li{margin:4px 0;line-height:1.45}
 .coach p{margin:4px 0}
 #avPrep{margin-bottom:10px}
+/* the account plan (v106) */
+.plancard{cursor:pointer}
+.plancard .meta{margin-top:5px}
+.plp{border:1px solid var(--edge);border-radius:var(--r);padding:10px;margin-bottom:10px;background:var(--surface)}
+.plp .plrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.plp .plrow input{flex:1}
+.plp .plx{flex:none;min-width:40px;min-height:40px;border:none;background:none;color:var(--warn);font-size:22px;cursor:pointer}
+.plp .chips{margin-bottom:8px}
+.plp .sub{font-size:12px;color:var(--ink-3);margin:2px 0 5px}
+.coach .plch{margin-top:16px;border-top:1px solid var(--edge);padding-top:10px}
+.coach .plch label,#qsList label{font-size:15px;font-weight:400;color:var(--ink);text-transform:none;letter-spacing:0;margin:0}
+.coach .plch label{display:flex;gap:10px;align-items:flex-start;padding:8px 0;line-height:1.4}
+.coach .plch label input{width:20px;height:20px;flex:none;margin-top:1px}
+.coach .plch .dim{color:var(--ink-3)}
+.coach .plch .btn{margin:4px 0 6px}
+.coach .plch .btn:disabled{opacity:.45;cursor:default}
+.coach li .mktask{margin-left:8px;border:1px solid var(--act);color:var(--act);background:var(--surface);border-radius:var(--r-pill);font-size:13px;font-weight:700;padding:6px 14px;min-height:40px;cursor:pointer;vertical-align:middle}
+.coach .prow{display:block;width:100%;text-align:left;border:1px solid var(--edge);border-radius:var(--r);background:var(--surface);padding:10px 12px;margin-bottom:8px;cursor:pointer;font:inherit}
+.coach .prow span{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
+#tvPrepTom{margin-bottom:10px}
+#qsList label{display:flex;gap:10px;align-items:flex-start;padding:8px 0;line-height:1.4;border-bottom:1px solid var(--edge)}
+#qsList label:last-child{border-bottom:none}
+#qsList input{width:20px;height:20px;flex:none;margin-top:1px}
+#qsList label.asked span{color:var(--ink-3);text-decoration:line-through}
 /* filled from a photographed spec sheet (v101) until you change it */
 #s-belt .fromphoto{background:var(--cyan-lt)!important;border-color:var(--cyan-dk)!important}
 #s-belt .chips.fromphoto{outline:2px solid var(--cyan-dk);outline-offset:3px;border-radius:var(--r)}
@@ -1646,6 +1670,20 @@ details.bsx > .msg{margin:8px 12px}
   <details class="sx hx">
     <summary><b>Prepare for a visit, and get coaching after it</b><span class="sxs">The sales coach</span></summary>
     <div class="fld help">
+      <p>Keep an account plan:</p>
+      <ol>
+        <li>Open the account.</li>
+        <li>Tap the <b>Account plan</b> card.</li>
+        <li>Type the goal for this account.</li>
+        <li>Tap <b>Add a person</b>.</li>
+        <li>Type their name, or pick it from the account's contacts.</li>
+        <li>Tap their role: <b>Signs the order</b>, <b>Uses it</b>, <b>Checks the spec</b> or <b>On our side</b>.</li>
+        <li>Under <b>How they see it</b>, tap <b>Growth</b>, <b>Trouble</b>, <b>Steady</b> or <b>Overconfident</b>.</li>
+        <li>Add a short note if it helps.</li>
+        <li>Fill in <b>Red flags</b> and <b>Strengths</b>.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>Growth means they want more of something; Trouble means something is going wrong for them now; Steady means they see no need to change; Overconfident means they think all is well when it isn't. The brief and the coaching both read the plan. The bin removes a person; the bin at the top deletes the whole plan.</p>
       <p>Before a visit:</p>
       <ol>
         <li>Tap <b>&#8943;</b> on the visit, then <b>Prepare</b>. On the PC, open the visit and click <b>Prepare</b>, or open the account and click <b>Prepare for a visit</b>.</li>
@@ -1654,14 +1692,30 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Close</b>.</li>
       </ol>
       <p>The brief is saved with the visit, so it's on your phone with no signal. Tap <b>&#8943;</b> on the visit, then <b>Brief</b>, to read it again. <b>Write it again</b> writes a fresh one.</p>
+      <p>To prepare all of tomorrow's visits at once:</p>
+      <ol>
+        <li>Open the calendar on the <b>Day</b> view.</li>
+        <li>Tap <b>Prepare tomorrow</b>.</li>
+        <li>Wait while each visit is written. Visits that already have a brief are left as they are.</li>
+        <li>Tap a visit to read its brief.</li>
+      </ol>
+      <p>During the call:</p>
+      <ol>
+        <li>Tap <b>Questions to ask</b> at the top of the call. It shows when the call was started from a visit with a brief.</li>
+        <li>Tick each question as you ask it.</li>
+      </ol>
+      <p>The ticks stay with the call and are never in a report.</p>
       <p>After the call:</p>
       <ol>
         <li>In the call, tap <b>Summary for the report</b>.</li>
         <li>Tap <b>Coach me</b>.</li>
         <li>Read what went well, what's still unknown, the next steps, and what to ask next time.</li>
+        <li>To turn a next step into a task, tap <b>Task</b> beside it, check the task, then tap <b>Done</b>.</li>
+        <li>Under <b>Suggested plan changes</b>, tick the ones you agree with.</li>
+        <li>Tap <b>Add ticked to the plan</b>.</li>
       </ol>
-      <p>The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.</p>
-      <p>The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records to Anthropic, and counts towards the 200 a day.</p>
+      <p>Nothing in the plan changes until you tick it, and a suggestion never replaces something already in the plan. The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.</p>
+      <p>The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records and plan to Anthropic, and counts towards the 200 a day; Prepare tomorrow counts one for each brief it writes.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1999,6 +2053,8 @@ details.bsx > .msg{margin:8px 12px}
     <button type="button" data-v="month">Month</button>
   </div>
   <div class="calkinds" id="tvKinds"></div>
+  <!-- v106: briefs for all of tomorrow's visits at once; on the Day view only -->
+  <button class="ghost" id="tvPrepTom" type="button" hidden>Prepare tomorrow</button>
   <p class="hint" id="tvHint"></p>
   <div id="tvBody"></div>
   <button class="ghost" id="tvPlanner" hidden>Open the planner</button>
@@ -2038,6 +2094,8 @@ details.bsx > .msg{margin:8px 12px}
 <!-- ACCOUNT VIEW -->
 <section class="scr" id="s-acct">
   <div class="fld" id="avHead"></div>
+  <!-- v106: the sales coach's account plan; tap to open it -->
+  <div class="card plancard" id="avPlan" role="button" tabindex="0"></div>
   <!-- v102: the sales coach's pre-visit brief, from this account's records -->
   <button class="ghost" id="avPrep" type="button">Prepare for a visit</button>
   <h2>Contacts</h2>
@@ -2082,6 +2140,7 @@ details.bsx > .msg{margin:8px 12px}
           <button type="button" data-v="week" class="on">Week</button>
           <button type="button" data-v="month">Month</button>
         </div>
+        <button class="btn" id="calPrepTom" type="button" hidden>Prepare tomorrow</button>
         <button class="btn more" id="planMore" type="button" aria-label="More">&#8943;</button>
       </div>
       <div class="calkinds" id="pKinds"></div>
@@ -2176,6 +2235,24 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint" id="coSub"></p>
     <p class="msg" id="coMsg"></p>
     <div class="coach" id="coBody"></div>
+  </div>
+</dialog>
+
+<!-- The account plan (v106): Strategic Selling's account sheet, cut down. Done saves. -->
+<dialog id="plandlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="plDel" aria-label="Delete account plan" title="Delete account plan"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="plHead">Account plan</b>
+    <button type="button" class="btn go" id="plOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <p class="hint" id="plSub"></p>
+    <div class="f"><label for="plGoal">Goal for this account</label><input type="text" id="plGoal" autocomplete="off" placeholder="e.g. Replace the Line 2 belt and sprockets before the December shutdown"></div>
+    <div class="f"><label>People</label><div id="plPeople"></div>
+      <button type="button" class="btn act2" id="plAdd">Add a person</button></div>
+    <datalist id="plNames"></datalist>
+    <div class="f"><label for="plFlags">Red flags</label><textarea id="plFlags" rows="3" placeholder="What is unknown, uncertain or worrying"></textarea></div>
+    <div class="f"><label for="plStrengths">Strengths</label><textarea id="plStrengths" rows="3" placeholder="What we have going for us here"></textarea></div>
   </div>
 </dialog>
 
@@ -2409,6 +2486,13 @@ details.bsx > .msg{margin:8px 12px}
        fifteen belts. Only the button is there; the three pickers are in the
        sheet it opens, so nothing can be fired off before they've been seen. -->
   <p class="hint" id="outHint"></p>
+
+  <!-- v106: the brief's questions, when the call came from a visit with one.
+       Ticks stay with the call, are never in a report, and go to Coach me. -->
+  <details class="sx" id="dashQs" hidden>
+    <summary><b>Questions to ask</b><span class="sxs" id="qsCount"></span></summary>
+    <div class="fld" id="qsList"></div>
+  </details>
 
   <!-- v100: the summary that heads the full call notes, written or drafted by
        the AI from everything logged, and Tidy all for every box at once. -->
