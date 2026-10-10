@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v99';
+const APP_BUILD = 'v100';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1333,7 +1333,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -7325,6 +7325,7 @@ function renderDash(){
      no summary line at all. The pickers themselves are rendered when the sheet
      opens, not here. */
   renderOutSummary();
+  renderVisitSummary();
 
   renderLoose();
 
@@ -9611,9 +9612,14 @@ function beltSpecTableHTML(groups){
    taken in a meeting keep their shape in the output. */
 const COMMENT_BULLET_RE = /^[-*•]\s+/;
 function commentHTML(e){
-  const t = (e && e.comment ? String(e.comment) : '').trim();
+  const body = commentBodyHTML(e && e.comment);
+  return body ? '<div class="cmt"><b>General comments</b>'+body+'</div>' : '';
+}
+// paragraphs on blank lines, and a run of lines starting with - or a bullet as a list
+function commentBodyHTML(text){
+  const t = (text ? String(text) : '').trim();
   if(!t) return '';
-  const body = t.split(/\n\s*\n/).map(para => {
+  return t.split(/\n\s*\n/).map(para => {
     const lines = para.split('\n').map(l => l.trim()).filter(Boolean);
     if(!lines.length) return '';
     const runs = [];
@@ -9628,7 +9634,6 @@ function commentHTML(e){
       : '<p>'+r.items.map(esc).join('<br>')+'</p>'
     ).join('');
   }).join('');
-  return '<div class="cmt"><b>General comments</b>'+body+'</div>';
 }
 /* Typing "* " or "- " for a bullet is easy enough at a keyboard but fiddly on
    a phone's on-screen one, so a button inserts the actual bullet character
@@ -9741,6 +9746,160 @@ async function aiDraft(){
     aiAnswer(n, String(r.subject || ''), String(r.body || ''));
   } catch(e){ aiFailed(n, e); }
 }
+/* ---------- the visit summary and Tidy all (v100) ----------
+   The summary heads the full call notes (only - the health check and belt
+   requirements documents go to customers and already leave out notes and
+   projects). Written by hand, dictated, or drafted by Write summary from
+   everything logged, through the same sheet as Tidy. Tidy all runs Tidy on
+   every box in the call, three at a time, and lists each with a tick. */
+function renderVisitSummary(){
+  const box = $('dashSum');
+  if(!box || !call) return;
+  box.hidden = isQuote(call);              // a quote request has no visit to sum up
+  if(document.activeElement !== $('vSummary')) $('vSummary').value = call.summary || '';
+  const t = (call.summary || '').replace(/\s+/g, ' ').trim();
+  $('sumVisit').textContent = t ? (t.length > 70 ? t.slice(0, 70) + '…' : t) : 'Not written yet';
+}
+$('vSummary').addEventListener('input', () => {
+  if(!call) return;
+  call.summary = $('vSummary').value;
+  saveCall();
+  renderVisitSummary();
+});
+// the call as plain text, for the AI to sum up: what was logged, nothing more
+function callDigest(c){
+  const L = [];
+  const v = x => (x == null ? '' : String(x)).trim();
+  const line = (k, x) => { x = v(x); if(x) L.push(k + ': ' + x); };
+  line('Customer', c.customer); line('Site', c.site); line('Date', c.date); line('Call type', c.type);
+  const ppl = (c.contacts || []).filter(docContact).map(x => [x.name, x.role].map(v).filter(Boolean).join(', ')).filter(Boolean);
+  if(ppl.length) line('People seen', ppl.join('; '));
+  let nb = 0, nh = 0;
+  for(const e of c.entries || []){
+    if(e.type === 'note') line('Note' + (v(e.topic) ? ' (' + v(e.topic) + ')' : ''), e.text);
+    else if(e.type === 'project') line('Project ' + v(e.project), ['status ' + v(e.status), v(e.next) && 'next action ' + v(e.next),
+      v(e.target) && 'target ' + v(e.target), v(e.owner) && 'owner ' + v(e.owner), v(e.notes) && 'notes ' + v(e.notes)].filter(x => v(x) && x !== 'status ').join('; '));
+    else if(e.type === 'belt') line('Belt ' + (++nb) + (v(e.asset) ? ' (' + v(e.asset) + ')' : ''), [...new Set([v(e.beltdesc), [v(e.series), v(e.style)].filter(Boolean).join(' ')]),
+      [v(e.beltmat), v(e.colour)].filter(Boolean).join(' '), v(e.width) && v(e.width) + ' mm wide', v(e.beltlen) && v(e.beltlen) + ' m long',
+      v(e.sprocket) && 'sprockets ' + v(e.sprocket), v(e.qty) && 'quantity ' + v(e.qty), v(e.comment) && 'comments ' + v(e.comment)].filter(Boolean).join('; '));
+    else if(e.type === 'health') line('Health check ' + (++nh) + (v(e.asset) ? ' (' + v(e.asset) + ')' : ''), [v(e.fault), v(e.severity) && 'severity ' + v(e.severity),
+      v(e.action) && 'recommended action ' + v(e.action), v(e.comment) && 'comments ' + v(e.comment)].filter(Boolean).join('; '));
+  }
+  const tasks = (typeof TASKS !== 'undefined' ? TASKS : []).filter(t => t.callId === c.id).map(t => v(t.title)).filter(Boolean);
+  if(tasks.length) line('Tasks raised', tasks.join('; '));
+  return L.join('\n');
+}
+async function aiSummary(){
+  if(!call) return;
+  if(!(call.entries || []).length){ toast('Log something in the call first'); return; }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const n = aiOpen('Summary', 'Summary — change anything before you use it', $('vSummary').value, false);
+  aiApply = () => aiSet($('vSummary'), $('aiOut').value);
+  try {
+    const r = await aiAsk({kind: 'summary', text: callDigest(call)});
+    aiAnswer(n, null, String(r.text || ''));
+  } catch(e){ aiFailed(n, e); }
+}
+$('vSumAi').addEventListener('click', () => aiSummary().catch(reportErr));
+
+// every box in the call with something in it, and what kind of box it is
+function tidyTargets(c){
+  const out = [];
+  let nb = 0, nh = 0;
+  (c.entries || []).forEach((e, i) => {
+    const add = (key, field, label) => { if(String(e[key] || '').trim()) out.push({i, key, field, label, text: String(e[key])}); };
+    if(e.type === 'note') add('text', 'note', 'Note' + (e.topic ? ' — ' + e.topic : ''));
+    else if(e.type === 'project'){
+      const p = 'Project' + (e.project ? ' ' + e.project : '');
+      add('next', 'short', p + ': next action'); add('notes', 'project', p + ': notes');
+    } else if(e.type === 'belt'){
+      add('comment', 'belt', 'Belt ' + (++nb) + (e.asset ? ' — ' + e.asset : '') + ': comments');
+    } else if(e.type === 'health'){
+      const h = 'Health check ' + (++nh) + (e.asset ? ' — ' + e.asset : '');
+      add('fault', 'fault', h + ': fault'); add('action', 'short', h + ': recommended action'); add('comment', 'health', h + ': comments');
+    }
+  });
+  return out;
+}
+let taSeq = 0, taItems = [];
+function taRender(){
+  $('taList').innerHTML = taItems.map((it, k) =>
+    '<div class="taitem' + (it.err ? ' fail' : '') + '">' +
+      '<label class="tah"><input type="checkbox" data-tause="' + k + '"' + (it.out == null || it.err ? ' disabled' : it.use ? ' checked' : '') + '><span>' + esc(it.label) + '</span></label>' +
+      (it.err ? '<p class="hint">Not tidied: ' + esc(it.err) + '</p>'
+        : it.out == null ? '<p class="hint">Tidying' + String.fromCharCode(8230) + '</p>'
+        : '<textarea data-taout="' + k + '" rows="' + Math.min(8, Math.max(2, it.out.split('\n').length + 1)) + '">' + esc(it.out) + '</textarea>') +
+      '<details><summary class="hint">Yours</summary><div class="aiorig">' + esc(it.text) + '</div></details>' +
+    '</div>').join('');
+  $('taList').querySelectorAll('[data-taout]').forEach(t => t.addEventListener('input', () => { taItems[+t.dataset.taout].out = t.value; }));
+  $('taList').querySelectorAll('[data-tause]').forEach(b => b.addEventListener('change', () => { taItems[+b.dataset.tause].use = b.checked; }));
+}
+async function tidyAll(){
+  if(!call) return;
+  const items = tidyTargets(call);
+  if(!items.length){ toast('Nothing written in this call yet'); return; }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const n = ++taSeq;
+  taItems = items.map(x => Object.assign(x, {out: null, err: '', use: true}));
+  $('taUse').disabled = true;
+  showMsg($('taMsg'), 'info', 'Tidying ' + items.length + ' box' + (items.length === 1 ? '' : 'es') + String.fromCharCode(8230));
+  taRender();
+  const d = $('tidydlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open','');
+  pushDialog('tidydlg');
+  let next = 0, done = 0;
+  const worker = async () => {
+    while(next < taItems.length){
+      const it = taItems[next++];
+      try { it.out = String((await aiAsk({kind: 'tidy', field: it.field, text: it.text})).text || ''); }
+      catch(e){ it.err = e.message || String(e); it.use = false; }
+      if(n !== taSeq) return;
+      done++;
+      showMsg($('taMsg'), 'info', 'Tidied ' + done + ' of ' + taItems.length + String.fromCharCode(8230));
+      // keep anything typed in an answer already shown
+      $('taList').querySelectorAll('[data-taout]').forEach(t => { taItems[+t.dataset.taout].out = t.value; });
+      taRender();
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  if(n !== taSeq) return;
+  const ok = taItems.filter(x => !x.err).length, bad = taItems.length - ok;
+  showMsg($('taMsg'), bad ? 'warn' : 'ok', ok + ' tidied' + (bad ? ', ' + bad + ' not' : '') +
+    '. Untick any you would rather keep as they are, change any wording, then tap Use ticked.');
+  $('taUse').disabled = !ok;
+}
+function closeTidy(){
+  taSeq++;
+  const d = $('tidydlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+function tidyLeave(){
+  if(history.state && history.state.dialog === 'tidydlg') history.back();
+  else closeTidy();
+}
+$('vTidyAll').addEventListener('click', () => tidyAll().catch(reportErr));
+$('taKeep').addEventListener('click', tidyLeave);
+$('taUse').addEventListener('click', async () => {
+  if(!call){ tidyLeave(); return; }
+  $('taList').querySelectorAll('[data-taout]').forEach(t => { taItems[+t.dataset.taout].out = t.value; });
+  let used = 0, moved = 0;
+  for(const it of taItems){
+    if(!it.use || it.err || it.out == null) continue;
+    const e = call.entries[it.i];
+    // changed or removed since it was sent: left alone rather than overwritten
+    if(!e || String(e[it.key] || '') !== it.text){ moved++; continue; }
+    e[it.key] = it.field === 'short' ? it.out.replace(/\s*\n+\s*/g, '; ').trim() : it.out;
+    used++;
+  }
+  if(used) await saveCall();
+  tidyLeave();
+  renderDash();
+  toast(used ? 'Used ' + used + (moved ? '; ' + moved + ' had changed meanwhile and were left' : '') : 'Nothing changed');
+});
+$('tidydlg').addEventListener('cancel', () => { taSeq++; });
+
 document.querySelectorAll('[data-ai]').forEach(b =>
   b.addEventListener('click', () => aiTidy(b.dataset.ai, b.dataset.field).catch(reportErr)));
 $('tkDraft').addEventListener('click', () => aiDraft().catch(reportErr));
@@ -9780,6 +9939,8 @@ async function buildNotesHTML(scope, mode, c){
   const anyPhoto = c.entries.some(e => e.photos && e.photos.length) || (c.loose && c.loose.length);
   if(anyPhoto && mode !== 'full') p.push(imgToggleHTML(mode));
 
+  // the visit summary (v100) heads the full call notes only
+  if(scope === 'full' && (c.summary || '').trim()) p.push('<h2>Summary</h2>' + commentBodyHTML(c.summary));
   p.push('<h2>Call details</h2><table>');
   [['Date',c.date],['Call type',c.type],['Account manager',c.mgr],['Customer',c.customer],['Site or area',c.site]]
     .forEach(([l,v])=>p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));

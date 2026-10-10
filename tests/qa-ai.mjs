@@ -46,7 +46,7 @@ const fnErr = (message) => ({ data: null, error: Object.assign(new Error('Edge F
 
 ok(g('DIALOGS').includes('aidlg'), 'the AI sheet is registered in DIALOGS');
 const btns = [...d.querySelectorAll('[data-ai]')].map(b => b.dataset.ai + ':' + b.dataset.field + ':' + b.textContent.trim());
-ok(btns.slice().sort().join(' ') === 'bComment:belt:Tidy hAction:short:Tidy hComment:health:Tidy hFault:fault:Tidy nText:note:Tidy pNext:short:Tidy pNotes:project:Tidy',
+ok(btns.slice().sort().join(' ') === 'bComment:belt:Tidy hAction:short:Tidy hComment:health:Tidy hFault:fault:Tidy nText:note:Tidy pNext:short:Tidy pNotes:project:Tidy vSummary:note:Tidy',
   'Tidy on every free-text box of a call (v99 adds fault, recommended action, next action): ' + btns.join(' '));
 ok($('tkDraft') && $('tkDraft').textContent.trim() === 'Draft it' && $('tkMail').contains($('tkDraft')), 'Draft it sits under the email body');
 
@@ -151,8 +151,82 @@ $('tkBody').value = ''; $('tkTitle').value = '';
 $('tkDraft').click(); await tick();
 ok(sent.length === before && !open('aidlg'), 'Draft it with nothing to go on sends nothing');
 
+// ---- v100: the visit summary and Tidy all
+$('tkOk').click(); await tick(100);
+await g(`(async () => { call = {id: 'c9', customer: 'Acme Pty Ltd - Smithfield', site: 'Boning room', date: '10/10/2026', type: 'Site call', mgr: 'Ben',
+  contacts: [{name: 'Jo Bloggs', role: 'Engineer', crm: true}],
+  entries: [
+    {type: 'note', topic: 'Production', text: 'um kill rate going up'},
+    {type: 'belt', asset: 'Line 3', beltdesc: 'S800 FT', width: '606', comment: 'edge modules cracked', photos: []},
+    {type: 'health', asset: 'Line 3', fault: 'teeth hooked', severity: 'Plan', action: 'replace sprockets', comment: ''},
+    {type: 'project', project: 'Second line', status: 'Scoping', next: 'send drawings', notes: ''}
+  ], loose: [], updated: 1}; go('dash'); })()`);
+await tick(150);
+ok(!$('dashSum').hidden && !$('dashSum').open && $('sumVisit').textContent === 'Not written yet', 'Summary for the report on the call, folded, not written yet');
+$('dashSum').open = true;
+answer = { data: { text: 'Jo Bloggs was seen.\n\nNext steps:\n• Send drawings' }, error: null };
+$('vSumAi').click(); await tick(100);
+const sm = sent[sent.length - 1].body;
+ok(sm.kind === 'summary' && /Customer: Acme Pty Ltd - Smithfield/.test(sm.text) && /People seen: Jo Bloggs, Engineer/.test(sm.text) &&
+  /Belt 1 \(Line 3\): S800 FT; 606 mm wide; comments edge modules cracked/.test(sm.text) && /Health check 1 \(Line 3\): teeth hooked; severity Plan; recommended action replace sprockets/.test(sm.text) &&
+  /Project Second line: status Scoping; next action send drawings/.test(sm.text), 'Write summary sends the whole call as text: ' + sm.text.replace(/\n/g, ' | '));
+ok(open('aidlg') && $('aiHead').textContent === 'Summary' && /Next steps/.test($('aiOut').value), 'the draft opens in the sheet');
+$('aiUse').click(); await tick(150);
+ok($('vSummary').value === 'Jo Bloggs was seen.\n\nNext steps:\n• Send drawings' && g('call.summary') === $('vSummary').value, 'Use this puts it in the summary and on the call');
+ok(/Jo Bloggs was seen/.test($('sumVisit').textContent), 'the folded line shows it');
+const full = await g(`buildNotesHTML('full', 'thumbonly')`);
+ok(/<h2>Summary<\/h2><p>Jo Bloggs was seen\.<\/p><p>Next steps:<\/p><ul><li>Send drawings<\/li><\/ul>/.test(full) && full.indexOf('<h2>Summary') < full.indexOf('<h2>Call details'),
+  'the full call notes open with the summary, bullets as a list');
+const hc = await g(`buildNotesHTML('health', 'thumbonly')`), bl = await g(`buildNotesHTML('belts', 'thumbonly')`);
+ok(!/<h2>Summary/.test(hc) && !/<h2>Summary/.test(bl), 'not in the health check or belt requirements documents');
+// typed by hand
+$('vSummary').value = 'Typed by hand.'; $('vSummary').dispatchEvent(new w.Event('input')); await tick();
+ok(g('call.summary') === 'Typed by hand.', 'typing in the box keeps it');
+
+// Tidy all
+const tidyOf = { 'um kill rate going up': 'Kill rate is going up.', 'edge modules cracked': 'Edge modules are cracked.',
+  'teeth hooked': 'Sprocket teeth are hooked.', 'replace sprockets': 'Replace the sprockets.', 'send drawings': 'Send the drawings.' };
+let failOne = 'replace sprockets';
+w.__invoke = async (name, opts) => {
+  sent.push({ name, body: opts.body });
+  await new Promise(r => setTimeout(r, 5));
+  if (opts.body.text === failOne) return fnErr('That is 200 for today.');
+  return { data: { text: tidyOf[opts.body.text] || opts.body.text }, error: null };
+};
+const n0 = sent.length;
+$('vTidyAll').click(); await tick(300);
+const fields = sent.slice(n0).map(x => x.body.field).sort().join(',');
+ok(fields === 'belt,fault,note,short,short', 'every box with text is sent, each as its kind: ' + fields);
+ok(open('tidydlg') && $('taList').querySelectorAll('.taitem').length === 5, 'Tidy all lists five boxes');
+ok(/4 tidied, 1 not/.test($('taMsg').textContent) && !$('taUse').disabled, 'and says how many: ' + $('taMsg').textContent);
+const boxes = [...$('taList').querySelectorAll('.taitem')];
+const failed = boxes.find(b => /recommended action/.test(b.textContent));
+ok(failed && /200 for today/.test(failed.textContent) && failed.querySelector('input').disabled, 'one that failed says why and cannot be ticked');
+// untick the note, edit the belt comment
+const noteBox = boxes.find(b => /^Note/.test(b.querySelector('.tah').textContent));
+noteBox.querySelector('input').checked = false; noteBox.querySelector('input').dispatchEvent(new w.Event('change'));
+const beltBox = boxes.find(b => /Belt 1/.test(b.textContent));
+beltBox.querySelector('textarea').value = 'Edge modules are cracked on the drive side.'; beltBox.querySelector('textarea').dispatchEvent(new w.Event('input'));
+$('taUse').click(); await tick(150);
+ok(!open('tidydlg'), 'Use ticked closes it');
+const E = g('call.entries');
+ok(E[0].text === 'um kill rate going up', 'an unticked box is left as it was');
+ok(E[1].comment === 'Edge modules are cracked on the drive side.', 'an edited answer is used as edited');
+ok(E[2].fault === 'Sprocket teeth are hooked.' && E[2].action === 'replace sprockets', 'ticked used, failed left alone');
+ok(E[3].next === 'Send the drawings.', 'project next action tidied');
+// Keep all mine changes nothing
+failOne = null;
+$('vTidyAll').click(); await tick(300);
+$('taKeep').click(); await tick(100);
+ok(!open('tidydlg') && g('call.entries[0].text') === 'um kill rate going up', 'Keep all mine changes nothing');
+// a quote request has no summary section
+await g(`(async () => { call = {id: 'q9', rectype: 'quote', customer: 'Acme', date: '10/10/2026', contacts: [], entries: [], loose: [], updated: 1}; go('dash'); })()`);
+await tick(100);
+ok($('dashSum').hidden, 'no summary section on a quote request');
+ok(g('DIALOGS').includes('tidydlg'), 'the Tidy all sheet is registered in DIALOGS');
+
 // ---- Help says how
-ok(/Tidy/.test($('s-help').textContent) && /Draft it/.test($('s-help').textContent), 'Help covers Tidy and Draft it');
+ok(/Tidy/.test($('s-help').textContent) && /Draft it/.test($('s-help').textContent) && /Write summary/.test($('s-help').textContent) && /Tidy all notes/.test($('s-help').textContent), 'Help covers Tidy, Draft it, the summary and Tidy all');
 
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));

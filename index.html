@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v99">
+<meta name="build" content="v100">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -153,6 +153,13 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .aibtn{color:var(--act);border-color:var(--act);font-weight:700}
 .aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
 #aidlg{width:min(640px,96vw)}
+#tidydlg{width:min(680px,96vw)}
+.taitem{border:1px solid var(--line);border-radius:var(--r);padding:10px;margin-bottom:10px;background:var(--surface)}
+.taitem .tah{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-bottom:6px}
+.taitem .tah input{width:20px;height:20px;flex:none;accent-color:var(--act)}
+.taitem textarea{width:100%;min-height:80px}
+.taitem .aiorig{margin-top:6px}
+.taitem.fail{opacity:.7}
 /* Lists (v97): the add button on top, then the count and the search icon */
 #s-lists .big{width:100%;margin:0 0 10px}
 .lsrow{margin-bottom:8px}
@@ -1597,6 +1604,20 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Add a summary, or tidy the whole call</b><span class="sxs">Before Create and share</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>In the call, tap <b>Summary for the report</b> near the top.</li>
+        <li>Tap <b>Write summary</b>.</li>
+        <li>Wait a few seconds. The AI writes a short summary of the visit and the next steps from everything you've logged.</li>
+        <li>Change anything you want, then tap <b>Use this</b>.</li>
+      </ol>
+      <p>The summary goes at the top of the full call notes. It isn't put in the health check or belt requirements documents. You can also type or dictate it yourself, and change it any time.</p>
+      <p>To tidy every box in the call at once, tap <b>Tidy all notes</b> in the same place. Each tidied box is listed and ticked. Untick any you want to keep as they are, change any wording, then tap <b>Use ticked</b>. <b>Keep all mine</b> changes nothing.</p>
+      <p>Each box tidied counts towards the 200 a day.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Add photos</b><span class="sxs">To an entry, or loose</span></summary>
     <div class="fld help">
       <ol>
@@ -2095,6 +2116,19 @@ details.bsx > .msg{margin:8px 12px}
   </div>
 </dialog>
 
+<!-- Tidy all (v100): every box in the call tidied, each ticked to use. -->
+<dialog id="tidydlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="btn" id="taKeep">Keep all mine</button>
+    <b>Tidy all</b>
+    <button type="button" class="btn go" id="taUse">Use ticked</button>
+  </div>
+  <div class="dlg-b">
+    <p class="msg" id="taMsg"></p>
+    <div id="taList"></div>
+  </div>
+</dialog>
+
 <!-- AI tidy-up and Draft it (v95): the answer, beside the original, changes
      nothing until Use this. Asked through the ai-tidy Supabase function. -->
 <dialog id="aidlg">
@@ -2311,6 +2345,21 @@ details.bsx > .msg{margin:8px 12px}
        fifteen belts. Only the button is there; the three pickers are in the
        sheet it opens, so nothing can be fired off before they've been seen. -->
   <p class="hint" id="outHint"></p>
+
+  <!-- v100: the summary that heads the full call notes, written or drafted by
+       the AI from everything logged, and Tidy all for every box at once. -->
+  <details class="sx" id="dashSum">
+    <summary><b>Summary for the report</b><span class="sxs" id="sumVisit"></span></summary>
+    <div class="fld">
+      <textarea id="vSummary" rows="5" placeholder="A few lines on the visit and the next steps. Type it, dictate it, or tap Write summary."></textarea>
+      <div class="txtacts">
+        <button type="button" class="bullet-btn aibtn" id="vSumAi">Write summary</button>
+        <button type="button" class="bullet-btn aibtn" data-ai="vSummary" data-field="note">Tidy</button>
+        <button type="button" class="bullet-btn aibtn" id="vTidyAll">Tidy all notes</button>
+      </div>
+      <p class="hint">Goes at the top of the full call notes. Not in the health check or belt requirements documents.</p>
+    </div>
+  </details>
 
   <h2 id="dashAddHead">Add to call</h2>
   <div class="tiles four">
