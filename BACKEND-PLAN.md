@@ -354,7 +354,28 @@ appointment, call and belt-catalogue sync over the private GitHub repo, and
 updates `MANUAL.md` and `CLAUDE.md`. The private repo itself can stay as a
 backup or be deleted — your choice.
 
-### Step 8 — AI clean-up of call notes
+### Step 8 — AI clean-up of call notes — **built 2026-10-10, v95; waiting on the API key**
+
+Built as described below, plus **Draft it** on Write email tasks. The
+`ai-tidy` function (supabase/functions/) and the `ai_usage` table (migration
+0003, a per-user daily count, capped at 200) are deployed. Until the key is
+added the function answers "The AI key has not been added in Supabase yet",
+checked live with the test account. **Tidy** sits under the note, project
+notes, belt comment and health check comment; the answer shows in a sheet
+beside the original, editable, and nothing changes until **Use this**.
+
+To finish it, Ben adds the key:
+1. Go to console.anthropic.com and sign up.
+2. Open **Settings**, then **Billing**, and add a card and some credit ($5 is plenty for a long time).
+3. Open **Settings**, then **Limits**, and set a monthly spend limit (for example $5).
+4. Open **API keys** and click **Create key**. Name it Field CRM.
+5. Copy the key. It is shown only once.
+6. Go to supabase.com, open the **Field CRM** project.
+7. Click **Edge Functions** in the left menu, then **Secrets**.
+8. Add a secret named `ANTHROPIC_API_KEY` and paste the key as its value. Click **Save**.
+
+The key never goes in the app or this repo.
+
 
 A Supabase Edge Function holds the Anthropic API key (in Supabase's secret
 settings, never in the app or this repo) and accepts requests only from a

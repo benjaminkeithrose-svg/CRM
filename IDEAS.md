@@ -439,9 +439,10 @@ Task Slaughterer import.
   in the draft. Task Slaughterer's 6 email drafts came across as Write email
   tasks (unused open on the import day, used as done), linked to the CRM
   contact and account when the To address matches.
-- **Later:** a "Draft it" button where Claude writes the email from dictated
-  points and the task's details, once step 8 (the API key in Supabase) is set
-  up. Dictation itself stays with the phone keyboard's microphone.
+- **Built (v95), waiting on the API key:** a "Draft it" button where Claude
+  writes the email from dictated points and the task's details, through the
+  `ai-tidy` function (BACKEND-PLAN.md Step 8). Dictation itself stays with the
+  phone keyboard's microphone.
 - **Built (v89).** Task Slaughterer keeps its data in the artifact's own
   database (collections tasks, emails, appointments, products, templates); it
   has no task export. The session read the tasks collection directly (53

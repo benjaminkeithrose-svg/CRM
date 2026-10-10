@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v94">
+<meta name="build" content="v95">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -147,6 +147,12 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
   background:var(--surface);color:var(--ink-2);font-size:13px;font-weight:600;
   cursor:pointer;margin-top:6px;min-height:40px}
 .bullet-btn:active{background:var(--sunk)}
+/* Insert bullet and Tidy / Draft it side by side under a text box (v95) */
+.txtacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.txtacts .bullet-btn{margin:0}
+.aibtn{color:var(--act);border-color:var(--act);font-weight:700}
+.aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
+#aidlg{width:min(640px,96vw)}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
 .stat b{color:var(--ink);font-weight:700}
 .empty{color:var(--ink-3);font-size:12.5px;padding:14px 2px}
@@ -1561,6 +1567,21 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Tidy a dictated note</b><span class="sxs">The Tidy button</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Dictate into the note, the project notes, or the comments on a belt or health check.</li>
+        <li>Tap <b>Tidy</b> under the box.</li>
+        <li>Wait a few seconds. The tidied version shows above yours.</li>
+        <li>Change anything you want in the tidied version.</li>
+        <li>Tap <b>Use this</b> to put it in the box, or <b>Keep mine</b> to leave the box as it was.</li>
+      </ol>
+      <p>It fixes punctuation and voice-typing mistakes and turns several points into bullets. It keeps your facts and numbers and adds nothing. Check it anyway.</p>
+      <p>It needs signal and cloud sync signed in. The text in that one box is sent to Anthropic (the company behind Claude) to be tidied, without the app's encryption. Nothing else is sent, and nothing is sent unless you tap the button.</p>
+      <p>If it says the AI key has not been added, it hasn't been set up yet.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Add photos</b><span class="sxs">To an entry, or loose</span></summary>
     <div class="fld help">
       <ol>
@@ -1611,12 +1632,14 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Pick the account and contact further down. <b>To</b> fills with the contact's email.</li>
         <li>Type the <b>Subject</b>, or leave it to use the title.</li>
         <li>Type the <b>Body</b>, or tap the microphone on your keyboard and dictate it.</li>
+        <li>To have it written for you, dictate the points into <b>Body</b> and tap <b>Draft it</b>. Check the draft, then tap <b>Use this</b>.</li>
         <li>Tap <b>Done</b>. The draft stays on the task.</li>
         <li>When you're ready to send, open the task and tap <b>Open in Outlook</b>. Check it and press Send in Outlook.</li>
         <li>Tick the task when it's sent.</li>
       </ol>
       <p>Open in Outlook starts a new email in your phone's or PC's mail app with everything filled in. Nothing is downloaded. A very long body is copied instead, for you to paste in. <b>Copy</b> copies the body on its own.</p>
       <p>If your phone opens a different mail app, set Outlook as the default email app in Android's settings.</p>
+      <p>Draft it works like <b>Tidy</b>: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1952,7 +1975,8 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
       <div class="f"><label for="tkTo">To <span class="autotag" id="tkToAuto" hidden>from the contact</span></label>
         <input type="email" id="tkTo" multiple autocomplete="off" placeholder="name@company.com"></div>
       <div class="f"><label for="tkSubject">Subject</label><input type="text" id="tkSubject" autocomplete="off" placeholder="Uses the title if left empty"></div>
-      <div class="f"><label for="tkBody">Body</label><textarea id="tkBody" rows="7" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
+      <div class="f"><label for="tkBody">Body</label><textarea id="tkBody" rows="7" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea>
+        <div class="txtacts"><button type="button" class="bullet-btn aibtn" id="tkDraft">Draft it</button></div></div>
       <div class="mailacts">
         <button type="button" class="btn act2" id="tkOutlook">Open in Outlook</button>
         <button type="button" class="btn" id="tkCopy">Copy</button>
@@ -1975,6 +1999,22 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea></div>
     <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Completed</div><div class="cr">The task itself is finished. Ticked tasks stay on the calendar, greyed out.</div></div></label>
     <p class="note" id="tkFrom" hidden></p>
+  </div>
+</dialog>
+
+<!-- AI tidy-up and Draft it (v95): the answer, beside the original, changes
+     nothing until Use this. Asked through the ai-tidy Supabase function. -->
+<dialog id="aidlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="btn" id="aiKeep">Keep mine</button>
+    <b id="aiHead">Tidied</b>
+    <button type="button" class="btn go" id="aiUse">Use this</button>
+  </div>
+  <div class="dlg-b">
+    <p class="msg" id="aiMsg"></p>
+    <div class="f" id="aiSubjF" hidden><label for="aiSubj">Subject</label><input type="text" id="aiSubj" autocomplete="off"></div>
+    <div class="f" id="aiOutF"><label for="aiOut" id="aiOutL">Tidied</label><textarea id="aiOut" rows="10"></textarea></div>
+    <div class="f"><label>Yours, as it is now</label><div class="aiorig" id="aiOrig"></div></div>
   </div>
 </dialog>
 
@@ -2379,7 +2419,8 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <h2>General comments</h2>
   <div class="fld">
     <textarea id="bComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>
-    <button type="button" class="bullet-btn" id="bCommentBullet">Insert bullet &bull;</button>
+    <div class="txtacts"><button type="button" class="bullet-btn" id="bCommentBullet">Insert bullet &bull;</button>
+      <button type="button" class="bullet-btn aibtn" data-ai="bComment" data-field="belt">Tidy</button></div>
     <p class="hint">Prints in bold on the report. A blank line starts a new paragraph; a line
       starting with - or &bull; becomes a bullet list.</p>
   </div>
@@ -2428,7 +2469,8 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
       <div><label>Owner</label><input type="text" id="pOwner"></div>
     </div>
   </div>
-  <div class="fld"><label>Notes</label><textarea id="pNotes"></textarea></div>
+  <div class="fld"><label>Notes</label><textarea id="pNotes"></textarea>
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="pNotes" data-field="project">Tidy</button></div></div>
   <h2>Photos</h2>
   <div class="cardbar">
     <button type="button" id="pCam" title="Take a photo" aria-label="Take a photo"></button>
@@ -2449,6 +2491,7 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <label>Note</label>
     <p class="msg" id="draft_note"></p>
     <textarea id="nText" placeholder="High turnover in maintenance, kill rate up to 180k/week"></textarea>
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="nText" data-field="note">Tidy</button></div>
     <p class="err" id="nErr">Enter a note first</p>
   </div>
   <h2>Photos</h2>
@@ -2494,7 +2537,8 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="fld">
     <label>General comments</label>
     <textarea id="hComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>
-    <button type="button" class="bullet-btn" id="hCommentBullet">Insert bullet &bull;</button>
+    <div class="txtacts"><button type="button" class="bullet-btn" id="hCommentBullet">Insert bullet &bull;</button>
+      <button type="button" class="bullet-btn aibtn" data-ai="hComment" data-field="health">Tidy</button></div>
     <p class="hint">Prints in bold on the report. A blank line starts a new paragraph; a line
       starting with - or &bull; becomes a bullet list.</p>
   </div>

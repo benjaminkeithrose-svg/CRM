@@ -163,6 +163,20 @@ Close out is for a visit with nothing to write up. It still counts as a visit. T
 
 Leave a form with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.
 
+### Tidy a dictated note
+
+1. Dictate into the note, the project notes, or the comments on a belt or health check.
+2. Tap **Tidy** under the box.
+3. Wait a few seconds. The tidied version shows above yours.
+4. Change anything you want in the tidied version.
+5. Tap **Use this** to put it in the box, or **Keep mine** to leave the box as it was.
+
+It fixes punctuation and voice-typing mistakes and turns several points into bullets. It keeps your facts and numbers and adds nothing. Check it anyway.
+
+It needs signal and cloud sync signed in. The text in that one box is sent to Anthropic (the company behind Claude) to be tidied, without the app's encryption. Nothing else is sent, and nothing is sent unless you tap the button.
+
+If it says the AI key has not been added, it hasn't been set up yet.
+
 ### Add photos
 
 1. Tap the camera icon at the top of the call to photograph whatever you logged last.
@@ -200,13 +214,16 @@ Open tasks go on today from 8am. Done ones go on the day you ticked them off. Ac
 2. Pick the account and contact further down. **To** fills with the contact's email.
 3. Type the **Subject**, or leave it to use the title.
 4. Type the **Body**, or tap the microphone on your keyboard and dictate it.
-5. Tap **Done**. The draft stays on the task.
-6. When you're ready to send, open the task and tap **Open in Outlook**. Check it and press Send in Outlook.
-7. Tick the task when it's sent.
+5. To have it written for you, dictate the points into **Body** and tap **Draft it**. Check the draft, then tap **Use this**.
+6. Tap **Done**. The draft stays on the task.
+7. When you're ready to send, open the task and tap **Open in Outlook**. Check it and press Send in Outlook.
+8. Tick the task when it's sent.
 
 Open in Outlook starts a new email in your phone's or PC's mail app with everything filled in. Nothing is downloaded. A very long body is copied instead, for you to paste in. **Copy** copies the body on its own.
 
 If your phone opens a different mail app, set Outlook as the default email app in Android's settings.
+
+Draft it works like **Tidy**: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows.
 
 ### Request a quote
 

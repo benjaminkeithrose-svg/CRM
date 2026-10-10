@@ -31,7 +31,7 @@ work from a copy of a file anywhere other than this checkout.
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
 | `supabase/migrations/` | Cloud database schema. Not served by the app |
-| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88). Not served by the app |
+| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy and Draft it (v95, Haiku 5.5, 200 a day per user via `ai_usage`). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
 

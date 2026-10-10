@@ -935,7 +935,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v94';
+const APP_BUILD = 'v95';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1302,7 +1302,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1394,6 +1394,8 @@ window.addEventListener('popstate', e => {
   if($('manOverlay') && $('manOverlay').classList.contains('on') && !st.dialog){
     closeManualsOverlay(); return;
   }
+  // the AI sheet can sit over the task form: back closes the sheet, not both
+  if(st.dialog !== 'aidlg' && $('aidlg').hasAttribute('open')){ closeAi(); return; }
   if(openDialogs().length && !st.dialog){ closeDialogsNow(); return; }
   if(st.dialog) return;      // going forward into a dialog entry: leave it be
   showScreen(st.screen || 'home');
@@ -5871,7 +5873,7 @@ async function renderReports(){
   $('rpHint').textContent = all.length
     ? (rpView !== 'all'
         ? list.length + ' of ' + all.length + ' calls'
-        : all.length + ' calls, ' + (open ? open + ' still open' : 'none open'))
+        : all.length + ' call' + (all.length === 1 ? '' : 's') + ', ' + (open ? open + ' still open' : 'none open'))
     : 'No calls logged yet';
 
   const el = $('rpRes');
@@ -9060,6 +9062,114 @@ function insertCommentBullet(id){
   el.focus();
   el.setSelectionRange(newPos, newPos);
 }
+/* ================= AI tidy-up and Draft it (v95) =================
+   BACKEND-PLAN.md Step 8. The Anthropic key lives in the Supabase project's
+   secrets and the ai-tidy function uses it; the app never sees it. Tidy sends
+   the one text box it sits under, Draft it sends the email's points and the
+   task's details. Both go as plain text - the one place call text leaves the
+   device unencrypted, and only when the button is tapped.
+
+   The answer comes back into a sheet beside what you had, editable, and
+   nothing changes until Use this. Keep mine, back, or closing the sheet
+   leaves the field exactly as it was. */
+let aiSeq = 0, aiApply = null;
+async function aiAsk(payload){
+  const {data, error} = await sbClient.functions.invoke('ai-tidy', {body: payload});
+  if(error){
+    let m = error.message || String(error);
+    try { const j = await error.context.json(); if(j && j.message) m = j.message; } catch(e){}
+    throw new Error(m);
+  }
+  if(!data) throw new Error('No answer came back');
+  return data;
+}
+// the reasons it cannot run, said before anything opens
+function aiBlocked(){
+  if(!sbClient || !sbUser) return 'Sign in to cloud sync first: ⋯ on Home, Settings, Cloud sync';
+  if(!navigator.onLine) return 'This needs signal';
+  return '';
+}
+function aiOpen(head, outLabel, orig, email){
+  $('aiHead').textContent = head;
+  $('aiOutL').textContent = outLabel;
+  $('aiOrig').textContent = orig || '—';
+  $('aiSubjF').hidden = !email;
+  $('aiOutF').hidden = true;
+  $('aiSubj').value = ''; $('aiOut').value = '';
+  $('aiUse').disabled = true;
+  showMsg($('aiMsg'), 'info', 'Asking' + String.fromCharCode(8230) + ' usually a few seconds.');
+  const d = $('aidlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open','');
+  pushDialog('aidlg');
+  return ++aiSeq;
+}
+function aiAnswer(n, subject, text){
+  if(n !== aiSeq || !$('aidlg').hasAttribute('open')) return false;   // closed, or a newer ask
+  showMsg($('aiMsg'), '', '');
+  $('aiOutF').hidden = false;
+  if(subject != null) $('aiSubj').value = subject;
+  $('aiOut').value = text;
+  $('aiUse').disabled = false;
+  return true;
+}
+function aiFailed(n, e){
+  if(n !== aiSeq || !$('aidlg').hasAttribute('open')) return;
+  console.warn('ai', e);
+  showMsg($('aiMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e)) + '. Nothing was changed.');
+}
+function closeAi(){
+  aiSeq++; aiApply = null;
+  const d = $('aidlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+function aiLeave(){
+  if(history.state && history.state.dialog === 'aidlg') history.back();
+  else closeAi();
+}
+// a field changed in code still has to look typed-in to the draft and dirty checks
+function aiSet(el, v){ el.value = v; el.dispatchEvent(new Event('input', {bubbles: true})); }
+
+async function aiTidy(id, field){
+  const ta = $(id);
+  const text = (ta.value || '').trim();
+  if(!text){ toast('Type or dictate something first'); return; }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const n = aiOpen('Tidied', 'Tidied — change anything before you use it', ta.value, false);
+  aiApply = () => aiSet(ta, $('aiOut').value);
+  try {
+    const r = await aiAsk({kind: 'tidy', field, text});
+    aiAnswer(n, null, String(r.text || ''));
+  } catch(e){ aiFailed(n, e); }
+}
+async function aiDraft(){
+  const body = $('tkBody'), subj = $('tkSubject');
+  const points = (body.value || '').trim(), title = ($('tkTitle').value || '').trim();
+  if(!points && !title){ toast('Dictate the points into Body first'); return; }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const ct = $('tkContact');
+  const contact = ct && ct.selectedIndex > 0 ? ct.options[ct.selectedIndex].textContent : '';
+  const n = aiOpen('Draft', 'Body — change anything before you use it', points || title, true);
+  aiApply = () => { aiSet(subj, $('aiSubj').value); aiSet(body, $('aiOut').value); };
+  try {
+    const r = await aiAsk({kind: 'email', points, details: {title, contact,
+      account: $('tkAcct').value, project: $('tkProject').value, subject: subj.value}});
+    aiAnswer(n, String(r.subject || ''), String(r.body || ''));
+  } catch(e){ aiFailed(n, e); }
+}
+document.querySelectorAll('[data-ai]').forEach(b =>
+  b.addEventListener('click', () => aiTidy(b.dataset.ai, b.dataset.field).catch(reportErr)));
+$('tkDraft').addEventListener('click', () => aiDraft().catch(reportErr));
+$('aiKeep').addEventListener('click', aiLeave);
+$('aiUse').addEventListener('click', () => {
+  const apply = aiApply;
+  if(apply) apply();
+  aiLeave();
+  toast('Used');
+});
+$('aidlg').addEventListener('cancel', () => { aiSeq++; aiApply = null; });   // Esc on the PC
+
 $('bCommentBullet').addEventListener('click', () => insertCommentBullet('bComment'));
 $('hCommentBullet').addEventListener('click', () => insertCommentBullet('hComment'));
 // c is the open call unless one is passed - the PC folder save passes each one
