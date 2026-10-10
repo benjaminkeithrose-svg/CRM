@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v98">
+<meta name="build" content="v99">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1585,7 +1585,7 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Tidy a dictated note</b><span class="sxs">The Tidy button</span></summary>
     <div class="fld help">
       <ol>
-        <li>Dictate into the note, the project notes, or the comments on a belt or health check.</li>
+        <li>Dictate into any free-text box on a call: the note, a project's next action or notes, a belt's comments, or a health check's fault, recommended action or comments.</li>
         <li>Tap <b>Tidy</b> under the box.</li>
         <li>Wait a few seconds. The tidied version shows above yours.</li>
         <li>Change anything you want in the tidied version.</li>
@@ -2568,7 +2568,8 @@ details.bsx > .msg{margin:8px 12px}
     <label>Current status</label>
     <select id="pStat"><option>Being considered</option><option>Scoping</option><option>Awaiting quote</option><option>Quoted</option><option>Approved</option><option>Scheduled</option><option>On hold</option><option>Complete</option><option>Not proceeding</option></select>
   </div>
-  <div class="fld"><label>Next action</label><input type="text" id="pNext" placeholder="Discuss with OEM"></div>
+  <div class="fld"><label>Next action</label><input type="text" id="pNext" placeholder="Discuss with OEM">
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="pNext" data-field="short">Tidy</button></div></div>
   <div class="fld">
     <div class="row">
       <div><label>Target date</label><input type="text" id="pTarg" placeholder="Q3 2026"></div>
@@ -2620,6 +2621,7 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld">
     <label>Fault or observation</label>
     <textarea id="hFault" placeholder="Sprocket teeth worn, belt tracking right"></textarea>
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="hFault" data-field="fault">Tidy</button></div>
     <p class="err" id="hErr">Describe the fault first</p>
     <p class="msg" id="draft_health"></p>
     <div class="cardbar">
@@ -2639,7 +2641,8 @@ details.bsx > .msg{margin:8px 12px}
     <div class="seg" id="hSev"><button type="button" data-v="Monitor">Monitor</button><button type="button" data-v="Plan">Plan</button><button type="button" data-v="Urgent">Urgent</button></div>
     <p class="err" id="hSevErr">Pick a severity &mdash; an unanswered one reads as &ldquo;not important&rdquo;</p>
   </div>
-  <div class="fld"><label>Recommended action</label><input type="text" id="hAction"></div>
+  <div class="fld"><label>Recommended action</label><input type="text" id="hAction">
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="hAction" data-field="short">Tidy</button></div></div>
   <div class="fld">
     <label>General comments</label>
     <textarea id="hComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>

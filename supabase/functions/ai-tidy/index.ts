@@ -31,6 +31,8 @@ const FIELD: Record<string, string> = {
   project: "These are notes about a customer's project.",
   belt: "This is a comment about a conveyor belt. It prints in bold on a report the customer reads, so keep it factual and professional.",
   health: "This is a comment from a conveyor health check. It prints on a report the customer reads, so keep it factual and professional.",
+  fault: "This is the fault or observation from a conveyor health check, on a report the customer reads. Keep it factual and professional; one or two sentences, or short bullets if there are several faults.",
+  short: "This goes in a one-line field (a recommended action or a next action). Reply with one short line: no bullets and no line breaks.",
 };
 
 const TIDY = `You tidy notes that an Intralox conveyor belt sales engineer in Australia or New Zealand dictated on site with a phone keyboard's voice typing.
@@ -121,7 +123,8 @@ Deno.serve(async (req) => {
     .map((b: { text: string }) => b.text).join("").trim();
   if (!text) return json({ error: "upstream", message: "The answer came back empty." }, 502);
 
-  if (kind === "tidy") return json({ text, used });
+  // a one-line field never gets line breaks back, whatever the model did
+  if (kind === "tidy") return json({ text: body.field === "short" ? text.replace(/^[•\-*]\s*/gm, "").replace(/\s*\n+\s*/g, "; ") : text, used });
   const m = /^\s*Subject:\s*(.*)\n+([\s\S]*)$/i.exec(text);
   return json(m ? { subject: m[1].trim(), body: m[2].trim(), used } : { subject: "", body: text, used });
 });

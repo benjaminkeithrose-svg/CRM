@@ -46,8 +46,8 @@ const fnErr = (message) => ({ data: null, error: Object.assign(new Error('Edge F
 
 ok(g('DIALOGS').includes('aidlg'), 'the AI sheet is registered in DIALOGS');
 const btns = [...d.querySelectorAll('[data-ai]')].map(b => b.dataset.ai + ':' + b.dataset.field + ':' + b.textContent.trim());
-ok(btns.slice().sort().join(' ') === 'bComment:belt:Tidy hComment:health:Tidy nText:note:Tidy pNotes:project:Tidy',
-  'Tidy on project notes, note, belt comment and health comment: ' + btns.join(' '));
+ok(btns.slice().sort().join(' ') === 'bComment:belt:Tidy hAction:short:Tidy hComment:health:Tidy hFault:fault:Tidy nText:note:Tidy pNext:short:Tidy pNotes:project:Tidy',
+  'Tidy on every free-text box of a call (v99 adds fault, recommended action, next action): ' + btns.join(' '));
 ok($('tkDraft') && $('tkDraft').textContent.trim() === 'Draft it' && $('tkMail').contains($('tkDraft')), 'Draft it sits under the email body');
 
 // ---- not signed in: says so, opens nothing, sends nothing
@@ -108,6 +108,20 @@ ok(open('aidlg') && /not been added in Supabase/.test($('aiMsg').textContent) &&
 ok($('aiUse').disabled && $('aiOutF').hidden, 'Use this stays off');
 $('aiKeep').click(); await tick(100);
 ok($('hComment').value === 'tracking off', 'field untouched after an error');
+
+// ---- a one-line box gets one line back
+$('pNext').value = 'um chase the oem about the drawings';
+answer = { data: { text: '• Chase the OEM for the drawings.\n• Book a site visit.' }, error: null };
+d.querySelector('[data-ai="pNext"]').click(); await tick(80);
+ok(sent[sent.length - 1].body.field === 'short', 'a one-line box asks for one line');
+$('aiUse').click(); await tick(100);
+ok($('pNext').value === '• Chase the OEM for the drawings.; • Book a site visit.', 'line breaks are joined, never left in a one-line box: ' + $('pNext').value);
+$('hFault').value = 'teeth worn';
+answer = { data: { text: 'Sprocket teeth are worn.' }, error: null };
+d.querySelector('[data-ai="hFault"]').click(); await tick(80);
+ok(sent[sent.length - 1].body.field === 'fault', 'fault goes as a fault');
+$('aiUse').click(); await tick(100);
+ok($('hFault').value === 'Sprocket teeth are worn.', 'fault filled');
 
 // ---- Draft it on a Write email task
 await g(`(async () => {

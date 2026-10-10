@@ -167,7 +167,7 @@ The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Phot
 
 ### Tidy a dictated note
 
-1. Dictate into the note, the project notes, or the comments on a belt or health check.
+1. Dictate into any free-text box on a call: the note, a project's next action or notes, a belt's comments, or a health check's fault, recommended action or comments.
 2. Tap **Tidy** under the box.
 3. Wait a few seconds. The tidied version shows above yours.
 4. Change anything you want in the tidied version.
