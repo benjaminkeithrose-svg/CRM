@@ -114,6 +114,39 @@ ok(st().dialog === 'dlg' && st().open === 'dlg', 'visit editor open');
 await back();
 ok(st().open === '' && st().screen === 'plan', 'back closes it and stays on the planner: ' + JSON.stringify(st()));
 
+// ---- v104: the task form has its own entry
+await setup();
+g(`(() => { closeDialogsNow(); go('home'); })()`); await tick();
+g(`openTask(null, {})`); await tick();
+ok(st().dialog === 'taskdlg' && st().open === 'taskdlg', 'the task form has a named entry: ' + JSON.stringify(st()));
+$('tkTitle').value = 'Ring Sam about the quote';
+await back(); await tick(150);
+ok(st().screen === 'home' && st().open === '', 'back on Home closes the form and stays in the app: ' + JSON.stringify(st()));
+ok(g(`TASKS.some(t => t.title === 'Ring Sam about the quote')`), 'and the back counted as Done: the task is saved');
+// Done by the button, from the planner, then one back goes home
+g(`go('plan')`); await tick();
+g(`openTask(null, {})`); await tick();
+$('tkTitle').value = 'Book travel';
+$('tkOk').click(); await tick(150);
+ok(st().open === '' && st().screen === 'plan' && !st().dialog, 'Done closes the form and takes its entry with it: ' + JSON.stringify(st()));
+ok(g(`TASKS.some(t => t.title === 'Book travel')`), 'Done saves');
+await back();
+ok(st().screen === 'home', 'then one back goes home');
+// Delete
+g(`go('plan')`); await tick();
+const tid = g(`TASKS.find(t => t.title === 'Book travel').id`);
+g(`openTask('${tid}')`); await tick();
+$('tkDel').click(); await tick(150);
+ok(st().open === '' && !st().dialog && !g(`TASKS.some(t => t.title === 'Book travel')`), 'Delete closes the form and takes its entry: ' + JSON.stringify(st()));
+await back();
+ok(st().screen === 'home', 'then one back goes home');
+// an empty form, closed by back: nothing kept
+const n = g(`TASKS.length`);
+g(`go('plan')`); await tick();
+g(`openTask(null, {})`); await tick();
+await back(); await tick(150);
+ok(st().open === '' && st().screen === 'plan' && g(`TASKS.length`) === n, 'an empty form closed by back keeps nothing');
+
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));
 console.log(`PASS ${pass}`); if (fail) console.log(`FAIL ${fail}`);

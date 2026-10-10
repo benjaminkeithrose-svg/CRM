@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v103';
+const APP_BUILD = 'v104';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4800,11 +4800,16 @@ function openTask(id, extra){
   $('tkDel').hidden = taskIsNew;
   taskBefore = JSON.stringify(taskRead());
   const d = $('taskdlg');
-  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('taskdlg');             // so the back gesture closes the form (v104)
+  }
   if(taskIsNew) setTimeout(() => { try { $('tkTitle').focus(); } catch(_){} }, 50);
 }
 async function taskFinish(){
   if(!taskEdit) return;
+  // Done, or Escape: go back off the form's entry, and let that close it (which comes back here)
+  if($('taskdlg').open && history.state && history.state.dialog === 'taskdlg'){ history.back(); return; }
   const t = taskRead();
   taskEdit = null;
   const d = $('taskdlg');
@@ -4828,7 +4833,8 @@ async function taskDelete(){
       (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return;
   taskEdit = null;
   const d = $('taskdlg');
-  if(d.close) d.close(); else d.removeAttribute('open');
+  if(history.state && history.state.dialog === 'taskdlg') history.back();
+  else if(d.close) d.close(); else d.removeAttribute('open');
   await tasksDel(t.id);
   TASKS = TASKS.filter(x => x.id !== t.id);
   toast('Task deleted');
