@@ -100,6 +100,9 @@ closed with nothing to report is a normal finished state (`noReport`).
 **Dialogs are registered in `DIALOGS`** so history navigation can close them.
 Any new `<dialog>` must be added there. Guard `showModal` —
 `if(d.showModal) d.showModal(); else d.setAttribute('open','')`.
+Add a dialog's history entry with `pushDialog(id)`, never a bare
+`pushState`: it names the entry, and takes over the entry a menu leaves
+behind when it closes itself (v103; `tests/qa-history.mjs`).
 
 **Help lives in two places with the same words:** the Help screen
 (`s-help` in `index.html`, opened from ⋯ on Home) and `MANUAL.md`. When a flow,
