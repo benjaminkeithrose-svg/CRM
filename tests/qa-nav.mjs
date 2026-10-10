@@ -178,7 +178,7 @@ t('no Call menu button any more', !$('barMenu'));
 w.showScreen('note');
 t('a form: Done, no Create and share', $('barDone').hidden === false && $('doOutput').hidden === true);
 t('Log a fault sits up with the asset, above the belt data',
-  !!($('bFault').compareDocumentPosition(d.querySelector('#s-belt h2')) & 4));
+  !!($('bFault').compareDocumentPosition($('bxBelt')) & 4));
 
 // ---- v82: chips for short known lists; the select underneath keeps the value ----
 for (const id of ['nTopic','pStat','hType','dType','dDur','cMgr'])
@@ -276,7 +276,7 @@ t('and returns to the call menu', g('screen') === 'dash');
   const td = [...$('ixList').querySelectorAll('.ixrow')][1];
   t('a newer edition is flagged on its row', td.classList.contains('new') && /newer edition/.test(td.textContent) && td.querySelector('[data-ixget]').textContent === 'Get the new one');
   t('and the download uses the new link', w.eval(`ixDoc('td').url`) === 'https://example.org/new-td.pdf');
-  t('the Update data line says so too', /new manual edition/.test($('sumData').textContent), $('sumData').textContent);
+  t('the Engineering manuals line says so too', /new edition is out/.test($('sumMan').textContent), $('sumMan').textContent);
   w.eval(`IX_LATEST = {checked: new Date().toISOString(), docs: {td: {url: 'https://example.org/old-td.pdf', modified: 'Mon, 02 Feb 2026 20:21:12 GMT'}}}`);
   await w.renderIx();
   t('the same edition is not flagged', !$('ixList').querySelector('.ixrow.new') && /Downloaded/.test([...$('ixList').querySelectorAll('.ixrow')][1].textContent));

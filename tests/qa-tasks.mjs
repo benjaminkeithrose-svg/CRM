@@ -403,7 +403,7 @@ ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
   w.__f = f;
   const msg = await g('routeIncomingFile(window.__f, {silent: true})');
   ok(/1 task brought in/.test(msg) && !!T('ts-b1'), 'shared to Field CRM, the file is recognised: ' + msg);
-  ok(!!$('tsFile') && !!$('tsBtn'), 'Update data has the Task Slaughterer import');
+  ok(!!$('tsFile') && !!$('tsBtn'), 'Other imports has the Task Slaughterer import');
   for (const id of ['ts-a1', 'ts-a2', 'ts-a3', 'ts-a4', 'ts-b1']) await g(`tasksDel('${id}')`);
   await g('tasksAll().then(l => { TASKS = l; })');
 }
