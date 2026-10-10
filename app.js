@@ -927,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v91';
+const APP_BUILD = 'v92';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4844,8 +4844,11 @@ function renderSb(){
       : cloudLast.failed ? '<span class="flagline">last sync failed &mdash; ' + esc(cloudLast.msg) + '</span>'
       : last ? 'last synced ' + new Date(last).toLocaleString() : 'not synced from this device yet') +
       (waiting ? ' &middot; <span class="flagline">' + waiting + ' change' + (waiting === 1 ? '' : 's') + ' waiting to send</span>' : '');
+    line += '<br>Live updates: ' + (!navigator.onLine ? 'off until there is signal'
+      : liveState === 'SUBSCRIBED' ? 'on' : liveState && liveState !== 'SUBSCRIBED' && liveState !== 'CLOSED' ? 'reconnecting&hellip;' : 'connecting&hellip;');
   }
   el.innerHTML = line;
+  liveEnsure();
   $('sbIn').hidden = signedIn;
   $('sbSignOut').hidden = !signedIn;
   $('sbSync').hidden = !open;
@@ -5208,6 +5211,61 @@ function cloudSummary(name, data){
 }
 
 const cloudCan = () => !!(sbClient && sbUser && sbKeyRec && navigator.onLine);
+
+/* ---------- Step 6: live updates (v92) ----------
+   While this device is signed in, unlocked and online, it listens on Supabase
+   Realtime for changes to its own rows in 'records' (migration 0002; the "own
+   records" policy means it only ever hears its own). Any change - from another
+   device, or this one's own push echoing back - runs the normal sync a moment
+   later, so everything still arrives through sbOpen() and the open-call guard.
+   The payload itself (an encrypted envelope) is never used.
+   Coming back to the app (the phone out of a pocket) syncs too, since a
+   backgrounded phone drops the connection. */
+let liveCh = null, liveClient = null, liveUid = '', liveState = '', liveTimer = null, liveSubs = 0;
+function liveEnsure(){
+  const want = !!(sbClient && sbUser && sbKeyRec && navigator.onLine && sbClient.channel);
+  if(want && liveCh && liveClient === sbClient && liveUid === sbUser.id) return;
+  if(liveCh){
+    try { liveClient.removeChannel(liveCh); } catch(e){}
+    liveCh = null; liveClient = null; liveUid = ''; liveState = ''; liveSubs = 0;
+  }
+  if(!want) return;
+  const client = liveClient = sbClient; liveUid = sbUser.id;
+  try {
+    // held before subscribing: a status that comes back at once must find it set
+    const ch = liveCh = sbClient.channel('records-' + liveUid)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'records', filter: 'owner=eq.' + liveUid}, () => liveNudge());
+    /* The connection has to carry the signed-in session, or the "own records"
+       rule filters every row out and nothing arrives. The library is meant to
+       pass it on by itself; tested against the real project it had not by the
+       time the channel joined, so it is handed over here first. */
+    client.auth.getSession()
+      .then(r => {
+        const tok = r && r.data && r.data.session && r.data.session.access_token;
+        return tok && client.realtime && client.realtime.setAuth ? client.realtime.setAuth(tok) : null;
+      })
+      .catch(e => console.warn('live updates auth', e))
+      .then(() => {
+        if(liveCh !== ch) return;   // stopped or replaced meanwhile
+        ch.subscribe(status => {
+          liveState = status;
+          // reconnected after a drop: catch up on whatever arrived meanwhile
+          if(status === 'SUBSCRIBED' && liveSubs++ > 0) liveNudge();
+          setTimeout(renderSb, 0);      // never from inside renderSb's own call
+        });
+      });
+  } catch(e){ console.warn('live updates', e); liveCh = null; liveClient = null; }
+}
+function liveNudge(){
+  clearTimeout(liveTimer);
+  // a burst of rows from one save arrives as one run
+  liveTimer = setTimeout(() => { if(cloudCan()) cloudSync().catch(e => console.warn('live sync', e)); }, 1500);
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible' || !cloudCan()) return;
+  const last = Number(localStorage.getItem(LS('cloudSync')) || 0);
+  if(Date.now() - last > 20000) cloudSync().catch(e => console.warn('cloud sync', e));
+});
 
 /* One sync at a time. A change made while one is running gets its own run
    straight after. */

@@ -61,7 +61,7 @@ You get the project address, the key and your sign-in from whoever set up the cl
 
 Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.
 
-After that it runs by itself: when the app opens, when signal comes back, and a few seconds after any change.
+After that it runs by itself: when the app opens, when you come back to it, when signal comes back, and a few seconds after any change. With the phone and the PC both open and online, a change on one shows on the other within a few seconds. **Cloud sync** in Settings says "Live updates: on" while that is working.
 
 ### 6. Add your email address
 

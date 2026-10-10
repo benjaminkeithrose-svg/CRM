@@ -583,6 +583,43 @@ ok(objs('c401').length === 3, 'copies sent after the originals do not replace th
 pcC = await localCall(P, 'c401');
 ok(pcC.entries[0].photos.length === 2 && !pcC.syncedPhotos, 'and the PC ends up with the originals');
 
+// ---- v92: live updates (Supabase Realtime on records) ----
+{
+  await P.w.eval(`(() => {
+    window.__live = {channels: [], removed: 0, filter: null, cb: null, onStatus: null, syncs: 0};
+    sbClient.channel = name => {
+      const ch = {name, on(ev, f, cb){ window.__live.filter = f; window.__live.cb = cb; return ch; },
+        subscribe(s){ window.__live.onStatus = s; s('SUBSCRIBED'); return ch; }};
+      window.__live.channels.push(ch); return ch;
+    };
+    sbClient.removeChannel = () => { window.__live.removed++; };
+    window.__live.authed = [];
+    const ra = sbClient.realtime.setAuth.bind(sbClient.realtime);
+    sbClient.realtime.setAuth = t => { window.__live.authed.push(t); return ra(t); };
+    cloudSync = async () => { window.__live.syncs++; };
+    liveCh = null; liveClient = null; liveSubs = 0;
+    renderSb();
+  })()`);
+  await tick(200);
+  const live = () => P.w.__live;
+  ok(live().authed.length === 1 && /^ey/.test(live().authed[0] || ''), 'the listener carries the signed-in session (without it, nothing arrives)');
+  ok(live().channels.length === 1 && live().filter.table === 'records' && live().filter.schema === 'public' && live().filter.filter === 'owner=eq.' + USER.id,
+    'an unlocked device listens for changes to its own records: ' + JSON.stringify(live().filter));
+  ok(/Live updates: on/.test(P.$('sbStat').textContent), 'Settings says live updates are on');
+  P.w.eval('renderSb()'); await tick(30);
+  ok(live().channels.length === 1, 'redrawing Settings does not open a second listener');
+  P.w.eval('__live.cb(); __live.cb(); __live.cb()');
+  await tick(200);
+  ok(live().syncs === 0, 'a burst of changes waits a moment');
+  await tick(1600);
+  ok(live().syncs === 1, 'then runs one sync for the lot: ' + live().syncs);
+  P.w.eval('__live.onStatus("SUBSCRIBED")');
+  await tick(1700);
+  ok(live().syncs === 2, 'a reconnect catches up with a sync');
+  P.w.eval('sbKeyRec = null; renderSb()'); await tick(30);
+  ok(live().removed === 1 && P.w.eval('liveCh') === null, 'locked or signed out, the listener stops');
+}
+
 for (const x of [P, Q, S]) {
   real = x.errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
   ok(!real.length, 'no console errors (step 5): ' + real.slice(0, 3).join(' | '));
