@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v104';
+const APP_BUILD = 'v105';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4998,7 +4998,10 @@ function openSnip(id, copyOf){
   $('snDel').hidden = snIsNew;
   snBefore = JSON.stringify(snRead());
   const d = $('snipdlg');
-  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('snipdlg');               // so the back gesture closes the form (v105)
+  }
   if(snIsNew && !copyOf) setTimeout(() => { try { $('snLabel').focus(); } catch(_){} }, 50);
 }
 function snRead(){
@@ -5008,6 +5011,8 @@ function snRead(){
 }
 async function snFinish(){
   if(!snEdit) return;
+  // Done, or Escape: go back off the form's entry, and let that close it (which comes back here)
+  if($('snipdlg').open && history.state && history.state.dialog === 'snipdlg'){ history.back(); return; }
   const r = snRead();
   snEdit = null;
   const d = $('snipdlg');
@@ -5063,7 +5068,8 @@ $('snDel').addEventListener('click', async () => {
   snEdit = null;                                    // the close handler must not save it back
   const d = $('snipdlg');
   if(!await snDelete(r).catch(e => { reportErr(e); return false; })){ snEdit = r; return; }
-  if(d.close) d.close(); else d.removeAttribute('open');
+  if(history.state && history.state.dialog === 'snipdlg') history.back();
+  else if(d.close) d.close(); else d.removeAttribute('open');
 });
 $('snipdlg').addEventListener('cancel', e => { e.preventDefault(); snFinish().catch(console.error); });
 $('snipdlg').addEventListener('close', () => { if(snEdit) snFinish().catch(console.error); });
@@ -5094,7 +5100,10 @@ function openProd(id, copyOf){
   $('prDel').hidden = prIsNew;
   prBefore = JSON.stringify(prRead());
   const d = $('proddlg');
-  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('proddlg');               // so the back gesture closes the form (v105)
+  }
   if(prIsNew && !copyOf) setTimeout(() => { try { $('prName').focus(); } catch(_){} }, 50);
 }
 function prStockedLine(){
@@ -5110,6 +5119,8 @@ function prRead(){
 }
 async function prFinish(){
   if(!prEdit) return;
+  // Done, or Escape: go back off the form's entry, and let that close it (which comes back here)
+  if($('proddlg').open && history.state && history.state.dialog === 'proddlg'){ history.back(); return; }
   const r = prRead();
   const was = prEdit;
   prEdit = null;
@@ -5161,7 +5172,8 @@ $('prDel').addEventListener('click', async () => {
   prEdit = null;
   const d = $('proddlg');
   if(!await prDelete(r).catch(e => { reportErr(e); return false; })){ prEdit = r; return; }
-  if(d.close) d.close(); else d.removeAttribute('open');
+  if(history.state && history.state.dialog === 'proddlg') history.back();
+  else if(d.close) d.close(); else d.removeAttribute('open');
 });
 $('proddlg').addEventListener('cancel', e => { e.preventDefault(); prFinish().catch(console.error); });
 $('proddlg').addEventListener('close', () => { if(prEdit) prFinish().catch(console.error); });
