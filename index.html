@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v90">
+<meta name="build" content="v91">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -718,6 +718,9 @@ body.planning{padding-bottom:0}
 .btn:hover{border-color:var(--ink-2)}
 .btn.key{background:var(--act);border-color:var(--act);color:#fff;font-weight:700}
 .btn.act2{color:var(--act);border-color:var(--act);font-weight:700}
+.mailacts{display:flex;gap:8px;margin-top:2px}
+.mailacts .btn{min-height:40px;flex:1}
+.autotag{font-size:11px;font-weight:600;color:var(--cyan-dk);background:var(--cyan-lt);border-radius:999px;padding:1px 7px;margin-left:6px}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
 /* A gutter of hour labels, then the five days. */
 .week{display:grid;grid-template-columns:46px repeat(5,1fr);gap:8px;align-items:start}
@@ -1598,6 +1601,22 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Write an email as a task</b><span class="sxs">Draft now, send from Outlook</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Add a task, and tap <b>Write email</b> as its type.</li>
+        <li>Pick the account and contact further down. <b>To</b> fills with the contact's email.</li>
+        <li>Type the <b>Subject</b>, or leave it to use the title.</li>
+        <li>Type the <b>Body</b>, or tap the microphone on your keyboard and dictate it.</li>
+        <li>Tap <b>Done</b>. The draft stays on the task.</li>
+        <li>When you're ready to send, open the task and tap <b>Open in Outlook</b>. Check it and press Send in Outlook.</li>
+        <li>Tick the task when it's sent.</li>
+      </ol>
+      <p>Open in Outlook starts a new email in your phone's or PC's mail app with everything filled in. Nothing is downloaded. A very long body is copied instead, for you to paste in. <b>Copy</b> copies the body on its own.</p>
+      <p>If your phone opens a different mail app, set Outlook as the default email app in Android's settings.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Request a quote</b><span class="sxs">An RFQ to customer service</span></summary>
     <div class="fld help">
       <ol>
@@ -1903,6 +1922,18 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
   <div class="dlg-b">
     <div class="f"><label>Type</label><div class="chips" id="tkType"></div></div>
     <div class="f"><label for="tkTitle">Title</label><input type="text" id="tkTitle" autocomplete="off" placeholder="What needs doing"></div>
+    <!-- Write email tasks carry the draft (v91). Open in Outlook is a mailto
+         link: a new message in the default mail app, nothing downloaded. -->
+    <div id="tkMail" hidden>
+      <div class="f"><label for="tkTo">To <span class="autotag" id="tkToAuto" hidden>from the contact</span></label>
+        <input type="email" id="tkTo" multiple autocomplete="off" placeholder="name@company.com"></div>
+      <div class="f"><label for="tkSubject">Subject</label><input type="text" id="tkSubject" autocomplete="off" placeholder="Uses the title if left empty"></div>
+      <div class="f"><label for="tkBody">Body</label><textarea id="tkBody" rows="7" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
+      <div class="mailacts">
+        <button type="button" class="btn act2" id="tkOutlook">Open in Outlook</button>
+        <button type="button" class="btn" id="tkCopy">Copy</button>
+      </div>
+    </div>
     <div class="row">
       <div class="f"><label for="tkDate">Date</label><input type="date" id="tkDate"></div>
       <div class="f"><label for="tkTime">Start (30 min)</label><input type="time" id="tkTime" step="1800"></div>

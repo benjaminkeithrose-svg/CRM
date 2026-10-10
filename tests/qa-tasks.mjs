@@ -422,6 +422,64 @@ ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
   g(`showScreen('home')`);
 }
 
+// ---- v91: Write email tasks carry the draft ----
+{
+  const hrefs = [], clips = [];
+  w.HTMLAnchorElement.prototype.click = function () { hrefs.push(this.href); };
+  w.navigator.clipboard = { writeText: async t => { clips.push(t); } };
+  g(`openTask(null, {date: '2026-10-21'})`); await tick();
+  ok($('tkMail').hidden, 'a new task does not show the email fields');
+  [...$('tkType').querySelectorAll('button')].find(b => b.textContent === 'Write email').click(); await tick();
+  ok(!$('tkMail').hidden, 'picking Write email shows To, Subject and Body');
+  $('tkAcct').value = 'Acme Pty Ltd - Smithfield'; $('tkAcct').dispatchEvent(new w.Event('change')); await tick();
+  $('tkContact').value = 'Jo Bloggs'; $('tkContact').dispatchEvent(new w.Event('change')); await tick();
+  ok($('tkTo').value === 'jo@acme.example' && !$('tkToAuto').hidden, 'To fills from the contact and is badged: ' + $('tkTo').value);
+  $('tkTo').value = 'jo.bloggs@acme.example'; $('tkTo').dispatchEvent(new w.Event('input'));
+  ok($('tkToAuto').hidden, 'typing over it takes the badge off');
+  $('tkContact').value = 'Sam Smith'; $('tkContact').dispatchEvent(new w.Event('change')); await tick();
+  ok($('tkTo').value === 'jo.bloggs@acme.example', 'and a later contact change does not overwrite what was typed');
+  $('tkTitle').value = 'Send Jo the drawings';
+  $('tkBody').value = 'Hi Jo,\nDrawings attached.\nBen';
+  $('tkOutlook').click(); await tick();
+  const h = hrefs.pop() || '';
+  ok(h.startsWith('mailto:jo.bloggs%40acme.example?') || h.startsWith('mailto:jo.bloggs@acme.example?'), 'Open in Outlook is a mailto link to the To address: ' + h.slice(0, 60));
+  ok(/subject=Send%20Jo%20the%20drawings/.test(h), 'an empty subject uses the title');
+  ok(/body=Hi%20Jo%2C%0D%0ADrawings%20attached\.%0D%0ABen/.test(h), 'the body goes with it, line breaks kept');
+  $('tkSubject').value = 'Drawings';
+  $('tkBody').value = 'x'.repeat(2500);
+  $('tkOutlook').click(); await tick(50);
+  const h2 = hrefs.pop() || '';
+  ok(!/body=/.test(h2) && /subject=Drawings/.test(h2) && clips.pop() === 'x'.repeat(2500), 'a body too long for the link is copied instead, To and Subject still go');
+  $('tkBody').value = 'Hi Jo, sprocket drawings for line 2';
+  $('tkCopy').click(); await tick(50);
+  ok(clips.pop() === 'Hi Jo, sprocket drawings for line 2', 'Copy copies the body');
+  $('tkOk').click(); await tick(150);
+  const saved = g(`TASKS.find(t => t.title === 'Send Jo the drawings')`);
+  ok(saved && saved.type === 'Write email' && saved.mailTo === 'jo.bloggs@acme.example' && saved.mailSubject === 'Drawings' && /line 2/.test(saved.mailBody), 'the draft is saved with the task');
+  g(`openTask('${saved.id}')`); await tick();
+  ok(!$('tkMail').hidden && $('tkSubject').value === 'Drawings' && $('tkToAuto').hidden, 'reopening shows the draft as saved');
+  $('tkOk').click(); await tick(100);
+  g(`(() => { showScreen('today'); calKind = 'all'; renderToday(); })()`); await tick();
+  $('tvKinds').querySelector('[data-calsearch]').click(); await tick();
+  $('fsQ').value = 'sprocket drawings'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(80);
+  ok(/Send Jo the drawings/.test($('fsRes').textContent), 'the calendar search looks in the email body');
+  g(`closeSearch()`);
+  // Task Slaughterer email drafts come in as Write email tasks
+  w.__tsm = {source: 'task-slaughterer-9000', tasks: [], emails: [
+    {id: 'm1', to: 'sam@acme.example', subject: 'Line 2 quote', body: 'Hi Sam,\nQuote attached.', used: false, createdAt: Date.UTC(2026, 9, 1), usedAt: null},
+    {id: 'm2', to: 'someone@else.example', subject: 'Old one', body: 'Sent already', used: true, createdAt: Date.UTC(2026, 8, 30), usedAt: Date.UTC(2026, 9, 2, 1)}]};
+  const rep = await g('importTaskSlaughterer(window.__tsm)');
+  const m1 = g(`TASKS.find(t => t.id === 'ts-mail-m1')`), m2 = g(`TASKS.find(t => t.id === 'ts-mail-m2')`);
+  ok(rep.added === 2 && rep.mails === 2 && /2 of them email drafts/.test(rep.line), 'both drafts come in: ' + rep.line);
+  ok(m1 && m1.type === 'Write email' && m1.mailSubject === 'Line 2 quote' && m1.mailBody === 'Hi Sam,\nQuote attached.' && m1.title === 'Line 2 quote' && !m1.done && m1.date === g('todayISOdate()'),
+    'an unused draft is an open Write email task on today, the draft on it');
+  ok(m1.acct === 'Acme Pty Ltd - Smithfield' && m1.contact === 'Sam Smith', 'its To address finds the CRM contact and account');
+  ok(m2 && m2.done && m2.acct === '', 'a used draft comes in done, with no account when the address is unknown');
+  for (const id of [saved.id, 'ts-mail-m1', 'ts-mail-m2']) await g(`tasksDel('${id}')`);
+  await g('tasksAll().then(l => { TASKS = l; })');
+  g(`showScreen('home')`);
+}
+
 // ---- marked for cloud sync
 ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k.startsWith('tasks/')), 'task changes are marked for cloud sync');
 
