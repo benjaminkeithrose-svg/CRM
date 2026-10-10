@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v89">
+<meta name="build" content="v90">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -799,7 +799,8 @@ body.planning{padding-bottom:0}
 .s-new .stx{background:var(--cyan);box-shadow:0 0 0 3px rgba(71,158,188,.28)}
 .s-changed .stx{background:var(--orange-dk)}
 .s-synced .stx{background:var(--ok)}
-.month{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.month{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:6px}
+.mcell.wknd{background:var(--sunk)}
 .mh{font-size:11px;color:var(--ink-2);padding:0 2px 2px}
 .mcell{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);min-height:96px;
   padding:4px 5px;display:flex;flex-direction:column;gap:3px;min-width:0}

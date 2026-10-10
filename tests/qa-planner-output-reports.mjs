@@ -59,14 +59,18 @@ w.eval('tvShift(-1)');
 t('paging back lands on today again', g('tvDate()') === today);
 
 w.eval('todayView = "week"; tvCursor = null; renderToday()');
-t('week view titles as This week', $('title').textContent === 'This week');
+// at the weekend the week list opens on the coming week (weekViewStart)
+const wkend = [0, 6].includes(new Date().getDay()), wkTitle = wkend ? 'Next week' : 'This week';
+t('week view titles as ' + wkTitle, $('title').textContent === wkTitle, $('title').textContent);
 const wkStart = g('iso(tvWeekStart())');
-w.eval('tvShift(7)');
+w.eval('tvStep(1)');
 t('paging a week moves seven days', g('iso(tvWeekStart())') !== wkStart);
 t('the title names the week once you leave this one',
-  $('title').textContent.startsWith('Week of'));
+  /^(Next week|Week of)/.test($('title').textContent), $('title').textContent);
+w.eval('tvStep(-1)');
+t('and the back arrow returns to it', g('iso(tvWeekStart())') === wkStart);
 w.eval('tvCursor = null; renderToday()');
-t('Today resets the cursor', g('tvCursor') === null && $('title').textContent === 'This week');
+t('Today resets the cursor', g('tvCursor') === null && $('title').textContent === wkTitle);
 
 // the day list wording follows the cursor
 w.eval('todayView = "today"; tvCursor = null; renderToday()');
