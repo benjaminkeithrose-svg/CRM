@@ -376,6 +376,12 @@ To finish it, Ben adds the key:
 
 The key never goes in the app or this repo.
 
+**Added since:** the key went in on 2026-10-10 and was checked live. v99 put
+Tidy on every free-text box of a call (one-line boxes get one line back);
+v100 added **Write summary** (the visit summary that heads the full call
+notes, drafted from the whole call as text, `kind: 'summary'`) and **Tidy
+all** (every box in a call, three at a time, each ticked to use).
+
 
 A Supabase Edge Function holds the Anthropic API key (in Supabase's secret
 settings, never in the app or this repo) and accepts requests only from a

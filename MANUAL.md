@@ -179,6 +179,19 @@ It needs signal and cloud sync signed in. The text in that one box is sent to An
 
 If it says the AI key has not been added, it hasn't been set up yet.
 
+### Add a summary, or tidy the whole call
+
+1. In the call, tap **Summary for the report** near the top.
+2. Tap **Write summary**.
+3. Wait a few seconds. The AI writes a short summary of the visit and the next steps from everything you've logged.
+4. Change anything you want, then tap **Use this**.
+
+The summary goes at the top of the full call notes. It isn't put in the health check or belt requirements documents. You can also type or dictate it yourself, and change it any time.
+
+To tidy every box in the call at once, tap **Tidy all notes** in the same place. Each tidied box is listed and ticked. Untick any you want to keep as they are, change any wording, then tap **Use ticked**. **Keep all mine** changes nothing.
+
+Each box tidied counts towards the 200 a day.
+
 ### Add photos
 
 1. Tap the camera icon at the top of the call to photograph whatever you logged last.
