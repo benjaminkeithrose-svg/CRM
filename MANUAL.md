@@ -192,6 +192,21 @@ To tidy every box in the call at once, tap **Tidy all notes** in the same place.
 
 Each box tidied counts towards the 200 a day.
 
+### Read a paper spec sheet
+
+1. In the call, tap **Belt**.
+2. Tap **Read a spec sheet**.
+3. Take a photo of the sheet, or choose one from your photos.
+4. Wait about 5 to 10 seconds.
+5. Check every tinted box. Change anything that's wrong.
+6. Tap **Done**.
+
+Only empty boxes are filled. Anything you'd already typed or picked stays as it is. A tinted box goes back to normal once you change it.
+
+The line under the button says what was filled, what was left alone, and anything it couldn't read. Series, style and materials have to match your belt reference data; anything that doesn't is listed for you to pick.
+
+The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.
+
 ### Add photos
 
 1. Tap the camera icon at the top of the call to photograph whatever you logged last.
