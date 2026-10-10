@@ -927,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v89';
+const APP_BUILD = 'v90';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2126,14 +2126,16 @@ function renderCalendar(){
     const y = plan.anchor.getFullYear(), m = plan.anchor.getMonth();
     $('calTitle').textContent = MONNM[m]+' '+y;
     const grid = document.createElement('div'); grid.className = 'month';
-    DAYNM.forEach(n=>{ const h=document.createElement('div'); h.className='mh'; h.textContent=n.slice(0,3); grid.appendChild(h); });
+    /* Seven days (v90). Weekdays only hid the tasks and quote requests that
+       land on a Saturday or Sunday; the weekend columns are narrower and shaded. */
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach((n,i)=>{ const h=document.createElement('div'); h.className='mh'+(i>4?' wknd':''); h.textContent=n; grid.appendChild(h); });
     let cur = startOfWeek(new Date(y,m,1));
     const last = new Date(y,m+1,0);
     while(cur <= last || cur.getMonth() === m){
-      for(let i=0;i<5;i++){
+      for(let i=0;i<7;i++){
         const d = addDays(cur,i), k = iso(d);
         const cell = document.createElement('div');
-        cell.className = 'mcell' + (d.getMonth()!==m ? ' out' : '') + (k===TODAY ? ' today' : '');
+        cell.className = 'mcell' + (i>4 ? ' wknd' : '') + (d.getMonth()!==m ? ' out' : '') + (k===TODAY ? ' today' : '');
         cell.innerHTML = '<div class="n">'+d.getDate()+'</div>';
         if(showKind('visit')) apptsOn(k).forEach(ap => cell.appendChild(apptEl(ap,true)));
         if(showKind('task')) tasksOn(k).forEach(t => cell.appendChild(taskEl(t,true)));
@@ -3303,8 +3305,9 @@ function tvTitle(){
     const d = parseIso(tvDate());
     return MONNM[d.getMonth()] + ' ' + d.getFullYear();
   }
-  const mon = tvWeekStart();
-  return iso(mon) === iso(startOfWeek(new Date())) ? 'This week'
+  const mon = tvWeekStart(), thisMon = startOfWeek(new Date());
+  return iso(mon) === iso(thisMon) ? 'This week'
+    : iso(mon) === iso(addDays(thisMon, 7)) ? 'Next week'
     : 'Week of ' + mon.getDate() + ' ' + MONNM[mon.getMonth()].slice(0,3);
 }
 /* A task on the phone's Day and Week lists: a tick box, then the same layout as
@@ -3780,7 +3783,15 @@ $('tvPrev').innerHTML = icon('chev');
 $('tvNext').innerHTML = icon('chev');
 $('tvUnplanned').innerHTML = icon('plus');
 $('tvBook').innerHTML = icon('calplus');
-const tvStep = n => todayView === 'month' ? tvShiftMonth(n) : tvShift(todayView === 'today' ? n : 7 * n);
+/* Week paging steps from the week on screen, not from today: at the weekend
+   the list opens on the coming week, and stepping from Saturday's date landed
+   on that same week, so the first tap did nothing (fixed v90). */
+const tvStep = n => {
+  if(todayView === 'month') return tvShiftMonth(n);
+  if(todayView === 'today') return tvShift(n);
+  tvCursor = iso(addDays(tvWeekStart(), 7 * n));
+  renderToday();
+};
 $('tvPrev').addEventListener('click', ()=>tvStep(-1));
 $('tvNext').addEventListener('click', ()=>tvStep(1));
 $('tvNow').addEventListener('click', ()=>{ tvCursor = null; renderToday(); });

@@ -408,6 +408,20 @@ ok(g('TASKS.length') === bk.tasks.length, 'restore brings tasks back');
   await g('tasksAll().then(l => { TASKS = l; })');
 }
 
+// ---- v90: the PC month shows all seven days ----
+{
+  await g(`(async () => { const t = {id: 'twk', title: 'Weekend task', date: '2026-10-17', start: '10:00', dur: 30, done: false, updated: Date.now()};
+    await tasksPut(t); TASKS = TASKS.filter(x => x.id !== t.id).concat([t]); })()`);
+  g(`(() => { showScreen('plan'); calKind = 'all'; plan.view = 'month'; plan.anchor = new Date('2026-10-13T12:00'); renderPlan(); })()`); await tick();
+  const heads = [...d.querySelectorAll('#calBody .month .mh')].map(e => e.textContent);
+  ok(heads.join() === 'Mon,Tue,Wed,Thu,Fri,Sat,Sun', 'PC month has seven day columns: ' + heads.join());
+  const cells = d.querySelectorAll('#calBody .month .mcell');
+  ok(cells.length % 7 === 0 && d.querySelectorAll('#calBody .month .mcell.wknd').length === cells.length / 7 * 2, 'every week row has its Saturday and Sunday, shaded');
+  ok([...d.querySelectorAll('#calBody .pill.task')].some(e => /Weekend task/.test(e.textContent)), 'a task on a Saturday shows in the month');
+  await g(`tasksDel('twk')`); await g('tasksAll().then(l => { TASKS = l; })');
+  g(`showScreen('home')`);
+}
+
 // ---- marked for cloud sync
 ok(Object.keys(await g('cloudDirtyLoad()')).some(k => k.startsWith('tasks/')), 'task changes are marked for cloud sync');
 
