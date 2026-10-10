@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v98';
+const APP_BUILD = 'v99';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -9718,7 +9718,8 @@ async function aiTidy(id, field){
   const why = aiBlocked();
   if(why){ toast(why); return; }
   const n = aiOpen('Tidied', 'Tidied — change anything before you use it', ta.value, false);
-  aiApply = () => aiSet(ta, $('aiOut').value);
+  // a one-line box (Next action, Recommended action) takes it as one line
+  aiApply = () => aiSet(ta, ta.tagName === 'INPUT' ? $('aiOut').value.replace(/\s*\n+\s*/g, '; ').trim() : $('aiOut').value);
   try {
     const r = await aiAsk({kind: 'tidy', field, text});
     aiAnswer(n, null, String(r.text || ''));
