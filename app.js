@@ -935,7 +935,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v95';
+const APP_BUILD = 'v96';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -5856,6 +5856,7 @@ function reportLine(c){
   if(E('project')) bits.push(E('project') + ' project' + (E('project')===1?'':'s'));
   if(E('note')) bits.push(E('note') + ' note' + (E('note')===1?'':'s'));
   if(!bits.length) bits.push(c.noReport ? 'no report' : 'nothing logged');
+  if(c.photosArchived) bits.push('photos archived');
   if(c.site) bits.push(c.site);
   return bits.join(' \u00b7 ');
 }
@@ -5987,24 +5988,34 @@ function pcPath(c){
   const site = pcName(cut > 0 ? name.slice(cut + 3) : c.site, '');
   return site ? [cust, site, date] : [cust, date];
 }
-// what each photo is called in the folder: the entry it belongs to, then a count
-function pcPhotos(c){
-  const out = [], used = new Set(), n = {belt: 0, health: 0};
-  const add = (p, base) => {
-    let blob;
-    try { blob = isBlobPhoto(p) ? p : dataURLToBlob(String(p)); } catch(e){ return; }
+const pcBlob = p => (isBlobPhoto(p) || blobLike(p)) ? p : dataURLToBlob(String(p));
+const pcAllPhotos = c => [].concat(...(c.entries || []).map(e => e.photos || []), c.loose || []);
+/* What each photo is called in the folder: the entry it belongs to, then a
+   count. skip holds the ids of photos already archived (v96) - their
+   full-size files are in the folder and must not be overwritten by the small
+   copy - and used the names already taken there. */
+async function pcPhotos(c, skip, used){
+  const out = [], n = {belt: 0, health: 0};
+  used = new Set([...(used || [])].map(x => x.toLowerCase()));
+  const add = async (p, base) => {
+    let blob, id = '';
+    try { blob = pcBlob(p); } catch(e){ return; }
+    try { id = await photoId(await photoBytesOf(p)); } catch(e){}
+    if(id && skip && skip.has(id)) return;
     const ext = /png/.test(blob.type) ? '.png' : /webp/.test(blob.type) ? '.webp' : '.jpg';
     let name = pcName(base, 'Photo') + ext;
     for(let k = 2; used.has(name.toLowerCase()); k++) name = pcName(base, 'Photo') + ' (' + k + ')' + ext;
     used.add(name.toLowerCase());
-    out.push({name, blob});
+    out.push({name, blob, id});
   };
-  (c.entries || []).forEach(e => {
+  for(const e of c.entries || []){
     const label = e.type === 'belt' ? 'Belt ' + (++n.belt)
                 : e.type === 'health' ? 'Health ' + (++n.health) : (e.type || 'Entry');
-    (e.photos || []).forEach((p, k) => add(p, label + (e.asset ? ' ' + e.asset : '') + ' - ' + (k + 1)));
-  });
-  (c.loose || []).forEach((p, k) => add(p, 'Additional - ' + (k + 1)));
+    const ph = e.photos || [];
+    for(let k = 0; k < ph.length; k++) await add(ph[k], label + (e.asset ? ' ' + e.asset : '') + ' - ' + (k + 1));
+  }
+  const lo = c.loose || [];
+  for(let k = 0; k < lo.length; k++) await add(lo[k], 'Additional - ' + (k + 1));
   return out;
 }
 async function pcSavedMap(){
@@ -6059,21 +6070,33 @@ async function pcClear(root, prev, parts){
     catch(e){ break; }
   }
 }
+/* The record kept per call (kv pcSaved): u, the call's updated when saved;
+   dir and files, what was written; map, photo id -> file name; keep, the
+   full-size files of archived photos (v96), which are never removed and
+   never moved - an archived call stays in the folder its originals are in. */
 async function pcSaveOne(root, c, saved){
-  const parts = pcPath(c);
-  // two calls at one site on one day get a folder each
-  const taken = new Set(Object.keys(saved).filter(id => id !== c.id).map(id => (saved[id].dir || []).join('/')));
-  const day = parts[parts.length - 1];
-  for(let k = 2; taken.has(parts.join('/')); k++) parts[parts.length - 1] = day + ' (' + k + ')';
-  if(saved[c.id]) await pcClear(root, saved[c.id], parts);
+  const prev = saved[c.id], keep = (prev && prev.keep) || [];
+  let parts;
+  if(keep.length) parts = prev.dir.slice();
+  else {
+    parts = pcPath(c);
+    // two calls at one site on one day get a folder each
+    const taken = new Set(Object.keys(saved).filter(id => id !== c.id).map(id => (saved[id].dir || []).join('/')));
+    const day = parts[parts.length - 1];
+    for(let k = 2; taken.has(parts.join('/')); k++) parts[parts.length - 1] = day + ' (' + k + ')';
+  }
+  if(prev) await pcClear(root, Object.assign({}, prev, {files: (prev.files || []).filter(f => !keep.includes(f))}), parts);
   const dir = await pcSub(root, parts, true);
   const q = isQuote(c), mode = defaultImgMode();
   const html = q ? await buildRFQHTML(mode, c) : await buildNotesHTML('full', mode, c);
   const files = [fileName(q ? 'rfq' : 'full', c)];
   await pcWrite(dir, files[0], new Blob([html], {type: 'text/html'}));
-  const photos = pcPhotos(c);
-  for(const ph of photos){ await pcWrite(dir, ph.name, ph.blob); files.push(ph.name); }
-  return {u: c.updated || 0, dir: parts, files, photos: photos.length};
+  // where this folder holds the originals, the small copies are not written over them
+  const skip = keep.length ? new Set((c.photosArchived && c.photosArchived.ids) || []) : null;
+  const photos = await pcPhotos(c, skip, keep.concat(files));
+  const map = Object.assign({}, keep.length && prev.map || {});
+  for(const ph of photos){ await pcWrite(dir, ph.name, ph.blob); files.push(ph.name); if(ph.id) map[ph.id] = ph.name; }
+  return {u: c.updated || 0, dir: parts, files: files.concat(keep), keep, map, photos: photos.length};
 }
 let pcBusy = false;
 async function pcSaveAll(pick){
@@ -6122,9 +6145,131 @@ $('rpFolder') && $('rpFolder').addEventListener('click', async () => {
   const n = (await pcPending()).length;
   openCardMenu('Save to PC folder', 'Folder: ' + (h.name || 'the one you picked'), [
     {label: 'Save new and changed' + (n ? ' (' + n + ')' : ''), icon: 'folder', run: () => pcSaveAll(false).catch(reportErr)},
+    {label: 'Archive photos older than 12 months', icon: 'image', run: () => archAll().catch(reportErr)},
     {label: 'Choose a different folder', icon: 'folder', run: () => pcSaveAll(true).catch(reportErr)}
   ]);
 });
+
+/* ================= photo archive (v96) =================
+   BACKEND-PLAN.md Step 10, with Ben's answers: done calls (and quote
+   requests) dated more than 12 months ago keep 800px copies of their photos
+   in the app and the cloud; the full-size photos live in the PC folder.
+
+   Only when tapped (Save to PC folder, then Archive photos older than 12
+   months), on the PC, after a confirmation that names what it will do. For
+   each call:
+     1. the call is saved to the PC folder if it is not there or has changed;
+     2. every full-size photo is read back from the folder and its size
+        checked against the one in the app - if any is missing or short the
+        call is saved again and checked again, and skipped if it still fails;
+     3. only then are the photos replaced with 800px copies, and the call is
+        marked photosArchived (when, where, and the ids of the small copies).
+   The call is written through callsPut with a new updated, so cloud sync
+   sends the small copies and removes the full-size ones from the photos
+   bucket, and the other devices take the small copies in place of theirs.
+
+   A photo added to an archived call later is full size and not in the ids,
+   so the next run archives it too. Later saves to the same folder never
+   overwrite or remove the originals (pcSaveOne, keep). */
+const ARCH_MONTHS = 12, ARCH_PX = 800, ARCH_Q = 0.72;
+function archCutoff(){ const d = new Date(); d.setMonth(d.getMonth() - ARCH_MONTHS); return d.getTime(); }
+async function archCandidates(){
+  const cut = archCutoff(), out = [];
+  for(const c of await recordsAll()){
+    if(!c.closed || !(callWhen(c) < cut) || (call && call.id === c.id)) continue;
+    const done = new Set((c.photosArchived && c.photosArchived.ids) || []);
+    const todo = [];
+    for(const p of pcAllPhotos(c)){
+      try { const id = await photoId(await photoBytesOf(p)); if(!done.has(id)) todo.push({p, id}); } catch(e){}
+    }
+    if(todo.length) out.push({c, todo});
+  }
+  return out;
+}
+async function archCheck(root, rec, todo){
+  let dir;
+  try { dir = await pcSub(root, rec.dir); } catch(e){ return false; }
+  for(const t of todo){
+    const name = rec.map && rec.map[t.id];
+    if(!name) return false;
+    try {
+      const f = await (await dir.getFileHandle(name)).getFile();
+      if(f.size !== pcBlob(t.p).size) return false;
+    } catch(e){ return false; }
+  }
+  return true;
+}
+async function archOne(root, item, saved){
+  const c = item.c, todo = item.todo;
+  // 1 and 2: the full-size copies are on the PC, whole
+  if(!saved[c.id] || saved[c.id].u !== (c.updated || 0) || !await archCheck(root, saved[c.id], todo)){
+    saved[c.id] = await pcSaveOne(root, c, saved);
+    await kvSet(PC_SAVED, saved);
+    if(!await archCheck(root, saved[c.id], todo)) throw new Error('the copies on the PC could not be checked');
+  }
+  const rec = saved[c.id];
+  // 3: the small copies
+  const small = new Map(), ids = [];
+  let freed = 0;
+  for(const t of todo){
+    const b = pcBlob(t.p);
+    let s;
+    try { s = await shrink(b, ARCH_PX, ARCH_Q); } catch(e){ console.warn('archive shrink', e); continue; }
+    if(!s || s.size >= b.size) s = b;          // already small: kept as it is, still counted as archived
+    small.set(t.p, s);
+    ids.push(await photoId(await photoBytesOf(s)));
+    freed += b.size - s.size;
+  }
+  if(!small.size) throw new Error('none of its photos could be made smaller');
+  // a sync may have brought a newer copy in while this ran: leave that one for next time
+  const now = (await recordsAll()).find(x => x.id === c.id);
+  if(!now || (now.updated || 0) !== (c.updated || 0)) throw new Error('it changed while archiving');
+  for(const e of c.entries || []) if(Array.isArray(e.photos)) e.photos = e.photos.map(p => small.get(p) || p);
+  if(Array.isArray(c.loose)) c.loose = c.loose.map(p => small.get(p) || p);
+  const was = c.photosArchived || {};
+  c.photosArchived = {at: Date.now(), ids: (was.ids || []).concat(ids), n: (was.n || 0) + small.size,
+    folder: root.name || '', path: rec.dir.join('\\')};
+  c.updated = Date.now();
+  await callsPut(c);
+  const kept = todo.filter(t => small.has(t.p)).map(t => rec.map[t.id]);
+  saved[c.id] = Object.assign({}, rec, {u: c.updated, keep: [...new Set((rec.keep || []).concat(kept))]});
+  await kvSet(PC_SAVED, saved);
+  return {n: small.size, freed};
+}
+const mbOf = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB';
+async function archAll(){
+  if(pcBusy){ toast('Already saving'); return; }
+  pcBusy = true;
+  try {
+    let root;
+    try { root = await pcRoot(false); }
+    catch(e){ console.error('archive', e); toast('Could not open the folder: ' + e.message); return; }
+    if(!root){ toast('Nothing archived \u2014 the folder was not allowed'); return; }
+    toast('Looking for old photos...');
+    const list = await archCandidates();
+    if(!list.length){ toast('No photos older than 12 months to archive'); return; }
+    const nPh = list.reduce((a, x) => a + x.todo.length, 0);
+    const bytes = list.reduce((a, x) => a + x.todo.reduce((b, t) => b + pcBlob(t.p).size, 0), 0);
+    if(!confirm('Archive ' + nPh + ' photo' + (nPh === 1 ? '' : 's') + ' on ' + list.length + ' call' + (list.length === 1 ? '' : 's') +
+        ' older than 12 months?\n\nThe full-size photos are saved to ' + (root.name || 'the PC folder') +
+        ' and checked first. Then this PC, your phone and the cloud keep 800px copies, freeing about ' +
+        mbOf(bytes * 0.75) + '.\n\nThe full-size photos will only be in the PC folder. This cannot be undone in the app.')) return;
+    const saved = await pcSavedMap();
+    let calls = 0, photos = 0, freed = 0;
+    const failed = [];
+    for(let i = 0; i < list.length; i++){
+      toast('Archiving ' + (i + 1) + ' of ' + list.length + '...');
+      try { const r = await archOne(root, list[i], saved); calls++; photos += r.n; freed += r.freed; }
+      catch(e){ console.error('archive', list[i].c.id, e); failed.push(list[i].c.customer + ' ' + list[i].c.date + ': ' + e.message); }
+    }
+    const msg = (calls ? 'Archived ' + photos + ' photo' + (photos === 1 ? '' : 's') + ' on ' + calls + ' call' + (calls === 1 ? '' : 's') +
+      ', freeing ' + mbOf(freed) : 'Nothing archived');
+    if(failed.length) alert(msg + '.\n\nNot archived (their photos are unchanged):\n' + failed.join('\n'));
+    else toast(msg);
+    renderPcFolder();
+    renderReports().catch(e => console.error('reports', e));
+  } finally { pcBusy = false; }
+}
 
 async function renderReportsCount(){
   const el = $('reportsInfo');
@@ -8711,9 +8856,13 @@ function renderCompileStat(){
   const sent = call.entries.reduce((a,e)=>a+(e.detached?e.detached.n:0),0) +
                (call.looseDetached ? call.looseDetached.n : 0);
   $('compStat').innerHTML = '<b>'+esc(call.customer)+'</b><br>'+
-    n('belt')+' belts, '+n('project')+' projects, '+n('note')+' notes, '+n('health')+' health items<br>'+
+    [['belt','belt'],['project','project'],['note','note'],['health','health item']]
+      .map(([t,w]) => n(t)+' '+w+(n(t)===1?'':'s')).join(', ')+'<br>'+
     ph+' photo'+(ph===1?'':'s')+' to embed'+(ph?' ('+humanSize(bytes)+' held on this phone)':'')+
-    (sent ? '<br><span class="tag">'+sent+' photo'+(sent===1?'':'s')+' already sent and dropped</span>' : '');
+    (sent ? '<br><span class="tag">'+sent+' photo'+(sent===1?'':'s')+' already sent and dropped</span>' : '') +
+    (call.photosArchived ? '<br><span class="tag">Full-size photos archived on the PC, '+
+      esc(new Date(call.photosArchived.at).toLocaleDateString())+': '+
+      esc([call.photosArchived.folder, call.photosArchived.path].filter(Boolean).join('\\'))+'</span>' : '');
   renderDetach();
 }
 /* The offer to drop image data. Never automatic, never before a confirmed share -
