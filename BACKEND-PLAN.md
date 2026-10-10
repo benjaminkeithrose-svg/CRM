@@ -383,7 +383,11 @@ notes, drafted from the whole call as text, `kind: 'summary'`) and **Tidy
 all** (every box in a call, three at a time, each ticked to use). v101
 added **Read a spec sheet** (`kind: 'spec'`): a photo of a paper belt spec,
 read into the belt form's empty boxes. That sends the photo itself to
-Anthropic, the same exception as the note text.
+Anthropic, the same exception as the note text. v102 added the sales coach:
+**Prepare for a visit** (`kind: 'brief'`) and **Coach me** (`kind:
+'coach'`). Each sends one account's records — its details, its last six
+calls, open tasks and unstocked products — only when tapped, and the answer
+is kept encrypted on the visit or the call like everything else.
 
 
 A Supabase Edge Function holds the Anthropic API key (in Supabase's secret
