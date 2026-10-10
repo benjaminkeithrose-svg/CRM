@@ -414,7 +414,24 @@ subscription. Edge Function calls themselves are within the free tier.
   in `IDEAS.md`) become new record kinds on this same sync — no separate
   sync to build. They can come before colleagues if you'd rather.
 
-### Step 10 — Photo archive
+### Step 10 — Photo archive — **built 2026-10-10, v96**
+
+Built with Ben's answers: **800px** copies (quality 0.72), and **only when
+tapped**. The archive folder is the one Save to PC folder uses (v94), so the
+full-size photos land in each call's own `Customer\Site\date` folder. On
+the PC: Reports → Save to PC folder → **Archive photos older than 12
+months**, after a confirmation naming how many photos and calls and roughly
+how much space comes back. Each call is saved to the folder (if not already
+current), every full-size photo is read back and its size checked, and only
+then are the photos replaced and the call marked `photosArchived` (when,
+folder, path, and the ids of the small copies). Cloud sync then sends the
+small copies and removes the full-size ones from the bucket (the existing
+stale-photo removal), and the phone takes the small copies in place of its
+own. A call that fails the check is left untouched and named. Later saves to
+the same folder never overwrite or remove the archived originals.
+
+Original plan, for the record:
+
 
 Ben's request (2026-10-09), so photo storage doesn't fill up. At about 50
 photos a week the free 1 GB lasts roughly one to two years, so this is

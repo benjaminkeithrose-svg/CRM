@@ -274,6 +274,23 @@ On a later day Chrome may ask again before it saves. Click **Allow this time** (
 
 The button isn't on the phone.
 
+### Archive old photos
+
+1. On the PC, open **Reports** from Home.
+2. Click **Save to PC folder**.
+3. Click **Archive photos older than 12 months**.
+4. Read the message. It says how many photos and calls, and how much space it frees.
+5. Click **OK** to go ahead, or **Cancel** to leave everything as it is.
+6. Wait for the message saying what was archived.
+
+It covers done calls and quote requests dated more than 12 months ago. Each one is saved to the PC folder first, and every full-size photo there is checked. Only then does the app keep an 800px copy in place of each photo, on this PC, your phone and the cloud.
+
+The full-size photos are then only in the PC folder, in the call's own folder. Open the call and tap **Create and share** to see where: the line at the top says **Full-size photos archived on the PC**.
+
+If a call's photos can't be checked in the folder, that call is left exactly as it was and the message names it. Run it again later.
+
+A photo added to an old call later is full size until the next time you archive.
+
 ### Get the engineering manuals
 
 1. Connect to Wi-Fi. The MPB manual is about 45 MB.

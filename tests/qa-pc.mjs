@@ -176,7 +176,7 @@ ok(/Saved 2 calls and 1 quote request, 4 photos to Field CRM calls/.test($('toas
 $('rpFolder').click(); await tick(100);
 ok($('vmdlg').hasAttribute('open') && /Field CRM calls/.test($('vmWhen').textContent), 'menu names the folder: ' + $('vmWhen').textContent);
 const acts = [...$('vmBody').querySelectorAll('[data-cm]')].map(b => b.textContent);
-ok(acts.length === 2 && /^Save new and changed$/.test(acts[0].trim()) && /Choose a different folder/.test(acts[1]), 'Save and Choose a different folder: ' + acts.join(' / '));
+ok(acts.length === 3 && /^Save new and changed$/.test(acts[0].trim()) && /Archive photos older than 12 months/.test(acts[1]) && /Choose a different folder/.test(acts[2]), 'Save, Archive and Choose a different folder: ' + acts.join(' / '));
 $('vmBody').querySelector('[data-cm="0"]').click(); await tick(200);
 ok(picks === 1, 'no picker the second time');
 
@@ -206,7 +206,7 @@ ok(names(at(root, 'Acme Pty Ltd/Smithfield/2026-10-09')).length === 4, 'first ca
 const root2 = new FakeDir('Other');
 w.showDirectoryPicker = async () => { picks++; return root2; };
 $('rpFolder').click(); await tick(100);
-$('vmBody').querySelector('[data-cm="1"]').click(); await tick(400);
+$('vmBody').querySelector('[data-cm="2"]').click(); await tick(400);
 ok(picks === 2 && names(root2).join('|') === 'Acme Pty Ltd|Widget Co', 'Choose a different folder saves everything there: ' + names(root2).join('|'));
 
 // picker dismissed: nothing happens, nothing breaks
