@@ -147,6 +147,34 @@ g(`openTask(null, {})`); await tick();
 await back(); await tick(150);
 ok(st().open === '' && st().screen === 'plan' && g(`TASKS.length`) === n, 'an empty form closed by back keeps nothing');
 
+// ---- v105: Saved notes and Products, the same way
+for (const [name, open, field, ok_, del, list] of [
+  ['saved note', `openSnip(null)`, 'snLabel', 'snOk', 'snDel', 'SNIPS'],
+  ['product', `openProd(null)`, 'prName', 'prOk', 'prDel', 'PRODS']]) {
+  const key = list === 'SNIPS' ? 'label' : 'name';
+  g(`(() => { closeDialogsNow(); go('home'); })()`); await tick();
+  g(open); await tick();
+  ok(st().open && st().dialog === st().open, name + ': the form has a named entry: ' + JSON.stringify(st()));
+  $(field).value = 'Back ' + name;
+  await back(); await tick(150);
+  ok(st().screen === 'home' && st().open === '', name + ': back on Home closes it and stays in the app: ' + JSON.stringify(st()));
+  ok(g(`${list}.some(x => x.${key} === 'Back ${name}')`), name + ': and the back counted as Done');
+  g(`go('lists')`); await tick();
+  g(open); await tick();
+  $(field).value = 'Done ' + name;
+  $(ok_).click(); await tick(150);
+  ok(st().open === '' && st().screen === 'lists' && !st().dialog, name + ': Done takes its entry with it: ' + JSON.stringify(st()));
+  await back();
+  ok(st().screen === 'home', name + ': then one back goes home');
+  g(`go('lists')`); await tick();
+  const id = g(`${list}.find(x => x.${key} === 'Done ${name}').id`);
+  g(list === 'SNIPS' ? `openSnip('${id}')` : `openProd('${id}')`); await tick();
+  $(del).click(); await tick(150);
+  ok(st().open === '' && !st().dialog && !g(`${list}.some(x => x.id === '${id}')`), name + ': Delete closes it and takes its entry: ' + JSON.stringify(st()));
+  await back();
+  ok(st().screen === 'home', name + ': then one back goes home');
+}
+
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));
 console.log(`PASS ${pass}`); if (fail) console.log(`FAIL ${fail}`);
