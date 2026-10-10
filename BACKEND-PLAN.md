@@ -320,12 +320,29 @@ purpose: three caught directly; the two that weren't led to two new tests,
 one of which found and fixed stray photo files left by a losing upload.
 **Not checked:** a real phone, or a real camera photo.
 
-### Step 6 — Realtime
+### Step 6 — Realtime — **built 2026-10-10, v92**
 
 While both devices are open and online, changes arrive within seconds
 without pressing anything.
 
 **Test:** phone and PC side by side; save on one, watch the other.
+
+**As built:** migration `0002_live_updates.sql` adds `records` to the
+`supabase_realtime` publication (applied to the project). A signed-in,
+unlocked, online device subscribes to changes on its own rows
+(`owner=eq.<uid>`; the "own records" policy applies to Realtime too) and,
+on any change, runs the normal sync 1.5 s later, so data still arrives
+through `sbOpen()` and the open-call guard. The payload is not used. A
+reconnect, or coming back to the app, syncs too. Settings shows "Live
+updates: on".
+
+**Found in testing:** against the real project, a channel that joined
+before the library had passed the session to Realtime received nothing
+(RLS filtered every row). The app now calls `realtime.setAuth()` with the
+session's token before subscribing; with that, a test row's INSERT notice
+arrived in about 1.2 s. Tested with the test account from Node with the same
+library, not in the app in a browser (the sandbox browser cannot hold a
+websocket through the proxy) and not on a phone.
 
 ### Step 7 — Retire the GitHub sync — **done 2026-10-09, v78**
 
