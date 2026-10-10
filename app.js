@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v101';
+const APP_BUILD = 'v102';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1333,7 +1333,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1430,6 +1430,8 @@ window.addEventListener('popstate', e => {
   }
   // the AI sheet can sit over the task form: back closes the sheet, not both
   if(st.dialog !== 'aidlg' && $('aidlg').hasAttribute('open')){ closeAi(); return; }
+  // and so can the coach's sheet, over the visit editor (v102)
+  if(st.dialog !== 'coachdlg' && $('coachdlg').hasAttribute('open')){ closeCoach(); return; }
   if(openDialogs().length && !st.dialog){ closeDialogsNow(); return; }
   if(st.dialog) return;      // going forward into a dialog entry: leave it be
   showScreen(st.screen || 'home');
@@ -2356,6 +2358,7 @@ function openDialog(id, seed){
      visit with no call behind it has nothing to open. */
   $('dStart').hidden = !id || (apSettled(ap) && !ap.callId);
   $('dStart').textContent = ap.callId ? 'Open the call' : 'Start the call';
+  $('dPrep').hidden = !id;                 // the sales coach's brief, for a saved visit
   dlgAppt = ap;
   const dlg = $('dlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
@@ -7809,6 +7812,7 @@ function openVisitMenu(id){
     html += '<button data-reopen="'+eid+'">Reopen</button>';
   } else {
     html += '<button class="go" data-open="'+eid+'">'+(ap.callId ? 'Open the call' : 'Start the call')+'</button>'+
+            '<button data-prep="'+eid+'">'+(ap.brief && ap.brief.text ? 'Brief' : 'Prepare')+'</button>'+
             '<button data-closeout="'+eid+'">Close out</button>'+
             '<button data-move="'+eid+'">Move</button>'+
             '<button class="quiet" data-missed="'+eid+'">Missed</button>'+
@@ -7837,6 +7841,10 @@ function openVisitMenu(id){
   wireVisitCards(body);
   body.querySelectorAll('[data-open],[data-closeout],[data-move],[data-missed],[data-cancel],[data-reopen]')
     .forEach(b => b.addEventListener('click', closeVisitMenu));
+  body.querySelectorAll('[data-prep]').forEach(b => b.addEventListener('click', () => {
+    closeVisitMenu();
+    prepareBrief(ap.acct, ap.id).catch(reportErr);
+  }));
 
   const dlg = $('vmdlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
@@ -9899,6 +9907,7 @@ function renderVisitSummary(){
   if(document.activeElement !== $('vSummary')) $('vSummary').value = call.summary || '';
   const t = (call.summary || '').replace(/\s+/g, ' ').trim();
   $('sumVisit').textContent = t ? (t.length > 70 ? t.slice(0, 70) + '…' : t) : 'Not written yet';
+  $('vCoach').textContent = call.coaching && call.coaching.text ? 'Coaching' : 'Coach me';
 }
 $('vSummary').addEventListener('input', () => {
   if(!call) return;
@@ -10039,6 +10048,179 @@ $('taUse').addEventListener('click', async () => {
   toast(used ? 'Used ' + used + (moved ? '; ' + moved + ' had changed meanwhile and were left' : '') : 'Nothing changed');
 });
 $('tidydlg').addEventListener('cancel', () => { taSeq++; });
+
+/* ---------- the sales coach (v102) ----------
+   Prepare: before a visit, a brief for the account from its records - where
+   things stand, the aim, SPIN questions to ask, what was promised, and the
+   buying influences and red flags to watch for. Saved on the visit, so it
+   syncs to the phone and reads with no signal on site.
+   Coach me: after a call, coaching on it - what went well, what is still
+   unknown, next steps, what to ask next time. Saved on the call, never in a
+   report, and read back into the next brief for the account.
+   The method (SPIN Selling, Strategic Selling, Value First Then Price, The
+   Speed of Trust) lives in the ai-tidy function; Claude Haiku 5.5, by Ben's
+   choice on cost. Only that one account's records go, only when tapped. */
+const COACH_HEADS = ['Where things stand', 'Aim for this visit', 'Questions to ask', 'Promised last time', 'Watch for',
+  'What went well', 'Still unknown', 'Next steps', 'Ask next time'];
+function coachHTML(text){
+  const out = [];
+  let list = false;
+  for(const raw of String(text || '').split('\n')){
+    const l = raw.trim();
+    if(!l) continue;
+    if(/^[•\-*]\s+/.test(l)){
+      if(!list){ out.push('<ul>'); list = true; }
+      out.push('<li>' + esc(l.replace(/^[•\-*]\s+/, '')) + '</li>');
+    } else {
+      if(list){ out.push('</ul>'); list = false; }
+      const h = l.replace(/^#+\s*/, '').replace(/^\*+/, '').replace(/[:*#\s]+$/, '').trim();
+      out.push(COACH_HEADS.some(x => x.toLowerCase() === h.toLowerCase()) ? '<h3>' + esc(h) + '</h3>' : '<p>' + esc(l) + '</p>');
+    }
+  }
+  if(list) out.push('</ul>');
+  return out.join('');
+}
+// who and what the account is
+function accountText(name){
+  const a = ACC_BY_NAME.get(name);
+  const L = ['Account: ' + name];
+  if(a){
+    if(a.sub || a.z) L.push('Where: ' + [a.sub, zoneName(a.z)].filter(Boolean).join(', '));
+    if(a.foc) L.push('Focus: ' + a.foc + (a.cad ? ' (' + a.cad + ')' : ''));
+    if(a.seg || a.team) L.push('Segment: ' + [a.seg, a.team].filter(Boolean).join(', '));
+    const ppl = (a.c || []).map(c => [c.n, c.t || c.r].filter(Boolean).join(', ')).filter(Boolean);
+    if(ppl.length) L.push('Contacts on file: ' + ppl.slice(0, 15).join('; '));
+  }
+  return L.join('\n');
+}
+// its history, newest first: each call with its summary and the coaching after it, then open tasks and products
+function accountHistory(name, skipId){
+  const calls = callsFor(name).filter(c => c.id !== skipId).slice().sort((x, y) => callWhen(y) - callWhen(x)).slice(0, 6);
+  const parts = calls.map(c => {
+    const L = ['Call on ' + c.date + ' (' + (c.type || 'call') + ')' + (c.closed ? '' : ', still open')];
+    if((c.summary || '').trim()) L.push('Summary: ' + c.summary.trim());
+    const d = callDigest(c).split('\n').filter(l => !/^(Customer|Date|Call type):/.test(l)).join('\n');
+    if(d.trim()) L.push(d);
+    if(c.coaching && c.coaching.text) L.push('Coaching after that call:\n' + c.coaching.text);
+    return L.join('\n');
+  });
+  const tasks = (typeof TASKS !== 'undefined' ? TASKS : []).filter(t => t.acct === name && !t.done).map(t => t.title || t.type).filter(Boolean);
+  if(tasks.length) parts.push('Open tasks: ' + tasks.join('; '));
+  const prods = (typeof PRODS !== 'undefined' ? PRODS : []).filter(p => p.acct === name && !p.stocked).map(p => [p.name, p.status].filter(Boolean).join(' - '));
+  if(prods.length) parts.push('Products not yet stocked: ' + prods.join('; '));
+  let out = parts.join('\n\n');
+  if(out.length > 22000) out = out.slice(0, 22000);
+  return out;
+}
+function nextVisitFor(name){
+  const today = todayISOdate();
+  return APPTS.filter(a => a.acct === name && a.date >= today && !apSettled(a))
+    .sort((x, y) => (x.date + x.start).localeCompare(y.date + y.start))[0] || null;
+}
+let coSeq = 0, coAgain = null;
+function coachOpen(head, sub){
+  $('coHead').textContent = head;
+  $('coSub').textContent = sub || '';
+  $('coBody').innerHTML = '';
+  showMsg($('coMsg'), '', '');
+  $('coAgain').disabled = true;
+  const d = $('coachdlg');
+  if(!d.hasAttribute('open')){
+    /* From the visit menu, the menu has just closed and left its history entry
+       behind; take that entry over rather than stacking a second one on it. */
+    const stale = history.state && history.state.dialog && !openDialogs().length;
+    if(d.showModal) d.showModal(); else d.setAttribute('open','');
+    if(stale){ try { history.replaceState({screen: screen, dialog: 'coachdlg'}, '', location.href); } catch(e){} }
+    else pushDialog('coachdlg');
+  }
+  return ++coSeq;
+}
+function closeCoach(){
+  coSeq++;
+  const d = $('coachdlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+function coachLeave(){
+  if(history.state && history.state.dialog === 'coachdlg') history.back();
+  else closeCoach();
+}
+$('coClose').addEventListener('click', coachLeave);
+$('coAgain').addEventListener('click', () => { if(coAgain) coAgain().catch(reportErr); });
+$('coachdlg').addEventListener('cancel', () => { coSeq++; });
+const writtenOn = t => new Date(t).toLocaleDateString();
+async function coachAsk(n, payload){
+  showMsg($('coMsg'), 'info', 'Writing' + String.fromCharCode(8230) + ' usually 10 to 30 seconds.');
+  try {
+    const r = await aiAsk(payload);
+    if(n !== coSeq) return null;
+    const text = String(r.text || '').trim();
+    if(!text) throw new Error('the answer came back empty');
+    showMsg($('coMsg'), '', '');
+    $('coBody').innerHTML = coachHTML(text);
+    return text;
+  } catch(e){
+    if(n === coSeq) showMsg($('coMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e)) + '.');
+    return null;
+  } finally { if(n === coSeq) $('coAgain').disabled = false; }
+}
+async function prepareBrief(name, apId, fresh){
+  if(!name) return;
+  const ap = apId ? APPTS.find(x => x.id === apId) : nextVisitFor(name);
+  coAgain = () => prepareBrief(name, ap && ap.id, true);
+  const head = 'Brief: ' + name;
+  if(ap && ap.brief && ap.brief.text && !fresh){
+    coachOpen(head, 'Written ' + writtenOn(ap.brief.at) + ', for the visit on ' + dayLabel(ap.date) + ' at ' + ap.start + '.');
+    $('coBody').innerHTML = coachHTML(ap.brief.text);
+    $('coAgain').disabled = false;
+    return;
+  }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const n = coachOpen(head, ap ? 'For the visit on ' + dayLabel(ap.date) + ' at ' + ap.start + '.'
+    : 'No visit booked, so this brief is not kept. Book a visit and prepare from it to keep one.');
+  const a = ACC_BY_NAME.get(name);
+  const seeing = ap && a ? (ap.contacts || []).map(i => a.c[i]).filter(Boolean).map(c => [c.n, c.t || c.r].filter(Boolean).join(', ')) : [];
+  const visit = ap ? [dayLabel(ap.date) + ' at ' + ap.start, ap.type, (ap.agenda || '').trim() && 'Agenda: ' + ap.agenda.trim(),
+    seeing.length && 'Seeing: ' + seeing.join('; ')].filter(Boolean).join('\n') : '';
+  const text = await coachAsk(n, {kind: 'brief', a: accountText(name), b: accountHistory(name), visit});
+  if(!text || !ap) return;
+  const cur = APPTS.find(x => x.id === ap.id);
+  if(cur){
+    cur.brief = {text, at: Date.now()};
+    await saveAppt(cur);
+    if(n === coSeq) $('coSub').textContent = 'Written just now, for the visit on ' + dayLabel(cur.date) + ' at ' + cur.start + '. Saved with the visit.';
+  }
+}
+async function coachCall(fresh){
+  const c = call;
+  if(!c) return;
+  coAgain = () => coachCall(true);
+  const head = 'Coaching: ' + c.customer;
+  if(c.coaching && c.coaching.text && !fresh){
+    coachOpen(head, 'Written ' + writtenOn(c.coaching.at) + ', on the call of ' + c.date + '.');
+    $('coBody').innerHTML = coachHTML(c.coaching.text);
+    $('coAgain').disabled = false;
+    return;
+  }
+  if(!(c.entries || []).length && !(c.summary || '').trim()){ toast('Log something in the call first'); return; }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const n = coachOpen(head, 'On the call of ' + c.date + '.');
+  const text = await coachAsk(n, {kind: 'coach',
+    a: callDigest(c) + ((c.summary || '').trim() ? '\nSummary written for the report: ' + c.summary.trim() : ''),
+    b: accountHistory(c.customer, c.id)});
+  if(!text) return;
+  c.coaching = {text, at: Date.now()};
+  if(call === c){ await saveCall(); renderVisitSummary(); }
+  else { c.updated = Date.now(); await callsPut(c); }
+  if(n === coSeq) $('coSub').textContent = 'Written just now, on the call of ' + c.date + '. Kept with the call; not in any report.';
+}
+$('vCoach').addEventListener('click', () => coachCall(false).catch(reportErr));
+$('avPrep').addEventListener('click', () => { if(viewAcct) prepareBrief(viewAcct.a).catch(reportErr); });
+$('dPrep').addEventListener('click', () => {
+  const ap = APPTS.find(x => x.id === editingAppt);
+  if(ap) prepareBrief(ap.acct, ap.id).catch(reportErr);
+});
 
 document.querySelectorAll('[data-ai]').forEach(b =>
   b.addEventListener('click', () => aiTidy(b.dataset.ai, b.dataset.field).catch(reportErr)));

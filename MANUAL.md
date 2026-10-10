@@ -207,6 +207,27 @@ The line under the button says what was filled, what was left alone, and anythin
 
 The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.
 
+### Prepare for a visit, and get coaching after it
+
+Before a visit:
+
+1. Tap **⋯** on the visit, then **Prepare**. On the PC, open the visit and click **Prepare**, or open the account and click **Prepare for a visit**.
+2. Wait 10 to 30 seconds.
+3. Read the brief: where things stand, the aim, questions to ask, what was promised last time, and who to watch for.
+4. Tap **Close**.
+
+The brief is saved with the visit, so it's on your phone with no signal. Tap **⋯** on the visit, then **Brief**, to read it again. **Write it again** writes a fresh one.
+
+After the call:
+
+1. In the call, tap **Summary for the report**.
+2. Tap **Coach me**.
+3. Read what went well, what's still unknown, the next steps, and what to ask next time.
+
+The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.
+
+The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records to Anthropic, and counts towards the 200 a day.
+
 ### Add photos
 
 1. Tap the camera icon at the top of the call to photograph whatever you logged last.

@@ -145,6 +145,33 @@ checked in an actual browser tab or on a phone.
 
 ---
 
+## Built (v102): Sales coach — a brief before a visit, coaching after a call
+*Asked 2026-10-10; built 2026-10-10.* Ben wanted the call records used
+strategically for the next visit, along the lines of a friend's sales coach
+built on recommended sales books. Chosen: both a pre-visit brief and
+post-call coaching, built into the app, using published methods — **SPIN
+Selling** and **Strategic Selling** (Miller Heiman), plus **Value First,
+Then Price** and **The Speed of Trust** — on Claude Haiku 5.5 for cost
+(Ben's choice; "we'll see how useful it is").
+
+- **Prepare for a visit** (account screen; also Prepare in the visit menu
+  and the visit editor) sends that one account's details and its last six
+  calls (summaries, entries, earlier coaching), open tasks and unstocked
+  products to `ai-tidy` (`kind: 'brief'`). Back: Where things stand / Aim
+  for this visit / Questions to ask (SPIN, tagged [S][P][I][N]) / Promised
+  last time / Watch for (buying influences, red flags). Kept on the visit as
+  `ap.brief`, so it syncs and reads with no signal on site. With no visit
+  booked it is shown but not kept.
+- **Coach me** (visit summary on the call) sends the call and the account's
+  history (`kind: 'coach'`). Back: What went well / Still unknown / Next
+  steps / Ask next time. Kept on the call as `call.coaching`, never in any
+  report, and read back into the next brief.
+
+Checked live with an invented account and the test account; not yet on
+Ben's real records or on the phone.
+
+---
+
 ## Built (v101): Photo-to-belt-spec from a hand-filled paper sheet
 *Added 2026-09-28; built 2026-10-10.* **Read a spec sheet** on the belt form:
 the photo goes to the `ai-tidy` function (`kind: 'spec'`, Claude Haiku 5.5

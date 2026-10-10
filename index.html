@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v101">
+<meta name="build" content="v102">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -154,6 +154,13 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
 #aidlg{width:min(640px,96vw)}
 #tidydlg{width:min(680px,96vw)}
+#coachdlg{width:min(640px,96vw)}
+.coach h3{font-size:14px;font-weight:700;margin:14px 0 4px;color:var(--ink)}
+.coach h3:first-child{margin-top:0}
+.coach ul{margin:0;padding-left:20px}
+.coach li{margin:4px 0;line-height:1.45}
+.coach p{margin:4px 0}
+#avPrep{margin-bottom:10px}
 /* filled from a photographed spec sheet (v101) until you change it */
 #s-belt .fromphoto{background:var(--cyan-lt)!important;border-color:var(--cyan-dk)!important}
 #s-belt .chips.fromphoto{outline:2px solid var(--cyan-dk);outline-offset:3px;border-radius:var(--r)}
@@ -1637,6 +1644,27 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Prepare for a visit, and get coaching after it</b><span class="sxs">The sales coach</span></summary>
+    <div class="fld help">
+      <p>Before a visit:</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on the visit, then <b>Prepare</b>. On the PC, open the visit and click <b>Prepare</b>, or open the account and click <b>Prepare for a visit</b>.</li>
+        <li>Wait 10 to 30 seconds.</li>
+        <li>Read the brief: where things stand, the aim, questions to ask, what was promised last time, and who to watch for.</li>
+        <li>Tap <b>Close</b>.</li>
+      </ol>
+      <p>The brief is saved with the visit, so it's on your phone with no signal. Tap <b>&#8943;</b> on the visit, then <b>Brief</b>, to read it again. <b>Write it again</b> writes a fresh one.</p>
+      <p>After the call:</p>
+      <ol>
+        <li>In the call, tap <b>Summary for the report</b>.</li>
+        <li>Tap <b>Coach me</b>.</li>
+        <li>Read what went well, what's still unknown, the next steps, and what to ask next time.</li>
+      </ol>
+      <p>The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.</p>
+      <p>The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records to Anthropic, and counts towards the 200 a day.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Add photos</b><span class="sxs">To an entry, or loose</span></summary>
     <div class="fld help">
       <ol>
@@ -2010,6 +2038,8 @@ details.bsx > .msg{margin:8px 12px}
 <!-- ACCOUNT VIEW -->
 <section class="scr" id="s-acct">
   <div class="fld" id="avHead"></div>
+  <!-- v102: the sales coach's pre-visit brief, from this account's records -->
+  <button class="ghost" id="avPrep" type="button">Prepare for a visit</button>
   <h2>Contacts</h2>
   <div class="fld" id="avContacts"></div>
   <h2>Visit history</h2>
@@ -2135,6 +2165,20 @@ details.bsx > .msg{margin:8px 12px}
   </div>
 </dialog>
 
+<!-- The sales coach (v102): a pre-visit brief, or coaching on a call. Read-only. -->
+<dialog id="coachdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="btn" id="coClose">Close</button>
+    <b id="coHead">Brief</b>
+    <button type="button" class="btn act2" id="coAgain">Write it again</button>
+  </div>
+  <div class="dlg-b">
+    <p class="hint" id="coSub"></p>
+    <p class="msg" id="coMsg"></p>
+    <div class="coach" id="coBody"></div>
+  </div>
+</dialog>
+
 <!-- Tidy all (v100): every box in the call tidied, each ticked to use. -->
 <dialog id="tidydlg">
   <div class="dlg-h tkh">
@@ -2195,6 +2239,7 @@ details.bsx > .msg{margin:8px 12px}
   <div class="dlg-f">
     <button class="btn danger" id="dDel" type="button">Delete</button>
     <span class="spacer"></span>
+    <button class="btn" id="dPrep" type="button" hidden>Prepare</button>
     <button class="btn act2" id="dStart" type="button" hidden>Start the call</button>
     <button class="btn" id="dCancel" type="button">Cancel</button>
     <button class="btn key" id="dSave" type="button">Save</button>
@@ -2375,8 +2420,9 @@ details.bsx > .msg{margin:8px 12px}
         <button type="button" class="bullet-btn aibtn" id="vSumAi">Write summary</button>
         <button type="button" class="bullet-btn aibtn" data-ai="vSummary" data-field="note">Tidy</button>
         <button type="button" class="bullet-btn aibtn" id="vTidyAll">Tidy all notes</button>
+        <button type="button" class="bullet-btn aibtn" id="vCoach">Coach me</button>
       </div>
-      <p class="hint">Goes at the top of the full call notes. Not in the health check or belt requirements documents.</p>
+      <p class="hint">Goes at the top of the full call notes. Not in the health check or belt requirements documents. Coaching stays with the call and is never in a report.</p>
     </div>
   </details>
 
