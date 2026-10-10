@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v102';
+const APP_BUILD = 'v103';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1349,7 +1349,29 @@ function closeDialogsNow(){
 }
 // Push an entry when a dialog opens, so back closes it. Called by the openers.
 function pushDialog(id){
-  try { history.pushState({screen: screen, dialog: id}, '', location.href); } catch(e){}
+  const st = {screen: screen, dialog: id};
+  try {
+    if(staleEntry()) history.replaceState(st, '', location.href);
+    else history.pushState(st, '', location.href);
+  } catch(e){}
+  leftover = false;
+}
+/* A menu that closes itself when one of its actions is tapped (the visit menu,
+   the card menu, Create and share) leaves its history entry behind. Before
+   v103 that entry cost an extra back - or worse: Move opened over it, and
+   Cancel on Move went back onto it and left the Move sheet open. Now the next
+   screen or dialog takes that entry over, and a back from it steps past. */
+let leftover = false;
+DIALOGS.forEach(id => { const d = $(id); if(d) d.addEventListener('close', () => { if(staleEntry()) leftover = true; }); });
+function entryShowing(id){
+  if(id === true) return true;                    // an unnamed entry from before v103
+  const el = $(id);
+  if(!el) return false;
+  return el.tagName === 'DIALOG' ? el.hasAttribute('open') : el.classList.contains('on');
+}
+function staleEntry(){
+  const s = history.state;
+  return !!(s && s.dialog) && !entryShowing(s.dialog);
 }
 
 /* Screens that read the open call. Reaching one without a call - a stale history
@@ -1412,8 +1434,9 @@ function showScreen(name){
 function go(name, replace){
   /* Re-showing the same screen is a redraw, not a move. Pushing an entry for it
      would mean two back presses to leave a screen you never navigated twice. */
-  const same = (name === screen) || replace;
+  const same = (name === screen) || replace || staleEntry();
   showScreen(name);
+  leftover = false;
   try {
     const st = {screen: name};
     if(same) history.replaceState(st, '', location.href);
@@ -1422,6 +1445,10 @@ function go(name, replace){
 }
 window.addEventListener('popstate', e => {
   const st = e.state || {screen:'home'};
+  const wasLeftover = leftover;
+  leftover = false;
+  // reached an entry whose dialog has already closed: step past it
+  if(st.dialog && !entryShowing(st.dialog)){ closeDialogsNow(); history.back(); return; }
   // a dialog was open and the entry behind it has been reached: just close it
   // the photo viewer is an overlay, not a dialog element, so it is closed here too
   if($('pview') && $('pview').classList.contains('on') && !st.dialog){ closePhoto(); return; }
@@ -1434,6 +1461,8 @@ window.addEventListener('popstate', e => {
   if(st.dialog !== 'coachdlg' && $('coachdlg').hasAttribute('open')){ closeCoach(); return; }
   if(openDialogs().length && !st.dialog){ closeDialogsNow(); return; }
   if(st.dialog) return;      // going forward into a dialog entry: leave it be
+  // off a menu's leftover entry onto the screen already showing: one more, so one back is one step
+  if(wasLeftover && st.screen === screen){ history.back(); return; }
   showScreen(st.screen || 'home');
 });
 /* ---------- back goes up, not backwards ----------
@@ -7508,9 +7537,9 @@ function openCardMenu(title, sub, actions){
     closeVisitMenu();
     actions[+b.dataset.cm].run();
   }));
+  pushDialog('vmdlg');
   const dlg = $('vmdlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
-  try { history.pushState({screen: screen, dialog: true}, '', location.href); } catch(e){}
 }
 function renderLoose(){
   const el = $('looseWrap');
@@ -7836,19 +7865,20 @@ function openVisitMenu(id){
   body.querySelectorAll('[data-vsaveall]').forEach(b => b.addEventListener('click', ()=>{
     saveContacts(cts, ap.acct, ap.acct).catch(reportErr);
   }));
-  /* The visit actions each navigate or redraw, so the menu closes behind them
-     rather than being left open over a screen that has moved on. */
-  wireVisitCards(body);
+  /* The visit actions each navigate or redraw, so the menu closes first rather
+     than being left open over a screen that has moved on; whatever they open
+     then takes over the menu's history entry (v103). */
   body.querySelectorAll('[data-open],[data-closeout],[data-move],[data-missed],[data-cancel],[data-reopen]')
     .forEach(b => b.addEventListener('click', closeVisitMenu));
+  wireVisitCards(body);
   body.querySelectorAll('[data-prep]').forEach(b => b.addEventListener('click', () => {
     closeVisitMenu();
     prepareBrief(ap.acct, ap.id).catch(reportErr);
   }));
 
+  pushDialog('vmdlg');
   const dlg = $('vmdlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
-  try { history.pushState({screen: screen, dialog: true}, '', location.href); } catch(e){}
 }
 function closeVisitMenu(){
   const dlg = $('vmdlg');
@@ -7863,9 +7893,9 @@ function openOutDlg(){
   renderCompileStat();
   renderOutControls();
   $('outSub').textContent = call.customer + ' \u2014 ' + call.date;
+  pushDialog('outdlg');
   const dlg = $('outdlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
-  try { history.pushState({screen: screen, dialog: true}, '', location.href); } catch(e){}
 }
 function closeOutDlg(){
   const dlg = $('outdlg');
@@ -10126,12 +10156,8 @@ function coachOpen(head, sub){
   $('coAgain').disabled = true;
   const d = $('coachdlg');
   if(!d.hasAttribute('open')){
-    /* From the visit menu, the menu has just closed and left its history entry
-       behind; take that entry over rather than stacking a second one on it. */
-    const stale = history.state && history.state.dialog && !openDialogs().length;
     if(d.showModal) d.showModal(); else d.setAttribute('open','');
-    if(stale){ try { history.replaceState({screen: screen, dialog: 'coachdlg'}, '', location.href); } catch(e){} }
-    else pushDialog('coachdlg');
+    pushDialog('coachdlg');
   }
   return ++coSeq;
 }
