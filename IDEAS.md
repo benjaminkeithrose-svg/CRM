@@ -145,8 +145,16 @@ checked in an actual browser tab or on a phone.
 
 ---
 
-## Open: Photo-to-belt-spec from a hand-filled paper sheet
-*Added 2026-09-28*
+## Built (v101): Photo-to-belt-spec from a hand-filled paper sheet
+*Added 2026-09-28; built 2026-10-10.* **Read a spec sheet** on the belt form:
+the photo goes to the `ai-tidy` function (`kind: 'spec'`, Claude Haiku 5.5
+reads images), which returns the values it can read as JSON, null for
+anything it cannot. The app fills only empty boxes (or ones holding the app's
+own estimate), tints each until it is changed, opens the sections holding
+them, keeps the photo with the belt, and says what was filled, left alone,
+not matched to the reference data and not read. Checked live on a printed
+sheet with hand-style entries; not yet on real handwriting.
+
 
 **The ask:** Ben often works from paper — a hand-written spec, or a printed
 table with cells filled in by hand. Wants to photograph it and have Field

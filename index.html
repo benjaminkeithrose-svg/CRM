@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v100">
+<meta name="build" content="v101">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -154,6 +154,9 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
 #aidlg{width:min(640px,96vw)}
 #tidydlg{width:min(680px,96vw)}
+/* filled from a photographed spec sheet (v101) until you change it */
+#s-belt .fromphoto{background:var(--cyan-lt)!important;border-color:var(--cyan-dk)!important}
+#s-belt .chips.fromphoto{outline:2px solid var(--cyan-dk);outline-offset:3px;border-radius:var(--r)}
 .taitem{border:1px solid var(--line);border-radius:var(--r);padding:10px;margin-bottom:10px;background:var(--surface)}
 .taitem .tah{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-bottom:6px}
 .taitem .tah input{width:20px;height:20px;flex:none;accent-color:var(--act)}
@@ -1618,6 +1621,22 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Read a paper spec sheet</b><span class="sxs">Photo to belt form</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>In the call, tap <b>Belt</b>.</li>
+        <li>Tap <b>Read a spec sheet</b>.</li>
+        <li>Take a photo of the sheet, or choose one from your photos.</li>
+        <li>Wait about 5 to 10 seconds.</li>
+        <li>Check every tinted box. Change anything that's wrong.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>Only empty boxes are filled. Anything you'd already typed or picked stays as it is. A tinted box goes back to normal once you change it.</p>
+      <p>The line under the button says what was filled, what was left alone, and anything it couldn't read. Series, style and materials have to match your belt reference data; anything that doesn't is listed for you to pick.</p>
+      <p>The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Add photos</b><span class="sxs">To an entry, or loose</span></summary>
     <div class="fld help">
       <ol>
@@ -2391,6 +2410,10 @@ details.bsx > .msg{margin:8px 12px}
     <p class="msg" id="draft_belt"></p>
     <p class="msg" id="bAssetHit"></p>
     <button type="button" class="ghost" id="bFault">Log a fault on this belt</button>
+    <!-- v101: photograph a paper spec and the AI fills the empty boxes, tinted -->
+    <button type="button" class="ghost" id="bScan">Read a spec sheet</button>
+    <input type="file" id="bScanFile" accept="image/*" hidden>
+    <p class="msg" id="bScanMsg"></p>
   </div>
 
   <!-- v98: each part folds, with a line saying what is in it, so a belt fits

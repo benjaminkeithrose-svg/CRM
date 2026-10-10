@@ -380,7 +380,10 @@ The key never goes in the app or this repo.
 Tidy on every free-text box of a call (one-line boxes get one line back);
 v100 added **Write summary** (the visit summary that heads the full call
 notes, drafted from the whole call as text, `kind: 'summary'`) and **Tidy
-all** (every box in a call, three at a time, each ticked to use).
+all** (every box in a call, three at a time, each ticked to use). v101
+added **Read a spec sheet** (`kind: 'spec'`): a photo of a paper belt spec,
+read into the belt form's empty boxes. That sends the photo itself to
+Anthropic, the same exception as the note text.
 
 
 A Supabase Edge Function holds the Anthropic API key (in Supabase's secret

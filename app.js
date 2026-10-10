@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v100';
+const APP_BUILD = 'v101';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1384,6 +1384,9 @@ function showScreen(name){
   $('back').style.display = (name==='home') ? 'none' : 'block';
   paintHeaderMenu(name);
   $('title').textContent = TITLES[name] ? TITLES[name][0] : 'Field CRM';
+  // an entry already in the call log is being changed, not added
+  if(name === 'belt' && editingIdx != null) $('title').textContent = 'Belt';
+  if(name === 'project' && editingProject && editingProject.inThisCall) $('title').textContent = 'Project';
   $('subtitle').textContent = call ? (call.customer + (call.site?' - '+call.site:'')) : 'No call open';
   const inCall = call && CALL_SCREENS.includes(name);
   $('bar').style.display = inCall ? 'block' : 'none';
@@ -8563,6 +8566,8 @@ function resetBelt(){
   populateSprBores(); populateIndent(); updatePitch();
   refreshBeltCopy();
   beltFold(true);
+  document.querySelectorAll('#s-belt .fromphoto').forEach(x => x.classList.remove('fromphoto'));
+  try { showMsg($('bScanMsg'), '', ''); } catch(e){}
 }
 
 /* ---------- the belt form's sections (v98) ----------
@@ -8610,6 +8615,141 @@ let beltSumT = null;
 ['input', 'change', 'click'].forEach(ev => $('s-belt').addEventListener(ev, () => {
   clearTimeout(beltSumT); beltSumT = setTimeout(() => { try { beltSummaries(); } catch(e){ console.warn('belt summary', e); } }, 60);
 }));
+
+/* ---------- read a spec sheet (v101) ----------
+   Photograph a paper belt spec - a printed table filled in by hand, or plain
+   handwriting - and the ai-tidy function reads it. What comes back goes only
+   into boxes that are still empty: anything already typed or picked stays as
+   it is (PREFERENCES.md). Each box filled this way is tinted until it is
+   changed, the sections holding them open, and a line under the button says
+   what was filled, what was left alone and what could not be read. The photo
+   itself is kept with the belt. Nothing is saved until Done. */
+const SPEC_NONE = /^(none|nil|no|n\/?a|-+|—|–)$/i;
+const SPEC_BOX = {asset: ['bAsset', 'asset'], desc: ['bDesc', 'description'], cvlen: ['bCvLen', 'conveyor length'],
+  frame: ['bFrame', 'frame width'], width: ['bWidth', 'belt width'], beltlen: ['bLen', 'belt length'], notch: ['bNotch', 'centre notch'],
+  sprdesc: ['bSprDesc', 'sprocket'], sprpn: ['bSprPn', 'sprocket part number'], sprdrive: ['bSprDrive', 'drive qty'],
+  spridle: ['bSprIdle', 'idle qty'], flheight: ['bFlHeight', 'flight height'], flspacing: ['bFlMm', 'flight spacing'],
+  sgheight: ['bSgHeight', 'sideguard height'], qty: ['bQty', 'quantity'], comment: ['bComment', 'comments']};
+const specNorm = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+// an option or chip that matches loosely: same letters and digits, or for a series the same number
+function specOption(values, v, byNumber){
+  const w = specNorm(v);
+  if(!w) return '';
+  const hit = values.find(o => specNorm(o) === w);
+  if(hit) return hit;
+  const num = (String(v).match(/\d+/) || [])[0];
+  if(byNumber && num) return values.find(o => (String(o).match(/\d+/) || [])[0] === num) || '';
+  return values.find(o => specNorm(o) && (specNorm(o).includes(w) || w.includes(specNorm(o)))) || '';
+}
+function specFill(s){
+  const filled = [], kept = [], unmatched = [];
+  const mark = el => { if(!el) return; el.classList.add('fromphoto'); const d = el.closest('details'); if(d) d.open = true; };
+  const has = v => v != null && String(v).trim() && !SPEC_NONE.test(String(v).trim());
+  // the pickers first, so the cascade has populated what the boxes below depend on
+  if(has(s.series)){
+    if(serSel().value) kept.push('series');
+    else {
+      const ser = specOption([...serSel().options].map(o => o.value).filter(Boolean), s.series, true);
+      if(ser){ serSel().value = ser; onSeries(); mark(serSel()); filled.push('series'); }
+      else unmatched.push('series ' + s.series);
+    }
+  }
+  if(has(s.style)){
+    if(stySel().value) kept.push('style');
+    else if(serSel().value){
+      const st = specOption([...stySel().options].map(o => o.value).filter(Boolean), s.style);
+      if(st){ stySel().value = st; onStyle(); mark(stySel()); filled.push('style'); }
+      else unmatched.push('style ' + s.style);
+    } else unmatched.push('style ' + s.style);
+  }
+  const chips = (id, otherId, v, label, after) => {
+    if(!has(v)) return;
+    if(chipValue(id, otherId)){ kept.push(label); return; }
+    const vals = [...$(id).querySelectorAll('button')].map(b => b.dataset.v).filter(x => x && x !== 'OTHER');
+    const exact = specOption(vals, v) || String(v).trim();
+    if(setChip(id, exact, otherId) && chipValue(id, otherId)){ mark($(id)); filled.push(label); if(after) after(); }
+    else unmatched.push(label + ' ' + v);
+  };
+  chips('bMatChips', 'bMatOther', s.material, 'material', () => renderColourChips());
+  chips('bColourChips', 'bColourOther', s.colour, 'colour');
+  chips('bRodChips', 'bRodOther', s.rod, 'rod material');
+  try { syncFlightMaterial(); } catch(e){}
+  // sprockets and flights are only opened up if the sheet has something for them
+  if(['sprdesc', 'sprpn', 'sprdrive', 'spridle'].some(k => has(s[k])) && $('bSkipSpr').checked){
+    $('bSkipSpr').checked = false; $('bSkipSpr').dispatchEvent(new Event('change'));
+  }
+  const flights = has(s.fltype) || ['flheight', 'flspacing', 'sgtype', 'sgheight'].some(k => has(s[k]));
+  if(flights && $('bSkipAcc').checked){ $('bSkipAcc').checked = false; $('bSkipAcc').dispatchEvent(new Event('change')); }
+  const pick = (id, v, label) => {
+    if(!has(v)) return;
+    if($(id).value){ kept.push(label); return; }
+    if(setSelLoose(id, v) || setSelLoose(id, specOption([...$(id).options].map(o => o.value).filter(Boolean), v))){ mark($(id)); filled.push(label); }
+    else unmatched.push(label + ' ' + v);
+  };
+  pick('bFlType', s.fltype, 'flight type');
+  pick('bSgType', s.sgtype, 'sideguard type');
+  for(const [k, [id, label]] of Object.entries(SPEC_BOX)){
+    const el = $(id);
+    if(!el || !has(s[k])) continue;
+    if(id === 'bQty' && !isQuote(call)) continue;              // quantity is asked for on a quote request only
+    // an estimate the app worked out (badged) is not something typed, so the sheet replaces it
+    const estimate = {bSprDesc: !sprDescTouched, bSprPn: !sprPnTouched, bSprDrive: !sprDriveTouched,
+      bSprIdle: !sprIdleTouched, bLen: !lenTouched}[id];
+    if(el.value.trim() && !estimate){ kept.push(label); continue; }
+    el.value = String(s[k]).trim();
+    mark(el); filled.push(label);
+  }
+  // a value from the sheet is not an estimate, so the auto badges go off
+  if($('bSprDesc').classList.contains('fromphoto')){ sprDescTouched = true; $('bSprDescAuto').classList.add('off'); }
+  if($('bSprPn').classList.contains('fromphoto')){ sprPnTouched = true; $('bSprPnAuto').classList.add('off'); }
+  if($('bSprDrive').classList.contains('fromphoto')){ sprDriveTouched = true; $('bSprDrvAuto').classList.add('off'); }
+  if($('bSprIdle').classList.contains('fromphoto')){ sprIdleTouched = true; $('bSprIdlAuto').classList.add('off'); }
+  if($('bLen').classList.contains('fromphoto')){ lenTouched = true; $('bLenAuto').classList.add('off'); }
+  try { runWidthCheck(); runFrameCheck(); updatePitch(); } catch(e){}
+  try { beltSummaries(); } catch(e){}
+  return {filled, kept, unmatched};
+}
+async function readSpecSheet(file){
+  if(!file) return;
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  showMsg($('bScanMsg'), 'info', 'Reading the sheet' + String.fromCharCode(8230) + ' usually 5 to 10 seconds.');
+  let small;
+  try { small = await shrink(file, 1568, 0.85); }
+  catch(e){ showMsg($('bScanMsg'), 'warn', 'That photo could not be read. Nothing was changed.'); return; }
+  try { await addShots('belt', [file]); } catch(e){ console.warn('spec photo', e); }   // the sheet stays with the belt
+  let r;
+  try {
+    const b64 = String(await blobToDataURL(small)).split(',')[1] || '';
+    r = await aiAsk({kind: 'spec', image: b64, media: 'image/jpeg'});
+  } catch(e){
+    showMsg($('bScanMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e)) + '. Nothing was filled in; the photo is kept with the belt.');
+    return;
+  }
+  const res = specFill(r.spec || {});
+  const unread = (r.unread || []).map(String).filter(Boolean);
+  const bits = [];
+  bits.push(res.filled.length ? '<b>Filled from the photo, tinted — check each before Done:</b> ' + esc(res.filled.join(', ')) + '.'
+    : '<b>Nothing new could be filled from the photo.</b>');
+  if(res.kept.length) bits.push('Already filled, so left as you had them: ' + esc(res.kept.join(', ')) + '.');
+  if(res.unmatched.length) bits.push((REF ? 'Not in the belt reference data' : 'No belt reference data loaded') +
+    ', so left for you: ' + esc(res.unmatched.join(', ')) + '.');
+  if(unread.length) bits.push('Could not read: ' + esc(unread.join(', ')) + '.');
+  showMsg($('bScanMsg'), res.filled.length && !res.unmatched.length && !unread.length ? 'ok' : 'warn', bits.join('<br>'));
+  if(res.filled.length && call) saveCall();
+}
+$('bScan').addEventListener('click', () => {
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  $('bScanFile').value = '';
+  $('bScanFile').click();
+});
+$('bScanFile').addEventListener('change', () => readSpecSheet($('bScanFile').files[0]).catch(reportErr));
+// typing over a filled box, or picking again, takes the tint off; looking at it does not
+['input', 'change', 'click'].forEach(ev => $('s-belt').addEventListener(ev, e => {
+  const t = e.target && e.target.closest && e.target.closest(ev === 'click' ? '.chips.fromphoto' : '.fromphoto');
+  if(t) t.classList.remove('fromphoto');
+}, true));
 
 /* Set by the fault button so the belt is committed without the toast and the
    jump to the dashboard. Read into a local immediately, because the handler
