@@ -31,7 +31,7 @@ The app arrives empty. You load your own customers, and they stay on your device
 1. In Dynamics, open the **ANZ Active Food Contacts** view.
 2. Export it to Excel (.xlsx).
 3. In Field CRM, tap **⋯** at the top right of Home, then **Settings**.
-4. Tap **Update data**.
+4. Tap **CRM and belt data**.
 5. Under **Contact database**, choose the file.
 6. Tap **Import CRM export**.
 
@@ -39,14 +39,14 @@ Do this again whenever the CRM changes. Monthly is plenty. With cloud sync on, y
 
 ### 4. Load the belt data
 
-1. Tap **⋯** on Home, then **Settings**, then **Update data**.
+1. Tap **⋯** on Home, then **Settings**, then **CRM and belt data**.
 2. Under **Belt reference data**, choose **Plant_Audit_Template_1.xlsm**.
 3. Tap **Import plant audit workbook**.
 4. Leave the screen on until it says it has finished. It takes a few seconds.
 
 The newer audit form (FORM v1.2) doesn't import yet. Use Plant_Audit_Template_1.xlsm.
 
-Also under Update data: the **engineering manuals** (see How do I… Get the engineering manuals), and if you have them, the **plant audit register** (which belts are installed where) and the **zone overrides** file.
+The **plant audit register** (which belts are installed where), if you have it, is under **CRM and belt data** too. The **engineering manuals** have their own section in Settings (see How do I… Get the engineering manuals), and the **zone overrides** file is under **Other imports**.
 
 ### 5. Turn on cloud sync
 
@@ -163,6 +163,8 @@ Close out is for a visit with nothing to write up. It still counts as a visit. T
 
 Leave a form with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.
 
+The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Photos and comments, and Quote contact. Tap a section's name to open or close it. A closed one shows a line saying what's in it. A new belt opens on Belt data; a belt you've already logged opens with them all closed.
+
 ### Tidy a dictated note
 
 1. Dictate into the note, the project notes, or the comments on a belt or health check.
@@ -202,7 +204,7 @@ It goes on the calendar at the next half hour, for 30 minutes. Change the day or
 ### Bring tasks across from Task Slaughterer
 
 1. Save the Task Slaughterer file you were given to the PC.
-2. In Field CRM on the PC, tap **⋯** on Home, then **Settings**, then **Update data**.
+2. In Field CRM on the PC, tap **⋯** on Home, then **Settings**, then **Other imports**.
 3. Under **From Task Slaughterer**, choose the file.
 4. Tap **Import**.
 
@@ -318,8 +320,8 @@ A photo added to an old call later is full size until the next time you archive.
 ### Get the engineering manuals
 
 1. Connect to Wi-Fi. The MPB manual is about 45 MB.
-2. Tap **⋯** on Home, then **Settings**, then **Update data**.
-3. Under **Engineering manuals**, tap **Download** next to the one you want.
+2. Tap **⋯** on Home, then **Settings**, then **Engineering manuals**.
+3. Tap **Download** next to the one you want.
 4. Leave the screen on until it says it's imported.
 5. Do the next one.
 

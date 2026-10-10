@@ -965,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v97';
+const APP_BUILD = 'v98';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -7418,6 +7418,7 @@ function openLogged(i, copy){
   if(e.type==='belt'){
     resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
     fillBeltFromEntry(e);
+    beltFold(false);                  // a logged belt opens folded, each part summed up in a line
   } else if(e.type==='note'){
     $('nTopic').value = e.topic || ''; $('nText').value = e.text || '';
     $('nErr').classList.remove('show');
@@ -7447,7 +7448,7 @@ function openLogged(i, copy){
   } else return;
   if(copy) editingIdx = null;
   go(e.type);
-  toast(copy ? 'A copy \u2014 change what differs, then Done. Photos are not copied.' : 'Editing - save to update');
+  toast(copy ? 'A copy \u2014 change what differs, then Done. Photos are not copied.' : 'Editing \u2014 tap Done to save');
 }
 
 /* ---------- full-screen search (v84) ----------
@@ -8560,7 +8561,54 @@ function resetBelt(){
   setCascade('', '', '', '');
   populateSprBores(); populateIndent(); updatePitch();
   refreshBeltCopy();
+  beltFold(true);
 }
+
+/* ---------- the belt form's sections (v98) ----------
+   Belt data, Sprockets, Flights and sideguards, Photos and comments, and
+   Quote contact each fold, with one line saying what is in them, so a whole
+   belt reads on one screen. A new belt opens on Belt data; a logged belt (or a
+   copy of one) opens with everything folded. Same on the phone and the PC
+   (Ben, 2026-10-10). The asset field sits above them all and is the only
+   required field, so Done never has to open a section to show an error. */
+const BELT_SECS = ['bxBelt', 'bxSpr', 'bxAcc', 'bxPho', 'bxQuo'];
+function beltFold(fresh){
+  BELT_SECS.forEach(id => { const d = $(id); if(d) d.open = !!fresh && id === 'bxBelt'; });
+  beltSummaries();
+}
+function beltSummaries(){
+  const v = id => ($(id) && $(id).value || '').trim();
+  const set = (id, t, empty) => { const el = $(id); if(el) el.textContent = t || empty; };
+  const width = v('bWidth'), len = v('bLen');
+  const desc = v('bDesc') || [serSel().value, stySel().value].filter(Boolean).join(' ');
+  set('sumBelt', [desc, [beltMat(), beltColour()].filter(Boolean).join(' '),
+    width && len ? width + ' mm × ' + len + ' m' : width ? width + ' mm wide' : len ? len + ' m long' : ''].filter(Boolean).join(' · '), 'Not filled in');
+  if($('bSkipSpr').checked) set('sumSpr', 'Not assessed');
+  else {
+    const drv = v('bSprDrive'), idl = v('bSprIdle');
+    const pd = $('bSprPd').value ? $('bSprPd').options[$('bSprPd').selectedIndex].textContent : '';
+    set('sumSpr', [v('bSprDesc') || pd, drv && drv + ' drive', idl && idl + ' idle'].filter(Boolean).join(' · '), 'Not filled in');
+  }
+  if($('bSkipAcc').checked) set('sumAcc', 'None on this belt');
+  else {
+    const fl = flightType(), fh = v('bFlHeight'), sg = sgType();
+    set('sumAcc', [fl && (fl + (fh ? ' ' + fh + ' mm' : '')), indentValue() && 'indent ' + indentValue(), sg && sg + ' sideguards']
+      .filter(Boolean).join(' · '), 'Not filled in');
+  }
+  const kept = (editingIdx != null && call && call.entries[editingIdx] && call.entries[editingIdx].photos || []).length;
+  const ph = Math.max(kept, document.querySelectorAll('#bShots img').length);
+  const cm = v('bComment').replace(/\s+/g, ' ');
+  set('sumPho', [ph && ph + ' photo' + (ph === 1 ? '' : 's'), cm && (cm.length > 50 ? cm.slice(0, 50) + '…' : cm)].filter(Boolean).join(' · '), 'None yet');
+  const q = call && isQuote(call);
+  if($('bxQuoHead')) $('bxQuoHead').textContent = q ? 'For the quote' : 'Quote contact';
+  set('sumQuo', [q && v('bQty') && 'Qty ' + v('bQty'), q && ($('bTsg').checked ? 'ID confirmed with TSG' : 'ID not confirmed'),
+    v('bQc') ? 'Contact: ' + v('bQc') : 'Uses the call contacts'].filter(Boolean).join(' · '), '');
+}
+// typing, a chip or a picker anywhere on the form brings the lines up to date
+let beltSumT = null;
+['input', 'change', 'click'].forEach(ev => $('s-belt').addEventListener(ev, () => {
+  clearTimeout(beltSumT); beltSumT = setTimeout(() => { try { beltSummaries(); } catch(e){ console.warn('belt summary', e); } }, 60);
+}));
 
 /* Set by the fault button so the belt is committed without the toast and the
    jump to the dashboard. Read into a local immediately, because the handler
@@ -10821,8 +10869,8 @@ function renderSettingsSummary(){
   const put = (id, txt) => { const e = $(id); if(e) e.textContent = txt; };
   const first = id => (($(id) && $(id).innerText) || '').split('\n').map(x => x.trim()).filter(Boolean);
   put('sumCloud', first('sbStat').join(' \u00b7 ') || 'Not set up');
-  put('sumData', (META && META.counts ? META.counts.accounts + ' accounts' + (REF ? ', belt data' : '') + (ASSETS ? ', plant register' : '') : 'Nothing imported yet') +
-    (IX_ANY_NEW ? ' \u00b7 a new manual edition is out' : ''));
+  put('sumData', META && META.counts ? META.counts.accounts + ' accounts' + (REF ? ', belt data' : '') + (ASSETS ? ', plant register' : '') : 'Nothing imported yet');
+  put('sumMan', (first('manStat')[0] || 'No manuals loaded') + (IX_ANY_NEW ? ' \u00b7 a new edition is out' : ''));
   put('sumBk', (first('bkStat')[0] || '').replace(/\s+/g, ' ') || 'No backup taken on this device');
   put('sumMe', ($('setEmail') && $('setEmail').value) || 'Email not set');
   put('sumLog', LOAD_LOG.length ? LOAD_LOG.length + ' recent' : 'None yet');

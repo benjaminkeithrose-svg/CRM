@@ -481,7 +481,7 @@ sync work.
 
 **Layout**
 4. **Controls split between top and bottom.** Inside a call, **Create and share** is at the top while a fixed bar of Camera / Photos / Manuals / Call menu sits at the bottom of every call screen. Preference: never split a screen's controls between top and bottom.
-5. **Long scrolling.** The belt form and Settings (about 6,000px) are long single columns. Preference: condense rather than stack.
+5. **Long scrolling.** The belt form and Settings (about 6,000px) are long single columns. Preference: condense rather than stack. **Done (v98):** the belt form folds into five sections with a summary line each (a logged belt fits one phone screen, a new one about two); Settings' Update data became CRM and belt data, Engineering manuals and Other imports.
 
 **Lists and cards**
 6. **Rows of buttons on cards.** Call-log entries show camera, gallery, edit and delete buttons on every card; Reports cards show a tick and a bin. Preference: tap the card to open it; secondary actions in a ⋯ menu. (The phone's visit cards already do this right — tap to open, ⋯ for the rest.)
