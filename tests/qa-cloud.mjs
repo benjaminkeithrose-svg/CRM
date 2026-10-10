@@ -519,6 +519,21 @@ await Q.w.eval(`tasksDel('t100')`);
 await syncW(Q); await syncW(P);
 ok(!P.w.eval('TASKS.some(t => t.id === "t100")'), 'task delete reaches the PC');
 
+// saved notes and products (v97) travel the same way, encrypted
+await Q.w.eval(`snippetsPut({id: 'sn100', label: 'Close: lost on price', reason: 'Lost', text: 'private wording', created: Date.now(), lastUsed: 0, updated: Date.now()})`);
+await Q.w.eval(`productsPut({id: 'pr100', name: 'Round rings', part: 'RR-1', status: 'New product', acct: 'Acme Pty Ltd - Wetherill Park', notes: '', stocked: false, stockedAt: null, created: Date.now(), updated: Date.now()})`);
+await syncW(Q);
+ok(row5('snippets', 'sn100') && !/private wording|lost on price/.test(Buffer.from(row5('snippets', 'sn100').body, 'base64').toString('latin1')), 'saved note sent, unreadable in the cloud');
+ok(row5('products', 'pr100') && !/Round rings/.test(Buffer.from(row5('products', 'pr100').body, 'base64').toString('latin1')), 'product sent, unreadable in the cloud');
+await syncW(P);
+ok(P.w.eval('SNIPS.some(x => x.id === "sn100" && x.text === "private wording") && PRODS.some(x => x.id === "pr100" && x.part === "RR-1")'), 'PC has the saved note and the product');
+await P.w.eval(`(async () => { const r = PRODS.find(x => x.id === 'pr100'); r.stocked = true; r.stockedAt = Date.now(); r.updated = Date.now(); await productsPut(r); })()`);
+await syncW(P); await syncW(Q);
+ok(Q.w.eval('PRODS.some(x => x.id === "pr100" && x.stocked)'), 'marked stocked on the PC, stocked on the phone');
+await Q.w.eval(`snippetsDel('sn100')`);
+await syncW(Q); await syncW(P);
+ok(!P.w.eval('SNIPS.some(x => x.id === "sn100")'), 'saved note delete reaches the PC');
+
 // a quote request stays a quote request
 await Q.w.eval(`(async () => { await callsPut({id: 'q100', rectype: 'quote', customer: 'Acme Pty Ltd - Wetherill Park', date: '09/10/2026', contacts: [], entries: [], loose: [], updated: Date.now(), reqby: 'soon'}); })()`);
 await syncW(Q); await syncW(P);

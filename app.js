@@ -7,7 +7,7 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
-const DB_NAME = 'fieldcrm', DB_VER = 4;
+const DB_NAME = 'fieldcrm', DB_VER = 5;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
 /* Set while the account and contacts screens are being used to raise a quote
@@ -33,6 +33,9 @@ function openDB(){
       if(!d.objectStoreNames.contains('appts')) d.createObjectStore('appts', {keyPath:'id'});
       // v4: tasks. Each sits on the calendar for 30 minutes on its date.
       if(!d.objectStoreNames.contains('tasks')) d.createObjectStore('tasks', {keyPath:'id'});
+      // v5 (app v97): the Lists tile - saved notes and the Not stocked products list
+      if(!d.objectStoreNames.contains('snippets')) d.createObjectStore('snippets', {keyPath:'id'});
+      if(!d.objectStoreNames.contains('products')) d.createObjectStore('products', {keyPath:'id'});
     };
     r.onsuccess = e => { db = e.target.result; res(db); };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
@@ -150,6 +153,33 @@ async function tasksDel(id){
   });
   cloudMarkRec('tasks', id, Date.now(), true);
 }
+/* Saved notes and products (v97) are plain records like tasks: one store
+   each, the change marked for cloud sync on every write. */
+async function storeAll(name){
+  const d = await ready();
+  return new Promise((res,rej)=>{
+    const t = d.transaction(name,'readonly').objectStore(name).getAll();
+    t.onsuccess = ()=>res(t.result||[]); t.onerror = ()=>rej(t.error);
+  });
+}
+async function storePut(name, rec){
+  const d = await ready();
+  await new Promise((res,rej)=>{
+    const t = d.transaction(name,'readwrite').objectStore(name).put(rec);
+    t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
+  });
+  cloudMarkRec(name, rec.id, rec.updated);
+}
+async function storeDel(name, id){
+  const d = await ready();
+  await new Promise((res,rej)=>{
+    const t = d.transaction(name,'readwrite').objectStore(name).delete(id);
+    t.onsuccess = ()=>res(); t.onerror = ()=>rej(t.error);
+  });
+  cloudMarkRec(name, id, Date.now(), true);
+}
+const snippetsAll = () => storeAll('snippets'), snippetsPut = r => storePut('snippets', r), snippetsDel = id => storeDel('snippets', id);
+const productsAll = () => storeAll('products'), productsPut = r => storePut('products', r), productsDel = id => storeDel('products', id);
 async function recordsAll(){
   const d = await ready();
   return new Promise((res,rej)=>{
@@ -935,7 +965,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v96';
+const APP_BUILD = 'v97';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1149,6 +1179,7 @@ async function loadAccounts(){
   APPTS = await apptsAll();
   TASKS = await tasksAll();
   await loadQuotes();
+  await loadLists();
   REF = await kvGet('beltref') || null;
   ASSETS = await kvGet('assets') || null;
   await loadUse();
@@ -1287,7 +1318,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'],
-  note:['General note',''], health:['Health check','']
+  note:['General note',''], health:['Health check',''], lists:['Lists','']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1302,7 +1333,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1417,7 +1448,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home'
+  today:'home', settings:'home', help:'home', lists:'home'
 };
 function parentOf(name){
   const up = PARENT[name] || 'home';
@@ -4307,7 +4338,11 @@ async function importTaskSlaughterer(data){
       done: !!x.used, doneAt: x.used ? (x.usedAt || x.createdAt || null) : null, createdAt: x.createdAt};
   });
   const list = tasksIn.concat(mailsIn);
-  if(!list.length) throw new Error('that Task Slaughterer file has no tasks in it');
+  const lists = await tsImportLists(data);
+  if(!list.length){
+    if(!lists.total) throw new Error('that Task Slaughterer file has nothing in it this app takes');
+    return {added: lists.added, skipped: lists.skipped, open: 0, done: 0, mails: 0, kept: lists.kept, line: lists.line};
+  }
   const have = new Set(TASKS.map(t => t.id));
   const today = todayISOdate();
   const open = list.filter(x => !x.done).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -4349,7 +4384,47 @@ async function importTaskSlaughterer(data){
       (skipped ? '. ' + skipped + ' were already here' : '') +
       (kept.size ? '. ' + kept.size + ' account name' + (kept.size === 1 ? '' : 's') + ' not in the CRM, kept as typed: ' + [...kept].join(', ') : '')
     : 'Nothing new: all ' + skipped + ' tasks in that file are already here';
-  return {added, skipped, open: nOpen, done: nDone, mails, kept: [...kept], line};
+  return {added: added + lists.added, skipped: skipped + lists.skipped, open: nOpen, done: nDone, mails,
+    kept: [...kept].concat(lists.kept), line: line + (lists.total ? '. ' + lists.line : '')};
+}
+/* Its saved notes (the 'templates' collection) and Not stocked list
+   ('products'), v97. Each keeps its id as 'ts-<id>' in its own store, so a
+   second import adds nothing and never overwrites one changed here. */
+async function tsImportLists(data){
+  const tpls = (Array.isArray(data.templates) ? data.templates : []).filter(x => x && x.id && (x.label || x.text));
+  const prods = (Array.isArray(data.products) ? data.products : []).filter(x => x && x.id && (x.name || x.part));
+  const haveS = new Set(SNIPS.map(x => x.id)), haveP = new Set(PRODS.map(x => x.id));
+  const str = v => v == null ? '' : String(v);
+  const kept = new Set();
+  let sn = 0, pr = 0, skipped = 0;
+  for(const x of tpls){
+    const id = 'ts-' + x.id;
+    if(haveS.has(id)){ skipped++; continue; }
+    await snippetsPut({id, label: str(x.label).trim(), reason: str(x.reason).trim(), text: str(x.text),
+      created: x.createdAt || Date.now(), lastUsed: x.lastUsed || 0, updated: Date.now(), from: TS_SOURCE});
+    sn++;
+  }
+  for(const x of prods){
+    const id = 'ts-' + x.id;
+    if(haveP.has(id)){ skipped++; continue; }
+    const a = tsAccount(x.account);
+    if(a.how === 'kept') kept.add(a.acct);
+    const status = PR_STATUS.includes(x.status) ? x.status : 'Not stocked';
+    await productsPut({id, name: str(x.name).trim(), part: str(x.part).trim(), status, acct: a.acct, notes: str(x.notes),
+      stocked: !!x.stocked, stockedAt: x.stocked ? (x.stockedAt || Date.now()) : null,
+      created: x.createdAt || Date.now(), updated: Date.now(), from: TS_SOURCE});
+    pr++;
+  }
+  await loadLists();
+  if(screen === 'lists') renderLists();
+  const n = (k, w) => k + ' ' + w + (k === 1 ? '' : 's');
+  const total = tpls.length + prods.length;
+  const line = !total ? '' : (sn + pr)
+    ? n(sn, 'saved note') + ' and ' + n(pr, 'product') + ' brought in to Lists' +
+      (skipped ? ' (' + skipped + ' already here)' : '') +
+      (kept.size ? '. Product account' + (kept.size === 1 ? '' : 's') + ' not in the CRM, kept as typed: ' + [...kept].join(', ') : '')
+    : 'Saved notes and products: all ' + skipped + ' already here';
+  return {added: sn + pr, skipped, total, kept: [...kept], line};
 }
 document.addEventListener('DOMContentLoaded', () => {
   const b = $('tsBtn');
@@ -4364,7 +4439,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const rep = await importTaskSlaughterer(data);
       showMsg(msg, 'ok', esc(rep.line) + '.');
       await logLoad(f.name, 'tasks', rep.line);
-      toast(rep.added ? rep.added + ' tasks brought in' : 'Nothing new to bring in');
+      toast(rep.added ? rep.added + ' brought in from Task Slaughterer' : 'Nothing new to bring in');
     } catch(e){
       console.error(e);
       showMsg(msg, 'warn', 'That did not work: ' + esc(e.message) + '. Nothing was changed.');
@@ -4746,6 +4821,309 @@ $('tkDel').addEventListener('click', () => taskDelete().catch(e => { console.err
 // Escape, or the dialog closed by the back gesture: treated as Done
 $('taskdlg').addEventListener('cancel', e => { e.preventDefault(); taskFinish().catch(console.error); });
 $('taskdlg').addEventListener('close', () => { if(taskEdit) taskFinish().catch(console.error); });
+
+/* ================= Lists: saved notes and products (v97) =================
+   The last two Task Slaughterer lists, on a Lists tile on Home (Ben's choice,
+   2026-10-10) with a tab each.
+
+   Saved notes: reusable text, mostly closing notes for Dynamics
+   opportunities - a label, a close reason (Won / Lost / Not Qualified, or
+   Other typed in) and the text. Copy is the point of them, so it is the
+   first thing in the sheet and on the card's menu, and the list is ordered by
+   when each was last copied.
+
+   Products: the Not stocked list - product, part number, status (Not
+   stocked / New product / Requested to stock), account and notes, ticked
+   when stocked. Open and Stocked tabs.
+
+   Both behave like tasks: tap the card to open it, Done leaves and saves,
+   nothing entered is dropped, the bin asks first, Duplicate opens an unsaved
+   copy. Both sync through the cloud as their own record stores. */
+let SNIPS = [], PRODS = [];
+const SN_REASONS = ['Won', 'Lost', 'Not Qualified', 'Other'];
+const PR_STATUS = ['Not stocked', 'New product', 'Requested to stock'];
+let listsPane = 'notes', prView = 'open';
+async function loadLists(){
+  try { SNIPS = await snippetsAll(); PRODS = await productsAll(); }
+  catch(e){ console.error('lists', e); }
+}
+function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
+const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const snTitle = r => (r.label || '').trim() || (r.text || '').trim().split('\n')[0].slice(0, 60) || 'Saved note';
+const prTitle = r => (r.name || '').trim() || (r.part || '').trim() || 'Product';
+function snSorted(list){ return list.slice().sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0) || (b.created || 0) - (a.created || 0)); }
+function prSorted(list){
+  return list.slice().sort((a, b) => a.stocked ? (b.stockedAt || 0) - (a.stockedAt || 0) : (b.created || 0) - (a.created || 0));
+}
+function snRow(r){
+  const meta = [r.reason, (r.text || '').replace(/\s+/g, ' ').trim().slice(0, 90)].filter(Boolean).join(' · ');
+  return '<div class="rprow">' +
+    '<button class="rpt" data-snopen="' + esc(r.id) + '">' +
+    '<div class="rn">' + esc(snTitle(r)) + '</div>' +
+    '<div class="rm">' + esc(meta || 'No text yet') + '</div></button>' +
+    '<button class="rpmore" data-snmenu="' + esc(r.id) + '" aria-label="More for ' + esc(snTitle(r)) + '">&#8943;</button></div>';
+}
+function prRow(r){
+  const meta = [r.part, r.acct, r.stocked && r.stockedAt ? 'stocked ' + new Date(r.stockedAt).toLocaleDateString() : ''].filter(Boolean).join(' · ');
+  return '<div class="rprow">' +
+    '<button class="rpt" data-propen="' + esc(r.id) + '">' +
+    (r.status ? '<div class="rt"><span class="rd"></span><span class="st ' + (r.stocked ? 'done' : 'open') + '">' + esc(r.stocked ? 'stocked' : r.status) + '</span></div>' : '') +
+    '<div class="rn">' + esc(prTitle(r)) + '</div>' +
+    '<div class="rm">' + esc(meta || 'No details yet') + '</div></button>' +
+    '<button class="rpmore" data-prmenu="' + esc(r.id) + '" aria-label="More for ' + esc(prTitle(r)) + '">&#8943;</button></div>';
+}
+function wireListRows(el, before){
+  el.querySelectorAll('[data-snopen]').forEach(b => b.addEventListener('click', () => { if(before) before(); openSnip(b.dataset.snopen); }));
+  el.querySelectorAll('[data-snmenu]').forEach(b => b.addEventListener('click', () => snMenu(b.dataset.snmenu)));
+  el.querySelectorAll('[data-propen]').forEach(b => b.addEventListener('click', () => { if(before) before(); openProd(b.dataset.propen); }));
+  el.querySelectorAll('[data-prmenu]').forEach(b => b.addEventListener('click', () => prMenu(b.dataset.prmenu)));
+}
+function renderLists(){
+  const notes = listsPane === 'notes';
+  $('paneNotes').hidden = !notes;
+  $('paneProds').hidden = notes;
+  document.querySelectorAll('#lsTabs button').forEach(b => b.classList.toggle('on', b.dataset.pane === listsPane));
+  if(notes){
+    $('snHint').textContent = SNIPS.length ? SNIPS.length + ' saved note' + (SNIPS.length === 1 ? '' : 's') : '';
+    $('snRes').innerHTML = SNIPS.length ? snSorted(SNIPS).map(snRow).join('') : '<p class="empty">No saved notes yet.</p>';
+    wireListRows($('snRes'));
+  } else {
+    const open = PRODS.filter(r => !r.stocked), stocked = PRODS.filter(r => r.stocked);
+    $('prHint').textContent = PRODS.length ? open.length + ' open, ' + stocked.length + ' stocked' : '';
+    document.querySelectorAll('#prView button').forEach(b => b.classList.toggle('on', b.dataset.v === prView));
+    const list = prSorted(prView === 'open' ? open : stocked);
+    $('prRes').innerHTML = list.length ? list.map(prRow).join('')
+      : '<p class="empty">' + (PRODS.length ? 'Nothing here.' : 'No products yet.') + '</p>';
+    wireListRows($('prRes'));
+  }
+}
+document.querySelectorAll('#lsTabs button').forEach(b => b.addEventListener('click', () => { listsPane = b.dataset.pane; renderLists(); }));
+document.querySelectorAll('#prView button').forEach(b => b.addEventListener('click', () => { prView = b.dataset.v; renderLists(); }));
+const snHay = r => [r.label, r.reason, r.text].filter(Boolean).join(' ').toLowerCase();
+const prHay = r => [r.name, r.part, r.status, r.acct, r.notes, r.stocked ? 'stocked' : ''].filter(Boolean).join(' ').toLowerCase();
+function listSearch(kind){
+  const isSn = kind === 'sn';
+  openSearch({
+    placeholder: isSn ? 'Label, reason or any word in the text' : 'Product, part number, account or status',
+    render(q, el, hint){
+      const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+      if(!terms.length){ el.innerHTML = ''; hint.textContent = ''; return; }
+      const all = isSn ? snSorted(SNIPS) : prSorted(PRODS);
+      const hits = all.filter(r => terms.every(t => (isSn ? snHay(r) : prHay(r)).includes(t)));
+      hint.textContent = hits.length ? hits.length + ' of ' + all.length : 'Nothing matches that.';
+      el.innerHTML = hits.slice(0, 100).map(isSn ? snRow : prRow).join('');
+      wireListRows(el, closeSearch);
+    }
+  });
+}
+$('snSearch').innerHTML = icon('search');
+$('prSearch').innerHTML = icon('search');
+$('snSearch').addEventListener('click', () => listSearch('sn'));
+$('prSearch').addEventListener('click', () => listSearch('pr'));
+$('snNew').addEventListener('click', () => openSnip(null));
+$('prNew').addEventListener('click', () => openProd(null));
+
+/* ---- chips, tap again to deselect ---- */
+function chipRow(el, opts, on){
+  el.innerHTML = opts.map(x => '<button type="button" data-v="' + esc(x) + '"' + (x === on ? ' class="on"' : '') + '>' + esc(x) + '</button>').join('');
+}
+function chipVal(el){ const b = el.querySelector('button.on'); return b ? b.dataset.v : ''; }
+function chipTap(el, after){
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    const was = b.classList.contains('on');
+    el.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    if(!was) b.classList.add('on');
+    if(after) after();
+  });
+}
+
+/* ---- a saved note ---- */
+let snEdit = null, snIsNew = false, snBefore = '';
+function openSnip(id, copyOf){
+  const r = id ? SNIPS.find(x => x.id === id) : null;
+  if(id && !r){ toast('That saved note could not be found'); return; }
+  snIsNew = !r;
+  snEdit = r ? Object.assign({}, r) : Object.assign({id: newId('sn'), label: '', reason: '', text: '', created: Date.now(), lastUsed: 0},
+    copyOf ? {label: copyOf.label ? copyOf.label + ' (copy)' : '', reason: copyOf.reason || '', text: copyOf.text || ''} : {});
+  const e = snEdit;
+  $('snHead').textContent = snIsNew ? (copyOf ? 'Copy of saved note' : 'New saved note') : 'Saved note';
+  $('snLabel').value = e.label || '';
+  const known = SN_REASONS.slice(0, -1).includes(e.reason);
+  chipRow($('snReason'), SN_REASONS, !e.reason ? '' : known ? e.reason : 'Other');
+  $('snOther').value = e.reason && !known ? e.reason : '';
+  $('snOther').hidden = chipVal($('snReason')) !== 'Other';
+  $('snText').value = e.text || '';
+  $('snDel').hidden = snIsNew;
+  snBefore = JSON.stringify(snRead());
+  const d = $('snipdlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  if(snIsNew && !copyOf) setTimeout(() => { try { $('snLabel').focus(); } catch(_){} }, 50);
+}
+function snRead(){
+  const pick = chipVal($('snReason'));
+  return Object.assign({}, snEdit, {label: $('snLabel').value.trim(),
+    reason: pick === 'Other' ? ($('snOther').value.trim() || 'Other') : pick, text: $('snText').value});
+}
+async function snFinish(){
+  if(!snEdit) return;
+  const r = snRead();
+  snEdit = null;
+  const d = $('snipdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  if(snIsNew && !r.label && !r.text.trim()) return;               // nothing entered: nothing kept
+  if(!snIsNew && JSON.stringify(r) === snBefore) return;
+  r.updated = Date.now();
+  await snippetsPut(r);
+  SNIPS = SNIPS.filter(x => x.id !== r.id).concat([r]);
+  toast(!r.label ? 'Saved — it has no label yet' : 'Saved note saved');
+  if(screen === 'lists') renderLists();
+}
+async function snCopy(r){
+  if(!(r.text || '').trim()){ toast('There is no text to copy'); return; }
+  await copyText(r.text, 'Saved note');
+  const cur = SNIPS.find(x => x.id === r.id);
+  if(cur){ cur.lastUsed = Date.now(); cur.updated = Date.now(); await snippetsPut(cur); }
+  if(screen === 'lists') renderLists();
+}
+async function snDelete(r){
+  if(!confirm('Delete the saved note "' + snTitle(r) + '"?\n\nIt is gone from this device' +
+      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return false;
+  await snippetsDel(r.id);
+  SNIPS = SNIPS.filter(x => x.id !== r.id);
+  toast('Saved note deleted');
+  if(screen === 'lists') renderLists();
+  return true;
+}
+function snMenu(id){
+  const r = SNIPS.find(x => x.id === id);
+  if(!r) return;
+  openCardMenu(snTitle(r), r.reason || '', [
+    {label: 'Copy the text', icon: 'copy', run: () => snCopy(r).catch(reportErr)},
+    {label: 'Duplicate', icon: 'plus', run: () => openSnip(null, r)},
+    {label: 'Delete', icon: 'trash', danger: true, run: () => snDelete(r).catch(reportErr)}
+  ]);
+}
+chipTap($('snReason'), () => {
+  const other = chipVal($('snReason')) === 'Other';
+  $('snOther').hidden = !other;
+  if(other) setTimeout(() => { try { $('snOther').focus(); } catch(_){} }, 30);
+});
+$('snCopy').addEventListener('click', () => {
+  const r = snRead();
+  if(!r.text.trim()){ toast('There is no text to copy'); return; }
+  copyText(r.text, 'Saved note');
+  if(snEdit) snEdit.lastUsed = Date.now();
+});
+$('snOk').addEventListener('click', () => snFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
+$('snDel').addEventListener('click', async () => {
+  const r = snEdit;
+  if(!r) return;
+  snEdit = null;                                    // the close handler must not save it back
+  const d = $('snipdlg');
+  if(!await snDelete(r).catch(e => { reportErr(e); return false; })){ snEdit = r; return; }
+  if(d.close) d.close(); else d.removeAttribute('open');
+});
+$('snipdlg').addEventListener('cancel', e => { e.preventDefault(); snFinish().catch(console.error); });
+$('snipdlg').addEventListener('close', () => { if(snEdit) snFinish().catch(console.error); });
+
+/* ---- a product ---- */
+let prEdit = null, prIsNew = false, prBefore = '';
+function openProd(id, copyOf){
+  const r = id ? PRODS.find(x => x.id === id) : null;
+  if(id && !r){ toast('That product could not be found'); return; }
+  prIsNew = !r;
+  prEdit = r ? Object.assign({}, r) : Object.assign({id: newId('pr'), name: '', part: '', status: 'Not stocked', acct: '', notes: '',
+    stocked: false, stockedAt: null, created: Date.now()},
+    copyOf ? {name: copyOf.name || '', part: copyOf.part || '', status: copyOf.status || 'Not stocked', acct: copyOf.acct || '', notes: copyOf.notes || ''} : {});
+  const e = prEdit;
+  $('prHead').textContent = prIsNew ? (copyOf ? 'Copy of product' : 'New product') : 'Product';
+  $('prName').value = e.name || '';
+  $('prPart').value = e.part || '';
+  chipRow($('prStatus'), PR_STATUS, e.status || '');
+  const dl = $('prAcctList');
+  if(dl.childElementCount !== ACCOUNTS.length){
+    dl.innerHTML = '';
+    for(const a of ACCOUNTS){ const o = document.createElement('option'); o.value = a.a; dl.appendChild(o); }
+  }
+  $('prAcct').value = e.acct || '';
+  $('prNotes').value = e.notes || '';
+  $('prStocked').checked = !!e.stocked;
+  prStockedLine();
+  $('prDel').hidden = prIsNew;
+  prBefore = JSON.stringify(prRead());
+  const d = $('proddlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  if(prIsNew && !copyOf) setTimeout(() => { try { $('prName').focus(); } catch(_){} }, 50);
+}
+function prStockedLine(){
+  const on = $('prStocked').checked, at = prEdit && prEdit.stocked && prEdit.stockedAt;
+  $('prStockedAt').textContent = on ? (at ? 'Stocked ' + new Date(at).toLocaleDateString() + '.' : 'Stocked today, once you tap Done.')
+    : 'Tick it when it’s on the shelf. It moves to the Stocked tab.';
+}
+function prRead(){
+  const stocked = $('prStocked').checked;
+  return Object.assign({}, prEdit, {name: $('prName').value.trim(), part: $('prPart').value.trim(), status: chipVal($('prStatus')),
+    acct: $('prAcct').value.trim(), notes: $('prNotes').value, stocked,
+    stockedAt: stocked ? (prEdit.stocked && prEdit.stockedAt) || Date.now() : null});
+}
+async function prFinish(){
+  if(!prEdit) return;
+  const r = prRead();
+  const was = prEdit;
+  prEdit = null;
+  const d = $('proddlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  if(prIsNew && !r.name && !r.part && !r.acct && !r.notes.trim()) return;
+  // the stocked date is filled in on reading, so it is left out of the comparison; the tick is not
+  const strip = x => JSON.stringify(Object.assign({}, x, {stockedAt: null}));
+  if(!prIsNew && strip(r) === strip(JSON.parse(prBefore))) return;
+  r.updated = Date.now();
+  await productsPut(r);
+  PRODS = PRODS.filter(x => x.id !== r.id).concat([r]);
+  toast(!r.name ? 'Saved — it has no product name yet' : r.stocked && !was.stocked ? 'Marked stocked' : 'Product saved');
+  if(screen === 'lists') renderLists();
+}
+async function prSetStocked(r, on){
+  const cur = PRODS.find(x => x.id === r.id);
+  if(!cur) return;
+  cur.stocked = on; cur.stockedAt = on ? Date.now() : null; cur.updated = Date.now();
+  await productsPut(cur);
+  toast(on ? 'Marked stocked' : 'Back on the open list');
+  if(screen === 'lists') renderLists();
+}
+async function prDelete(r){
+  if(!confirm('Delete "' + prTitle(r) + '"' + (r.acct ? ' for ' + r.acct : '') + ' from the products list?\n\nIt is gone from this device' +
+      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return false;
+  await productsDel(r.id);
+  PRODS = PRODS.filter(x => x.id !== r.id);
+  toast('Product deleted');
+  if(screen === 'lists') renderLists();
+  return true;
+}
+function prMenu(id){
+  const r = PRODS.find(x => x.id === id);
+  if(!r) return;
+  openCardMenu(prTitle(r), [r.part, r.acct].filter(Boolean).join(' · '), [
+    r.stocked ? {label: 'Not stocked after all', icon: 'close', run: () => prSetStocked(r, false).catch(reportErr)}
+              : {label: 'Mark stocked', icon: 'check', run: () => prSetStocked(r, true).catch(reportErr)},
+    {label: 'Duplicate', icon: 'plus', run: () => openProd(null, r)},
+    {label: 'Delete', icon: 'trash', danger: true, run: () => prDelete(r).catch(reportErr)}
+  ]);
+}
+chipTap($('prStatus'));
+$('prStocked').addEventListener('change', prStockedLine);
+$('prOk').addEventListener('click', () => prFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
+$('prDel').addEventListener('click', async () => {
+  const r = prEdit;
+  if(!r) return;
+  prEdit = null;
+  const d = $('proddlg');
+  if(!await prDelete(r).catch(e => { reportErr(e); return false; })){ prEdit = r; return; }
+  if(d.close) d.close(); else d.removeAttribute('open');
+});
+$('proddlg').addEventListener('cancel', e => { e.preventDefault(); prFinish().catch(console.error); });
+$('proddlg').addEventListener('close', () => { if(prEdit) prFinish().catch(console.error); });
 
 /* ================= cloud sync (Supabase) =================
 
@@ -5421,7 +5799,7 @@ async function cloudWaiting(){
 var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
 var cloudProgress = '';
 var cloudRecTimer = null;
-const CLOUD_REC_STORES = ['calls', 'appts', 'tasks'];
+const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products'];
 
 async function cloudDirtyLoad(){
   if(!cloudDirty){
@@ -5460,6 +5838,8 @@ async function cloudSeed(){
   for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
   for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
   for(const t of await tasksAll()) if(!cloudDirty['tasks/' + t.id]) cloudDirty['tasks/' + t.id] = {v: recVer('tasks', t) || now, del: false, at: now};
+  for(const st of ['snippets', 'products'])
+    for(const r of await storeAll(st)) if(!cloudDirty[st + '/' + r.id]) cloudDirty[st + '/' + r.id] = {v: recVer(st, r) || now, del: false, at: now};
   await cloudDirtySave();
   await kvSet('cloudSeeded', true);
 }
@@ -5653,9 +6033,9 @@ async function cloudApplyRec(row, stats){
   cloudQuiet = true;
   try {
     if(row.deleted){
-      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel})[store](id); stats.gone++; }
+      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel})[store](id); stats.gone++; }
     } else if(store !== 'calls'){
-      await ({appts: apptsPut, tasks: tasksPut})[store](await sbOpen(store, id, row));
+      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut})[store](await sbOpen(store, id, row));
       stats[store]++;
     } else {
       const got = await cloudCallIn(await sbOpen(store, id, row), local);
@@ -5698,9 +6078,9 @@ async function cloudPullRecs(stats){
 }
 
 async function cloudSyncRecs(){
-  const stats = {calls: 0, appts: 0, tasks: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
-  const up = {calls: 0, appts: 0, tasks: 0, gone: 0, photosUp: 0};
+  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, gone: 0, photosUp: 0};
   try {
     await cloudPushRecs(up);
     const down = stats;
@@ -5708,15 +6088,18 @@ async function cloudSyncRecs(){
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
   const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
+    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'),
     x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
-  if(up.calls + up.appts + up.tasks + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
-  if(stats.calls + stats.appts + stats.tasks + stats.gone){
+  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
+  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.gone){
     const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
     APPTS = await apptsAll();
     TASKS = await tasksAll();
     await loadQuotes();
+    await loadLists();
+    if(screen === 'lists') try { renderLists(); } catch(e){ console.error('lists', e); }
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -6572,6 +6955,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     if(!call){ toast('Open a call first'); return; }
     const first = (call.contacts||[])[0] || {};
     openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
+  } else if(t==='lists'){
+    showLists();
   } else if(t==='reports'){
     go('reports');
   } else if(t==='manuals'){
@@ -9902,6 +10287,8 @@ async function buildBackup(withPhotos){
     accounts: ACCOUNTS,
     appts: APPTS,
     tasks: TASKS,
+    snippets: SNIPS,
+    products: PRODS,
     weeks: WEEKS,
     mgrOf: MGR_OF,
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos)
@@ -9972,6 +10359,10 @@ async function doRestore(file){
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   for(const t of tasks) if(t && t.id) await tasksPut(t);
   if(tasks.length) TASKS = await tasksAll();
+  // saved notes and products (v97), by id like everything else
+  for(const r of (Array.isArray(data.snippets) ? data.snippets : [])) if(r && r.id) await snippetsPut(r);
+  for(const r of (Array.isArray(data.products) ? data.products : [])) if(r && r.id) await productsPut(r);
+  await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
   if(data.mgrOf){ MGR_OF = data.mgrOf; await kvSet('mgrOf', MGR_OF); }
