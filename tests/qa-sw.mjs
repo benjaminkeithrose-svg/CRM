@@ -50,12 +50,14 @@ const before = cached.size;
 ok((await fire(ORIGIN + '/CRM/sw.js', { cache: 'no-store' })) === undefined, 'a no-store request is left to the network (daily version check)');
 ok(cached.size === before, 'and nothing is cached from it');
 
-// the app's own files and the listed CDN library are
+// the app's own files are; since v93 nothing in ASSETS comes from a CDN
 const own = await fire(ORIGIN + '/CRM/app.js');
 ok(own && (await own.text()).startsWith('net:'), 'own file fetched and served');
 ok(cached.has(ORIGIN + '/CRM/app.js'), 'own file kept for offline');
-const cdn = ASSETS.find(a => a.startsWith('http'));
-ok(cdn && (await fire(cdn)) !== undefined, 'the CDN library in ASSETS is still cached');
+ok(!ASSETS.some(a => a.startsWith('http')) && ASSETS.includes('./xlsx-0.18.5.full.min.js'),
+  'the spreadsheet reader ships with the app, not from a CDN');
+const xl = await fire(ORIGIN + '/CRM/xlsx-0.18.5.full.min.js');
+ok(xl && cached.has(ORIGIN + '/CRM/xlsx-0.18.5.full.min.js'), 'and is kept for offline');
 
 // offline with nothing cached: a script fails honestly; a page load gets the app
 netFails = true;

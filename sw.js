@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v92';
+const CACHE = 'fieldcrm-v93';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -16,7 +16,9 @@ const ASSETS = [
   './', './index.html', './app.js', './zones.js', './manuals.js', './healthlib.js',
   './health-seed.json', './manifest.webmanifest', './supabase-2.117.1.js',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+  // SheetJS ships with the app since v93 (it came from jsDelivr, so a first
+  // load that missed it left imports broken until the CDN was reached again)
+  './xlsx-0.18.5.full.min.js'
 ];
 
 self.addEventListener('install', e => {
@@ -113,7 +115,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (e.request.method !== 'GET') return;
-  /* Only the app's own files, and the one CDN library in ASSETS, come from the
+  /* Only the app's own files (and anything listed in ASSETS) come from the
      cache. Everything else - Supabase, the GitHub API - is live data: a saved
      copy would be served forever after, so a sync would keep seeing the first
      answer it ever got. Those go straight to the network. */

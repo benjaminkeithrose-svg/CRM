@@ -29,6 +29,7 @@ work from a copy of a file anywhere other than this checkout.
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
+| `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
 | `supabase/migrations/` | Cloud database schema. Not served by the app |
 | `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
@@ -78,8 +79,10 @@ leaving the device is encrypted with `sbSeal()` first. It runs automatically
 `cache.addAll()`: it is atomic, and a blocked CDN once took the whole app's
 offline capability down with it.
 
-**The service worker serves only the app's own files from its cache** (plus
-the one CDN library in `ASSETS`). Supabase and GitHub API requests go straight
+**The service worker serves only the app's own files from its cache.** Since
+v93 everything in `ASSETS` ships in the repo, SheetJS included
+(`xlsx-0.18.5.full.min.js`); only pdf.js for manual imports still loads from a
+CDN, on demand. Supabase and GitHub API requests go straight
 to the network. Before v69 it cached every GET, so a sync could be answered
 with the first reply it ever got; `tests/qa-sw.mjs` guards this.
 
@@ -191,15 +194,7 @@ he sees the new build.
   true of materials.
 - The Android back gesture moves through history chronologically; the on-screen
   back button is hierarchical via `PARENT`. Deliberate — he does not use gestures.
-- SheetJS is still loaded from a CDN. If first load fails and the phone goes
-  offline, import will not work until jsDelivr is reachable once.
-- Reopening a saved belt whose flight material differs from its belt material
-  can fail to restore it: `fillBeltFromEntry()` sets `bSprMat`'s value directly
-  as an option, but `bFlMat` is a `<select>` and `syncFlightMaterial()` (run
-  earlier in the same reload, via the cascade) only ever adds an `<option>` for
-  the *current* belt material, not the saved flight material. If they differ,
-  the direct `.value =` assignment silently no-ops and the field falls back to
-  matching the belt material instead of the value that was actually saved.
-  Found while fixing the sprocket/flight "touched" staleness bug below; not
-  fixed, since it's a different kind of bug (a missing `<option>`, not a stale
-  flag) and belt material and flight material differing is presumably rare.
+- pdf.js, used only when importing an engineering manual, still loads from
+  jsDelivr on first use. SheetJS moved into the repo in v93, and the
+  flight-material restore bug was fixed then (`selEnsure()` adds back an
+  option a dropdown no longer lists).
