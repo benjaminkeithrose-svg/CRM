@@ -413,6 +413,43 @@ opens, a visit takes the calendar to its day.
 The calendar backbone (A, B, C) is built. Still open from the original idea:
 Task Slaughterer import.
 
+**Task Slaughterer import — Ben's answers (2026-10-09):**
+- **Tasks only** for now. Emails, saved notes and the Not stocked list stay in
+  Task Slaughterer. Nothing else from it is rebuilt in the CRM as part of the
+  import — the worry is losing function or making the CRM clunky.
+- **Open tasks with no date land on the day they were created** (Task
+  Slaughterer's created date if it has one, otherwise the import day). Ben
+  floated two alternatives to decide later: split the day so undated tasks run
+  down one side of their created day, or put them all on that week's Saturday
+  to keep them out of the way.
+- He asked whether Task Slaughterer could write straight into Supabase and
+  have it pushed down to the apps. Not cleanly: everything in the cloud copy is
+  encrypted on the device with the passphrase (sbSeal), so a writer would need
+  the CRM's encryption code and the passphrase, and a Claude artifact cannot
+  reach other sites anyway. The equivalent that works: export a file from
+  Task Slaughterer, share it to Field CRM on one device (the share target
+  already takes .json), the import writes through tasksPut(), and cloud sync
+  pushes it to every other device by itself.
+- **Later, not now:** he likes "Write email" as a task and wants email drafts
+  visible. Natural home: a Write email task that carries its draft (To,
+  Subject, Body) and a Copy / Outlook action, rather than a separate Emails
+  list. Design separately.
+- **Built (v89).** Task Slaughterer keeps its data in the artifact's own
+  database (collections tasks, emails, appointments, products, templates); it
+  has no task export. The session read the tasks collection directly (53
+  tasks, every one with a created date, 39 of them made on 30 Sep), wrote
+  them to a file in the shape {source: 'task-slaughterer-9000', tasks: [...]}
+  and gave Ben the file. The file is never committed.
+- **Placement changed after seeing the data** (Ben, 2026-10-09): every task
+  had a created date and most were from one day last week, so "the day
+  created" would have hidden the open ones. Open tasks go on the import day
+  from 8am, half an hour apart, oldest first; done tasks on the day done.
+- Import: Settings → Update data → Tasks from Task Slaughterer, or share the
+  file to Field CRM. Ids become 'ts-<id>', so a second import adds nothing and
+  never overwrites a task edited in the CRM. Accounts match exactly, then by
+  the one CRM account holding every word typed; otherwise kept as typed and
+  listed in the report.
+
 **Worth knowing:** the app already links an appointment to its call in
 places (`callSummary`, `bookUnplanned()`). The known `'Phone call'` bug in
 `bookUnplanned()` (CLAUDE.md) sits right in this path and would need deciding

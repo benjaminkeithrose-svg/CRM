@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v88">
+<meta name="build" content="v89">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1292,6 +1292,13 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
     <p class="hint">One manual at a time. Import the MPB manual, wait for it to finish, then the ThermoDrive one. Each takes several minutes and needs the screen left on &mdash; every page is read and turned into an image so it works with no reception afterwards. The first import needs a connection once, to fetch the PDF reader. These are stored separately from the Belt Call Log's copy, so loading them here does not touch that app.</p>
   </div>
   <div class="fld">
+    <label>Tasks from Task Slaughterer</label>
+    <input type="file" id="tsFile" accept=".json,application/json">
+    <button class="ghost" id="tsBtn">Import tasks</button>
+    <p class="msg" id="tsMsg"></p>
+    <p class="hint">A one-off move of your Task Slaughterer tasks. Open ones go on today from 8am; done ones go on the day you ticked them off. Importing the same file again adds nothing.</p>
+  </div>
+  <div class="fld">
     <label>Zone overrides</label>
     <input type="file" id="ovFile" accept=".json">
     <button class="ghost" id="ovBtn">Load zone overrides</button>
@@ -1575,6 +1582,18 @@ details.sx > .fld{border:0;box-shadow:none;margin:0;border-radius:0}
         <li>Tap <b>Done</b>.</li>
       </ol>
       <p>It goes on the calendar at the next half hour, for 30 minutes. Change the day or time on the form. Tick its box when it's done.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Bring tasks across from Task Slaughterer</b><span class="sxs">Once, on the PC</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Save the Task Slaughterer file you were given to the PC.</li>
+        <li>In Field CRM on the PC, tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Update data</b>.</li>
+        <li>Under <b>Tasks from Task Slaughterer</b>, choose the file.</li>
+        <li>Tap <b>Import tasks</b>.</li>
+      </ol>
+      <p>Open tasks go on today from 8am. Done ones go on the day you ticked them off. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.</p>
     </div>
   </details>
   <details class="sx hx">
