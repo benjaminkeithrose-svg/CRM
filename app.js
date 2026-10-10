@@ -927,7 +927,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v90';
+const APP_BUILD = 'v91';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -4261,48 +4261,70 @@ function tsAccount(text){
   if(hits.length === 1) return {acct: hits[0].a, how: 'matched'};
   return {acct: t, how: 'kept'};
 }
+// the CRM contact whose email is this address, for an email draft with no account
+function tsContactByEmail(addr){
+  const a = String(addr || '').split(/[;,\s]+/).filter(Boolean)[0];
+  if(!a) return null;
+  const low = a.toLowerCase();
+  for(const acc of ACCOUNTS) for(const c of (acc.c || [])) if((c.e || []).some(e => String(e).toLowerCase() === low)) return {acct: acc.a, contact: c.n};
+  return null;
+}
 async function importTaskSlaughterer(data){
-  const list = Array.isArray(data.tasks) ? data.tasks.filter(x => x && x.id && (x.title || x.kind)) : [];
+  /* Tasks, and (v91) its email drafts as Write email tasks carrying the draft.
+     Both become one list so open ones share the import day's slots in the
+     order they were made. */
+  const tasksIn = (Array.isArray(data.tasks) ? data.tasks : []).filter(x => x && x.id && (x.title || x.kind))
+    .map(x => Object.assign({}, x, {key: 'ts-' + x.id}));
+  const mailsIn = (Array.isArray(data.emails) ? data.emails : []).filter(x => x && x.id && (x.subject || x.body)).map(x => {
+    const who = tsContactByEmail(x.to);
+    return {key: 'ts-mail-' + x.id, kind: 'email', title: x.subject || 'Email', account: who ? who.acct : null,
+      contact: who ? who.contact : null, email: x.to || null, mailTo: x.to || '', mailSubject: x.subject || '', mailBody: x.body || '',
+      done: !!x.used, doneAt: x.used ? (x.usedAt || x.createdAt || null) : null, createdAt: x.createdAt};
+  });
+  const list = tasksIn.concat(mailsIn);
   if(!list.length) throw new Error('that Task Slaughterer file has no tasks in it');
   const have = new Set(TASKS.map(t => t.id));
   const today = todayISOdate();
   const open = list.filter(x => !x.done).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   const done = list.filter(x => x.done);
   const kept = new Set();
-  let added = 0, skipped = 0, slot = 0;
+  let added = 0, skipped = 0, slot = 0, mails = 0;
   const str = v => v == null ? '' : String(v);
   const make = (x, date, start) => {
     const a = tsAccount(x.account);
     if(a.how === 'kept') kept.add(a.acct);
+    if(x.kind === 'email' && x.mailSubject != null) mails++;
     return {
-      id: 'ts-' + x.id, type: TS_KIND[x.kind] || 'Other', title: str(x.title).trim(),
+      id: x.key, type: TS_KIND[x.kind] || 'Other', title: str(x.title).trim(),
       date, start, dur: TASK_DUR, acct: a.acct, contact: str(x.contact), email: str(x.email),
       mobile: str(x.mobile), project: str(x.project), revenue: x.revenue == null ? '' : str(x.revenue),
-      notes: str(x.notes), done: !!x.done, doneAt: x.done ? (x.doneAt || null) : null, callId: null,
+      notes: str(x.notes), mailTo: str(x.mailTo), mailSubject: str(x.mailSubject), mailBody: str(x.mailBody),
+      done: !!x.done, doneAt: x.done ? (x.doneAt || null) : null, callId: null,
       created: x.createdAt || Date.now(), updated: Date.now(), from: TS_SOURCE
     };
   };
   for(const x of open){
-    if(have.has('ts-' + x.id)){ skipped++; continue; }
+    if(have.has(x.key)){ skipped++; continue; }
     const mins = Math.min(8 * 60 + 30 * slot++, 23 * 60 + 30);
     await tasksPut(make(x, today, hhmm(mins)));
     added++;
   }
   for(const x of done){
-    if(have.has('ts-' + x.id)){ skipped++; continue; }
+    if(have.has(x.key)){ skipped++; continue; }
     const when = new Date(x.doneAt || x.createdAt || Date.now());
     await tasksPut(make(x, iso(when), hhmm(Math.floor((when.getHours() * 60 + when.getMinutes()) / 30) * 30)));
     added++;
   }
   TASKS = await tasksAll();
   taskRefresh();
-  const nOpen = open.filter(x => !have.has('ts-' + x.id)).length, nDone = added - nOpen;
+  const nOpen = open.filter(x => !have.has(x.key)).length, nDone = added - nOpen;
   const line = added
-    ? added + ' task' + (added === 1 ? '' : 's') + ' brought in: ' + nOpen + ' open on today, ' + nDone + ' done on the day done' +
+    ? added + ' task' + (added === 1 ? '' : 's') + ' brought in' + (mails ? ' (' + mails + ' of them email drafts)' : '') + ': ' +
+      nOpen + ' open on today, ' + nDone + ' done on the day done' +
       (skipped ? '. ' + skipped + ' were already here' : '') +
       (kept.size ? '. ' + kept.size + ' account name' + (kept.size === 1 ? '' : 's') + ' not in the CRM, kept as typed: ' + [...kept].join(', ') : '')
     : 'Nothing new: all ' + skipped + ' tasks in that file are already here';
-  return {added, skipped, open: nOpen, done: nDone, kept: [...kept], line};
+  return {added, skipped, open: nOpen, done: nDone, mails, kept: [...kept], line};
 }
 document.addEventListener('DOMContentLoaded', () => {
   const b = $('tsBtn');
@@ -4414,7 +4436,7 @@ function renderKinds(){
 }
 // one searchable line per calendar item
 function calHay(kind, x){
-  if(kind === 'task') return [x.title, x.type, x.acct, x.contact, x.notes, x.project, x.email].filter(Boolean).join(' ').toLowerCase();
+  if(kind === 'task') return [x.title, x.type, x.acct, x.contact, x.notes, x.project, x.email, x.mailTo, x.mailSubject, x.mailBody].filter(Boolean).join(' ').toLowerCase();
   if(kind === 'quote') return [x.acct, 'quote request rfq'].join(' ').toLowerCase();
   const a = ACC_BY_NAME.get(x.acct);
   const cts = a ? (x.contacts || []).map(i => a.c[i]).filter(Boolean).map(c => c.n) : [];
@@ -4544,6 +4566,42 @@ function taskAutoFill(){
     const f = $(id);
     if(!f.value || f.value === f.dataset.auto){ f.value = v; f.dataset.auto = v; }
   });
+  taskSyncTo();
+}
+/* ---------- Write email tasks (v91) ----------
+   The task carries the draft: To, Subject, Body. To follows the task's email
+   (itself filled from the contact) until something is typed over it, and is
+   badged while it does. Open in Outlook hands a mailto link to the phone or
+   PC: a new message in the default mail app with everything filled in.
+   Nothing is downloaded, which is what sank .eml on Android. */
+const MAIL_TYPE = 'Write email';
+const MAILTO_MAX = 1800;            // longer links get cut short by some mail apps and by Windows
+function taskTypeNow(){ const on = $('tkType').querySelector('button.on'); return on ? on.dataset.v : ''; }
+function taskShowMail(){ $('tkMail').hidden = taskTypeNow() !== MAIL_TYPE; taskSyncTo(); }
+function taskSyncTo(){
+  const to = $('tkTo'), v = $('tkEmail').value.trim();
+  if(!to.value || to.value === to.dataset.auto){ to.value = v; to.dataset.auto = v; }
+  $('tkToAuto').hidden = !(to.value && to.value === to.dataset.auto);
+}
+function mailtoFor(to, subject, body){
+  const q = [];
+  if(subject) q.push('subject=' + encodeURIComponent(subject));
+  if(body) q.push('body=' + encodeURIComponent(body.replace(/\r?\n/g, '\r\n')));
+  return 'mailto:' + to.split(/[;,\s]+/).filter(Boolean).map(encodeURIComponent).join(',') + (q.length ? '?' + q.join('&') : '');
+}
+function taskOpenMail(){
+  const to = $('tkTo').value.trim(), subject = $('tkSubject').value.trim() || $('tkTitle').value.trim(), body = $('tkBody').value;
+  if(!to && !subject && !body.trim()){ toast('Nothing to send yet'); return; }
+  let url = mailtoFor(to, subject, body);
+  if(url.length > MAILTO_MAX){
+    // too long to carry: open with To and Subject, and hand the body over by the clipboard
+    url = mailtoFor(to, subject, '');
+    copyText(body, 'Email body');
+    toast('The body is too long to pass to Outlook - it is copied, paste it in');
+  }
+  const a = document.createElement('a');
+  a.href = url; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
 }
 function taskRead(){
   const t = taskEdit;
@@ -4557,6 +4615,9 @@ function taskRead(){
   t.contact = $('tkContact').value;
   t.email = $('tkEmail').value.trim();
   t.mobile = $('tkMobile').value.trim();
+  t.mailTo = $('tkTo').value.trim();
+  t.mailSubject = $('tkSubject').value.trim();
+  t.mailBody = $('tkBody').value;
   t.project = $('tkProject').value.trim();
   t.revenue = $('tkRevenue').value.trim();
   t.notes = $('tkNotes').value;
@@ -4571,11 +4632,13 @@ function openTask(id, extra){
     id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     type: '', title: '', date: todayISOdate(), start: nextHalfHour(new Date()), dur: TASK_DUR,
     acct: '', contact: '', email: '', mobile: '', project: '', revenue: '', notes: '',
+    mailTo: '', mailSubject: '', mailBody: '',
     done: false, doneAt: null, callId: null, created: Date.now()
   }, extra || {});
   const e = taskEdit;
   $('tkHead').textContent = taskIsNew ? 'New task' : 'Task';
   $('tkType').innerHTML = TASK_TYPES.map(x => '<button type="button" data-v="' + esc(x) + '"' + (x === e.type ? ' class="on"' : '') + '>' + esc(x) + '</button>').join('');
+  $('tkMail').hidden = e.type !== MAIL_TYPE;
   $('tkTitle').value = e.title || '';
   $('tkDate').value = e.date || '';
   $('tkTime').value = e.start || '';
@@ -4587,6 +4650,9 @@ function openTask(id, extra){
   $('tkAcct').value = e.acct || '';
   taskFillContacts(e.acct, e.contact);
   $('tkEmail').value = e.email || ''; $('tkEmail').dataset.auto = '';
+  $('tkTo').value = e.mailTo || ''; $('tkTo').dataset.auto = '';
+  $('tkSubject').value = e.mailSubject || ''; $('tkBody').value = e.mailBody || '';
+  $('tkToAuto').hidden = true;
   $('tkMobile').value = e.mobile || ''; $('tkMobile').dataset.auto = '';
   if(e.contact && !e.email && !e.mobile) taskAutoFill();
   $('tkProject').value = e.project || '';
@@ -4608,7 +4674,8 @@ async function taskFinish(){
   taskEdit = null;
   const d = $('taskdlg');
   if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
-  const blank = !t.title && !t.type && !t.acct && !t.notes.trim() && !t.project && !t.revenue && !t.email && !t.mobile;
+  const blank = !t.title && !t.type && !t.acct && !t.notes.trim() && !t.project && !t.revenue && !t.email && !t.mobile &&
+    !t.mailTo && !t.mailSubject && !(t.mailBody || '').trim();
   if(taskIsNew && blank) return;                         // nothing entered: no empty ghost task
   if(!taskIsNew && JSON.stringify(t) === taskBefore) return;   // opened and closed: nothing to save
   t.updated = Date.now();
@@ -4637,6 +4704,15 @@ $('tkType').addEventListener('click', e => {
   const was = b.classList.contains('on');
   $('tkType').querySelectorAll('button').forEach(x => x.classList.remove('on'));
   if(!was) b.classList.add('on');                        // tap again to deselect
+  taskShowMail();
+});
+$('tkEmail').addEventListener('input', taskSyncTo);
+$('tkTo').addEventListener('input', () => { $('tkToAuto').hidden = true; });
+$('tkOutlook').addEventListener('click', taskOpenMail);
+$('tkCopy').addEventListener('click', () => {
+  const body = $('tkBody').value;
+  if(!body.trim()){ toast('The body is empty'); return; }
+  copyText(body, 'Email body');
 });
 $('tkAcct').addEventListener('change', () => { taskFillContacts($('tkAcct').value.trim(), ''); taskAutoFill(); });
 $('tkContact').addEventListener('change', taskAutoFill);

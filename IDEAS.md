@@ -430,10 +430,18 @@ Task Slaughterer import.
   Task Slaughterer, share it to Field CRM on one device (the share target
   already takes .json), the import writes through tasksPut(), and cloud sync
   pushes it to every other device by itself.
-- **Later, not now:** he likes "Write email" as a task and wants email drafts
-  visible. Natural home: a Write email task that carries its draft (To,
-  Subject, Body) and a Copy / Outlook action, rather than a separate Emails
-  list. Design separately.
+- **Built (v91):** a Write email task carries its draft (To, Subject, Body).
+  To follows the task's email (from the contact) until typed over, badged
+  while it does. Open in Outlook is a mailto link (new message in the default
+  mail app, nothing downloaded); a body that would make the link longer than
+  1,800 characters is copied instead and the link carries To and Subject.
+  Copy copies the body. Done stays a manual tick. The calendar search looks
+  in the draft. Task Slaughterer's 6 email drafts came across as Write email
+  tasks (unused open on the import day, used as done), linked to the CRM
+  contact and account when the To address matches.
+- **Later:** a "Draft it" button where Claude writes the email from dictated
+  points and the task's details, once step 8 (the API key in Supabase) is set
+  up. Dictation itself stays with the phone keyboard's microphone.
 - **Built (v89).** Task Slaughterer keeps its data in the artifact's own
   database (collections tasks, emails, appointments, products, templates); it
   has no task export. The session read the tasks collection directly (53

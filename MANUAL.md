@@ -192,6 +192,20 @@ It goes on the calendar at the next half hour, for 30 minutes. Change the day or
 
 Open tasks go on today from 8am. Done ones go on the day you ticked them off. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.
 
+### Write an email as a task
+
+1. Add a task, and tap **Write email** as its type.
+2. Pick the account and contact further down. **To** fills with the contact's email.
+3. Type the **Subject**, or leave it to use the title.
+4. Type the **Body**, or tap the microphone on your keyboard and dictate it.
+5. Tap **Done**. The draft stays on the task.
+6. When you're ready to send, open the task and tap **Open in Outlook**. Check it and press Send in Outlook.
+7. Tick the task when it's sent.
+
+Open in Outlook starts a new email in your phone's or PC's mail app with everything filled in. Nothing is downloaded. A very long body is copied instead, for you to paste in. **Copy** copies the body on its own.
+
+If your phone opens a different mail app, set Outlook as the default email app in Android's settings.
+
 ### Request a quote
 
 1. Tap **New** on Home.
