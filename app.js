@@ -7,7 +7,7 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
-const DB_NAME = 'fieldcrm', DB_VER = 6;
+const DB_NAME = 'fieldcrm', DB_VER = 7;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
 /* Set while the account and contacts screens are being used to raise a quote
@@ -38,6 +38,8 @@ function openDB(){
       if(!d.objectStoreNames.contains('products')) d.createObjectStore('products', {keyPath:'id'});
       // v6 (app v106): the sales coach's account plans, one per account
       if(!d.objectStoreNames.contains('plans')) d.createObjectStore('plans', {keyPath:'id'});
+      // v7 (app v115): opportunities, each with its relationship map
+      if(!d.objectStoreNames.contains('opps')) d.createObjectStore('opps', {keyPath:'id'});
     };
     r.onsuccess = e => { db = e.target.result; res(db); };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
@@ -183,6 +185,7 @@ async function storeDel(name, id){
 const snippetsAll = () => storeAll('snippets'), snippetsPut = r => storePut('snippets', r), snippetsDel = id => storeDel('snippets', id);
 const productsAll = () => storeAll('products'), productsPut = r => storePut('products', r), productsDel = id => storeDel('products', id);
 const plansAll = () => storeAll('plans'), plansPut = r => storePut('plans', r), plansDel = id => storeDel('plans', id);
+const oppsAll = () => storeAll('opps'), oppsPut = r => storePut('opps', r), oppsDel = id => storeDel('opps', id);
 async function recordsAll(){
   const d = await ready();
   return new Promise((res,rej)=>{
@@ -971,7 +974,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v114';
+const APP_BUILD = 'v115';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1326,7 +1329,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'],
-  note:['General note',''], health:['Health check',''], lists:['Lists','']
+  note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity','']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1341,7 +1344,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1412,6 +1415,8 @@ function showScreen(name){
      viewer stays up, covering it. */
   if(window.Manuals && name !== 'manuals') Manuals.closeViewer();
   if(window.HealthLib && name !== 'health') HealthLib.closePicker();
+  // leaving the map with a change still being typed: save it now (v115)
+  if(screen === 'opp' && name !== 'opp' && opSaveTimer) oppSaveNow().catch(e => console.error('opportunity', e));
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -1438,9 +1443,11 @@ function showScreen(name){
     renderSettingsSummary(); }
   if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
   if(name==='plan') renderPlan();
+  if(name==='opp') renderOpp();
+  if(name==='acct') try { renderOppsCard(); } catch(e){ console.error('opportunities', e); }
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
-  document.body.classList.toggle('planning', name === 'plan');
+  document.body.classList.toggle('planning', name === 'plan' || name === 'opp');
   renderCallStrip();
 }
 function go(name, replace){
@@ -1499,7 +1506,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', lists:'home'
+  today:'home', settings:'home', help:'home', lists:'home', opp:'acct'
 };
 function parentOf(name){
   const up = PARENT[name] || 'home';
@@ -1716,6 +1723,7 @@ function openAccount(name){
   if(!viewAcct){ toast('That account is not in the database'); return; }
   renderAccount();
   renderPlanCard();
+  renderOppsCard();
   go('acct');
 }
 function renderAccount(){
@@ -4954,12 +4962,12 @@ $('taskdlg').addEventListener('close', () => { if(taskEdit) taskFinish().catch(c
    Both behave like tasks: tap the card to open it, Done leaves and saves,
    nothing entered is dropped, the bin asks first, Duplicate opens an unsaved
    copy. Both sync through the cloud as their own record stores. */
-let SNIPS = [], PRODS = [], PLANS = [];
+let SNIPS = [], PRODS = [], PLANS = [], OPPS = [];
 const SN_REASONS = ['Won', 'Lost', 'Not Qualified', 'Other'];
 const PR_STATUS = ['Not stocked', 'New product', 'Requested to stock'];
 let listsPane = 'notes', prView = 'open';
 async function loadLists(){
-  try { SNIPS = await snippetsAll(); PRODS = await productsAll(); PLANS = await plansAll(); }
+  try { SNIPS = await snippetsAll(); PRODS = await productsAll(); PLANS = await plansAll(); OPPS = await oppsAll(); }
   catch(e){ console.error('lists', e); }
 }
 function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
@@ -6264,7 +6272,7 @@ async function cloudWaiting(){
 var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
 var cloudProgress = '';
 var cloudRecTimer = null;
-const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans'];
+const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans', 'opps'];
 
 async function cloudDirtyLoad(){
   if(!cloudDirty){
@@ -6303,7 +6311,7 @@ async function cloudSeed(){
   for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
   for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
   for(const t of await tasksAll()) if(!cloudDirty['tasks/' + t.id]) cloudDirty['tasks/' + t.id] = {v: recVer('tasks', t) || now, del: false, at: now};
-  for(const st of ['snippets', 'products', 'plans'])
+  for(const st of ['snippets', 'products', 'plans', 'opps'])
     for(const r of await storeAll(st)) if(!cloudDirty[st + '/' + r.id]) cloudDirty[st + '/' + r.id] = {v: recVer(st, r) || now, del: false, at: now};
   await cloudDirtySave();
   await kvSet('cloudSeeded', true);
@@ -6433,7 +6441,7 @@ async function cloudPushRecs(stats){
       const r = await sbClient.from('records').select('store,id,owner,key_id,iv,body,client_updated,deleted,server_updated')
         .eq('store', x.store).eq('id', x.id).eq('owner', x.owner);
       if(r.error) throw r.error;
-      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
+      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
     }
   };
   let i = 0;
@@ -6509,9 +6517,9 @@ async function cloudApplyRec(row, stats){
   cloudQuiet = true;
   try {
     if(row.deleted){
-      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel})[store](id); stats.gone++; }
+      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel, opps: oppsDel})[store](id); stats.gone++; }
     } else if(store !== 'calls'){
-      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut})[store](await sbOpen(store, id, row));
+      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut, opps: oppsPut})[store](await sbOpen(store, id, row));
       stats[store]++;
     } else {
       const got = await cloudCallIn(await sbOpen(store, id, row), local, row.owner);
@@ -6559,9 +6567,9 @@ async function cloudPullRecs(stats){
 
 async function cloudSyncRecs(){
   await ownersLoad();
-  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
-  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosUp: 0};
+  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, gone: 0, photosUp: 0};
   try {
     await cloudPushRecs(up);
     const down = stats;
@@ -6569,10 +6577,10 @@ async function cloudSyncRecs(){
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
   const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
-    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'),
+    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'),
     x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
-  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
-  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.gone){
+  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.opps + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
+  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.opps + stats.gone){
     const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
@@ -6581,7 +6589,8 @@ async function cloudSyncRecs(){
     await loadQuotes();
     await loadLists();
     if(screen === 'lists') try { renderLists(); } catch(e){ console.error('lists', e); }
-    if(screen === 'acct') try { renderPlanCard(); } catch(e){ console.error('plan card', e); }
+    if(screen === 'acct') try { renderPlanCard(); renderOppsCard(); } catch(e){ console.error('plan card', e); }
+    try { oppCloudIn(); } catch(e){ console.error('opportunity', e); }
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -10832,6 +10841,557 @@ $('plandlg').addEventListener('close', () => { if(plEdit) plFinish().catch(conso
 $('avPlan').addEventListener('click', () => { if(viewAcct) openPlan(viewAcct.a); });
 $('avPlan').addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && viewAcct){ e.preventDefault(); openPlan(viewAcct.a); } });
 
+/* ================= opportunities and the relationship map (v115) =================
+   A large opportunity gets its own record on the account: a name, the
+   objective, the value and the expected close, and a map of everyone
+   involved - the customer's people, the OEMs' and integrators', and ours - in
+   three lanes around the opportunity, with the links between them and the red
+   flags and strengths pinned where they apply. The Blue Sheet behind it comes
+   next. The words are the account plan's (v106), so the two read alike.
+   Shared with the team, synced as one record. On the PC the map is built:
+   drag, Link to, Add person. On the phone it is looked at: pan, zoom, and tap
+   a person or a link to change its details. */
+const OP_ROLES = PL_ROLES;                         // the account plan's words
+const OP_BADGE = {'Signs the order': 'E', 'Uses it': 'U', 'Checks the spec': 'T', 'On our side': 'C'};
+const OP_MODES = PL_MODES;
+const OP_KINDS = ['Reports to', 'Influences', 'Our coverage', 'Supplies'];
+const OP_STRS = ['Strong', 'Neutral', 'Weak', 'Hostile'];
+const OP_LANES = [{k: 'cust', t: 'Customer', x: 0}, {k: 'oem', t: 'OEMs and integrators', x: 380}, {k: 'us', t: 'Our team', x: 760}];
+const OP_LW = 360, OP_H = 760, OP_CW = 184, OP_CH = 70, OP_OW = 200, OP_OH = 74;
+const SVGNS = 'http://www.w3.org/2000/svg';
+let OPP = null;                 // the opportunity on the map screen
+let opSel = null, opLinkFrom = null, opConfirm = false, opGesture = null, opSaveTimer = null;
+let opView = {x: -20, y: -10, w: 1160, h: OP_H + 20};
+
+const oppsFor = name => OPPS.filter(o => o.acct === name)
+  .sort((a, b) => String(a.close || '9999').localeCompare(String(b.close || '9999')) || (b.updated || 0) - (a.updated || 0));
+function oppMonth(ym){
+  const m = /^(\d{4})-(\d{2})$/.exec(ym || '');
+  return m ? MONNM[+m[2] - 1].slice(0, 3) + ' ' + m[1] : '';
+}
+function renderOppsCard(){
+  const a = viewAcct, el = $('avOpps');
+  if(!a || !el) return;
+  const list = oppsFor(a.a);
+  el.innerHTML = '<div class="hd"><span class="t">Opportunities</span><button type="button" class="x" id="avOppNew">New opportunity</button></div>' +
+    (list.length ? list.map(o => '<button type="button" class="opprow" data-opp="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled') + '</b>' +
+      '<span class="meta">' + esc([o.value, o.close && 'close ' + oppMonth(o.close), (o.people || []).length + ((o.people || []).length === 1 ? ' person' : ' people')].filter(Boolean).join(' · ')) + '</span></button>').join('')
+      : '<p class="meta">None yet. Start one for a large project or pursuit.</p>');
+  $('avOppNew').addEventListener('click', () => openOppDetails(null));
+  el.querySelectorAll('[data-opp]').forEach(b => b.addEventListener('click', () => openOpp(b.dataset.opp)));
+}
+
+/* ---- the details sheet: new, or changed from the map ---- */
+let odEdit = null, odIsNew = false;
+function openOppDetails(o){
+  const name = o ? o.acct : viewAcct && viewAcct.a;
+  if(!name) return;
+  odIsNew = !o;
+  odEdit = o ? JSON.parse(JSON.stringify(o))
+    : {id: newId('op'), acct: name, name: '', obj: '', value: '', close: '', people: [], links: [], flags: [], strengths: [], ox: 460, oy: 60, created: Date.now()};
+  $('odHead').textContent = odIsNew ? 'New opportunity' : 'Opportunity';
+  $('odSub').textContent = name;
+  $('odName').value = odEdit.name || ''; $('odObj').value = odEdit.obj || '';
+  $('odValue').value = odEdit.value || ''; $('odClose').value = odEdit.close || '';
+  $('odDel').hidden = odIsNew;
+  const d = $('oppdlg');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('oppdlg');
+  }
+}
+function odRead(){
+  return Object.assign({}, odEdit, {name: $('odName').value.trim(), obj: $('odObj').value.trim(),
+    value: $('odValue').value.trim(), close: $('odClose').value});
+}
+async function odFinish(){
+  if(!odEdit) return;
+  if($('oppdlg').open && history.state && history.state.dialog === 'oppdlg'){ history.back(); return; }
+  const r = odRead(), wasNew = odIsNew, before = OPP && OPP.id === r.id ? OPP : OPPS.find(x => x.id === r.id);
+  odEdit = null;
+  const d = $('oppdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  if(wasNew && !r.name && !r.obj) return;                       // nothing typed: nothing kept
+  if(!r.name) r.name = 'Untitled opportunity';
+  if(!wasNew && before && ['name', 'obj', 'value', 'close'].every(k => (before[k] || '') === (r[k] || ''))) return;
+  // the map may have moved on while the sheet was open: only these four fields come from it
+  const base = !wasNew && before ? before : r;
+  ['name', 'obj', 'value', 'close'].forEach(k => { base[k] = r[k]; });
+  base.updated = Date.now();
+  await oppsPut(JSON.parse(JSON.stringify(base)));
+  OPPS = OPPS.filter(x => x.id !== base.id).concat([base]);
+  if(wasNew){ toast('Opportunity started'); openOpp(base.id); return; }
+  toast('Opportunity saved');
+  if(screen === 'opp' && OPP && OPP.id === base.id){ OPP = base; renderOpp(); }
+  renderOppsCard();
+}
+$('odOk').addEventListener('click', () => odFinish().catch(reportErr));
+$('oppdlg').addEventListener('cancel', e => { e.preventDefault(); odFinish().catch(console.error); });
+$('oppdlg').addEventListener('close', () => { if(odEdit) odFinish().catch(console.error); });
+$('odDel').addEventListener('click', async () => {
+  const r = odEdit;
+  if(!r) return;
+  const n = (r.people || []).length, l = (r.links || []).length, f = (r.flags || []).length + (r.strengths || []).length;
+  if(!confirm('Delete the opportunity ' + (r.name || 'Untitled') + ' at ' + r.acct + '?\n\nIts map of ' + n + (n === 1 ? ' person' : ' people') + ' and ' + l + (l === 1 ? ' link' : ' links') +
+      ', and ' + f + (f === 1 ? ' red flag or strength' : ' red flags and strengths') + ', are gone from this device' +
+      (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return;
+  odEdit = null;
+  await oppsDel(r.id);
+  OPPS = OPPS.filter(x => x.id !== r.id);
+  const d = $('oppdlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+  toast('Opportunity deleted');
+  if(OPP && OPP.id === r.id){ OPP = null; go('acct'); }
+  renderOppsCard();
+});
+
+/* ---- the map screen ---- */
+function openOpp(id){
+  const o = OPPS.find(x => x.id === id);
+  if(!o){ toast('That opportunity could not be found'); return; }
+  OPP = o; opSel = null; opLinkFrom = null; opConfirm = false;
+  go('opp');
+  setTimeout(opFit, 0);
+}
+async function oppSaveNow(){
+  if(!OPP) return;
+  clearTimeout(opSaveTimer); opSaveTimer = null;
+  OPP.updated = Date.now();
+  await oppsPut(JSON.parse(JSON.stringify(OPP)));
+  OPPS = OPPS.filter(x => x.id !== OPP.id).concat([OPP]);
+}
+// typing saves a moment after it stops; anything else saves straight away
+function oppSaveSoon(){ clearTimeout(opSaveTimer); opSaveTimer = setTimeout(() => oppSaveNow().catch(reportErr), 700); }
+const opEditing = () => isPhone() === false;          // building the map is a PC job
+const opPerson = id => OPP && (OPP.people || []).find(p => p.id === id);
+function opRateColor(r){
+  const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  return r >= 3 ? c('--ok') : r >= 1 ? c('--cyan-dk') : r === 0 ? c('--ink-3') : r >= -2 ? c('--orange-dk') : c('--warn');
+}
+function opStrStyle(s){
+  const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  return s === 'Strong' ? {c: c('--act'), w: 3, d: ''} : s === 'Weak' ? {c: c('--ink-3'), w: 1.6, d: '5 5'}
+    : s === 'Hostile' ? {c: c('--warn'), w: 2.4, d: '7 4'} : {c: c('--ink-3'), w: 1.6, d: ''};
+}
+function opBox(id){
+  if(id === 'OPP') return {x: OPP.ox, y: OPP.oy, w: OP_OW, h: OP_OH};
+  const p = opPerson(id);
+  return p ? {x: p.x, y: p.y, w: OP_CW, h: OP_CH} : null;
+}
+function opExit(b, tx, ty){
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = tx - cx, dy = ty - cy;
+  if(!dx && !dy) return {x: cx, y: cy};
+  const s = Math.min(Math.abs((b.w / 2 + 4) / (dx || 1e-9)), Math.abs((b.h / 2 + 4) / (dy || 1e-9)));
+  return {x: cx + dx * s, y: cy + dy * s};
+}
+const opPinned = key => (OPP.flags || []).some(f => f.pin === key);
+const opName = id => id === 'OPP' ? 'the opportunity' : (opPerson(id) || {}).n || 'someone';
+function opEl(n, a, parent){
+  const e = document.createElementNS(SVGNS, n);
+  for(const k in a) e.setAttribute(k, a[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function opText(parent, a, t){ const e = opEl('text', a, parent); e.textContent = t; return e; }
+function opFlag(parent, x, y){
+  const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const g = opEl('g', {transform: 'translate(' + x + ',' + y + ')'}, parent);
+  opEl('circle', {cx: 8, cy: 8, r: 9, fill: c('--warn')}, g);
+  opEl('path', {d: 'M5,13 V3 M5,3 H12 L10,5.5 L12,8 H5', stroke: '#fff', 'stroke-width': 1.6, fill: 'none', 'stroke-linejoin': 'round'}, g);
+}
+function drawOpp(){
+  const svg = $('opMap');
+  if(!svg || !OPP) return;
+  const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  svg.setAttribute('viewBox', opView.x + ' ' + opView.y + ' ' + opView.w + ' ' + opView.h);
+  svg.innerHTML = '';
+  const defs = opEl('defs', {}, svg);
+  [['act', '--act'], ['ink', '--ink-3'], ['warn', '--warn']].forEach(([k, v]) => {
+    const m = opEl('marker', {id: 'opar-' + k, viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse'}, defs);
+    opEl('path', {d: 'M0,0 L10,5 L0,10 z', fill: c(v)}, m);
+  });
+  OP_LANES.forEach((L, i) => {
+    opEl('rect', {x: L.x, y: 0, width: OP_LW, height: OP_H, rx: 12, fill: c(i % 2 ? '--sunk' : '--surface'), stroke: c('--line-2')}, svg);
+    opText(svg, {x: L.x + 16, y: 26, class: 'op-lane'}, L.t);
+  });
+  const seen = {};
+  (OPP.people || []).filter(p => p.side === 'oem' && p.org).forEach(p => {
+    if(seen[p.org]) return; seen[p.org] = 1;
+    opText(svg, {x: p.x, y: p.y - 8, class: 'op-org'}, p.org);
+  });
+  (OPP.links || []).forEach(l => {
+    const A = opBox(l.a), B = opBox(l.b);
+    if(!A || !B) return;
+    const p1 = opExit(A, B.x + B.w / 2, B.y + B.h / 2), p2 = opExit(B, A.x + A.w / 2, A.y + A.h / 2);
+    const st = opStrStyle(l.str);
+    const g = opEl('g', {class: 'op-edge' + (opSel && opSel.t === 'l' && opSel.id === l.id ? ' sel' : ''), tabindex: '0', role: 'button',
+      'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + String(l.str).toLowerCase()}, svg);
+    const d = 'M' + p1.x + ',' + p1.y + ' L' + p2.x + ',' + p2.y;
+    opEl('path', {d, class: 'hit'}, g);
+    const v = opEl('path', {d, class: 'vis', fill: 'none', stroke: st.c, 'stroke-width': st.w, 'stroke-dasharray': st.d, 'stroke-linecap': 'round'}, g);
+    if(l.kind !== 'Our coverage') v.setAttribute('marker-end', 'url(#opar-' + (l.str === 'Hostile' ? 'warn' : l.str === 'Strong' ? 'act' : 'ink') + ')');
+    const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+    opText(g, {x: mx, y: my - 5, 'text-anchor': 'middle', class: 'op-elbl'}, l.kind);
+    if(opPinned('l:' + l.id)) opFlag(g, mx - 8, my + 2);
+    g.addEventListener('pointerdown', e => e.stopPropagation());
+    g.addEventListener('click', e => { e.stopPropagation(); opSelect({t: 'l', id: l.id}); });
+    g.addEventListener('keydown', e => { if(e.key === 'Enter') opSelect({t: 'l', id: l.id}); });
+  });
+  const og = opEl('g', {class: 'op-node', tabindex: '0', role: 'button', 'aria-label': 'The opportunity: ' + (OPP.name || '')}, svg);
+  opEl('rect', {x: OPP.ox, y: OPP.oy, width: OP_OW, height: OP_OH, rx: 10, fill: c('--act')}, og);
+  opText(og, {x: OPP.ox + 14, y: OPP.oy + 24, fill: '#fff', 'font-size': 14, 'font-weight': 700}, opCut(OPP.name || 'Untitled', 26));
+  opText(og, {x: OPP.ox + 14, y: OPP.oy + 44, fill: '#fff', 'font-size': 11.5}, [OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ') || 'No value or close date yet');
+  opText(og, {x: OPP.ox + 14, y: OPP.oy + 61, fill: '#fff', 'font-size': 11, opacity: .85}, 'The opportunity');
+  og.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    if(opEditing() && !opLinkFrom){ const m = opToMap(e); opGesture = {kind: 'node', dx: m.x - OPP.ox, dy: m.y - OPP.oy, sx: e.clientX, sy: e.clientY, moved: false}; svg.setPointerCapture(e.pointerId); }
+  });
+  og.addEventListener('click', e => { e.stopPropagation(); if(opLinkFrom) opMakeLink('OPP'); });
+  (OPP.people || []).forEach(p => {
+    const isSel = opSel && opSel.t === 'p' && opSel.id === p.id, ours = p.side === 'us';
+    const role = OP_BADGE[p.role] || '';
+    const g = opEl('g', {class: 'op-card' + (isSel ? ' sel' : '') + (opLinkFrom === p.id ? ' src' : ''), transform: 'translate(' + p.x + ',' + p.y + ')', tabindex: '0', role: 'button',
+      'aria-label': [p.n, p.title, p.role, p.mode, ours ? '' : 'rates us ' + (p.rate || 0)].filter(Boolean).join(', ')}, svg);
+    opEl('rect', {class: 'bg', x: 0, y: 0, width: OP_CW, height: OP_CH, rx: 8}, g);
+    opEl('rect', {x: 0, y: 0, width: 5, height: OP_CH, rx: 2, fill: ours ? c('--act') : opRateColor(p.rate || 0)}, g);
+    opText(g, {x: 14, y: 22, class: 'op-name'}, opCut(p.n || 'Someone', role ? 18 : 22));
+    opText(g, {x: 14, y: 38, class: 'op-title'}, opCut(p.title || '', 28));
+    if(ours) opText(g, {x: 14, y: 58, class: 'op-mode'}, 'Our team');
+    else {
+      if(p.mode) opText(g, {x: 14, y: 58, class: 'op-mode'}, p.mode);
+      opText(g, {x: OP_CW - 12, y: 58, 'text-anchor': 'end', class: 'op-rate', fill: opRateColor(p.rate || 0)}, (p.rate > 0 ? '+' : '') + (p.rate || 0));
+      if(role){
+        opEl('circle', {cx: OP_CW - 18, cy: 20, r: 11, fill: role === 'E' ? c('--act') : role === 'C' ? c('--ok') : c('--cyan-dk')}, g);
+        opText(g, {x: OP_CW - 18, y: 24, 'text-anchor': 'middle', class: 'op-badge'}, role);
+      }
+    }
+    if(opPinned('p:' + p.id)) opFlag(g, -6, -8);
+    g.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      const m = opToMap(e);
+      opGesture = {kind: opEditing() && !opLinkFrom ? 'card' : 'tap', p, dx: m.x - p.x, dy: m.y - p.y, sx: e.clientX, sy: e.clientY, vx: opView.x, vy: opView.y, moved: false};
+      svg.setPointerCapture(e.pointerId);
+    });
+    g.addEventListener('keydown', e => { if(e.key === 'Enter') opCardTap(p); });
+  });
+}
+const opCut = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+function opToMap(e){
+  const r = $('opMap').getBoundingClientRect();
+  return {x: opView.x + (e.clientX - r.left) / r.width * opView.w, y: opView.y + (e.clientY - r.top) / r.height * opView.h};
+}
+function opCardTap(p){
+  if(opLinkFrom){ if(opLinkFrom !== p.id) opMakeLink(p.id); return; }
+  opSelect({t: 'p', id: p.id});
+}
+// the svg holds the pointer for drags and pans, because a redraw replaces the cards
+const opPointers = new Map();
+$('opMap').addEventListener('pointerdown', e => {
+  opPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  if(opPointers.size === 2){
+    const [a, b] = [...opPointers.values()];
+    opGesture = {kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), w: opView.w, moved: true};
+    return;
+  }
+  opGesture = {kind: 'pan', sx: e.clientX, sy: e.clientY, vx: opView.x, vy: opView.y, moved: false};
+  $('opMap').setPointerCapture(e.pointerId);
+});
+$('opMap').addEventListener('pointermove', e => {
+  if(opPointers.has(e.pointerId)) opPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  const g = opGesture;
+  if(!g) return;
+  if(g.kind === 'pinch'){
+    if(opPointers.size < 2) return;
+    const [a, b] = [...opPointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    if(d > 0) opZoomTo(g.w * g.dist / d, opToMap({clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2}));
+    return;
+  }
+  if(Math.abs(e.clientX - g.sx) + Math.abs(e.clientY - g.sy) > 5) g.moved = true;
+  if(!g.moved) return;
+  const svg = $('opMap');
+  if(g.kind === 'card'){
+    const m = opToMap(e);
+    g.p.x = Math.round(m.x - g.dx); g.p.y = Math.round(m.y - g.dy);
+    drawOpp(); return;
+  }
+  if(g.kind === 'node'){
+    const m = opToMap(e);
+    OPP.ox = Math.round(m.x - g.dx); OPP.oy = Math.round(m.y - g.dy);
+    drawOpp(); return;
+  }
+  // a pan, or a tap on the phone that turned into one
+  svg.classList.add('panning');
+  const r = svg.getBoundingClientRect();
+  opView.x = (g.vx != null ? g.vx : opView.x) - (e.clientX - g.sx) / r.width * opView.w;
+  opView.y = (g.vy != null ? g.vy : opView.y) - (e.clientY - g.sy) / r.height * opView.h;
+  svg.setAttribute('viewBox', opView.x + ' ' + opView.y + ' ' + opView.w + ' ' + opView.h);
+});
+function opEndGesture(e){
+  if(e) opPointers.delete(e.pointerId);
+  const g = opGesture;
+  if(g && g.kind === 'pinch' && opPointers.size) return;
+  opGesture = null;
+  $('opMap').classList.remove('panning');
+  if(!g) return;
+  if(g.moved){ if(g.kind === 'card' || g.kind === 'node') oppSaveNow().catch(reportErr); return; }
+  if(g.kind === 'card' || g.kind === 'tap') opCardTap(g.p);
+  else if(g.kind === 'pan' && !opLinkFrom) opSelect(null);
+}
+$('opMap').addEventListener('pointerup', opEndGesture);
+$('opMap').addEventListener('pointercancel', e => { opPointers.delete(e.pointerId); opGesture = null; $('opMap').classList.remove('panning'); });
+$('opMap').addEventListener('wheel', e => { e.preventDefault(); opZoomTo(opView.w * (e.deltaY > 0 ? 1.12 : 1 / 1.12), opToMap(e)); }, {passive: false});
+function opZoomTo(nw, at){
+  at = at || {x: opView.x + opView.w / 2, y: opView.y + opView.h / 2};
+  nw = Math.min(3000, Math.max(300, nw));
+  const k = nw / opView.w;
+  opView.x = at.x - (at.x - opView.x) * k; opView.y = at.y - (at.y - opView.y) * k;
+  opView.w = nw; opView.h *= k;
+  drawOpp();
+}
+// everything in view: the three lanes, and anyone dragged outside them
+function opFit(){
+  const svg = $('opMap');
+  if(!svg || !OPP) return;
+  // the PC shows the three lanes whole; the phone's small screen fits the people
+  const some = isPhone() && (OPP.people || []).length;
+  const xs = some ? [] : [0, 3 * OP_LW + 40], ys = some ? [0] : [0, OP_H];
+  (OPP.people || []).forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y, p.y + OP_CH); });
+  xs.push(OPP.ox, OPP.ox + OP_OW); ys.push(OPP.oy, OPP.oy + OP_OH);
+  const x0 = Math.min(...xs) - 20, x1 = Math.max(...xs) + 20, y0 = Math.min(...ys) - 10, y1 = Math.max(...ys) + 10;
+  const r = svg.getBoundingClientRect(), asp = r.width && r.height ? r.width / r.height : 1.5;
+  let w = x1 - x0, h = y1 - y0;
+  if(w / h > asp) h = w / asp; else w = h * asp;
+  opView = {x: x0 - (w - (x1 - x0)) / 2, y: y0 - (h - (y1 - y0)) / 2, w, h};
+  drawOpp();
+}
+$('opIn').addEventListener('click', () => opZoomTo(opView.w / 1.25));
+$('opOut').addEventListener('click', () => opZoomTo(opView.w * 1.25));
+$('opFit').addEventListener('click', opFit);
+$('opEdit').addEventListener('click', () => { if(OPP) openOppDetails(OPP); });
+$('opHintX').addEventListener('click', () => { opLinkFrom = null; $('opHint').hidden = true; drawOpp(); });
+
+function opSelect(s){
+  if(opSaveTimer) oppSaveNow().catch(reportErr);
+  opSel = s; opConfirm = false;
+  drawOpp(); opPanel();
+}
+function opMakeLink(to){
+  const a = opPerson(opLinkFrom);
+  if(!a){ opLinkFrom = null; return; }
+  if((OPP.links || []).some(l => (l.a === a.id && l.b === to) || (l.a === to && l.b === a.id))){
+    toast('They are already linked'); opLinkFrom = null; $('opHint').hidden = true; drawOpp(); return;
+  }
+  const kind = to === 'OPP' ? 'Supplies' : a.side === 'us' ? 'Our coverage' : 'Influences';
+  const l = {id: newId('lk'), a: a.id, b: to, kind, str: 'Neutral', note: ''};
+  OPP.links = (OPP.links || []).concat([l]);
+  opLinkFrom = null; $('opHint').hidden = true;
+  oppSaveNow().catch(reportErr);
+  opSelect({t: 'l', id: l.id});
+}
+function opPinLabel(pin){
+  if(!pin) return 'The whole opportunity';
+  if(pin.startsWith('p:')){ const p = opPerson(pin.slice(2)); return p ? 'On ' + p.n : 'The whole opportunity'; }
+  const l = (OPP.links || []).find(x => x.id === pin.slice(2));
+  return l ? 'On ' + opName(l.a) + ' → ' + opName(l.b) : 'The whole opportunity';
+}
+function opPinOptions(){
+  return '<option value="">The whole opportunity</option>' +
+    (OPP.people || []).map(p => '<option value="p:' + esc(p.id) + '">' + esc(p.n) + '</option>').join('') +
+    (OPP.links || []).map(l => '<option value="l:' + esc(l.id) + '">' + esc(opName(l.a) + ' → ' + opName(l.b)) + '</option>').join('');
+}
+function opLegendLine(s){
+  const st = opStrStyle(s);
+  return '<svg viewBox="0 0 44 12" aria-hidden="true"><path d="M2,6 L42,6" stroke="' + st.c + '" stroke-width="' + st.w + '" stroke-dasharray="' + st.d + '" fill="none" stroke-linecap="round"/></svg><span>' + s + '</span>';
+}
+function opList(key, good){
+  const items = OPP[key] || [];
+  return '<ul class="opitems' + (good ? ' good' : '') + '">' + (items.length ? items.map((f, i) => '<li><span>' + esc(f.t) +
+    '<span class="pin">' + esc(opPinLabel(f.pin)) + '</span></span><button type="button" class="opx" data-oprm="' + key + ':' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('')
+    : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>';
+}
+function opPanel(){
+  const P = $('opPanel');
+  if(!P || !OPP) return;
+  if(opSel && opSel.t === 'p' && opPerson(opSel.id)) return opPersonPanel(opPerson(opSel.id));
+  if(opSel && opSel.t === 'l'){ const l = (OPP.links || []).find(x => x.id === opSel.id); if(l) return opLinkPanel(l); }
+  if(opSel && opSel.t === 'add') return opAddPanel();
+  P.innerHTML =
+    '<h2>Opportunity</h2><div class="opsum"><b>' + esc(OPP.name || 'Untitled') + '</b>' +
+      (OPP.obj ? '<div>' + esc(OPP.obj) + '</div>' : '<div class="meta">No objective yet. Tap Details to add one.</div>') +
+      ([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).length ? '<div class="meta">' + esc([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div>' +
+    '<h2>Red flags</h2>' + opList('flags') +
+    '<div class="opadd"><input type="text" id="opNf" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="opNfGo">Add</button></div>' +
+    '<label class="l" for="opNfPin">Pin it to</label><select id="opNfPin">' + opPinOptions() + '</select>' +
+    '<h2>Strengths</h2>' + opList('strengths', true) +
+    '<div class="opadd"><input type="text" id="opNs" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="opNsGo">Add</button></div>' +
+    '<label class="l" for="opNsPin">Pin it to</label><select id="opNsPin">' + opPinOptions() + '</select>' +
+    '<h2>Reading the map</h2><div class="oplegend">' + OP_STRS.map(opLegendLine).join('') +
+      '<b style="text-align:center;color:var(--act)">E U T C</b><span>Signs the order, uses it, checks the spec, on our side</span>' +
+      '<b style="text-align:center"><span style="color:var(--warn)">−5</span> <span style="color:var(--ok)">+5</span></b><span>How they rate us: the stripe down the card</span></div>' +
+    (opEditing() ? (!(OPP.people || []).length ? '<p class="hint">Tap Add person to start the map.</p>' : '')
+      : '<p class="hint">On the phone the map is for looking and tapping. Add people, link them and move them on the PC.</p>');
+  const add = (key, inp, pin) => {
+    const t = $(inp).value.trim();
+    if(!t) return;
+    OPP[key] = (OPP[key] || []).concat([{id: newId('fl'), t, pin: $(pin).value}]);
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+  };
+  $('opNfGo').addEventListener('click', () => add('flags', 'opNf', 'opNfPin'));
+  $('opNsGo').addEventListener('click', () => add('strengths', 'opNs', 'opNsPin'));
+  $('opNf').addEventListener('keydown', e => { if(e.key === 'Enter') add('flags', 'opNf', 'opNfPin'); });
+  $('opNs').addEventListener('keydown', e => { if(e.key === 'Enter') add('strengths', 'opNs', 'opNsPin'); });
+  P.querySelectorAll('[data-oprm]').forEach(b => b.addEventListener('click', () => {
+    const [key, i] = b.dataset.oprm.split(':'), f = OPP[key][+i];
+    if(!f || !confirm('Remove this ' + (key === 'flags' ? 'red flag' : 'strength') + '?\n\n' + f.t)) return;
+    OPP[key] = OPP[key].filter((_, j) => j !== +i);
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+  }));
+}
+function opChips(name, list, cur){
+  return '<div class="chips" data-opchips="' + name + '">' + list.map(v => '<button type="button" data-v="' + esc(v) + '"' + (cur === v ? ' class="on"' : '') + ' aria-pressed="' + (cur === v) + '">' + esc(v) + '</button>').join('') + '</div>';
+}
+function opWireChips(name, set, keepOne){
+  $('opPanel').querySelectorAll('[data-opchips="' + name + '"] button').forEach(b => b.addEventListener('click', () => {
+    const on = b.classList.contains('on');
+    if(on && keepOne) return;
+    set(on ? '' : b.dataset.v);
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+  }));
+}
+function opPersonPanel(p){
+  const P = $('opPanel'), ours = p.side === 'us', edit = opEditing();
+  const nLinks = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
+  P.innerHTML = '<h2>' + esc(ours ? 'Our team' : p.side === 'oem' ? (p.org || 'OEM or integrator') : OPP.acct) + '</h2>' +
+    '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
+    '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
+    (p.side === 'oem' ? '<label class="l" for="opPo">Company</label><input type="text" id="opPo" value="' + esc(p.org || '') + '">' : '') +
+    (ours ? '' :
+      '<label class="l">Their part in the decision</label>' + opChips('role', OP_ROLES, p.role || '') +
+      '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
+      '<label class="l" for="opPr">How they rate us</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>') +
+    '<label class="l" for="opPnote">Notes</label><textarea id="opPnote" rows="3">' + esc(p.note || '') + '</textarea>' +
+    '<div class="orow">' + (edit ? '<button type="button" class="btn go" id="opLink">Link to…</button>' : '') +
+      '<button type="button" class="btn" id="opDone">Done</button>' + (edit ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button>' : '') + '</div>' +
+    (opConfirm ? '<div class="opconfirm">Remove ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole opportunity.' +
+      '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Remove</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
+  const typed = (id, key) => $(id).addEventListener('input', e => { p[key] = e.target.value; drawOpp(); oppSaveSoon(); });
+  typed('opPn', 'n'); typed('opPt', 'title'); if(p.side === 'oem') typed('opPo', 'org');
+  $('opPnote').addEventListener('input', e => { p.note = e.target.value; oppSaveSoon(); });
+  if(!ours){
+    opWireChips('role', v => { p.role = v; });
+    opWireChips('mode', v => { p.mode = v; });
+    $('opPr').addEventListener('input', e => { p.rate = +e.target.value; $('opPrv').textContent = (p.rate > 0 ? '+' : '') + p.rate; drawOpp(); oppSaveSoon(); });
+  }
+  $('opDone').addEventListener('click', () => opSelect(null));
+  if(edit){
+    $('opLink').addEventListener('click', () => {
+      opLinkFrom = p.id; $('opHint').hidden = false;
+      $('opHintT').textContent = 'Tap the person to link ' + (p.n || 'them') + ' to, or the opportunity.';
+      drawOpp();
+    });
+    $('opRm').addEventListener('click', () => { opConfirm = true; opPersonPanel(p); });
+    if(opConfirm){
+      $('opRmY').addEventListener('click', () => {
+        const gone = new Set((OPP.links || []).filter(l => l.a === p.id || l.b === p.id).map(l => 'l:' + l.id).concat(['p:' + p.id]));
+        OPP.people = OPP.people.filter(x => x !== p);
+        OPP.links = (OPP.links || []).filter(l => l.a !== p.id && l.b !== p.id);
+        ['flags', 'strengths'].forEach(k => (OPP[k] || []).forEach(f => { if(gone.has(f.pin)) f.pin = ''; }));
+        oppSaveNow().catch(reportErr);
+        opSelect(null);
+      });
+      $('opRmN').addEventListener('click', () => { opConfirm = false; opPersonPanel(p); });
+    }
+  }
+}
+function opLinkPanel(l){
+  const P = $('opPanel'), edit = opEditing();
+  P.innerHTML = '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b></div>' +
+    '<label class="l">Kind</label>' + opChips('kind', OP_KINDS, l.kind) +
+    '<label class="l">Strength</label><div class="seg" id="opSg">' + OP_STRS.map(s => '<button type="button" data-v="' + s + '"' + (l.str === s ? ' class="on"' : '') + '>' + s + '</button>').join('') + '</div>' +
+    '<label class="l" for="opLnote">Note</label><textarea id="opLnote" rows="3">' + esc(l.note || '') + '</textarea>' +
+    '<div class="orow"><button type="button" class="btn" id="opDone">Done</button>' + (edit ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRmL">Remove link</button>' : '') + '</div>';
+  opWireChips('kind', v => { l.kind = v; }, true);
+  $('opSg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { l.str = b.dataset.v; oppSaveNow().catch(reportErr); drawOpp(); opPanel(); }));
+  $('opLnote').addEventListener('input', e => { l.note = e.target.value; oppSaveSoon(); });
+  $('opDone').addEventListener('click', () => opSelect(null));
+  if(edit) $('opRmL').addEventListener('click', () => {
+    if(!confirm('Remove the link from ' + opName(l.a) + ' to ' + opName(l.b) + '?')) return;
+    OPP.links = OPP.links.filter(x => x !== l);
+    ['flags', 'strengths'].forEach(k => (OPP[k] || []).forEach(f => { if(f.pin === 'l:' + l.id) f.pin = ''; }));
+    oppSaveNow().catch(reportErr);
+    opSelect(null);
+  });
+}
+// names to offer: the account's CRM contacts, the team, and OEM people from any opportunity
+function opSuggest(side){
+  if(side === 'cust'){
+    const a = ACC_BY_NAME.get(OPP.acct);
+    return (a ? a.c || [] : []).filter(c => c.n).map(c => ({n: c.n, title: c.t || c.r || '', cid: c.id || ''}));
+  }
+  if(side === 'us'){
+    const mine = localStorage.getItem(LS('mgr')) || '';
+    const names = teamPeople().map(m => m.name).concat(mine ? [mine] : []).filter(Boolean);
+    return [...new Set(names)].map(n => ({n, title: ''}));
+  }
+  const seen = new Map();
+  OPPS.forEach(o => (o.people || []).filter(p => p.side === 'oem' && p.n).forEach(p => { if(!seen.has(p.n)) seen.set(p.n, {n: p.n, title: p.title || '', org: p.org || ''}); }));
+  return [...seen.values()];
+}
+let opAddSide = 'cust';
+function opAddPanel(){
+  const P = $('opPanel'), sug = opSuggest(opAddSide);
+  P.innerHTML = '<h2>Add a person</h2>' +
+    '<div class="seg" id="opSide">' + [['cust', 'Customer'], ['oem', 'OEM'], ['us', 'Our team']].map(([k, t]) => '<button type="button" data-v="' + k + '"' + (k === opAddSide ? ' class="on"' : '') + '>' + t + '</button>').join('') + '</div>' +
+    '<label class="l" for="opAn">Name</label><input type="text" id="opAn" list="opAnList" autocomplete="off" placeholder="' +
+      (opAddSide === 'cust' ? 'Pick from the CRM contacts, or type' : opAddSide === 'us' ? 'Pick from the team, or type' : 'Type, or pick someone used before') + '">' +
+    '<datalist id="opAnList">' + sug.map(x => '<option value="' + esc(x.n) + '">' + esc([x.title, x.org].filter(Boolean).join(', ')) + '</option>').join('') + '</datalist>' +
+    '<label class="l" for="opAt">Title</label><input type="text" id="opAt" autocomplete="off">' +
+    (opAddSide === 'oem' ? '<label class="l" for="opAo">Company</label><input type="text" id="opAo" autocomplete="off" placeholder="The OEM or integrator">' : '') +
+    '<div class="orow"><button type="button" class="btn go" id="opAGo">Add to the map</button><button type="button" class="btn" id="opAX">Cancel</button></div>';
+  $('opSide').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { opAddSide = b.dataset.v; opAddPanel(); }));
+  // a name picked from the list brings its title and company with it
+  $('opAn').addEventListener('change', () => {
+    const x = sug.find(s => s.n === $('opAn').value.trim());
+    if(!x) return;
+    if(!$('opAt').value) $('opAt').value = x.title || '';
+    if($('opAo') && !$('opAo').value) $('opAo').value = x.org || '';
+  });
+  $('opAX').addEventListener('click', () => opSelect(null));
+  $('opAGo').addEventListener('click', () => {
+    const n = $('opAn').value.trim();
+    if(!n){ toast('Type their name first'); return; }
+    const lane = OP_LANES.find(L => L.k === opAddSide);
+    const inLane = (OPP.people || []).filter(p => p.side === opAddSide);
+    const y = inLane.length ? Math.min(OP_H - OP_CH - 10, Math.max(...inLane.map(p => p.y)) + 100) : 60;
+    const x = sug.find(s => s.n === n);
+    const p = {id: newId('pp'), side: opAddSide, n, title: $('opAt').value.trim(), org: $('opAo') ? $('opAo').value.trim() : '',
+      role: '', mode: '', rate: 0, note: '', x: lane.x + 40 + (inLane.length % 2) * 110, y: opAddSide === 'oem' && !inLane.length ? 200 : y};
+    if(x && x.cid) p.cid = x.cid;
+    OPP.people = (OPP.people || []).concat([p]);
+    oppSaveNow().catch(reportErr);
+    opSelect({t: 'p', id: p.id});
+  });
+  setTimeout(() => { try { $('opAn').focus(); } catch(_){} }, 50);
+}
+$('opAdd').addEventListener('click', () => { if(OPP){ opLinkFrom = null; $('opHint').hidden = true; opSelect({t: 'add'}); } });
+function renderOpp(){
+  if(!OPP){ go('acct', true); return; }
+  $('title').textContent = OPP.name || 'Opportunity';
+  $('subtitle').textContent = OPP.acct;
+  $('opAdd').hidden = !opEditing();
+  $('opHint').hidden = !opLinkFrom;
+  drawOpp(); opPanel();
+}
+// a newer copy from the cloud replaces the one on screen, unless something is being moved or typed
+function oppCloudIn(){
+  if(screen !== 'opp' || !OPP) return;
+  const fresh = OPPS.find(x => x.id === OPP.id);
+  if(!fresh){ toast('This opportunity was deleted on another device'); OPP = null; go('acct'); return; }
+  if(fresh === OPP || (fresh.updated || 0) <= (OPP.updated || 0) || opGesture || opSaveTimer) return;
+  if(document.activeElement && $('opPanel').contains(document.activeElement)) return;
+  OPP = fresh; renderOpp();
+}
+
 // who and what the account is
 function accountText(name){
   const a = ACC_BY_NAME.get(name);
@@ -11934,6 +12494,7 @@ async function buildBackup(withPhotos){
     snippets: SNIPS,
     products: PRODS,
     plans: PLANS,
+    opps: OPPS,
     weeks: WEEKS,
     mgrOf: MGR_OF,
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos)
@@ -12225,6 +12786,7 @@ async function doRestore(file){
   for(const r of (Array.isArray(data.snippets) ? data.snippets : [])) if(r && r.id) await snippetsPut(r);
   for(const r of (Array.isArray(data.products) ? data.products : [])) if(r && r.id) await productsPut(r);
   for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
+  for(const r of (Array.isArray(data.opps) ? data.opps : [])) if(r && r.id) await oppsPut(r);      // v115
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }

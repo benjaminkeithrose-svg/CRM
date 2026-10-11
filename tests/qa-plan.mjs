@@ -60,7 +60,7 @@ await g(`(async () => {
 await tick();
 
 // ---- storage and sync
-ok(g('DB_VER') === 6 && (await g(`ready().then(d => [...d.objectStoreNames].includes('plans'))`)), 'database v6 has a plans store');
+ok(g('DB_VER') >= 6 && (await g(`ready().then(d => [...d.objectStoreNames].includes('plans'))`)), 'the database (v6 on) has a plans store');
 ok(g('CLOUD_REC_STORES').includes('plans'), 'plans sync through the cloud as record stores');
 ok(g('DIALOGS').includes('plandlg'), 'the plan form is registered in DIALOGS');
 

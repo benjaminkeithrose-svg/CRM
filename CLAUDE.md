@@ -23,14 +23,14 @@ work from a copy of a file anywhere other than this checkout.
 | File | Purpose |
 |---|---|
 | `index.html` | Every screen as a `<section class="scr">`, every dialog, all CSS |
-| `app.js` | Everything else: storage (IndexedDB v6: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`), import, navigation, planner, calls, tasks, output, sync |
+| `app.js` | Everything else: storage (IndexedDB v7: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`, `opps`), import, navigation, planner, calls, tasks, output, sync |
 | `sw.js` | Service worker, cache-first, offline |
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
-| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. Not served by the app |
+| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. Not served by the app |
 | `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes; Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
@@ -66,7 +66,7 @@ failure.
 key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
 waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()`/
 `tasksPut()`/`tasksDel()`/`snippetsPut()`/`snippetsDel()`/`productsPut()`/
-`productsDel()`/`plansPut()`/`plansDel()` mark that record. Bump `call.updated` /
+`productsDel()`/`plansPut()`/`plansDel()`/`oppsPut()`/`oppsDel()` mark that record. Bump `call.updated` /
 `appointment.touchedAt` / `task.updated` on a real edit, or the change can
 lose to an older copy. Photos stay Blobs in `entry.photos` and
 `call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never

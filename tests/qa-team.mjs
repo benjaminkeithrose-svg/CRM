@@ -38,7 +38,7 @@ const myTeam = uid => MEMBERS[uid] && !MEMBERS[uid].removed_at ? MEMBERS[uid].te
 const sameTeam = (owner, sub) => !!myTeam(sub) && teamOf(owner) === myTeam(sub);
 const adminOf = uid => myTeam(uid) ? TEAMS[myTeam(uid)].admin : null;
 const BANNED = new Set();
-const SHARED = new Set(['calls', 'appts', 'plans', 'products', 'snippets']);
+const SHARED = new Set(['calls', 'appts', 'plans', 'products', 'snippets', 'opps']);   // opps: migration 0007
 
 const VAULTS = {}, RECORDS = {}, STORAGE = {};
 const refusals = [];
@@ -476,13 +476,22 @@ ok(kimReads === 0, 'the server gives her nothing of the team\'s');
 await jo.g('sbLoadTeam()');
 ok(jo.g(`teamName('${kim.id}')`) === 'Kim Park' && jo.g('teamPeople().length') === 2, 'what she wrote keeps her name for the others');
 
+// ================= v115: opportunities are the team's =================
+await ben.g(`(async () => { await oppsPut({id: 'opBen1', acct: 'Acme Foods', name: 'Line 2 retrofit', obj: '', people: [{id: 'p1', side: 'cust', n: 'Sam Lee', x: 40, y: 60}], links: [], flags: [], strengths: [], ox: 460, oy: 60, updated: 5000}); })()`);
+await sync(ben); await sync(jo);
+const joOpp = await jo.g(`recGet('opps', 'opBen1')`);
+ok(joOpp && joOpp.name === 'Line 2 retrofit' && jo.g(`OPPS.some(o => o.id === 'opBen1')`), 'Jo gets Ben\'s opportunity, map and all');
+await jo.g(`(async () => { const o = await recGet('opps', 'opBen1'); o.people.push({id: 'p2', side: 'us', n: 'Jo', x: 800, y: 60}); o.updated = 6000; await oppsPut(o); })()`);
+await sync(jo); await sync(ben);
+ok((await ben.g(`recGet('opps', 'opBen1')`)).people.length === 2 && RECORDS[U.ben.id + '|opps|opBen1'], 'Jo adds herself to the map; Ben gets it, still his record');
+
 // ================= Sam, in no team =================
 const sam = await boot();
 await signIn(sam, U.sam);
 ok(!/Team:/.test(sam.stat()) && sam.g('TEAM') === null && sam.g('sbVault') === 'none', 'someone in no team sets their own passphrase, as before');
 await phrase(sam, 'sam own passphrase', 'sam own passphrase');
 await sync(sam);
-ok(!sam.g('window.__syncErr') && sam.g('ACCOUNTS.length') === 0 && !(await sam.g(`recGet('calls', 'cBen1')`)), 'and sees nothing of the team\'s');
+ok(!sam.g('window.__syncErr') && sam.g('ACCOUNTS.length') === 0 && !(await sam.g(`recGet('calls', 'cBen1')`)) && !(await sam.g(`recGet('opps', 'opBen1')`)), 'and sees nothing of the team\'s');
 sam.g(`go('reports')`); await tick(200);
 ok(sam.$('rpWho').hidden && !sam.$('importBtn').hidden, 'on your own: no Mine and Team, every import');
 
