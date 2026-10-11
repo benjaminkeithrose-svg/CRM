@@ -976,7 +976,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v121';
+const APP_BUILD = 'v122';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1356,7 +1356,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -10891,6 +10891,16 @@ $('avPlan').addEventListener('keydown', e => { if((e.key === 'Enter' || e.key ==
 const OP_ROLES = PL_ROLES;                         // the account plan's words
 const OP_BADGE = {'Signs the order': 'E', 'Uses it': 'U', 'Checks the spec': 'T', 'On our side': 'C'};
 const OP_MODES = PL_MODES;
+/* Miller Heiman's own words and letters (v122): the working view keeps the
+   plain English, the traditional Blue Sheet and its Excel copy use these. */
+const BS_COMP = ['Only alternative', 'Front runner', 'Shared', 'Zero'];
+const BS_FUNNEL = ['Universe', 'Above', 'In', 'Best few'];
+const BS_TIMING = ['Urgent', 'Active', 'Work it in', 'Later'];
+const MH_MODE = {Growth: 'G', Trouble: 'T', Steady: 'EK', Overconfident: 'OC'};
+const MH_INFL = {High: 'H', Medium: 'M', Low: 'L'};
+const bsRoles = p => [p.role, p.role2].filter((r, i, a) => r && a.indexOf(r) === i);
+const bsRoleCode = p => bsRoles(p).map(r => OP_BADGE[r]).filter(Boolean).join('/');
+const bsCritTotal = o => (o.criteria || []).reduce((a, c) => a + (typeof c.r === 'number' ? c.r : 0), 0);
 const OP_KINDS = ['Reports to', 'Influences', 'Our coverage', 'Supplies'];
 const OP_STRS = ['Strong', 'Neutral', 'Weak', 'Hostile'];
 const OP_LANES = [{k: 'cust', t: 'Customer', x: 0}, {k: 'oem', t: 'OEMs and integrators', x: 380}, {k: 'us', t: 'Our team', x: 760}];
@@ -10913,11 +10923,19 @@ function renderOppsCard(){
   el.innerHTML = '<div class="hd"><span class="t">Opportunities</span><button type="button" class="x" id="avOppNew">New opportunity</button></div>' +
     (list.length ? list.map(o => '<button type="button" class="opprow" data-opp="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled') + '</b>' +
       '<span class="meta">' + esc([o.value, o.close && 'close ' + oppMonth(o.close), (o.people || []).length + ((o.people || []).length === 1 ? ' person' : ' people')].filter(Boolean).join(' · ')) + '</span></button>').join('')
-      : '<p class="meta">None yet. Start one for a large project or pursuit.</p>');
+      : '<p class="meta">None yet. Start one for a large project or pursuit.</p>') +
+    '<button type="button" class="x bsimp" id="avOppImp">Import a Blue Sheet</button>';
   $('avOppNew').addEventListener('click', () => openOppDetails(null));
+  $('avOppImp').addEventListener('click', () => $('bsFile').click());
   el.querySelectorAll('[data-opp]').forEach(b => b.addEventListener('click', () => openOpp(b.dataset.opp)));
 }
 
+$('bsFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f || !viewAcct) return;
+  try { const o = await importBlueSheet(f, viewAcct.a); renderOppsCard(); openOpp(o.id); }
+  catch(err){ console.error(err); toast('Import failed: ' + err.message); }
+});
 /* ---- the details sheet: new, or changed from the map ---- */
 let odEdit = null, odIsNew = false;
 function openOppDetails(o){
@@ -10957,7 +10975,7 @@ async function odFinish(){
   base.updated = Date.now();
   await oppsPut(JSON.parse(JSON.stringify(base)));
   OPPS = OPPS.filter(x => x.id !== base.id).concat([base]);
-  if(wasNew){ toast('Opportunity started'); openOpp(base.id); return; }
+  if(wasNew){ toast('Opportunity started'); if(screen === 'strategy') stOpened = 'opp'; openOpp(base.id); return; }
   toast('Opportunity saved');
   if(screen === 'opp' && OPP && OPP.id === base.id){ OPP = base; renderOpp(); }
   renderOppsCard();
@@ -11083,7 +11101,7 @@ function drawOppIn(svg, live){
   opEl('rect', {x: OPP.ox, y: OPP.oy, width: OP_OW, height: OP_OH, rx: 10, fill: c('--act')}, og);
   opText(og, {x: OPP.ox + 14, y: OPP.oy + 24, fill: '#fff', 'font-size': 14, 'font-weight': 700}, opCut(OPP.name || 'Untitled', 26));
   opText(og, {x: OPP.ox + 14, y: OPP.oy + 44, fill: '#fff', 'font-size': 11.5}, OPP.nodeSub || [OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ') || 'No value or close date yet');
-  opText(og, {x: OPP.ox + 14, y: OPP.oy + 61, fill: '#fff', 'font-size': 11, opacity: .85}, OPP.nodeLabel || 'The opportunity');
+  opText(og, {x: OPP.ox + 14, y: OPP.oy + 61, fill: '#fff', 'font-size': 11, opacity: .85}, OPP.nodeLabel || opCut([OPP.vsComp, OPP.funnel, OPP.timing].filter(Boolean).join(' · '), 32) || 'The opportunity');
   if(live) og.addEventListener('pointerdown', e => {
     e.stopPropagation();
     if(opEditing() && !opLinkFrom){ const m = opToMap(e); opGesture = {kind: 'node', dx: m.x - OPP.ox, dy: m.y - OPP.oy, sx: e.clientX, sy: e.clientY, moved: false}; svg.setPointerCapture(e.pointerId); }
@@ -11091,9 +11109,9 @@ function drawOppIn(svg, live){
   if(live) og.addEventListener('click', e => { e.stopPropagation(); if(opLinkFrom) opMakeLink('OPP'); });
   (OPP.people || []).forEach(p => {
     const isSel = opSel && opSel.t === 'p' && opSel.id === p.id, ours = p.side === 'us';
-    const role = OP_BADGE[p.role] || '';
+    const role = bsRoleCode(p);
     const g = opEl('g', {class: 'op-card' + (isSel ? ' sel' : '') + (opLinkFrom === p.id ? ' src' : ''), transform: 'translate(' + p.x + ',' + p.y + ')', tabindex: '0', role: 'button',
-      'aria-label': [p.n, p.title, p.role, p.mode, ours ? '' : 'rates us ' + (p.rate || 0)].filter(Boolean).join(', ')}, svg);
+      'aria-label': [p.n, p.title, bsRoles(p).join(' and '), p.mode, ours ? '' : 'covered ' + (p.rate || 0)].filter(Boolean).join(', ')}, svg);
     opEl('rect', {class: 'bg', x: 0, y: 0, width: OP_CW, height: OP_CH, rx: 8}, g);
     opEl('rect', {x: 0, y: 0, width: 5, height: OP_CH, rx: 2, fill: ours ? c('--act') : opRateColor(p.rate || 0)}, g);
     opText(g, {x: 14, y: 22, class: 'op-name'}, opCut(p.n || 'Someone', role ? 18 : 22));
@@ -11103,8 +11121,9 @@ function drawOppIn(svg, live){
       if(p.mode) opText(g, {x: 14, y: 58, class: 'op-mode'}, p.mode);
       opText(g, {x: OP_CW - 12, y: 58, 'text-anchor': 'end', class: 'op-rate', fill: opRateColor(p.rate || 0)}, (p.rate > 0 ? '+' : '') + (p.rate || 0));
       if(role){
-        opEl('circle', {cx: OP_CW - 18, cy: 20, r: 11, fill: role === 'E' ? c('--act') : role === 'C' ? c('--ok') : c('--cyan-dk')}, g);
-        opText(g, {x: OP_CW - 18, y: 24, 'text-anchor': 'middle', class: 'op-badge'}, role);
+        const w = role.length > 1 ? 34 : 22, r0 = role[0];
+        opEl('rect', {x: OP_CW - 7 - w, y: 9, width: w, height: 22, rx: 11, fill: r0 === 'E' ? c('--act') : r0 === 'C' ? c('--ok') : c('--cyan-dk')}, g);
+        opText(g, {x: OP_CW - 7 - w / 2, y: 24, 'text-anchor': 'middle', class: 'op-badge'}, role);
       }
     }
     if(opPinned('p:' + p.id)) opFlag(g, -6, -8);
@@ -11261,6 +11280,10 @@ function opPanel(){
     '<h2>Opportunity</h2><div class="opsum"><b>' + esc(OPP.name || 'Untitled') + '</b>' +
       (OPP.obj ? '<div>' + esc(OPP.obj) + '</div>' : '<div class="meta">No objective yet. Tap Details to add one.</div>') +
       ([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).length ? '<div class="meta">' + esc([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div>' +
+    '<h2>Where we stand</h2>' +
+      '<label class="l">Against the competition</label>' + opChips('vsComp', BS_COMP, OPP.vsComp || '') +
+      '<label class="l">Place in their funnel</label>' + opChips('funnel', BS_FUNNEL, OPP.funnel || '') +
+      '<label class="l">Timing for priorities</label>' + opChips('timing', BS_TIMING, OPP.timing || '') +
     '<h2>Red flags</h2>' + opList('flags') +
     '<div class="opadd"><input type="text" id="opNf" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="opNfGo">Add</button></div>' +
     '<label class="l" for="opNfPin">Pin it to</label><select id="opNfPin">' + opPinOptions() + '</select>' +
@@ -11269,7 +11292,7 @@ function opPanel(){
     '<label class="l" for="opNsPin">Pin it to</label><select id="opNsPin">' + opPinOptions() + '</select>' +
     '<h2>Reading the map</h2><div class="oplegend">' + OP_STRS.map(opLegendLine).join('') +
       '<b style="text-align:center;color:var(--act)">E U T C</b><span>Signs the order, uses it, checks the spec, on our side</span>' +
-      '<b style="text-align:center"><span style="color:var(--warn)">−5</span> <span style="color:var(--ok)">+5</span></b><span>How they rate us: the stripe down the card</span></div>' +
+      '<b style="text-align:center"><span style="color:var(--warn)">−5</span> <span style="color:var(--ok)">+5</span></b><span>How well our base is covered with them: the stripe down the card</span></div>' +
     (opEditing() ? (!(OPP.people || []).length ? '<p class="hint">Tap Add person to start the map.</p>' : '')
       : '<p class="hint">On the phone the map is for looking and tapping. Add people, link them and move them on the PC.</p>');
   const add = (key, inp, pin) => {
@@ -11278,6 +11301,9 @@ function opPanel(){
     OPP[key] = (OPP[key] || []).concat([{id: newId('fl'), t, pin: $(pin).value}]);
     oppSaveNow().catch(reportErr); drawOpp(); opPanel();
   };
+  opWireChips('vsComp', v => { OPP.vsComp = v; });
+  opWireChips('funnel', v => { OPP.funnel = v; });
+  opWireChips('timing', v => { OPP.timing = v; });
   $('opNfGo').addEventListener('click', () => add('flags', 'opNf', 'opNfPin'));
   $('opNsGo').addEventListener('click', () => add('strengths', 'opNs', 'opNsPin'));
   $('opNf').addEventListener('keydown', e => { if(e.key === 'Enter') add('flags', 'opNf', 'opNfPin'); });
@@ -11309,8 +11335,9 @@ function opPersonPanel(p){
     (p.side === 'oem' ? '<label class="l" for="opPo">Company</label><input type="text" id="opPo" value="' + esc(p.org || '') + '">' : '') +
     (ours ? '' :
       '<label class="l">Their part in the decision</label>' + opChips('role', OP_ROLES, p.role || '') +
+      (p.role ? '<label class="l">A second part, if they have one</label>' + opChips('role2', OP_ROLES.filter(r => r !== p.role), p.role2 || '') : '') +
       '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
-      '<label class="l" for="opPr">How they rate us</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>') +
+      '<label class="l" for="opPr">How well our base is covered with them</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>') +
     '<label class="l" for="opPnote">Notes</label><textarea id="opPnote" rows="3">' + esc(p.note || '') + '</textarea>' +
     '<div class="orow">' + (edit ? '<button type="button" class="btn go" id="opLink">Link to…</button>' : '') +
       '<button type="button" class="btn" id="opDone">Done</button>' + (edit ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button>' : '') + '</div>' +
@@ -11320,7 +11347,8 @@ function opPersonPanel(p){
   typed('opPn', 'n'); typed('opPt', 'title'); if(p.side === 'oem') typed('opPo', 'org');
   $('opPnote').addEventListener('input', e => { p.note = e.target.value; oppSaveSoon(); });
   if(!ours){
-    opWireChips('role', v => { p.role = v; });
+    opWireChips('role', v => { p.role = v; if(!v || p.role2 === v) p.role2 = ''; });
+    if(p.role) opWireChips('role2', v => { p.role2 = v; });
     opWireChips('mode', v => { p.mode = v; });
     $('opPr').addEventListener('input', e => { p.rate = +e.target.value; $('opPrv').textContent = (p.rate > 0 ? '+' : '') + p.rate; drawOpp(); oppSaveSoon(); });
   }
@@ -11460,8 +11488,8 @@ const opTheirs = () => (OPP.people || []).filter(p => p.side !== 'us');
 function opGaps(){
   const out = [], theirs = opTheirs();
   if(!theirs.length) return [{t: 'No buying influences on the map yet', pin: ''}];
-  if(!theirs.some(p => p.role === 'Signs the order')) out.push({t: 'Nobody identified who signs the order', pin: ''});
-  if(!theirs.some(p => p.role === 'On our side')) out.push({t: 'No coach: nobody on their side is marked as on our side', pin: ''});
+  if(!theirs.some(p => bsRoles(p).includes('Signs the order'))) out.push({t: 'Nobody identified who signs the order', pin: ''});
+  if(!theirs.some(p => bsRoles(p).includes('On our side'))) out.push({t: 'No coach: nobody on their side is marked as on our side', pin: ''});
   theirs.forEach(p => {
     if(!p.role) out.push({t: (p.n || 'Someone') + ': their part in the decision is unknown', pin: 'p:' + p.id});
     if(p.side === 'cust' && !opCoverage(p).length) out.push({t: (p.n || 'Someone') + ' is not covered by anyone on our team', pin: 'p:' + p.id});
@@ -11474,57 +11502,87 @@ const opPosLabel = v => v == null || v === '' ? 'Not rated' : (v > 0 ? '+' : '')
 function renderSheet(){
   const el = $('opSheet');
   if(!el || !OPP) return;
-  const o = OPP, gaps = opGaps(), acts = o.actions || [];
-  const best = acts.find(a => a.best);
+  const o = OPP, gaps = opGaps(), acts = o.actions || [], crit = o.criteria || [];
+  const bests = acts.filter(a => a.best), mgr = localStorage.getItem(LS('mgr')) || '';
+  const notes = (o.notes || []).map((n, i) => ({n, i})).sort((a, b) => String(b.n.d || '').localeCompare(String(a.n.d || '')));
+  const rateOpts = cur => '<option value=""' + (cur == null ? ' selected' : '') + '>—</option>' +
+    [5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5].map(v => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + (v > 0 ? '+' : '') + v + '</option>').join('');
+  const inp = (attr, val, ph, lbl) => '<input type="text" ' + attr + ' value="' + esc(val || '') + '" placeholder="' + esc(ph) + '" aria-label="' + esc(lbl || ph) + '">';
   el.innerHTML =
     '<h2>Single sales objective</h2><div class="opsum"><b>' + esc(o.name || 'Untitled') + '</b>' +
       (o.obj ? '<div>' + esc(o.obj) + '</div>' : '<div class="meta">No objective yet: what, how much and by when.</div>') +
       '<div class="meta">' + esc([o.value || 'No value', o.close ? 'close ' + oppMonth(o.close) : 'no close date'].join(' · ')) + '</div>' +
       '<button type="button" class="btn act2" id="bsDetails">Change</button></div>' +
+    '<div class="bsgrid3">' +
+      '<div><label class="l" for="bsRep">Salesperson</label>' + inp('id="bsRep"', o.rep, mgr || 'Who owns it', 'Salesperson') + '</div>' +
+      '<div><label class="l" for="bsVolNow">Current volume</label>' + inp('id="bsVolNow"', o.volNow, 'e.g. AUD 40k a year', 'Current volume') + '</div>' +
+      '<div><label class="l" for="bsVolPot">Total potential volume</label>' + inp('id="bsVolPot"', o.volPot, 'e.g. AUD 300k a year', 'Total potential volume') + '</div></div>' +
     '<h2>Where we stand</h2>' +
-      '<label class="l" for="bsPos">Our position</label><div class="oprate"><input type="range" id="bsPos" min="-5" max="5" step="1" value="' + (o.pos == null ? 0 : o.pos) + '"><output id="bsPosV">' + esc(opPosLabel(o.pos)) + '</output></div>' +
+      '<label class="l" for="bsPos">Adequacy of our position</label><div class="oprate"><input type="range" id="bsPos" min="-5" max="5" step="1" value="' + (o.pos == null ? 0 : o.pos) + '"><output id="bsPosV">' + esc(opPosLabel(o.pos)) + '</output></div>' +
       '<div class="poslbl"><span>−5 panic</span><span>+5 euphoria</span></div>' +
+      '<label class="l" for="bsWord">In a word</label>' + inp('id="bsWord"', o.posWord, 'e.g. Concern', 'Adequacy of our position, in a word') +
       '<label class="l" for="bsWhy">Why we stand there</label><textarea id="bsWhy" rows="2">' + esc(o.posWhy || '') + '</textarea>' +
+      '<label class="l">Our position against the competition</label>' + bsChips('vsComp', BS_COMP, o.vsComp) +
+      '<label class="l">Place in their funnel</label>' + bsChips('funnel', BS_FUNNEL, o.funnel) +
+      '<label class="l">Timing for priorities</label>' + bsChips('timing', BS_TIMING, o.timing) +
       '<label class="l" for="bsComp">Competition</label><textarea id="bsComp" rows="2" placeholder="Who else, and what they are offering">' + esc(o.comp || '') + '</textarea>' +
+    '<h2>Ideal customer criteria</h2><p class="hint">How well they match your ideal customer, each from −5 to +5. Total <b id="bsCritTot">' + esc(opPosLabel(bsCritTotal(o))) + '</b>.</p>' +
+      '<ul class="opitems good bscrit">' + (crit.length ? crit.map((c, i) => '<li><span>' + esc(c.t) + '</span>' +
+        '<select data-bscrit="' + i + '" aria-label="How well they match: ' + esc(c.t) + '">' + rateOpts(typeof c.r === 'number' ? c.r : null) + '</select>' +
+        '<button type="button" class="opx" data-bscrm="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
+      (crit.length < 10 ? '<div class="opadd"><input type="text" id="bsNc" placeholder="A criterion of your ideal customer" aria-label="A criterion of your ideal customer"><button type="button" class="btn act2" id="bsNcGo">Add</button></div>' : '') +
     '<h2>Buying influences</h2>' +
       (opTheirs().length ? opTheirs().map(p => {
-        const cov = opCoverage(p), role = OP_BADGE[p.role] || '';
+        const cov = opCoverage(p), code = bsRoleCode(p);
         return '<details class="bsp" data-bsp="' + esc(p.id) + '"' + (opSheetOpen.has(p.id) ? ' open' : '') + '><summary><b>' + esc(p.n || 'Someone') + '</b>' +
-          '<span class="meta">' + esc([p.title, p.side === 'oem' ? p.org : '', p.role ? p.role + ' (' + role + ')' : 'part unknown', p.infl ? p.infl + ' influence' : '', p.mode, 'rates us ' + opPosLabel(p.rate || 0)].filter(Boolean).join(' · ')) + '</span></summary>' +
+          '<span class="meta">' + esc([p.title, p.side === 'oem' ? p.org : '', bsRoles(p).length ? bsRoles(p).join(' and ') + ' (' + code + ')' : 'part unknown', p.infl ? p.infl + ' influence' : '', p.mode, 'covered ' + opPosLabel(p.rate || 0)].filter(Boolean).join(' · ')) + '</span></summary>' +
           '<div class="bspb">' +
             '<label class="l">Their part in the decision</label>' + opChips('role:' + p.id, OP_ROLES, p.role || '') +
+            (p.role ? '<label class="l">A second part, if they have one</label>' + opChips('role2:' + p.id, OP_ROLES.filter(r => r !== p.role), p.role2 || '') : '') +
             '<label class="l">How much they sway it</label><div class="seg" data-bsinfl="' + esc(p.id) + '">' + OP_INFL.map(v => '<button type="button" data-v="' + v + '"' + (p.infl === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</div>' +
             '<label class="l">How they see it</label>' + opChips('mode:' + p.id, OP_MODES, p.mode || '') +
-            '<label class="l" for="bsR' + esc(p.id) + '">How they rate us</label><div class="oprate"><input type="range" id="bsR' + esc(p.id) + '" data-bsrate="' + esc(p.id) + '" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output>' + opPosLabel(p.rate || 0) + '</output></div>' +
+            '<label class="l" for="bsR' + esc(p.id) + '">How well our base is covered with them</label><div class="oprate"><input type="range" id="bsR' + esc(p.id) + '" data-bsrate="' + esc(p.id) + '" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output>' + opPosLabel(p.rate || 0) + '</output></div>' +
+            '<label class="l" for="bsE' + esc(p.id) + '">Evidence for that rating</label><input type="text" data-bsf="evid:' + esc(p.id) + '" id="bsE' + esc(p.id) + '" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
             '<div class="cov' + (cov.length ? '' : ' none') + '">' + (cov.length ? 'Covered by ' + esc(cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ')) : 'Not covered by anyone on our team: link one of ours to them on the map') + '</div>' +
             '<label class="l" for="bsW' + esc(p.id) + '">Their personal win</label><input type="text" data-bsf="win:' + esc(p.id) + '" id="bsW' + esc(p.id) + '" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
             '<label class="l" for="bsB' + esc(p.id) + '">The business result they want</label><input type="text" data-bsf="result:' + esc(p.id) + '" id="bsB' + esc(p.id) + '" value="' + esc(p.result || '') + '" placeholder="e.g. less downtime on Line 3">' +
-            '<label class="l" for="bsE' + esc(p.id) + '">Evidence for the rating</label><input type="text" data-bsf="evid:' + esc(p.id) + '" id="bsE' + esc(p.id) + '" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
           '</div></details>';
       }).join('') : '<p class="hint">Nobody yet. Add the customer\'s and the OEMs\' people on the map, on the PC.</p>') +
     (gaps.length ? '<h2>Gaps</h2><ul class="bsgaps">' + gaps.map((g, i) => '<li><span>' + esc(g.t) + '</span><button type="button" class="btn act2" data-bsgap="' + i + '">Add as a red flag</button></li>').join('') + '</ul>' : '') +
-    '<h2>Red flags</h2>' + opList('flags') +
+    '<h2>Red flags</h2><ul class="opitems bsflags">' + ((o.flags || []).length ? o.flags.map((f, i) => '<li><span>' + esc(f.t) + '<span class="pin">' + esc(opPinLabel(f.pin)) + '</span>' +
+        '<span class="bsfx">' + inp('data-bsfl="need:' + i + '"', f.need, 'Information needed') + inp('data-bsfl="who:' + i + '"', f.who, 'From whom') + '</span></span>' +
+        '<button type="button" class="opx" data-oprm="flags:' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
     '<div class="opadd"><input type="text" id="bsNf" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="bsNfGo">Add</button></div>' +
     '<h2>Strengths</h2>' + opList('strengths', true) +
     '<div class="opadd"><input type="text" id="bsNs" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="bsNsGo">Add</button></div>' +
     '<h2>Possible actions</h2>' +
-    (best ? '<p class="hint">Best action: <b>' + esc(best.t) + '</b></p>' : acts.length ? '<p class="hint">Tap the star on the best one.</p>' : '') +
+    (bests.length ? '<p class="hint">Best action plan: <b>' + bests.map(a => esc(a.t)).join('; ') + '</b></p>' : acts.length ? '<p class="hint">Star the actions that make the best action plan.</p>' : '') +
     '<ul class="opitems bsacts">' + (acts.length ? acts.map((a, i) => '<li class="' + (a.best ? 'best' : '') + '">' +
-      '<button type="button" class="bsstar' + (a.best ? ' on' : '') + '" data-bsbest="' + i + '" aria-pressed="' + !!a.best + '" aria-label="Best action">' + (a.best ? '★' : '☆') + '</button>' +
-      '<span>' + esc(a.t) + '</span><button type="button" class="btn act2" data-bstask="' + i + '">Make a task</button>' +
+      '<button type="button" class="bsstar' + (a.best ? ' on' : '') + '" data-bsbest="' + i + '" aria-pressed="' + !!a.best + '" aria-label="In the best action plan">' + (a.best ? '★' : '☆') + '</button>' +
+      '<span>' + esc(a.t) + '<span class="bsfx">' + inp('data-bsac="who:' + i + '"', a.who, 'Who') + inp('data-bsac="when:' + i + '"', a.when, 'When') + '</span></span>' +
+      '<button type="button" class="btn act2" data-bstask="' + i + '">Make a task</button>' +
       '<button type="button" class="opx" data-bsact="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
-    '<div class="opadd"><input type="text" id="bsNa" placeholder="A possible action" aria-label="A possible action"><button type="button" class="btn act2" id="bsNaGo">Add</button></div>';
+    '<div class="opadd"><input type="text" id="bsNa" placeholder="A possible action" aria-label="A possible action"><button type="button" class="btn act2" id="bsNaGo">Add</button></div>' +
+    '<h2>Communication notes</h2>' +
+    '<ul class="opitems good bsnotes">' + (notes.length ? notes.map(({n, i}) => '<li><span><b>' + esc(n.d ? dayLabel(n.d) : 'No date') + '</b> ' + esc(n.t) + '</span>' +
+      '<button type="button" class="opx" data-bsnrm="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
+    '<div class="bsnadd"><input type="date" id="bsNd" value="' + todayISO() + '" aria-label="Date"><input type="text" id="bsNn" placeholder="Who you spoke to, and what about" aria-label="A note"><button type="button" class="btn act2" id="bsNnGo">Add</button></div>';
 
   const redraw = () => { oppSaveNow().catch(reportErr); renderSheet(); };
   $('bsDetails').addEventListener('click', () => openOppDetails(OPP));
   $('bsPos').addEventListener('input', e => { o.pos = +e.target.value; $('bsPosV').textContent = opPosLabel(o.pos); oppSaveSoon(); });
-  $('bsWhy').addEventListener('input', e => { o.posWhy = e.target.value; oppSaveSoon(); });
-  $('bsComp').addEventListener('input', e => { o.comp = e.target.value; oppSaveSoon(); });
+  [['bsRep', 'rep'], ['bsVolNow', 'volNow'], ['bsVolPot', 'volPot'], ['bsWord', 'posWord'], ['bsWhy', 'posWhy'], ['bsComp', 'comp']]
+    .forEach(([id, k]) => $(id).addEventListener('input', e => { o[k] = e.target.value; oppSaveSoon(); }));
+  el.querySelectorAll('[data-bschips]').forEach(box => box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    o[box.dataset.bschips] = b.classList.contains('on') ? '' : b.dataset.v;
+    redraw();
+  })));
   el.querySelectorAll('details.bsp').forEach(d => d.addEventListener('toggle', () => { if(d.open) opSheetOpen.add(d.dataset.bsp); else opSheetOpen.delete(d.dataset.bsp); }));
   el.querySelectorAll('[data-opchips]').forEach(box => box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     const [key, id] = box.dataset.opchips.split(':'), p = opPerson(id);
     if(!p) return;
     p[key] = b.classList.contains('on') ? '' : b.dataset.v;
+    if(key === 'role' && (!p.role || p.role2 === p.role)) p.role2 = '';
     redraw();
   })));
   el.querySelectorAll('[data-bsinfl]').forEach(box => box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
@@ -11537,34 +11595,65 @@ function renderSheet(){
     p.rate = +r.value; r.nextElementSibling.textContent = opPosLabel(p.rate);
     oppSaveSoon();
   }));
-  el.querySelectorAll('[data-bsf]').forEach(inp => inp.addEventListener('input', () => {
-    const [key, id] = inp.dataset.bsf.split(':'), p = opPerson(id);
-    if(p){ p[key] = inp.value; oppSaveSoon(); }
+  el.querySelectorAll('[data-bsf]').forEach(x => x.addEventListener('input', () => {
+    const [key, id] = x.dataset.bsf.split(':'), p = opPerson(id);
+    if(p){ p[key] = x.value; oppSaveSoon(); }
+  }));
+  // the details typed against a red flag or an action
+  const typedOn = (attr, key) => el.querySelectorAll('[' + attr + ']').forEach(x => x.addEventListener('input', () => {
+    const [k, i] = x.getAttribute(attr).split(':'), item = (o[key] || [])[+i];
+    if(item){ item[k] = x.value; oppSaveSoon(); }
+  }));
+  typedOn('data-bsfl', 'flags'); typedOn('data-bsac', 'actions');
+  el.querySelectorAll('[data-bscrit]').forEach(x => x.addEventListener('change', () => {
+    const c = crit[+x.dataset.bscrit]; if(!c) return;
+    c.r = x.value === '' ? null : +x.value;
+    $('bsCritTot').textContent = opPosLabel(bsCritTotal(o));
+    oppSaveNow().catch(reportErr);
+  }));
+  el.querySelectorAll('[data-bscrm]').forEach(b => b.addEventListener('click', () => {
+    const c = crit[+b.dataset.bscrm];
+    if(!c || !confirm('Remove this criterion?\n\n' + c.t)) return;
+    o.criteria = crit.filter(x => x !== c); redraw();
   }));
   el.querySelectorAll('[data-bsgap]').forEach(b => b.addEventListener('click', () => {
     const g = gaps[+b.dataset.bsgap]; if(!g) return;
     o.flags = (o.flags || []).concat([{id: newId('fl'), t: g.t, pin: g.pin}]);
     redraw();
   }));
-  const addItem = (key, inp) => {
-    const t = $(inp).value.trim(); if(!t) return;
-    o[key] = (o[key] || []).concat([key === 'actions' ? {id: newId('ac'), t, best: false} : {id: newId('fl'), t, pin: ''}]);
+  const addItem = (key, x) => {
+    const t = $(x).value.trim(); if(!t) return;
+    const item = key === 'actions' ? {id: newId('ac'), t, best: false} : key === 'criteria' ? {id: newId('cr'), t, r: null} : {id: newId('fl'), t, pin: ''};
+    o[key] = (o[key] || []).concat([item]);
     redraw();
   };
-  [['flags', 'bsNf'], ['strengths', 'bsNs'], ['actions', 'bsNa']].forEach(([k, inp]) => {
-    $(inp + 'Go').addEventListener('click', () => addItem(k, inp));
-    $(inp).addEventListener('keydown', e => { if(e.key === 'Enter') addItem(k, inp); });
+  [['flags', 'bsNf'], ['strengths', 'bsNs'], ['actions', 'bsNa'], ['criteria', 'bsNc']].forEach(([k, x]) => {
+    if(!$(x)) return;
+    $(x + 'Go').addEventListener('click', () => addItem(k, x));
+    $(x).addEventListener('keydown', e => { if(e.key === 'Enter') addItem(k, x); });
   });
+  const addNote = () => {
+    const t = $('bsNn').value.trim(); if(!t) return;
+    o.notes = (o.notes || []).concat([{id: newId('cn'), d: $('bsNd').value || '', t}]);
+    redraw();
+  };
+  $('bsNnGo').addEventListener('click', addNote);
+  $('bsNn').addEventListener('keydown', e => { if(e.key === 'Enter') addNote(); });
+  el.querySelectorAll('[data-bsnrm]').forEach(b => b.addEventListener('click', () => {
+    const n = (o.notes || [])[+b.dataset.bsnrm];
+    if(!n || !confirm('Remove this note' + (n.d ? ' from ' + dayLabel(n.d) : '') + '?\n\n' + n.t)) return;
+    o.notes = o.notes.filter(x => x !== n); redraw();
+  }));
   el.querySelectorAll('[data-oprm]').forEach(b => b.addEventListener('click', () => {
     const [key, i] = b.dataset.oprm.split(':'), f = o[key][+i];
     if(!f || !confirm('Remove this ' + (key === 'flags' ? 'red flag' : 'strength') + '?\n\n' + f.t)) return;
     o[key] = o[key].filter((_, j) => j !== +i);
     redraw();
   }));
+  // each starred action is part of the best action plan, as on the form
   el.querySelectorAll('[data-bsbest]').forEach(b => b.addEventListener('click', () => {
-    const i = +b.dataset.bsbest, was = !!acts[i].best;
-    acts.forEach(a => { a.best = false; });
-    acts[i].best = !was;
+    const a = acts[+b.dataset.bsbest]; if(!a) return;
+    a.best = !a.best;
     redraw();
   }));
   el.querySelectorAll('[data-bstask]').forEach(b => b.addEventListener('click', () => {
@@ -11577,6 +11666,9 @@ function renderSheet(){
     o.actions = acts.filter((_, j) => j !== i);
     redraw();
   }));
+}
+function bsChips(name, list, cur){
+  return '<div class="chips" data-bschips="' + name + '">' + list.map(v => '<button type="button" data-v="' + esc(v) + '"' + (cur === v ? ' class="on"' : '') + ' aria-pressed="' + (cur === v) + '">' + esc(v) + '</button>').join('') + '</div>';
 }
 
 /* ---- the Blue Sheet as a document ----
@@ -11647,23 +11739,32 @@ function oppText(o){
     const L = ['Opportunity: ' + (o.name || 'Untitled') + ' at ' + o.acct];
     if(v(o.obj)) L.push('Objective: ' + o.obj);
     if(v(o.value) || o.close) L.push('Value and close: ' + [o.value, o.close && oppMonth(o.close)].filter(Boolean).join(', '));
-    L.push('Our position, -5 panic to +5 euphoria: ' + (o.pos == null ? 'not rated' : opPosLabel(o.pos)) + (v(o.posWhy) ? ' - ' + o.posWhy : ''));
+    if(v(o.volNow) || v(o.volPot)) L.push('Volume: current ' + (v(o.volNow) || 'unknown') + ', total potential ' + (v(o.volPot) || 'unknown'));
+    L.push('Our position, -5 panic to +5 euphoria: ' + (o.pos == null ? 'not rated' : opPosLabel(o.pos)) + (v(o.posWord) ? ' (' + o.posWord + ')' : '') + (v(o.posWhy) ? ' - ' + o.posWhy : ''));
+    const where = [o.vsComp && 'against the competition: ' + o.vsComp, o.funnel && 'place in the funnel: ' + o.funnel, o.timing && 'timing: ' + o.timing].filter(Boolean);
+    if(where.length) L.push('Where we stand: ' + where.join('; '));
     if(v(o.comp)) L.push('Competition: ' + o.comp);
+    if((o.criteria || []).length) L.push('Ideal customer criteria, each -5 to +5 (total ' + opPosLabel(bsCritTotal(o)) + '):\n' +
+      o.criteria.map(c => '- ' + c.t + ': ' + (typeof c.r === 'number' ? opPosLabel(c.r) : 'not rated')).join('\n'));
     const side = {cust: 'customer', oem: 'OEM or integrator', us: 'ours'};
     L.push('People:');
     (o.people || []).forEach(p => {
       if(p.side === 'us'){ L.push('- ' + p.n + ' (ours' + (v(p.title) ? ', ' + p.title : '') + ')'); return; }
       const cov = opCoverage(p);
       L.push('- ' + [p.n + ' (' + side[p.side] + (v(p.title) ? ', ' + p.title : '') + (p.side === 'oem' && v(p.org) ? ', ' + p.org : '') + ')',
-        'part: ' + (p.role || 'unknown'), p.infl && 'influence: ' + p.infl, 'sees it as: ' + (p.mode || 'unknown'), 'rates us ' + opPosLabel(p.rate || 0),
+        'part: ' + (bsRoles(p).join(' and ') || 'unknown'), p.infl && 'influence: ' + p.infl, 'sees it as: ' + (p.mode || 'unknown'), 'base covered ' + opPosLabel(p.rate || 0),
         'covered by: ' + (cov.length ? cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ') : 'nobody'),
         v(p.win) && 'personal win: ' + p.win, v(p.result) && 'business result: ' + p.result, v(p.evid) && 'evidence: ' + p.evid, v(p.note) && 'note: ' + p.note].filter(Boolean).join('; '));
     });
     const links = (o.links || []).filter(l => l.kind !== 'Our coverage');
     if(links.length) L.push('Links:\n' + links.map(l => '- ' + opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ' (' + String(l.str).toLowerCase() + ')' + (v(l.note) ? ': ' + l.note : '')).join('\n'));
-    const list = (h, items) => { if((items || []).length) L.push(h + ':\n' + items.map(f => '- ' + f.t + (f.pin ? ' (' + opPinLabel(f.pin).replace(/^On /, 'on ') + ')' : '')).join('\n')); };
+    const list = (h, items) => { if((items || []).length) L.push(h + ':\n' + items.map(f => '- ' + f.t + (f.pin ? ' (' + opPinLabel(f.pin).replace(/^On /, 'on ') + ')' : '') +
+      (v(f.need) ? '; information needed: ' + f.need + (v(f.who) ? ', from ' + f.who : '') : '')).join('\n')); };
     list('Red flags', o.flags); list('Strengths', o.strengths);
-    if((o.actions || []).length) L.push('Possible actions:\n' + o.actions.map(a => '- ' + a.t + (a.best ? ' (best action)' : '')).join('\n'));
+    if((o.actions || []).length) L.push('Possible actions:\n' + o.actions.map(a => '- ' + a.t + (a.best ? ' (best action)' : '') +
+      (v(a.who) || v(a.when) ? ' [' + [v(a.who) && 'who: ' + a.who, v(a.when) && 'when: ' + a.when].filter(Boolean).join(', ') + ']' : '')).join('\n'));
+    const notes = (o.notes || []).slice().sort((a, b) => String(b.d || '').localeCompare(String(a.d || ''))).slice(0, 8);
+    if(notes.length) L.push('Latest communication notes:\n' + notes.map(n => '- ' + (n.d || 'undated') + ': ' + n.t).join('\n'));
     return L.join('\n');
   } finally { OPP = prev; }
 }
@@ -11748,52 +11849,395 @@ async function coachOpp(fresh){
 }
 $('opCoach').addEventListener('click', () => coachOpp(false).catch(reportErr));
 
+/* ---- the traditional Blue Sheet (v122) ----
+   For people outside MPS: Miller Heiman's own sections, in its order and with
+   its letters, so the sheet reads as the one they know. The map is the working
+   view; it goes in only when asked, on a page of its own. Miller Heiman's
+   copyright line and mark stay off: this is not their software making it. */
+const bsDate = t => t ? new Date(t).toLocaleDateString() : '';
+const bsMode = p => MH_MODE[p.mode] || '';
+function bsPeople(o){ return (o.people || []).filter(p => p.side !== 'us'); }
+function bsNameLine(p){ return [p.n, p.title, p.side === 'oem' ? p.org : ''].filter(x => x && String(x).trim()).join(', '); }
+function bsWinLine(p){ return [p.win, p.result].filter(x => x && String(x).trim()).join(' / '); }
 function buildBlueSheetHTML(o, png){
-  const v = x => (x == null ? '' : String(x)).trim();
-  const cell = x => v(x) ? esc(v(x)) : '—';
-  const rows = pairs => '<table>' + pairs.map(([l, x]) => '<tr><td class="l">' + esc(l) + '</td><td class="v">' + x + '</td></tr>').join('') + '</table>';
-  const people = (o.people || []).filter(p => p.side !== 'us');
   const prev = OPP; OPP = o;                      // coverage reads the map's links
-  const covOf = p => opCoverage(p).map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ');
-  const best = (o.actions || []).find(a => a.best);
-  const list = items => items && items.length ? '<ul>' + items.map(f => '<li>' + esc(f.t) +
-    (f.pin ? ' <span style="color:#77787A">(' + esc(opPinLabel(f.pin).replace(/^On /, '')) + ')</span>' : '') + '</li>').join('') + '</ul>' : '<p>—</p>';
-  const p = [];
-  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Blue Sheet ' + DASH_CH + ' ' + esc(o.name || '') + '</title>' +
-    '<link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>');
-  p.push('<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">');
-  p.push('<p class="eyebrow">Intralox</p>');
-  p.push('<h1>Blue Sheet ' + DASH_CH + ' ' + esc(o.name || 'Untitled') + '</h1>');
-  p.push('<p class="sub">' + [o.acct, o.value, o.close && 'close ' + oppMonth(o.close), 'as at ' + new Date().toLocaleDateString()].filter(Boolean).map(esc).join(' &middot; ') + '</p>');
-  p.push('<h2>Single sales objective</h2>' + rows([['Objective', cell(o.obj)], ['Value', cell(o.value)], ['Expected close', cell(oppMonth(o.close))]]));
-  p.push('<h2>Where we stand</h2>' + rows([['Our position', o.pos == null ? '—' : esc(opPosLabel(o.pos)) + ' <span style="color:#77787A">(−5 panic to +5 euphoria)</span>'],
-    ['Why', cell(o.posWhy)], ['Competition', cell(o.comp)]]));
-  if(png) p.push('<h2>Relationship map</h2><p><img src="' + png + '" alt="Relationship map" style="width:100%;height:auto;border:1px solid #E3E3E3"></p>');
-  p.push('<h2>Buying influences</h2>' + (people.length ? '<table><tr><th>Person</th><th>Part in the decision</th><th>How they see it</th><th>Rates us</th><th>Covered by</th></tr>' +
-    people.map(x => '<tr><td><b>' + cell(x.n) + '</b>' + (v(x.title) || v(x.side === 'oem' ? x.org : '') ? '<br><span style="color:#77787A">' + esc([x.title, x.side === 'oem' ? x.org : ''].filter(Boolean).join(', ')) + '</span>' : '') + '</td>' +
-      '<td>' + cell(x.role) + (x.infl ? '<br><span style="color:#77787A">' + esc(x.infl) + ' influence</span>' : '') + '</td><td>' + cell(x.mode) + '</td>' +
-      '<td>' + esc(opPosLabel(x.rate || 0)) + '</td><td>' + (covOf(x) ? esc(covOf(x)) : '<span class="flag">Not covered</span>') + '</td></tr>' +
-      (v(x.win) || v(x.result) || v(x.evid) ? '<tr><td colspan="5" style="color:#4D4D4F;font-size:9.5pt">' + [v(x.win) && '<b>Personal win:</b> ' + esc(x.win), v(x.result) && '<b>Business result:</b> ' + esc(x.result), v(x.evid) && '<b>Evidence:</b> ' + esc(x.evid)].filter(Boolean).join(' &nbsp;&middot;&nbsp; ') + '</td></tr>' : '')).join('') +
-    '</table>' : '<p>—</p>'));
-  p.push('<h2>Red flags</h2>' + list(o.flags));
-  p.push('<h2>Strengths</h2>' + list(o.strengths));
-  p.push('<h2>Best action</h2><p>' + (best ? '<b>' + esc(best.t) + '</b>' : '—') + '</p>');
-  p.push('<h2>Possible actions</h2>' + list((o.actions || []).filter(a => !a.best)));
-  p.push('<p class="sub" style="margin-top:24px">Made with Field CRM.</p></div></body></html>');
-  OPP = prev;
-  return p.join('');
+  try {
+    const v = x => (x == null ? '' : String(x)).trim();
+    const cell = x => v(x) ? esc(v(x)).replace(/\n/g, '<br>') : '—';
+    const box = on => on ? '&#9746;' : '&#9744;';
+    const grey = t => '<span style="color:#77787A">' + t + '</span>';
+    const th = t => '<th style="background:#E1EAF0;text-align:left">' + t + '</th>';
+    const people = bsPeople(o), acts = o.actions || [], crit = o.criteria || [];
+    const rep = v(o.rep) || localStorage.getItem(LS('mgr')) || '';
+    const p = [];
+    p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Blue Sheet ' + DASH_CH + ' ' + esc(o.name || '') + '</title>' +
+      '<link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>');
+    p.push('<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">');
+    p.push('<p class="eyebrow">Strategic analysis</p>');
+    p.push('<h1>Blue Sheet ' + DASH_CH + ' ' + esc(o.name || 'Untitled') + '</h1>');
+    p.push('<table><tr><td class="l">Date</td><td class="v">' + cell(bsDate(o.created)) + '</td><td class="l">Last updated</td><td class="v">' + cell(bsDate(o.updated || Date.now())) + '</td></tr>' +
+      '<tr><td class="l">Salesperson</td><td class="v">' + cell(rep) + '</td><td class="l">Account/Prospect</td><td class="v">' + cell(o.acct) + '</td></tr>' +
+      '<tr><td class="l">Current volume</td><td class="v">' + cell(o.volNow) + '</td><td class="l">Total potential volume</td><td class="v">' + cell(o.volPot) + '</td></tr></table>');
+    p.push('<h2>Single sales objective</h2><table><tr><td class="l">Product/Service</td><td class="v"><b>' + cell(o.name) + '</b>' + (v(o.obj) ? '<br>' + cell(o.obj) : '') + '</td></tr>' +
+      '<tr><td class="l">Sales revenue/units</td><td class="v">' + cell(o.value) + '</td></tr><tr><td class="l">Close date</td><td class="v">' + cell(oppMonth(o.close)) + '</td></tr></table>');
+    p.push('<h2>Adequacy of current position</h2><table><tr><td class="l">Position</td><td class="v">' +
+      (o.pos == null && !v(o.posWord) ? '—' : [o.pos == null ? '' : esc(opPosLabel(o.pos)) + ' ' + grey('(−5 panic to +5 euphoria)'), v(o.posWord) ? '<b>' + esc(o.posWord) + '</b>' : ''].filter(Boolean).join(' &nbsp; ')) + '</td></tr>' +
+      (v(o.posWhy) ? '<tr><td class="l">Why</td><td class="v">' + cell(o.posWhy) + '</td></tr>' : '') + '</table>');
+    const col = (list, cur) => list.map(x => box(cur === x) + ' ' + esc(x)).join('<br>');
+    p.push('<h2>Competition</h2><table><tr>' + th('My position vs. competition') + th('Place in sales funnel') + th('Timing for priorities') + '</tr>' +
+      '<tr><td>' + col(BS_COMP, o.vsComp) + '</td><td>' + col(BS_FUNNEL, o.funnel) + '</td><td>' + col(BS_TIMING, o.timing) + '</td></tr>' +
+      (v(o.comp) ? '<tr><td colspan="3"><b>Competition:</b> ' + cell(o.comp) + '</td></tr>' : '') + '</table>');
+    p.push('<h2>Ideal customer criteria</h2>' + (crit.length ? '<table><tr>' + th('') + th('Criterion') + th('Match to criteria (−5 to +5)') + '</tr>' +
+      crit.map((c, i) => '<tr><td>' + (i + 1) + '.</td><td>' + cell(c.t) + '</td><td>' + (typeof c.r === 'number' ? esc(opPosLabel(c.r)) : '—') + '</td></tr>').join('') +
+      '<tr><td></td><td><b>Total</b></td><td><b>' + esc(opPosLabel(bsCritTotal(o))) + '</b></td></tr></table>' : '<p>—</p>'));
+    p.push('<h2>Buying influences</h2>' + (people.length ? '<table style="font-size:9.5pt"><tr>' + th('Name, title, location') + th('Role') + th('Degree of influence') + th('Mode') +
+      th('Key win-results') + th('Rating') + th('Evidence') + '</tr>' +
+      people.map(x => { const cov = opCoverage(x).map(c => c.n).join(', ');
+        return '<tr><td><b>' + cell(x.n) + '</b>' + (v(x.title) || (x.side === 'oem' && v(x.org)) ? '<br>' + grey(esc([x.title, x.side === 'oem' ? x.org : ''].filter(y => v(y)).join(', '))) : '') +
+          (cov ? '<br>' + grey('Covered by ' + esc(cov)) : '') + '</td><td>' + cell(bsRoleCode(x)) + '</td><td>' + cell(MH_INFL[x.infl]) + '</td><td>' + cell(bsMode(x)) + '</td>' +
+          '<td>' + cell(bsWinLine(x)) + '</td><td>' + esc(opPosLabel(x.rate || 0)) + '</td><td>' + cell(x.evid) + '</td></tr>'; }).join('') + '</table>' +
+      '<p style="font-size:8.5pt;color:#77787A">Role: E economic, U user, T technical, C coach. Degree of influence: H high, M medium, L low. ' +
+      'Mode: G growth, T trouble, EK even keel, OC overconfident. Rating: how well our base is covered, −5 to +5.</p>' : '<p>—</p>'));
+    p.push('<h2>Summary of my position today</h2><h3>Strengths</h3>' + ((o.strengths || []).length ? '<ul>' + o.strengths.map(f => '<li>' + cell(f.t) + '</li>').join('') + '</ul>' : '<p>—</p>') +
+      '<h3>Red flags</h3>' + ((o.flags || []).length ? '<table><tr>' + th('Red flag') + th('Information needed') + th('From whom') + '</tr>' +
+        o.flags.map(f => '<tr><td>' + cell(f.t) + '</td><td>' + cell(f.need) + '</td><td>' + cell(f.who) + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
+    const poss = acts.filter(a => !a.best), best = acts.filter(a => a.best);
+    p.push('<h2>Possible actions</h2>' + (poss.length ? '<ul>' + poss.map(a => '<li>' + cell(a.t) + '</li>').join('') + '</ul>' : '<p>—</p>'));
+    p.push('<h2>Best action plan</h2>' + (best.length ? '<table><tr>' + th('What') + th('Who') + th('When') + '</tr>' +
+      best.map(a => '<tr><td>' + cell(a.t) + '</td><td>' + cell(a.who) + '</td><td>' + cell(a.when) + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
+    const notes = (o.notes || []).slice().sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
+    if(notes.length) p.push('<h2>Communication notes</h2><table><tr>' + th('Date') + th('Notes') + '</tr>' +
+      notes.map(n => '<tr><td style="white-space:nowrap">' + cell(n.d ? ddmmyyyy(n.d) : '') + '</td><td>' + cell(n.t) + '</td></tr>').join('') + '</table>');
+    if(png) p.push('<div style="page-break-before:always"></div><h2>Relationship map</h2><p><img src="' + png + '" alt="Relationship map" style="width:100%;height:auto;border:1px solid #E3E3E3"></p>');
+    p.push('<p class="sub" style="margin-top:24px">Made with Field CRM.</p></div></body></html>');
+    return p.join('');
+  } finally { OPP = prev; }
 }
-async function shareBlueSheet(){
+
+/* ---- the same Blue Sheet as an Excel workbook ----
+   Laid out in the Miller Heiman template's own cells and labels, so someone
+   outside MPS can keep it in Excel, and so Import a Blue Sheet reads it back.
+   SheetJS writes no colours or borders; the layout and merges carry it. */
+const BS_XL_COMP = ['Only Alternative', 'Front Runner', 'Shared', 'Zero'];
+const BS_XL_FUNNEL = ['Universe', 'Above', 'In', 'Best Few'];
+const BS_XL_TIMING = ['Urgent', 'Active', 'Work it in', 'Later'];
+function buildBlueSheetXlsx(o){
+  const X = window.XLSX;
+  const prev = OPP; OPP = o;
+  try {
+    const sheet = () => ({'!merges': []});
+    const put = (ws, a, v) => { if(v == null || v === '') return; ws[a] = typeof v === 'number' ? {t: 'n', v} : typeof v === 'boolean' ? {t: 'b', v} : {t: 's', v: String(v)}; };
+    const merge = (ws, r) => ws['!merges'].push(X.utils.decode_range(r));
+    const fin = (ws, ref, cols) => { ws['!ref'] = ref; ws['!cols'] = cols.map(w => ({wch: w})); return ws; };
+    const people = bsPeople(o), crit = o.criteria || [], acts = o.actions || [];
+    const poss = acts.filter(a => !a.best), best = acts.filter(a => a.best), strengths = o.strengths || [], flags = o.flags || [];
+    const rep = (o.rep || '').trim() || localStorage.getItem(LS('mgr')) || '';
+    const M = sheet();
+    put(M, 'B2', 'Blue Sheet: strategic analysis');
+    put(M, 'G2', 'ADEQUACY OF CURRENT POSITION (Enter in cell to the right)');
+    put(M, 'L2', [o.pos == null ? '' : opPosLabel(o.pos), o.posWord || ''].filter(Boolean).join(' '));
+    put(M, 'B4', 'Date:'); put(M, 'C4', bsDate(o.created)); put(M, 'D4', 'Last Updated:'); put(M, 'E4', bsDate(o.updated || Date.now()));
+    put(M, 'B5', 'Salesperson:'); put(M, 'C5', rep);
+    put(M, 'B6', 'Account/Prospect:'); put(M, 'C6', o.acct);
+    put(M, 'B7', 'Current Volume:'); put(M, 'C7', o.volNow); put(M, 'D7', 'Total Potential Volume:'); put(M, 'E7', o.volPot);
+    put(M, 'B8', 'SINGLE SALES OBJECTIVE');
+    put(M, 'B10', 'Product/Service:'); put(M, 'C10', (o.name || '') + (o.obj ? ' — ' + o.obj : ''));
+    put(M, 'B11', 'Sales Revenue/Units:'); put(M, 'C11', o.value);
+    put(M, 'B12', 'Close Date:'); put(M, 'C12', oppMonth(o.close));
+    put(M, 'B13', 'BUYING INFLUENCE ROLES\n\n E = Economic\n U = User\n T = Technical\n C = Coach');
+    put(M, 'C13', 'DEGREE OF INFLUENCE\n\n H = High\n M = Medium\n L = Low');
+    put(M, 'E13', 'MODE\n\nG = Growth\nT = Trouble\nEK = Even Keel\nOC = Overconfident');
+    put(M, 'G4', 'COMPETITION');
+    const group = (label, row, list, words, cur) => {
+      put(M, 'G' + row, label);
+      list.forEach((t, i) => { put(M, 'H' + (row + i), cur === words[i]); put(M, 'I' + (row + i), t); });
+    };
+    group('My Position Vs. Competition:', 6, BS_XL_COMP, BS_COMP, o.vsComp);
+    group('Place in Sales Funnel:', 10, BS_XL_FUNNEL, BS_FUNNEL, o.funnel);
+    group('Timing for Priorities:', 14, BS_XL_TIMING, BS_TIMING, o.timing);
+    put(M, 'J4', 'IDEAL CUSTOMER CRITERIA'); put(M, 'N4', 'Match to Criteria\n-5 to +5');
+    crit.slice(0, 5).forEach((c, i) => { put(M, 'J' + (6 + i), (i + 1) + '.'); put(M, 'K' + (6 + i), c.t); if(typeof c.r === 'number') put(M, 'N' + (6 + i), c.r); merge(M, 'K' + (6 + i) + ':M' + (6 + i)); });
+    put(M, 'J11', 'TOTAL'); put(M, 'N11', bsCritTotal(o));
+    put(M, 'B18', 'BUYING INFLUENCES INVOLVED\nName, Title, Location'); put(M, 'D18', 'Role'); put(M, 'E18', 'Degree of Influence'); put(M, 'F18', 'Mode');
+    put(M, 'G18', 'BUYING INFLUENCE\'S KEY WIN-RESULTS'); put(M, 'J18', 'HOW WELL IS BASE COVERED?'); put(M, 'J19', 'Rating:'); put(M, 'L19', 'Evidence to support your Rating:');
+    ['B18:C19', 'D18:D19', 'E18:E19', 'F18:F19', 'G18:I19', 'J18:N18', 'J19:K19', 'L19:N19'].forEach(r => merge(M, r));
+    const pRow = (ws, r, x, cols) => {
+      put(ws, cols[0] + r, bsNameLine(x)); put(ws, cols[1] + r, bsRoleCode(x)); put(ws, cols[2] + r, MH_INFL[x.infl] || ''); put(ws, cols[3] + r, bsMode(x));
+      put(ws, cols[4] + r, bsWinLine(x));
+    };
+    people.slice(0, 12).forEach((x, i) => { const r = 20 + i;
+      pRow(M, r, x, ['B', 'D', 'E', 'F', 'G']); put(M, 'J' + r, x.rate || 0); put(M, 'L' + r, x.evid);
+      ['B' + r + ':C' + r, 'G' + r + ':I' + r, 'J' + r + ':K' + r, 'L' + r + ':N' + r].forEach(m => merge(M, m)); });
+    put(M, 'B32', 'SUMMARY OF MY POSITION TODAY'); put(M, 'G32', 'POSSIBLE ACTIONS\nA good sales strategy leverages Strengths and reduces or eliminates Red Flags.'); put(M, 'J32', 'BEST ACTION PLAN');
+    put(M, 'B34', 'STRENGTHS'); put(M, 'J34', 'What'); put(M, 'M34', 'Who'); put(M, 'N34', 'When');
+    strengths.slice(0, 11).forEach((f, i) => { put(M, 'B' + (35 + i), f.t); merge(M, 'B' + (35 + i) + ':F' + (35 + i)); });
+    best.slice(0, 11).forEach((a, i) => { put(M, 'J' + (35 + i), a.t); put(M, 'M' + (35 + i), a.who); put(M, 'N' + (35 + i), a.when); merge(M, 'J' + (35 + i) + ':L' + (35 + i)); });
+    poss.slice(0, 25).forEach((a, i) => { put(M, 'G' + (35 + i), a.t); merge(M, 'G' + (35 + i) + ':I' + (35 + i)); });
+    put(M, 'B46', 'RED FLAGS'); put(M, 'J46', 'Information Needed'); put(M, 'N46', 'From Whom');
+    flags.slice(0, 13).forEach((f, i) => { const r = 47 + i; put(M, 'B' + r, f.t); put(M, 'J' + r, f.need); put(M, 'N' + r, f.who); merge(M, 'B' + r + ':F' + r); merge(M, 'J' + r + ':M' + r); });
+    fin(M, 'B2:N60', [2, 26, 14, 14, 12, 8, 22, 6, 16, 10, 14, 14, 10, 12]);
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, M, 'Miller Heiman Blue Sheet');
+    // what does not fit on the form goes on Extras, as in the template
+    const E = sheet();
+    put(E, 'B2', 'BUYING INFLUENCES INVOLVED'); put(E, 'F2', 'BUYING INFLUENCE\'S KEY WIN-RESULTS'); put(E, 'G2', 'IDEAL CUSTOMER CRITERIA'); put(E, 'K2', 'Match to Criteria\n-5 to +5');
+    put(E, 'B3', 'Name, Title, Location'); put(E, 'C3', 'Role'); put(E, 'D3', 'Degree'); put(E, 'E3', 'Mode'); put(E, 'F3', 'Win-Results Statement');
+    people.slice(12, 33).forEach((x, i) => pRow(E, 4 + i, x, ['B', 'C', 'D', 'E', 'F']));
+    crit.slice(5, 10).forEach((c, i) => { put(E, 'G' + (4 + i), (6 + i) + '.'); put(E, 'H' + (4 + i), c.t); if(typeof c.r === 'number') put(E, 'K' + (4 + i), c.r); });
+    put(E, 'G9', 'TOTAL'); put(E, 'K9', bsCritTotal(o));
+    put(E, 'B25', 'SUMMARY OF MY POSITION TODAY'); put(E, 'F25', 'POSSIBLE ACTIONS'); put(E, 'G25', 'BEST ACTION PLAN');
+    put(E, 'B27', 'STRENGTHS'); put(E, 'G27', 'What'); put(E, 'J27', 'Who'); put(E, 'K27', 'When');
+    strengths.slice(11, 25).forEach((f, i) => put(E, 'B' + (28 + i), f.t));
+    best.slice(11, 25).forEach((a, i) => { put(E, 'G' + (28 + i), a.t); put(E, 'J' + (28 + i), a.who); put(E, 'K' + (28 + i), a.when); });
+    poss.slice(25, 55).forEach((a, i) => put(E, 'F' + (28 + i), a.t));
+    put(E, 'B42', 'RED FLAGS'); put(E, 'G42', 'Information Needed'); put(E, 'K42', 'Whom');
+    flags.slice(13, 28).forEach((f, i) => { put(E, 'B' + (43 + i), f.t); put(E, 'G' + (43 + i), f.need); put(E, 'K' + (43 + i), f.who); });
+    X.utils.book_append_sheet(wb, fin(E, 'B2:K60', [2, 30, 8, 8, 8, 30, 24, 6, 6, 12, 12]), 'Extras');
+    const N = sheet();
+    put(N, 'B2', 'COMMUNICATION NOTES'); put(N, 'B3', 'Date'); put(N, 'C3', 'Note(s)');
+    (o.notes || []).slice().sort((a, b) => String(a.d || '').localeCompare(String(b.d || ''))).forEach((n, i) => { put(N, 'B' + (4 + i), n.d ? ddmmyyyy(n.d) : ''); put(N, 'C' + (4 + i), n.t); });
+    X.utils.book_append_sheet(wb, fin(N, 'B2:C' + Math.max(4, 4 + (o.notes || []).length), [2, 12, 90]), 'Notes');
+    return new Blob([X.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  } finally { OPP = prev; }
+}
+// a file that is not a page: the share sheet on the phone, a download on the PC
+async function deliverFile(blob, name, title){
+  const file = new File([blob], name, {type: blob.type});
+  if(isPhone() && navigator.canShare && navigator.canShare({files: [file]})){
+    try { await navigator.share({files: [file], title}); toast('Shared'); return; }
+    catch(e){ if(e.name === 'AbortError') return; console.error(e); }
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Saved ' + name);
+}
+function shareBlueSheet(){
   if(!OPP) return;
-  if(opSaveTimer) await oppSaveNow();
-  toast('Building' + String.fromCharCode(8230));
-  const png = await oppMapPng();
-  const html = buildBlueSheetHTML(OPP, png);
-  const safe = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').slice(0, 60);
-  const name = safe(OPP.acct) + '_' + safe(OPP.name) + '_blue_sheet_' + todayISOdate() + '.html';
-  await deliverDoc(html, name, 'Blue Sheet ' + (OPP.name || ''));
+  chipRow($('boFmt'), ['Document', 'Excel'], 'Document');
+  $('boMap').checked = false;
+  bsOutPaint();
+  if($('bsoutdlg').showModal) $('bsoutdlg').showModal(); else $('bsoutdlg').setAttribute('open', '');
+  pushDialog('bsoutdlg');
 }
-$('opShare').addEventListener('click', () => shareBlueSheet().catch(reportErr));
+function bsOutPaint(){
+  const xl = chipVal($('boFmt')) === 'Excel';
+  $('boMapWrap').hidden = xl;
+  $('boNote').textContent = xl ? 'In the Miller Heiman template\'s own layout, so it opens in Excel and imports back. Excel can\'t carry the map.'
+    : 'Miller Heiman\'s sections in its own order, for anyone outside MPS. The map is for your own planning; add it only if they should see it.';
+}
+function bsOutShut(){
+  const d = $('bsoutdlg');
+  if(!d.hasAttribute('open')) return;
+  if(history.state && history.state.dialog === 'bsoutdlg'){ history.back(); return; }
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+$('boFmt').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; chipRow($('boFmt'), ['Document', 'Excel'], b.dataset.v); bsOutPaint(); });
+$('boCancel').addEventListener('click', bsOutShut);
+$('boGo').addEventListener('click', async () => {
+  const xl = chipVal($('boFmt')) === 'Excel', withMap = $('boMap').checked;
+  bsOutShut();
+  if(!OPP) return;
+  try {
+    if(opSaveTimer) await oppSaveNow();
+    const safe = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').slice(0, 60);
+    const base = safe(OPP.acct) + '_' + safe(OPP.name) + '_blue_sheet_' + todayISOdate();
+    if(xl){
+      if(!window.XLSX){ toast('The spreadsheet library did not load'); return; }
+      await deliverFile(buildBlueSheetXlsx(OPP), base + '.xlsx', 'Blue Sheet ' + (OPP.name || ''));
+      return;
+    }
+    toast('Building' + String.fromCharCode(8230));
+    const png = withMap ? await oppMapPng() : '';
+    await deliverDoc(buildBlueSheetHTML(OPP, png), base + '.html', 'Blue Sheet ' + (OPP.name || ''));
+  } catch(e){ reportErr(e); }
+});
+$('opShare').addEventListener('click', shareBlueSheet);
+
+/* ---- Import a Blue Sheet (v122) ----
+   Reads a Miller Heiman Blue Sheet workbook (the template's .xls, or the Excel
+   copy this app makes) into a new opportunity on the account. Cells are found
+   by their labels rather than fixed addresses, so a moved row still reads.
+   People land on the map in their lanes, in order, ready to be arranged. */
+const BS_ROLE_OF = {E: 'Signs the order', U: 'Uses it', T: 'Checks the spec', C: 'On our side'};
+const BS_MODE_OF = {G: 'Growth', T: 'Trouble', EK: 'Steady', OC: 'Overconfident'};
+const BS_INFL_OF = {H: 'High', M: 'Medium', L: 'Low'};
+function bsSheetReader(ws){
+  const X = window.XLSX;
+  const cells = Object.keys(ws).filter(k => k[0] !== '!').map(k => Object.assign(X.utils.decode_cell(k), {v: ws[k].v}))
+    .sort((a, b) => a.r - b.r || a.c - b.c);
+  const at = (r, c) => { const x = ws[X.utils.encode_cell({r, c})]; return x ? x.v : ''; };
+  const str = (r, c) => { const v = at(r, c); return v == null ? '' : String(v).trim(); };
+  const find = re => cells.filter(x => typeof x.v === 'string' && re.test(x.v.trim()));
+  const one = re => find(re)[0] || null;
+  const isLabel = v => typeof v === 'string' && /:\s*$/.test(v.trim());
+  // the value beside a label: the next filled cell to its right, stopping at another label
+  const beside = (p, reach) => {
+    if(!p) return '';
+    for(let c = p.c + 1; c <= p.c + (reach || 3); c++){
+      const v = at(p.r, c);
+      if(isLabel(v)) return '';
+      if(v !== '' && v != null) return v;
+    }
+    return '';
+  };
+  const maxR = cells.length ? cells[cells.length - 1].r : 0;
+  return {at, str, find, one, beside, maxR};
+}
+function bsMonth(v){
+  if(typeof v === 'number' && window.XLSX){ const d = XLSX.SSF.parse_date_code(v); return d ? d.y + '-' + String(d.m).padStart(2, '0') : ''; }
+  const s = String(v || '').trim();
+  let m = /^(\d{4})-(\d{1,2})/.exec(s);
+  if(m) return m[1] + '-' + m[2].padStart(2, '0');
+  m = /^([A-Za-z]{3})[a-z]*\.?\s+(\d{4})$/.exec(s);
+  if(m){ const i = MONNM.findIndex(x => x.slice(0, 3).toLowerCase() === m[1].toLowerCase()); if(i >= 0) return m[2] + '-' + String(i + 1).padStart(2, '0'); }
+  const t = Date.parse(s);
+  return isNaN(t) ? '' : new Date(t).getFullYear() + '-' + String(new Date(t).getMonth() + 1).padStart(2, '0');
+}
+function bsDay(v){
+  if(typeof v === 'number' && window.XLSX){ const d = XLSX.SSF.parse_date_code(v); return d ? d.y + '-' + String(d.m).padStart(2, '0') + '-' + String(d.d).padStart(2, '0') : ''; }
+  const s = String(v || '').trim();
+  let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if(m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? m[0] : '';
+}
+const bsNum = v => { const n = typeof v === 'number' ? v : parseFloat(String(v || '').replace(/[^\d.+-]/g, '')); return isNaN(n) ? null : Math.max(-5, Math.min(5, Math.round(n))); };
+// "Peter Ng- Group Engineering Manager, Perth": the name, then everything else
+function bsSplitName(s){
+  const m = /\s*[-–]\s+|\s+[-–]\s*|,\s*/.exec(s);
+  return m ? {n: s.slice(0, m.index).trim(), title: s.slice(m.index + m[0].length).trim()} : {n: s.trim(), title: ''};
+}
+function parseBlueSheet(wb){
+  const sheets = wb.SheetNames.map(n => ({n, ws: wb.Sheets[n]})).filter(x => x.ws);
+  const main = sheets.find(x => bsSheetReader(x.ws).one(/^SINGLE SALES OBJECTIVE$/i));
+  if(!main) throw new Error('that is not a Blue Sheet: there is no Single Sales Objective in it');
+  const S = bsSheetReader(main.ws);
+  const o = {name: '', obj: '', value: '', close: '', rep: '', volNow: '', volPot: '', posWord: '', pos: null, vsComp: '', funnel: '', timing: '',
+    criteria: [], people: [], flags: [], strengths: [], actions: [], notes: [], acctOnSheet: ''};
+  const txt = v => v == null ? '' : String(v).trim();
+  o.rep = txt(S.beside(S.one(/^Salesperson:/i)));
+  o.acctOnSheet = txt(S.beside(S.one(/^Account\/Prospect:/i)));
+  o.volNow = txt(S.beside(S.one(/^Current Volume:/i)));
+  o.volPot = txt(S.beside(S.one(/^Total Potential Volume:/i)));
+  const prod = txt(S.beside(S.one(/^Product\/Service:/i), 5));
+  const dash = prod.indexOf(' — ');
+  o.name = (dash > 0 ? prod.slice(0, dash) : prod).slice(0, 120);
+  o.obj = dash > 0 ? prod.slice(dash + 3) : '';
+  const rev = S.beside(S.one(/^Sales Revenue\/Units:/i));
+  o.value = typeof rev === 'number' ? String(rev) : txt(rev);
+  o.close = bsMonth(S.beside(S.one(/^Close Date:/i)));
+  const adq = S.beside(S.one(/^ADEQUACY OF CURRENT POSITION/i), 8);
+  if(typeof adq === 'number') o.pos = bsNum(adq);
+  else { const m = /^([+-]?\d+)\s*(.*)$/.exec(txt(adq)); if(m){ o.pos = bsNum(m[1]); o.posWord = m[2]; } else o.posWord = txt(adq); }
+  // the ticked box in each group: TRUE (or an x) in the cell left of the word
+  const ticked = (words, xl) => {
+    for(let i = 0; i < xl.length; i++){
+      for(const p of S.find(new RegExp('^' + xl[i] + '$', 'i'))){
+        const b = S.at(p.r, p.c - 1);
+        if(b === true || /^(true|x|yes|✓|☒)$/i.test(String(b).trim())) return words[i];
+      }
+    }
+    return '';
+  };
+  o.vsComp = ticked(BS_COMP, BS_XL_COMP); o.funnel = ticked(BS_FUNNEL, BS_XL_FUNNEL); o.timing = ticked(BS_TIMING, BS_XL_TIMING);
+  // red flags, strengths and actions: the same block on the form and on Extras
+  const summary = R => {
+    const st = R.one(/^STRENGTHS$/i), rf = R.one(/^RED FLAGS$/i), pa = R.one(/^POSSIBLE ACTIONS/i);
+    if(!st) return;
+    const head = re => (R.find(re).find(x => x.r === st.r) || null);
+    const what = head(/^What$/i), who = head(/^Who$/i), when = head(/^When$/i);
+    // down to the copyright line under the block, if there is one (the form has another at the top)
+    const end = Math.min(R.maxR, ((R.find(/©|Miller Heiman, Inc/i).find(x => x.r > st.r) || {}).r || R.maxR + 1) - 1);
+    const stop = rf ? rf.r : end + 1;
+    for(let r = st.r + 1; r < stop; r++){
+      const t = R.str(r, st.c); if(t && !/^RED FLAGS$/i.test(t)) o.strengths.push({id: newId('fl'), t, pin: ''});
+      if(what){ const w = R.str(r, what.c); if(w) o.actions.push({id: newId('ac'), t: w, best: true, who: who ? R.str(r, who.c) : '', when: when ? txt(R.at(r, when.c)) : ''}); }
+    }
+    if(rf){
+      const need = R.find(/^Information Needed$/i).find(x => x.r === rf.r), whom = R.find(/^(From )?Whom$/i).find(x => x.r === rf.r);
+      for(let r = rf.r + 1; r <= end; r++){
+        const t = R.str(r, rf.c);
+        if(t) o.flags.push({id: newId('fl'), t, pin: '', need: need ? R.str(r, need.c) : '', who: whom ? R.str(r, whom.c) : ''});
+      }
+    }
+    if(pa) for(let r = st.r + 1; r <= end; r++){
+      const t = R.str(r, pa.c);
+      if(t && !/^(Information Needed|What)$/i.test(t)) o.actions.push({id: newId('ac'), t, best: false});
+    }
+  };
+  // the ideal customer criteria: a numbered row, its words, and a match from -5 to +5
+  const criteria = R => {
+    const h = R.one(/^IDEAL CUSTOMER CRITERIA/i), mc = R.one(/^Match to Criteria/i);
+    if(!h || !mc) return;
+    for(const p of R.find(/^\d+\.?$/).filter(x => x.c === h.c && x.r > h.r)){
+      let t = '';
+      for(let c = p.c + 1; c < mc.c && !t; c++) t = R.str(p.r, c);
+      if(t && o.criteria.length < 10) o.criteria.push({id: newId('cr'), t, r: R.str(p.r, mc.c) === '' ? null : bsNum(R.at(p.r, mc.c))});
+    }
+  };
+  // the buying influences: below their heading, down to the summary
+  const influences = (R, onMain) => {
+    const h = R.one(/^BUYING INFLUENCES INVOLVED/i); if(!h) return;
+    const near = re => R.find(re).find(x => x.r >= h.r && x.r <= h.r + 1) || null;
+    const role = near(/^Role$/i), deg = near(/^Degree/i), mode = near(/^Mode$/i), win = near(/WIN-RESULTS|Win-Results Statement/i);
+    const rate = onMain ? near(/^Rating:/i) : null, evid = onMain ? near(/^Evidence to support/i) : null;
+    const hdrs = [h, role, deg, mode, win, rate, evid, R.one(/^Name, Title, Location$/i)].filter(Boolean);
+    const from = Math.max(...hdrs.map(x => x.r)) + 1, sm = R.one(/^SUMMARY OF MY POSITION/i), to = sm ? sm.r - 1 : R.maxR;
+    for(let r = from; r <= to; r++){
+      const s = R.str(r, h.c);
+      if(!s || /^(\d+\.?|TOTAL|HOW WELL IS BASE COVERED\?|Rating:)$/i.test(s)) continue;
+      const nm = bsSplitName(s), oem = /\bOEM\b|integrator|consult/i.test(s);
+      const roles = (role ? R.str(r, role.c) : '').toUpperCase().split(/[^A-Z]+/).map(k => BS_ROLE_OF[k]).filter(Boolean);
+      const w = win ? R.str(r, win.c) : '';
+      o.people.push({id: newId('pp'), side: oem ? 'oem' : 'cust', n: nm.n || s, title: nm.title, org: oem ? nm.n : '',
+        role: roles[0] || '', role2: roles[1] && roles[1] !== roles[0] ? roles[1] : '',
+        infl: BS_INFL_OF[(deg ? R.str(r, deg.c) : '').toUpperCase().charAt(0)] || '',
+        mode: BS_MODE_OF[(mode ? R.str(r, mode.c) : '').toUpperCase()] || '',
+        rate: rate && R.str(r, rate.c) !== '' ? bsNum(R.at(r, rate.c)) || 0 : 0, evid: evid ? R.str(r, evid.c) : '',
+        win: /^(tbc|tbd|\?)$/i.test(w) ? '' : w, result: '', note: ''});
+    }
+  };
+  criteria(S); influences(S, true); summary(S);
+  const ex = sheets.find(x => /extras/i.test(x.n));
+  if(ex){ const E = bsSheetReader(ex.ws); criteria(E); influences(E, false); summary(E); }
+  const nt = sheets.map(x => bsSheetReader(x.ws)).find(R => R.one(/^COMMUNICATION NOTES/i));
+  if(nt){
+    const dh = nt.find(/^Date$/i)[0], th = nt.find(/^Note\(?s?\)?$/i)[0];
+    if(dh && th) for(let r = dh.r + 1; r <= nt.maxR; r++){
+      const t = nt.str(r, th.c); if(t && !/©/.test(t)) o.notes.push({id: newId('cn'), d: bsDay(nt.at(r, dh.c)), t});
+    }
+  }
+  return o;
+}
+// lay the people out in their lanes, in the order the sheet lists them
+function bsLayout(o){
+  const n = {cust: 0, oem: 0};
+  let deepest = 0;
+  for(const p of o.people){
+    const lane = OP_LANES.find(L => L.k === p.side), i = n[p.side]++;
+    p.x = lane.x + 40 + (i % 2) * 110;
+    p.y = (p.side === 'oem' ? 160 : 60) + i * 85;
+    deepest = Math.max(deepest, p.y + OP_CH);
+  }
+  if(deepest + 40 > OP_H) o.laneH = deepest + 40;
+}
+async function importBlueSheet(file, acct){
+  if(!window.XLSX) throw new Error('the spreadsheet library did not load');
+  const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'});
+  const r = parseBlueSheet(wb);
+  const o = Object.assign({id: newId('op'), acct, links: [], ox: 460, oy: 60, created: Date.now()}, r);
+  if(!o.name) o.name = 'Imported Blue Sheet';
+  delete o.acctOnSheet;
+  bsLayout(o);
+  o.updated = Date.now();
+  await oppsPut(JSON.parse(JSON.stringify(o)));
+  OPPS = OPPS.filter(x => x.id !== o.id).concat([o]);
+  const bits = [o.people.length + (o.people.length === 1 ? ' buying influence' : ' buying influences'), o.flags.length + (o.flags.length === 1 ? ' red flag' : ' red flags'),
+    o.actions.length + (o.actions.length === 1 ? ' action' : ' actions')];
+  toast('Blue Sheet brought in: ' + bits.join(', ') + (r.acctOnSheet && r.acctOnSheet !== acct ? '. The sheet named ' + r.acctOnSheet : ''));
+  return o;
+}
 
 /* ================= the large account plan (v117) =================
    One plan across a customer's sites: where we are, where we want to get to,
@@ -12157,9 +12601,39 @@ async function renderStrategy(){
   $('stWho').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === stWho));
   const items = stItems(stTab), w = STWORD[stTab];
   $('stHint').textContent = items.length ? items.length + ' ' + (items.length === 1 ? w[0] : w[1]) : '';
-  $('stRes').innerHTML = items.length ? items.map(x => stRow(stTab, x)).join('')
-    : '<p class="empty">' + STEMPTY[stTab] + (stTab !== 'laps' ? ' Start one from an account.' : ' Tick Large account on an account plan.') + '</p>';
+  $('stNew').textContent = '+ New ' + w[0];
+  $('stRes').innerHTML = items.length ? items.map(x => stRow(stTab, x)).join('') : '<p class="empty">' + STEMPTY[stTab] + '</p>';
   stWire($('stRes'), stTab);
+}
+/* Start one from here (v122): pick the account, then it opens where it lives,
+   and back comes to Strategy. A large account plan starts from one of its
+   sites and takes in the customer's others, as the tick on a site's plan does. */
+$('stNew').addEventListener('click', () => {
+  const tab = stTab;
+  openSearch({
+    placeholder: tab === 'laps' ? 'One of the customer\'s sites' : 'Which account?',
+    render(q, el, hint){
+      const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+      if(!terms.length){ el.innerHTML = ''; hint.textContent = 'Type the account\'s name.'; return; }
+      const hits = ACCOUNTS.filter(a => terms.every(t => (a.a + ' ' + (a.sub || '')).toLowerCase().includes(t))).sort((a, b) => a.a.localeCompare(b.a));
+      hint.textContent = hits.length ? (hits.length > 40 ? 'The first 40 of ' + hits.length : hits.length + ' found') : 'No account matches that.';
+      el.innerHTML = hits.slice(0, 40).map(a => {
+        const note = tab === 'plans' && planFor(a.a) ? 'Has an account plan: opens it' : tab === 'laps' && largeFor(a.a) ? 'In ' + (largeFor(a.a).name || 'a large account') + ': opens it' : '';
+        return '<button type="button" class="rpt" data-stnew="' + esc(a.a) + '"><div class="rn">' + esc(a.a) + '</div>' + (note ? '<div class="rm">' + esc(note) + '</div>' : '') + '</button>';
+      }).join('');
+      el.querySelectorAll('[data-stnew]').forEach(b => b.addEventListener('click', () => { closeSearch(); stStart(tab, b.dataset.stnew).catch(reportErr); }));
+    }
+  });
+});
+async function stStart(tab, name){
+  const a = ACC_BY_NAME.get(name);
+  if(!a) return;
+  if(tab === 'opps'){ viewAcct = a; openOppDetails(null); return; }      // Done opens its map
+  if(tab === 'plans'){ openPlan(name); return; }
+  const have = largeFor(name);
+  if(have){ openLap(have.id); toast(name + ' is already in ' + (have.name || 'a large account')); }
+  else await lapTick(name, true);
+  if(screen === 'lap') stOpened = 'lap';
 }
 $('stTabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { stTab = b.dataset.v; renderStrategy().catch(reportErr); }));
 $('stWho').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { stWho = b.dataset.v; renderStrategy().catch(reportErr); }));
@@ -12909,12 +13383,21 @@ $('cmFile').addEventListener('change', async e => {
   try { await cipImport(f); } catch(err){ console.error(err); toast('Import failed: ' + err.message); }
 });
 
-/* The CIP and MBO page's own "Save to file" holds the plan, the MBOs and the
-   pillars; a 'fieldcrm-cip' file can hold the reference as well, or only it. */
+/* Three kinds of file come in here. The CIP and MBO page's "Save HTML copy"
+   (v122) carries everything: the plan, the MBOs and the pillars as JSON, and
+   the reference as the page's own lists. Its "Save to file" carries the plan,
+   the MBOs and the pillars. A 'fieldcrm-cip' file can hold either or both.
+   The page's lists are code, so they are read by cipLiteral() - a reader for
+   plain values only - and never run. */
 async function cipImport(file){
-  let d;
-  try { d = JSON.parse(await file.text()); } catch(e){ throw new Error('that file is not readable'); }
-  let rec = null, ref = null;
+  const text = await file.text();
+  let d = null, rec = null, ref = null;
+  if(/^\s*</.test(text)){
+    const h = cipFromHtml(text);
+    rec = h.rec; ref = h.ref;
+  } else {
+    try { d = JSON.parse(text); } catch(e){ throw new Error('that file is not readable'); }
+  }
   if(d && d.employee && d.periods) rec = d;
   else if(d && d.format === 'fieldcrm-cip'){ rec = d.record && d.record.periods ? d.record : null; ref = d.reference && typeof d.reference === 'object' ? d.reference : null; }
   if(!rec && !ref) throw new Error('that is not a CIP and MBO file');
@@ -12946,6 +13429,106 @@ async function cipImport(file){
   await logLoad(file.name, 'cip', 'Brought in ' + got.join(', '));
   if(screen === 'cip') renderCip(); else if(screen === 'mbo') renderMbo();
   toast('Brought in ' + got.join(', '));
+}
+
+// the plan saved into the page, and its lists of indicants, principles, goals and books
+function cipFromHtml(text){
+  const out = {rec: null, ref: null}, mark = 'window.__INIT_REC__=';
+  const i = text.indexOf(mark);
+  if(i >= 0){
+    const j = text.indexOf('</script>', i);
+    // the page escaped "</" and "<!--" so they could sit in a script; JSON takes the first, not the second
+    const body = text.slice(i + mark.length, j < 0 ? undefined : j).trim().replace(/;\s*$/, '').replace(/<\\!--/g, '<!--');
+    try { const d = JSON.parse(body); if(d && d.rec && d.rec.periods) out.rec = d.rec; }
+    catch(e){ throw new Error('the CIP in that page could not be read'); }
+  }
+  const lit = name => {
+    const m = new RegExp('\\bconst\\s+' + name + '\\s*=\\s*').exec(text);
+    if(!m) return undefined;
+    try { return cipLiteral(text, m.index + m[0].length); } catch(e){ console.warn('cip list', name, e); return undefined; }
+  };
+  const ind = lit('IND'), lci = lit('LCI');
+  if(Array.isArray(ind) || Array.isArray(lci)){
+    const fy = lit('FY26'), refs = lit('REF') || [];
+    const extra = [];
+    if(fy && typeof fy === 'object'){
+      const t = (refs.find && refs.find(r => r && r.id === 'r-fy26') || {}).title || 'BU summary';
+      const blocks = [];
+      if(fy.fc) blocks.push({h: 'Forecast', p: String(fy.fc)});
+      if(Array.isArray(fy.goals)) blocks.push({h: 'Goals', table: {head: ['Goal', 'Focus'], rows: fy.goals}});
+      if(Array.isArray(fy.h1)) blocks.push({h: 'Results', ul: fy.h1});
+      if(Array.isArray(fy.acc)) blocks.push({h: 'Accounts', table: {head: ['Account', 'Team', 'Business review', 'Comment'], rows: fy.acc}});
+      if(Array.isArray(fy.g2)) blocks.push({h: 'Progress', table: {head: ['Focus area', 'Progress'], rows: fy.g2}});
+      extra.push({title: t, note: '', blocks});
+    }
+    out.ref = {ind: cipArr(ind), lci: cipArr(lci), buYear: String(lit('BU_YEAR') || ''), bu: cipArr(lit('BU')), books: cipArr(lit('BOOKS')), extra};
+  }
+  if(!out.rec && !out.ref) throw new Error('that page is not the CIP and MBO page');
+  return out;
+}
+/* A plain value written as code - objects, arrays, strings, numbers, true,
+   false, null - read without running anything. Anything else stops it. */
+function cipLiteral(src, pos){
+  let i = pos;
+  const fail = () => { throw new Error('not a plain value at ' + i); };
+  const space = () => {
+    for(;;){
+      while(i < src.length && /\s/.test(src[i])) i++;
+      if(src.startsWith('//', i)){ const n = src.indexOf('\n', i); i = n < 0 ? src.length : n; }
+      else if(src.startsWith('/*', i)){ const n = src.indexOf('*/', i); if(n < 0) fail(); i = n + 2; }
+      else return;
+    }
+  };
+  const str = () => {
+    const q = src[i++]; let s = '';
+    while(i < src.length && src[i] !== q){
+      if(src[i] === '\\'){
+        const c = src[++i];
+        if(c === 'u'){ s += String.fromCharCode(parseInt(src.substr(i + 1, 4), 16)); i += 5; continue; }
+        s += c === 'n' ? '\n' : c === 't' ? '\t' : c === 'r' ? '\r' : c; i++;
+      } else if(src[i] === '\n') fail();
+      else s += src[i++];
+    }
+    if(src[i] !== q) fail();
+    i++; return s;
+  };
+  const val = () => {
+    space();
+    const c = src[i];
+    if(c === '{'){
+      i++; const o = {};
+      for(;;){
+        space();
+        if(src[i] === '}'){ i++; return o; }
+        let k;
+        if(src[i] === '"' || src[i] === "'") k = str();
+        else { const m = /^[A-Za-z_$][\w$]*/.exec(src.slice(i, i + 80)); if(!m) fail(); k = m[0]; i += k.length; }
+        space(); if(src[i++] !== ':') fail();
+        const v = val();
+        if(k !== '__proto__' && k !== 'constructor') o[k] = v;
+        space();
+        if(src[i] === ','){ i++; continue; }
+        if(src[i] === '}'){ i++; return o; }
+        fail();
+      }
+    }
+    if(c === '['){
+      i++; const a = [];
+      for(;;){
+        space();
+        if(src[i] === ']'){ i++; return a; }
+        a.push(val()); space();
+        if(src[i] === ','){ i++; continue; }
+        if(src[i] === ']'){ i++; return a; }
+        fail();
+      }
+    }
+    if(c === '"' || c === "'") return str();
+    const m = /^(-?\d+(\.\d+)?|true|false|null)(?![\w$])/.exec(src.slice(i, i + 40));
+    if(!m) fail();
+    i += m[1].length; return JSON.parse(m[1]);
+  };
+  return val();
 }
 
 /* ---------- Create and share ---------- */

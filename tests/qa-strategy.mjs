@@ -109,10 +109,43 @@ ok([...$('fsRes').querySelectorAll('[data-st]')].map(b => b.querySelector('.rn')
 $('fsRes').querySelector('[data-st]').click(); await tick(150);
 ok(g('screen') === 'opp' && g('OPP.id') === 'o3' && !$('srchdlg').hasAttribute('open'), 'a result opens it, the search closed');
 
+// ---- start one from here
+const pickAcct = async q => { $('fsQ').value = q; $('fsQ').dispatchEvent(new w.Event('input')); await tick(200); return [...$('fsRes').querySelectorAll('[data-stnew]')]; };
+await g(`(async () => { go('home'); go('strategy'); })()`); await tick(150);
+tab('opps'); await tick(100);
+ok($('stNew').textContent === '+ New opportunity' && $('stNew').compareDocumentPosition($('stTabs')) & 4, 'New is the main action, at the top');
+$('stNew').click(); await tick(100);
+ok($('srchdlg').hasAttribute('open') && /Type the account's name/.test($('fsHint').textContent), 'New asks which account');
+let hits = await pickAcct('bendigo');
+ok(hits.length === 1 && hits[0].dataset.stnew === B, 'and finds it by name or suburb');
+hits[0].click(); await tick(150);
+ok(!$('srchdlg').hasAttribute('open') && $('oppdlg').hasAttribute('open') && $('odSub').textContent === B, 'picking it opens a new opportunity on that account');
+$('odName').value = 'Chiller line'; $('odOk').click(); await tick(400);
+ok(g('screen') === 'opp' && g('OPP.acct') === B && g('OPP.name') === 'Chiller line', 'Done opens its map');
+$('back').click(); await tick(150);
+ok(g('screen') === 'strategy' && /Chiller line/.test($('stRes').textContent), 'back comes to Strategy, with it listed');
+tab('plans'); await tick(100);
+ok($('stNew').textContent === '+ New account plan', 'each tab starts its own kind');
+$('stNew').click(); await tick(100);
+hits = await pickAcct('ringwood');
+ok(/Has an account plan: opens it/.test(hits[0].textContent), 'an account that already has a plan says so');
+hits[0].click(); await tick(150);
+ok($('plandlg').hasAttribute('open') && $('plSub').textContent === C && $('plGoal').value === 'Get back in by June', 'and opens the plan it has');
+$('plOk').click(); await tick(300);
+tab('laps'); await tick(100);
+$('stNew').click(); await tick(100);
+hits = await pickAcct('dandenong');
+ok(/In Example Meats: opens it/.test(hits[0].textContent), 'a site already in a large account says which');
+hits = await pickAcct('ringwood');
+hits[0].click(); await tick(400);
+ok(g('screen') === 'lap' && g('LAP.name') === 'Other Foods' && g('LAP.sites.join()') === C, 'a new large account plan starts from one of its sites');
+$('back').click(); await tick(150);
+ok(g('screen') === 'strategy' && $('stTabs').querySelector('.on').dataset.v === 'laps' && /Other Foods/.test($('stRes').textContent), 'back comes to Strategy, with it listed');
+
 // ---- empty
 await g(`(async () => { TEAM = null; for(const o of await oppsAll()) await oppsDel(o.id); OPPS = []; go('strategy'); })()`); await tick(100);
 tab('opps'); await tick(100);
-ok(/No opportunities yet\. Start one from an account\./.test($('stRes').textContent) && $('stHint').textContent === '', 'empty, it says so plainly');
+ok($('stRes').textContent.trim() === 'No opportunities yet.' && $('stHint').textContent === '', 'empty, it says so plainly, with no nudge');
 
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));

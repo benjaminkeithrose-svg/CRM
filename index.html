@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v121">
+<meta name="build" content="v122">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -217,6 +217,7 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .taitem.fail{opacity:.7}
 /* Lists (v97): the add button on top, then the count and the search icon */
 #s-lists .big{width:100%;margin:0 0 10px}
+#s-strategy #stNew{margin:0 0 10px}
 .lsrow{margin-bottom:8px}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
 .stat b{color:var(--ink);font-weight:700}
@@ -761,6 +762,15 @@ body.planning #s-opp{padding:0}
 .bsacts li{border-left-color:var(--line)}
 .bsacts li .btn{flex:none;min-height:32px;padding:4px 8px;font-size:12.5px}
 .bsacts li.best{border-left-color:var(--act);background:var(--cyan-lt)}
+.bsgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px;margin-top:6px}
+@media (max-width:520px){ .bsgrid3{grid-template-columns:1fr} }
+.bsfx{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.bsfx input{min-height:36px;padding:6px 8px;font-size:14px}
+.bscrit li{align-items:center}
+.bscrit select{flex:none;width:76px;min-height:36px;padding:4px 6px}
+.bsnadd{display:grid;grid-template-columns:150px 1fr auto;gap:6px;margin-top:6px}
+@media (max-width:520px){ .bsnadd{grid-template-columns:1fr auto} .bsnadd input[type=text]{grid-column:1 / -1;grid-row:1} }
+.oppcard .bsimp{display:block;margin-top:6px;min-height:40px}
 .bsstar{flex:none;width:32px;height:32px;border:0;background:transparent;cursor:pointer;font-size:18px;color:var(--ink-3);padding:0}
 .bsstar.on{color:var(--act)}
 
@@ -2024,6 +2034,14 @@ details.bsx > .msg{margin:8px 12px}
       </ol>
       <p>Opportunities are listed by close date, nearest first, with their position and red flags. Large accounts show their sites and when they were last reviewed. Account plans show their goal, last changed first.</p>
       <p>In a team, <b>Mine</b> shows your own and <b>Team</b> your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.</p>
+      <p>To start a new one from here:</p>
+      <ol>
+        <li>Tap the tab: <b>Opportunities</b>, <b>Large accounts</b> or <b>Account plans</b>.</li>
+        <li>Tap <b>+ New</b> at the top.</li>
+        <li>Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.</li>
+        <li>Fill it in, then tap <b>Done</b>. Back comes to Strategy.</li>
+      </ol>
+      <p>If the account already has an account plan, or the site is already in a large account, the list says so and tapping it opens that one.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2033,7 +2051,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>CIP</b> on Home.</li>
         <li>Tap <b>&#8943;</b> at the top right.</li>
         <li>Tap <b>Import a CIP and MBO file</b>.</li>
-        <li>Pick the file. It is either the one the CIP and MBO page saved with <b>Save to file</b>, or one that also holds the reference.</li>
+        <li>Pick the file the CIP and MBO page saved with <b>Save HTML copy</b>. It brings everything: your plan, your MBOs, the four pillars and the reference. A file saved with <b>Save to file</b> works too, but holds no reference.</li>
         <li>If the app asks whether to replace what is there, tap <b>OK</b>.</li>
       </ol>
       <p>Do this on one device. Cloud sync takes it to your others. Your CIP and MBOs are yours alone: they never go to your team, the admin included. They are not in the app itself either, so each person brings in their own.</p>
@@ -2099,17 +2117,21 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Open the opportunity from its account.</li>
         <li>Tap <b>Blue Sheet</b> at the top.</li>
-        <li>Under <b>Where we stand</b>, set our position from &minus;5 (panic) to +5 (euphoria). Say why, and who the competition is.</li>
-        <li>Under <b>Buying influences</b>, tap a person to open them. Set their part in the decision, how much they sway it, how they see it and how they rate us.</li>
-        <li>Type their personal win, the business result they want, and the evidence for the rating.</li>
-        <li>Under <b>Gaps</b>, tap <b>Add as a red flag</b> for any gap that matters.</li>
-        <li>Under <b>Possible actions</b>, type each action and tap <b>Add</b>.</li>
-        <li>Tap the star next to the best action.</li>
+        <li>Fill in the salesperson, the current volume and the total potential volume.</li>
+        <li>Under <b>Where we stand</b>, set the adequacy of our position from &minus;5 (panic) to +5 (euphoria), and type it in a word, for example Concern.</li>
+        <li>Tap one chip in each row: our position against the competition, the place in their funnel, and the timing for priorities.</li>
+        <li>Under <b>Ideal customer criteria</b>, type each criterion and tap <b>Add</b>. Pick how well they match, from &minus;5 to +5. The total adds itself up.</li>
+        <li>Under <b>Buying influences</b>, tap a person to open them. Set their part in the decision, and a second part if they have one. Set how much they sway it and how they see it.</li>
+        <li>Set how well our base is covered with them, from &minus;5 to +5, and type the evidence for it.</li>
+        <li>Type their personal win and the business result they want.</li>
+        <li>Under <b>Gaps</b>, tap <b>Add as a red flag</b> for any gap that matters. Under each red flag, type the information needed and who it is from.</li>
+        <li>Under <b>Possible actions</b>, type each action and tap <b>Add</b>. Type who does it and when.</li>
+        <li>Tap the star on each action in the best action plan.</li>
         <li>To put an action in your calendar, tap <b>Make a task</b> next to it.</li>
-        <li>To send the sheet, tap <b>Create and share</b>.</li>
+        <li>Under <b>Communication notes</b>, pick the date, type who you spoke to and what about, then tap <b>Add</b>.</li>
       </ol>
       <p>Who covers each person comes from the map: link one of ours to them with <b>Our coverage</b>. The Gaps list shows what is missing: nobody who signs the order, no coach, someone not covered, or a part not known.</p>
-      <p>Create and share makes an A4 document with the map as a picture. On the PC it opens in a new tab, ready to print or save as a PDF; on the phone it goes to the share sheet.</p>
+      <p>On the map, the opportunity shows where we stand, a card shows both parts (E/T), and the stripe down a card shows how well our base is covered with that person. With nothing selected on the map, the panel beside it has the same three rows of chips.</p>
       <p>The Blue Sheet works the same on the phone and the PC. Tap <b>Map</b> to go back to the map.</p>
       <p>To get coaching on it:</p>
       <ol>
@@ -2119,6 +2141,31 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Add ticked to the Blue Sheet</b>.</li>
       </ol>
       <p>The coaching is kept with the opportunity, so <b>Coach</b> shows it again with no signal. After the sheet changes, tap <b>Write it again</b>. The coaching is never in the Blue Sheet document.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Send a Blue Sheet</b><span class="sxs">The traditional form, for people outside MPS</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the opportunity, then tap <b>Blue Sheet</b> at the top.</li>
+        <li>Tap <b>Create and share</b>.</li>
+        <li>Tap <b>Document</b> or <b>Excel</b>.</li>
+        <li>For a document, tick the box if the relationship map should go too.</li>
+        <li>Tap <b>Create and share</b>.</li>
+      </ol>
+      <p>Both follow Miller Heiman's own Blue Sheet, in its order and with its letters, so anyone who knows the form can read it. The document is A4: on the PC it opens in a new tab, and on the phone it goes to the share sheet. The Excel copy is laid out in the template's own cells, so it opens in Excel and can be imported back. Excel can't carry the map. The map is left out unless you tick it, because it is your planning view.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Import a Blue Sheet</b><span class="sxs">From a Miller Heiman .xls</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the account: tap <b>Directory</b> on Home, then the account.</li>
+        <li>On the <b>Opportunities</b> card, tap <b>Import a Blue Sheet</b>.</li>
+        <li>Pick the Blue Sheet file, either .xls or .xlsx.</li>
+        <li>The map opens with everyone from the sheet in their lanes. On the PC, drag them where you want them and link them.</li>
+      </ol>
+      <p>It brings in the objective, the position and its ticked boxes, the ideal customer criteria, the buying influences with their roles, influence, mode, rating and evidence, the strengths, the red flags, the possible actions, the best action plan, and the communication notes. Anyone the sheet names as an OEM or consultant goes in the OEM lane. The opportunity goes on the account you are on, whatever account the sheet names.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2660,6 +2707,7 @@ details.bsx > .msg{margin:8px 12px}
   <div class="card plancard" id="avPlan" role="button" tabindex="0"></div>
   <!-- v115: opportunities, each with its relationship map -->
   <div class="card oppcard" id="avOpps"></div>
+    <input type="file" id="bsFile" accept=".xls,.xlsx,.xlsm" hidden>
   <!-- v117: the large account plan this site belongs to -->
   <div class="card plancard" id="avLap" role="button" tabindex="0" hidden></div>
   <!-- v102: the sales coach's pre-visit brief, from this account's records -->
@@ -2890,7 +2938,7 @@ details.bsx > .msg{margin:8px 12px}
     <button class="ghost" id="cmEdit" type="button">Edit the MBO list</button>
     <button class="ghost" id="cmListLock" type="button">Lock the MBO list</button>
     <button class="ghost" id="cmImport" type="button">Import a CIP and MBO file</button>
-    <input type="file" id="cmFile" accept=".json,application/json" hidden>
+    <input type="file" id="cmFile" accept=".html,.htm,.json,text/html,application/json" hidden>
     <p class="note" id="cmNote"></p>
   </div>
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="cmClose" type="button">Close</button></div>
@@ -2942,6 +2990,18 @@ details.bsx > .msg{margin:8px 12px}
     <p class="note" id="coNote"></p>
   </div>
   <div class="dlg-f"><button class="btn" id="coCancel" type="button">Cancel</button><span class="spacer"></span><button class="btn go" id="coGo" type="button">Create and share</button></div>
+</dialog>
+
+<!-- Create and share a Blue Sheet (v122): the traditional form, as a document or an Excel workbook -->
+<dialog id="bsoutdlg">
+  <div class="dlg-h"><b>Create and share</b></div>
+  <div class="dlg-b">
+    <label class="l">The Blue Sheet as</label>
+    <div class="seg" id="boFmt"></div>
+    <label class="chk" id="boMapWrap"><input type="checkbox" id="boMap"> Add the relationship map, on a page of its own</label>
+    <p class="note" id="boNote"></p>
+  </div>
+  <div class="dlg-f"><button class="btn" id="boCancel" type="button">Cancel</button><span class="spacer"></span><button class="btn go" id="boGo" type="button">Create and share</button></div>
 </dialog>
 
 <dialog id="oppdlg">
@@ -3650,6 +3710,7 @@ details.bsx > .msg{margin:8px 12px}
 </section>
 
 <section class="scr" id="s-strategy">
+  <button class="big" id="stNew" type="button">+ New opportunity</button>
   <div class="seg tabs" id="stTabs">
     <button type="button" data-v="opps" class="on">Opportunities</button>
     <button type="button" data-v="laps">Large accounts</button>
