@@ -30,8 +30,8 @@ work from a copy of a file anywhere other than this checkout.
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
-| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. Not served by the app |
-| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes; Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`). Not served by the app |
+| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. Not served by the app |
+| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes; Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
 
@@ -150,8 +150,9 @@ The pre-existing referenced-but-absent IDs are harmless and guarded:
 browser profiles as two devices (not part of `npm test`; how to run it is at
 the top of the file). `tests/browser-cloud-live.mjs` runs the same against the
 real Supabase project with a throwaway test account passed in the environment —
-never Ben's own account, and never written to the repo. Both are real-browser
-tests, still not phone tests.
+never Ben's own account, and never written to the repo. `tests/browser-team-live.mjs`
+(v113) runs a team of two the same way: the test account is the admin of its
+own test team, never Ben's. All are real-browser tests, still not phone tests.
 
 **Say which kind of verification applies.** Headless tests catch runtime errors,
 escaping faults and broken flows. They cannot test the camera, the share sheet,

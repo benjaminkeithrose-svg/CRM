@@ -8,6 +8,20 @@ Plan the week on the PC. Do the calls on the phone. Cloud sync keeps the two in 
 
 ## Getting started
 
+### Joining a team? Start here
+
+1. Do step 1 below, to install the app on your phone.
+2. On the phone, open the set-up link you were sent. Open it in Chrome.
+3. The app opens at **Cloud sync** with your email filled in. Type the temporary password from the message.
+4. Tap **Sign in**.
+5. Type the team passphrase. Your admin tells you it separately.
+6. Tap **Unlock**. The accounts, belt data and the team's calls arrive by themselves.
+7. Tap **Change your sign-in password**.
+8. Type a new password twice, then tap **Change it**.
+9. Do step 6 below, to add your email address.
+
+Skip steps 3 and 4: in a team, the admin loads the accounts and the belt data for everyone. To use the app on your PC as well, do step 2, then open the same link there.
+
 ### 1. Install it on your phone
 
 1. Open the app's web address in Chrome on your phone.
@@ -55,7 +69,7 @@ The **plant audit register** (which belts are installed where), if you have it, 
 You get the project address, the key and your sign-in from whoever set up the cloud project.
 
 1. Tap **⋯** on Home, then **Settings**, then **Cloud sync**.
-2. Paste the **Project address** and the **Publishable key**.
+2. Paste the **Project address** and the **Publishable key**. A set-up link fills these in for you.
 3. Type your email and password.
 4. Tap **Sign in**.
 5. Type your passphrase. On your first device, type it twice to set it. If you are in a team, type the team passphrase you were given.
@@ -124,6 +138,15 @@ Only visits that changed since last time are in the file, and downloading again 
 3. Use the arrows to move. Tap **Today** to come back.
 
 In Month, each day shows how many visits (navy), tasks (light blue) and quote requests (orange) it has. Tap a day to see it.
+
+### See the team's visits
+
+1. Tap **Plan** on Home.
+2. Tap **Team** in the row of chips. Your colleagues' visits show, each with their name.
+3. Tap a visit. If it has been written up, the report opens to read. If not, the app says whose it is and when.
+4. Tap **Team** again to go back to your own.
+
+The Team chip appears only when your team has more than one person. A colleague's visits are theirs to move or change.
 
 ### Show only tasks, or find one
 
@@ -404,6 +427,29 @@ To finish a call, tap **⋯** on it in Reports, then **Mark done**. Done with no
 An account's history shows everyone's calls there, with the name of whoever wrote each one.
 
 Only the person who wrote a call, or the team's admin, can delete it.
+
+### Add a colleague
+
+1. Tap **⋯** on Home, then **Settings**, then **Team**.
+2. Tap **Add a colleague**.
+3. Type their name and their work email.
+4. Leave the temporary password as it is, or type your own.
+5. Tap **Add**.
+6. Tap **Share the message** and send it to them, by text or Teams.
+7. Tell them the team passphrase by phone or in person. It is never in the message.
+
+The message has a set-up link, their email and the temporary password. They choose their own password once they are in. To send the link again later, tap **⋯** next to their name, then **Send the set-up link**.
+
+### Remove a colleague
+
+1. Tap **⋯** on Home, then **Settings**, then **Team**.
+2. Tap **⋯** next to their name.
+3. Tap **Remove from the team**.
+4. Tap **OK**.
+5. Change the passphrase (step 5, **Change the passphrase**).
+6. Give the new passphrase to everyone still in the team, for when they set up a new device.
+
+They can no longer sign in or see anything the team shares. The calls, visits and photos they wrote stay with the team, under their name.
 
 ### Save done calls to a folder on the PC
 
