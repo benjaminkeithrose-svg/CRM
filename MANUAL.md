@@ -77,7 +77,7 @@ You get the project address, the key and your sign-in from whoever set up the cl
 
 Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.
 
-In a team, **Cloud sync** shows the team's name and its admin. The team shares its call reports, visits, account plans, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.
+In a team, **Cloud sync** shows the team's name and its admin. The team shares its call reports, visits, account plans, opportunities, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.
 
 To change the passphrase (on your own, or as a team's admin):
 
@@ -259,6 +259,25 @@ Only empty boxes are filled. Anything you'd already typed or picked stays as it 
 The line under the button says what was filled, what was left alone, and anything it couldn't read. Series, style and materials have to match your belt reference data; anything that doesn't is listed for you to pick.
 
 The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.
+
+### Map a large opportunity
+
+1. Open the account: tap **Directory** on Home, then the account.
+2. On the **Opportunities** card, tap **New opportunity**.
+3. Type its name and the objective. Add the value and the expected close if you know them.
+4. Tap **Done**. The map opens.
+5. On the PC, tap **Add person**. Pick **Customer**, **OEM** or **Our team**, type or pick the name, then tap **Add to the map**.
+6. Tap a person to set their part in the decision, how they see it, and how they rate us from −5 to +5.
+7. To link two people, tap one, tap **Link to…**, then tap the other, or the opportunity.
+8. Set the link's kind and strength in the panel.
+9. Drag people where they make sense.
+10. Add red flags and strengths in the panel, and pin each to a person or a link.
+
+Customer names come from the account's CRM contacts. OEM people you have used on any opportunity are offered again as you type.
+
+On the phone, the map is for looking: drag the background to move around, use − and + to zoom, and tap a person or a link to change its details. Add people, link them and move them on the PC.
+
+Everything saves as you go, and the team shares it. To change the name or value, or delete the opportunity, tap **Details**.
 
 ### Prepare for a visit, and get coaching after it
 

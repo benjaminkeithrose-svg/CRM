@@ -693,6 +693,36 @@ whole team by default, and an option to hide contact names.*
 - The company still has to say whether customer data may go to claude.ai,
   and which account (a company Claude account or a personal one).
 
+## In progress: Opportunities, the relationship map, the Blue Sheet, large account plans (v115 on)
+*Added 2026-10-11. Ben: the Miller Heiman Blue Sheet is opaque; he wants a
+fluid, Visio-like chart of the people around a large opportunity - the
+customer's, the OEMs', ours - with the red flags and strengths, and the Blue
+Sheet behind it. Then a large account plan: where we are, where we want to
+get to. He chose: the map first, full editing on the PC and look-and-tap on
+the phone, opportunities reached from the account only, no Dynamics import
+for now. Reviewed a clickable mock first.*
+
+- **Built (v115): opportunities and the relationship map.** An Opportunities
+  card on the account; a details sheet (name, objective, value, expected
+  close); a map screen (`s-opp`): three lanes (Customer, OEMs and
+  integrators, Our team) around the opportunity; people cards with their part
+  in the decision, how they see it (the account plan's words, v106) and how
+  they rate us (-5 to +5); links with a kind (reports to, influences, our
+  coverage, supplies) and a strength (strong, neutral, weak, hostile); red
+  flags and strengths pinned to a person or a link. Store `opps` (IndexedDB
+  v7), shared with the team (migration 0007). Plain SVG, no library.
+- **Next: the Blue Sheet behind the map.** The same record as the classic
+  sheet (objective, position, buying influences with coverage and evidence,
+  red flags, strengths, possible actions, best action); Create and share as
+  A4 HTML with the map as a picture; possible actions to tasks; the coach
+  reading the opportunity.
+- **Then: the large account plan.** Situation (position, competition, how
+  decisions are made, open opportunities), vision and objectives with
+  measures, strategies, the action plan, and an account-wide relationship map
+  built from its opportunities.
+- **Later:** Make it an opportunity from a project entry; the Dynamics
+  opportunities import (needs the column headings).
+
 ---
 
 <!-- Add new ideas above this line. -->

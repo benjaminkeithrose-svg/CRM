@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v114">
+<meta name="build" content="v115">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -673,6 +673,66 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .scr{display:none}
 .scr.on{display:block}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- opportunities and the relationship map (v115) ---------- */
+.oppcard .opprow{display:block;width:100%;text-align:left;background:var(--sunk);border:0;border-radius:var(--r-sm);padding:9px 10px;margin-top:6px;cursor:pointer;color:var(--ink);font:inherit}
+.oppcard .opprow b{display:block;font-size:14px}
+.oppcard .opprow .meta{display:block}
+body.planning #s-opp{padding:0}
+.opptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line-2)}
+.opptools .btn{min-height:40px;font-size:14px}
+.opptools .spacer{flex:1}
+.opptools .opz{width:40px;padding:0;font-size:18px;color:var(--act)}
+.oppmain{display:grid;grid-template-columns:minmax(0,1fr) 340px;height:calc(100vh - var(--hdh, 56px) - 58px)}
+.oppmap{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--ground)}
+#opMap{width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+#opMap.panning{cursor:grabbing}
+.opphint{position:absolute;left:12px;right:12px;top:10px;background:var(--act);color:#fff;padding:8px 12px;border-radius:var(--r);font-size:13.5px;display:flex;gap:10px;align-items:center}
+.opphint button{margin-left:auto;background:transparent;border:1px solid #fff;color:#fff;border-radius:var(--r-sm);padding:4px 10px;font-weight:700;cursor:pointer}
+.opppanel{background:var(--surface);border-left:1px solid var(--line-2);overflow:auto;min-height:0;padding:12px 16px 20px}
+.opppanel h2{margin:14px 0 6px}
+.opppanel h2:first-child{margin-top:0}
+.opppanel .opsum{background:var(--sunk);border-radius:var(--r);padding:10px 12px;font-size:13.5px}
+.opppanel .opsum b{display:block;font-size:15px}
+.opppanel label.l{display:block;font-size:12.5px;color:var(--ink-2);margin:10px 0 4px}
+.opppanel .orow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.opppanel .orow .btn{min-height:40px;font-size:14px}
+.opppanel .btn.warnb{color:var(--warn);border-color:var(--warn)}
+.oprate{display:flex;align-items:center;gap:10px}
+.oprate input{flex:1;accent-color:var(--act)}
+.oprate output{width:34px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.opitems{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.opitems li{display:flex;gap:6px;align-items:flex-start;background:var(--sunk);border-radius:var(--r-sm);padding:8px 6px 8px 10px;font-size:14px;border-left:3px solid var(--warn)}
+.opitems.good li{border-left-color:var(--ok)}
+.opitems li span{flex:1;min-width:0}
+.opitems .pin{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.opitems .opx{flex:none;width:32px;height:32px;border:0;background:transparent;color:var(--warn);cursor:pointer;padding:6px}
+.opadd{display:flex;gap:6px;margin-top:6px}
+.opadd input{flex:1;min-width:0}
+.oplegend{display:grid;grid-template-columns:56px 1fr;gap:6px 10px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.oplegend svg{width:44px;height:12px}
+.opconfirm{background:var(--red-soft);border-radius:var(--r);padding:10px;margin-top:10px;font-size:13.5px}
+.op-lane{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;fill:var(--ink-3)}
+.op-org{font-size:11.5px;font-weight:600;fill:var(--ink-3)}
+.op-name{font-size:13px;font-weight:700;fill:var(--ink)}
+.op-title{font-size:11px;fill:var(--ink-2)}
+.op-mode{font-size:10.5px;font-weight:500;fill:var(--ink-2)}
+.op-rate{font-size:11px;font-weight:700}
+.op-badge{font-size:11px;font-weight:700;fill:#fff}
+.op-elbl{font-size:10px;font-weight:500;fill:var(--ink-3);paint-order:stroke;stroke:var(--ground);stroke-width:4px;stroke-linejoin:round}
+.op-card{cursor:pointer}
+.op-card rect.bg{fill:var(--surface);stroke:var(--line)}
+.op-card.sel rect.bg{stroke:var(--act);stroke-width:2.5}
+.op-card.src rect.bg{stroke:var(--cyan);stroke-width:2.5;stroke-dasharray:5 3}
+.op-card:focus-visible rect.bg,.op-edge:focus-visible .vis{stroke:var(--cyan);stroke-width:3}
+.op-edge{cursor:pointer}
+.op-edge .hit{stroke:transparent;stroke-width:16;fill:none}
+.op-edge.sel .vis{stroke:var(--cyan)}
+.op-node{cursor:pointer}
+@media (max-width:900px){
+  .oppmain{grid-template-columns:1fr;grid-template-rows:60vh auto;height:auto}
+  .opppanel{border-left:0;border-top:1px solid var(--line-2);overflow:visible}
+}
 
 /* ---------- plan screen ----------
    Ported from the Zone Call Planner. Planning stays desktop-shaped: a rail, a
@@ -1610,7 +1670,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Unlock</b>.</li>
       </ol>
       <p>Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.</p>
-      <p>In a team, <b>Cloud sync</b> shows the team's name and its admin. The team shares its call reports, visits, account plans, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.</p>
+      <p>In a team, <b>Cloud sync</b> shows the team's name and its admin. The team shares its call reports, visits, account plans, opportunities, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.</p>
       <p>To change the passphrase (on your own, or as a team's admin):</p>
       <ol>
         <li>In <b>Cloud sync</b>, tap <b>Change the passphrase</b>.</li>
@@ -1821,6 +1881,26 @@ details.bsx > .msg{margin:8px 12px}
       <p>Only empty boxes are filled. Anything you'd already typed or picked stays as it is. A tinted box goes back to normal once you change it.</p>
       <p>The line under the button says what was filled, what was left alone, and anything it couldn't read. Series, style and materials have to match your belt reference data; anything that doesn't is listed for you to pick.</p>
       <p>The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Map a large opportunity</b><span class="sxs">Who is involved, and how they connect</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the account: tap <b>Directory</b> on Home, then the account.</li>
+        <li>On the <b>Opportunities</b> card, tap <b>New opportunity</b>.</li>
+        <li>Type its name and the objective. Add the value and the expected close if you know them.</li>
+        <li>Tap <b>Done</b>. The map opens.</li>
+        <li>On the PC, tap <b>Add person</b>. Pick <b>Customer</b>, <b>OEM</b> or <b>Our team</b>, type or pick the name, then tap <b>Add to the map</b>.</li>
+        <li>Tap a person to set their part in the decision, how they see it, and how they rate us from &minus;5 to +5.</li>
+        <li>To link two people, tap one, tap <b>Link to&hellip;</b>, then tap the other, or the opportunity.</li>
+        <li>Set the link's kind and strength in the panel.</li>
+        <li>Drag people where they make sense.</li>
+        <li>Add red flags and strengths in the panel, and pin each to a person or a link.</li>
+      </ol>
+      <p>Customer names come from the account's CRM contacts. OEM people you have used on any opportunity are offered again as you type.</p>
+      <p>On the phone, the map is for looking: drag the background to move around, use &minus; and + to zoom, and tap a person or a link to change its details. Add people, link them and move them on the PC.</p>
+      <p>Everything saves as you go, and the team shares it. To change the name or value, or delete the opportunity, tap <b>Details</b>.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2339,6 +2419,8 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld" id="avHead"></div>
   <!-- v106: the sales coach's account plan; tap to open it -->
   <div class="card plancard" id="avPlan" role="button" tabindex="0"></div>
+  <!-- v115: opportunities, each with its relationship map -->
+  <div class="card oppcard" id="avOpps"></div>
   <!-- v102: the sales coach's pre-visit brief, from this account's records -->
   <button class="ghost" id="avPrep" type="button">Prepare for a visit</button>
   <h2>Contacts</h2>
@@ -2346,6 +2428,25 @@ details.bsx > .msg{margin:8px 12px}
   <h2>Visit history</h2>
   <div id="avHistory"></div>
   <button class="big" id="avStart">Start a call here</button>
+</section>
+
+<!-- OPPORTUNITY (v115): the relationship map. Full editing on the PC; on the phone, look and tap. -->
+<section class="scr" id="s-opp">
+  <div class="opptools">
+    <button type="button" class="btn go" id="opAdd">Add person</button>
+    <button type="button" class="btn act2" id="opEdit">Details</button>
+    <span class="spacer"></span>
+    <button type="button" class="btn opz" id="opOut" aria-label="Zoom out" title="Zoom out">&minus;</button>
+    <button type="button" class="btn opz" id="opFit" aria-label="Fit the map to the screen" title="Fit to the screen">&#9634;</button>
+    <button type="button" class="btn opz" id="opIn" aria-label="Zoom in" title="Zoom in">+</button>
+  </div>
+  <div class="oppmain">
+    <div class="oppmap">
+      <svg id="opMap" role="img" aria-label="Relationship map"></svg>
+      <div class="opphint" id="opHint" hidden><span id="opHintT"></span><button type="button" id="opHintX">Cancel</button></div>
+    </div>
+    <aside class="opppanel" id="opPanel" aria-live="polite"></aside>
+  </div>
 </section>
 
 <!-- PLAN -->
@@ -2517,6 +2618,24 @@ details.bsx > .msg{margin:8px 12px}
   <div class="dlg-b">
     <p class="hint" id="rvSub"></p>
     <iframe id="rvFrame" title="The report" sandbox=""></iframe>
+  </div>
+</dialog>
+
+<!-- An opportunity's details (v115). Done saves; nothing typed, nothing kept. -->
+<dialog id="oppdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="odDel" aria-label="Delete this opportunity" title="Delete this opportunity"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="odHead">Opportunity</b>
+    <button type="button" class="btn go" id="odOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <p class="hint" id="odSub"></p>
+    <div class="f"><label for="odName">Name</label><input type="text" id="odName" autocomplete="off" placeholder="e.g. Line 3 upgrade"></div>
+    <div class="f"><label for="odObj">Objective</label><textarea id="odObj" rows="3" placeholder="What, how much and by when, e.g. 12 S800 belts and sprockets on Line 3, ordered by March"></textarea></div>
+    <div class="row">
+      <div class="f"><label for="odValue">Value</label><input type="text" id="odValue" autocomplete="off" placeholder="e.g. AUD 180k"></div>
+      <div class="f"><label for="odClose">Expected close</label><input type="month" id="odClose"></div>
+    </div>
   </div>
 </dialog>
 
