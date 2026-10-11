@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v107">
+<meta name="build" content="v108">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -151,6 +151,12 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .txtacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .txtacts .bullet-btn{margin:0}
 .aibtn{color:var(--act);border-color:var(--act);font-weight:700}
+/* the microphone (v108): talk, then Claude's version */
+.micbtn{display:inline-flex;align-items:center;gap:6px}
+.micbtn .ic{width:18px;height:18px}
+.micbtn.on{background:var(--act);color:#fff}
+.micbtn.on .ic{animation:micpulse 1.2s ease-in-out infinite}
+@keyframes micpulse{50%{opacity:.35}}
 .aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
 #aidlg{width:min(640px,96vw)}
 #tidydlg{width:min(680px,96vw)}
@@ -1628,16 +1634,26 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>Tidy a dictated note</b><span class="sxs">The Tidy button</span></summary>
+    <summary><b>Talk into a box, or tidy a note</b><span class="sxs">The microphone and Tidy</span></summary>
     <div class="fld help">
+      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes.</p>
       <ol>
-        <li>Dictate into any free-text box on a call: the note, a project's next action or notes, a belt's comments, or a health check's fault, recommended action or comments.</li>
+        <li>Tap the microphone.</li>
+        <li>The first time, allow the microphone when the phone asks.</li>
+        <li>Talk. Your words appear in the box as you speak.</li>
+        <li>Tap the microphone again when you've finished, or just stop talking.</li>
+        <li>Wait a few seconds. Claude's version shows above yours.</li>
+        <li>Change anything you want in it.</li>
+        <li>Tap <b>Use this</b> to put it in the box, or <b>Keep mine</b> to keep what you said as it is.</li>
+      </ol>
+      <p>Say how you want it laid out as you go: "make that a bullet list", "scratch that", "delete the last sentence", "new paragraph". Claude does it and leaves those words out.</p>
+      <p>To tidy something you typed, or dictated with the keyboard's microphone:</p>
+      <ol>
         <li>Tap <b>Tidy</b> under the box.</li>
-        <li>Wait a few seconds. The tidied version shows above yours.</li>
-        <li>Change anything you want in the tidied version.</li>
-        <li>Tap <b>Use this</b> to put it in the box, or <b>Keep mine</b> to leave the box as it was.</li>
+        <li>Wait a few seconds, check Claude's version, then tap <b>Use this</b> or <b>Keep mine</b>.</li>
       </ol>
       <p>It fixes punctuation and voice-typing mistakes and turns several points into bullets. It keeps your facts and numbers and adds nothing. Check it anyway.</p>
+      <p>The microphone uses the phone's own speech recognition, which needs signal and keeps no recording. If there's no microphone beside Tidy, this phone's browser doesn't offer it; the keyboard's microphone still works.</p>
       <p>It needs signal and cloud sync signed in. The text in that one box is sent to Anthropic (the company behind Claude) to be tidied, without the app's encryption. Nothing else is sent, and nothing is sent unless you tap the button.</p>
       <p>If it says the AI key has not been added, it hasn't been set up yet.</p>
     </div>
@@ -1774,14 +1790,14 @@ details.bsx > .msg{margin:8px 12px}
         <li>Pick the account and contact further down. <b>To</b> fills with the contact's email.</li>
         <li>Type the <b>Subject</b>, or leave it to use the title.</li>
         <li>Type the <b>Body</b>, or tap the microphone on your keyboard and dictate it.</li>
-        <li>To have it written for you, dictate the points into <b>Body</b> and tap <b>Draft it</b>. Check the draft, then tap <b>Use this</b>.</li>
+        <li>To have it written for you, tap the microphone beside <b>Draft it</b> and say the points. When you stop, the email is drafted straight away. Or type the points and tap <b>Draft it</b>. Check the draft, then tap <b>Use this</b>.</li>
         <li>Tap <b>Done</b>. The draft stays on the task.</li>
         <li>When you're ready to send, open the task and tap <b>Open in Outlook</b>. Check it and press Send in Outlook.</li>
         <li>Tick the task when it's sent.</li>
       </ol>
       <p>Open in Outlook starts a new email in your phone's or PC's mail app with everything filled in. Nothing is downloaded. A very long body is copied instead, for you to paste in. <b>Copy</b> copies the body on its own.</p>
       <p>If your phone opens a different mail app, set Outlook as the default email app in Android's settings.</p>
-      <p>Draft it works like <b>Tidy</b>: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows.</p>
+      <p>Draft it works like <b>Tidy</b>: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows. You can say things like "keep it short" or "put the parts as a list" with the points.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2209,7 +2225,8 @@ details.bsx > .msg{margin:8px 12px}
       <div class="f"><label for="tkProject">Project</label><input type="text" id="tkProject" autocomplete="off"></div>
       <div class="f"><label for="tkRevenue">Estimated revenue ($)</label><input type="number" id="tkRevenue" inputmode="decimal" min="0" step="any"></div>
     </div>
-    <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea></div>
+    <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea>
+      <div class="txtacts" id="tkNotesActs"></div></div>
     <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Completed</div><div class="cr">The task itself is finished. Ticked tasks stay on the calendar, greyed out.</div></div></label>
     <p class="note" id="tkFrom" hidden></p>
   </div>

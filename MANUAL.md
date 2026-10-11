@@ -165,15 +165,28 @@ Leave a form with nothing typed and nothing is saved. Leave it half filled and i
 
 The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Photos and comments, and Quote contact. Tap a section's name to open or close it. A closed one shows a line saying what's in it. A new belt opens on Belt data; a belt you've already logged opens with them all closed.
 
-### Tidy a dictated note
+### Talk into a box, or tidy a note
 
-1. Dictate into any free-text box on a call: the note, a project's next action or notes, a belt's comments, or a health check's fault, recommended action or comments.
-2. Tap **Tidy** under the box.
-3. Wait a few seconds. The tidied version shows above yours.
-4. Change anything you want in the tidied version.
-5. Tap **Use this** to put it in the box, or **Keep mine** to leave the box as it was.
+Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes.
+
+1. Tap the microphone.
+2. The first time, allow the microphone when the phone asks.
+3. Talk. Your words appear in the box as you speak.
+4. Tap the microphone again when you've finished, or just stop talking.
+5. Wait a few seconds. Claude's version shows above yours.
+6. Change anything you want in it.
+7. Tap **Use this** to put it in the box, or **Keep mine** to keep what you said as it is.
+
+Say how you want it laid out as you go: "make that a bullet list", "scratch that", "delete the last sentence", "new paragraph". Claude does it and leaves those words out.
+
+To tidy something you typed, or dictated with the keyboard's microphone:
+
+1. Tap **Tidy** under the box.
+2. Wait a few seconds, check Claude's version, then tap **Use this** or **Keep mine**.
 
 It fixes punctuation and voice-typing mistakes and turns several points into bullets. It keeps your facts and numbers and adds nothing. Check it anyway.
+
+The microphone uses the phone's own speech recognition, which needs signal and keeps no recording. If there's no microphone beside Tidy, this phone's browser doesn't offer it; the keyboard's microphone still works.
 
 It needs signal and cloud sync signed in. The text in that one box is sent to Anthropic (the company behind Claude) to be tidied, without the app's encryption. Nothing else is sent, and nothing is sent unless you tap the button.
 
@@ -297,7 +310,7 @@ Open tasks go on today from 8am. Done ones go on the day you ticked them off. Sa
 2. Pick the account and contact further down. **To** fills with the contact's email.
 3. Type the **Subject**, or leave it to use the title.
 4. Type the **Body**, or tap the microphone on your keyboard and dictate it.
-5. To have it written for you, dictate the points into **Body** and tap **Draft it**. Check the draft, then tap **Use this**.
+5. To have it written for you, tap the microphone beside **Draft it** and say the points. When you stop, the email is drafted straight away. Or type the points and tap **Draft it**. Check the draft, then tap **Use this**.
 6. Tap **Done**. The draft stays on the task.
 7. When you're ready to send, open the task and tap **Open in Outlook**. Check it and press Send in Outlook.
 8. Tick the task when it's sent.
@@ -306,7 +319,7 @@ Open in Outlook starts a new email in your phone's or PC's mail app with everyth
 
 If your phone opens a different mail app, set Outlook as the default email app in Android's settings.
 
-Draft it works like **Tidy**: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows.
+Draft it works like **Tidy**: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows. You can say things like "keep it short" or "put the parts as a list" with the points.
 
 ### Keep saved notes
 

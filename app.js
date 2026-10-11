@@ -968,7 +968,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v107';
+const APP_BUILD = 'v108';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -987,6 +987,7 @@ const ICONS = {
   calplus:'<path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>'+
           '<path d="M16 2v4M8 2v4M3 10h18"/><path d="M18 15v6M15 18h6"/>',
   check:  '<path d="M20 6L9 17l-5-5"/>',
+  mic:    '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/>',
   copy:   '<rect x="9" y="9" width="12" height="12" rx="2"/>'+
           '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   person: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
@@ -1398,6 +1399,7 @@ function headerHeight(){
   if(h) document.documentElement.style.setProperty('--hdh', h.offsetHeight + 'px');
 }
 function showScreen(name){
+  micAbort();                // talking into a box on the screen being left: stop, send nothing
   if(CALL_SCREENS.includes(screen) && screen !== 'dash') captureDraft(screen);
   if(CALL_SCREENS.includes(name)) lastCallScreen = name;
   if(CALL_SCREENS.includes(name) && !call) name = 'home';
@@ -10674,6 +10676,90 @@ $('dPrep').addEventListener('click', () => {
 
 document.querySelectorAll('[data-ai]').forEach(b =>
   b.addEventListener('click', () => aiTidy(b.dataset.ai, b.dataset.field).catch(reportErr)));
+
+/* ---------- the microphone (v108) ----------
+   A microphone beside Tidy on every free-text box of a call, and on a task's
+   notes and an email task's body. Tap it and talk: the phone's own speech
+   recognition writes the words into the box as you speak (on Android that is
+   Google's, so it needs signal and nothing is recorded or kept). When you stop
+   - tap again, or just stop talking - Claude's version opens straight away:
+   Tidy for a note, Draft it for an email's points. Spoken instructions such as
+   "make that a bullet list" are followed there (the ai-tidy prompts, v108).
+   The Anthropic API takes no audio, which is why the words come from the phone.
+   Where the browser has no speech recognition, no microphone is shown. */
+const SPEECH = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+var micRec = null, micDone = null;     // var: showScreen can call micAbort before this line has run
+function micAbort(){
+  if(!micRec) return;
+  micDone = null;                         // nothing goes to Claude
+  try { micRec.abort(); } catch(_){}
+}
+const MIC_ERR = {
+  'not-allowed': 'The microphone is not allowed for this app. Allow it in the phone\'s settings, or use the keyboard microphone',
+  'service-not-allowed': 'Speech recognition is turned off on this phone. Use the keyboard microphone instead',
+  'audio-capture': 'No microphone was found',
+  'network': 'Talking needs signal. Use the keyboard microphone instead'
+};
+// joins what the recogniser has finalised; some Android builds repeat the earlier words in each new result
+function micJoin(acc, t){
+  t = t.trim();
+  if(!t) return acc;
+  if(acc && t.toLowerCase().startsWith(acc.toLowerCase())) return t;
+  return acc ? acc + ' ' + t : t;
+}
+function micStart(btn){
+  if(micRec){ try { micRec.stop(); } catch(_){} return; }   // a second tap: stop listening, then on to Claude
+  const id = btn.dataset.mic, box = $(id);
+  if(!box) return;
+  const base = box.value.replace(/\s+$/, '');
+  const sep = base ? (box.tagName === 'INPUT' ? ' ' : '\n') : '';
+  let finals = '', failed = '', heard = false;
+  const rec = new SPEECH();
+  rec.lang = 'en-AU'; rec.interimResults = true; rec.continuous = true;
+  rec.onresult = ev => {
+    let interim = '';
+    for(let i = ev.resultIndex; i < ev.results.length; i++){
+      const r = ev.results[i];
+      if(r.isFinal) finals = micJoin(finals, r[0].transcript); else interim += r[0].transcript;
+    }
+    const said = micJoin(finals, interim);
+    if(said){ heard = true; box.value = base + sep + said; }
+  };
+  rec.onerror = ev => { failed = ev.error || 'failed'; };
+  rec.onend = () => {
+    const done = micDone;
+    micRec = null; micDone = null;
+    document.querySelectorAll('.micbtn.on').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+    if(heard) aiSet(box, box.value);      // saved like typing
+    if(!done) return;                     // abandoned: the screen moved on
+    if(failed && MIC_ERR[failed]){ toast(MIC_ERR[failed]); return; }
+    if(!heard){ toast('Nothing was heard. Tap the microphone and try again'); return; }
+    const why = aiBlocked();
+    if(why){ toast('Your words are in the box. ' + why); return; }
+    done();
+  };
+  micDone = btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr) : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr);
+  try { rec.start(); } catch(e){ micDone = null; toast('The microphone could not start: ' + e.message); return; }
+  micRec = rec;
+  btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+  toast('Listening. Tap the microphone again when you have finished');
+}
+function micButton(id, field, after){
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'bullet-btn aibtn micbtn';
+  b.dataset.mic = id; b.dataset.field = field || 'note';
+  if(after) b.dataset.after = after;
+  b.setAttribute('aria-label', 'Talk into this box'); b.setAttribute('aria-pressed', 'false'); b.title = 'Talk into this box';
+  b.innerHTML = icon('mic');
+  b.addEventListener('click', () => micStart(b));
+  return b;
+}
+if(SPEECH){
+  document.querySelectorAll('[data-ai]').forEach(t => t.parentNode.insertBefore(micButton(t.dataset.ai, t.dataset.field), t));
+  $('tkNotesActs').appendChild(micButton('tkNotes', 'note'));
+  $('tkDraft').parentNode.insertBefore(micButton('tkBody', 'note', 'draft'), $('tkDraft'));
+}
+$('taskdlg').addEventListener('close', micAbort);
 $('tkDraft').addEventListener('click', () => aiDraft().catch(reportErr));
 $('aiKeep').addEventListener('click', aiLeave);
 $('aiUse').addEventListener('click', () => {

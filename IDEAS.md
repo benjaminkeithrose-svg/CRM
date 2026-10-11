@@ -145,7 +145,19 @@ checked in an actual browser tab or on a phone.
 
 ---
 
-## Open: A microphone button on every free-text box
+## Built (v108): A microphone button on every free-text box
+*Built 2026-10-11, routes 1 and 3 combined (Ben's choice).* A microphone
+beside Tidy on every free-text box of a call, on a task's notes and beside
+Draft it on an email task. The phone's own speech recognition writes the words
+into the box as he talks (en-AU; needs signal; nothing recorded); when he
+stops, Claude's version opens straight away (Tidy, or Draft it for an email).
+Tidy and Draft it now follow spoken instructions about wording and layout
+("make that a bullet list", "scratch that", "keep it short") and leave the
+instruction words out - checked live on the test account. No microphone shows
+where the browser has no speech recognition. Not yet tried on a phone, so
+recognition quality and the microphone permission prompt are unverified.
+
+**The original note:**
 *Added 2026-10-10, for later.* Ben wants a small microphone icon at the edge
 of each free-text box, using Claude through the Anthropic API instead of the
 Samsung keyboard's voice typing, which doesn't work as well for him. The icon
