@@ -163,6 +163,12 @@ never finishes it - the recogniser is started again and the words carry on.
 Tap to start and tap Finish, or hold while talking and let go (Ben chose
 both). It finishes by itself after two minutes with nothing heard.
 
+**v110:** Chrome on Android sounds an alert each time listening starts, so
+v109's restart on every pause meant an alert on every pause. Now a pause stops
+quietly and keeps the words; the button reads Continue, with Finish beside it,
+so an alert comes only when Ben taps Continue. Holding the button still
+listens through pauses. Ben chose this over a transcription service.
+
 **The original note:**
 *Added 2026-10-10, for later.* Ben wants a small microphone icon at the edge
 of each free-text box, using Claude through the Anthropic API instead of the

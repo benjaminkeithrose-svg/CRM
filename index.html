@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v109">
+<meta name="build" content="v110">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -156,6 +156,7 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .micbtn .ic{width:18px;height:18px}
 .micbtn.on{background:var(--act);color:#fff}
 .micbtn.on .ic{animation:micpulse 1.2s ease-in-out infinite}
+.micbtn.paused{background:var(--cyan-lt)}
 @keyframes micpulse{50%{opacity:.35}}
 .aiorig{white-space:pre-wrap;font-size:14px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:9px 10px;max-height:30vh;overflow:auto}
 #aidlg{width:min(640px,96vw)}
@@ -1640,13 +1641,15 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Tap the microphone.</li>
         <li>The first time, allow the microphone when the phone asks.</li>
-        <li>Talk. Your words appear in the box as you speak. Stop to think whenever you like; it keeps listening.</li>
+        <li>Talk. Your words appear in the box as you speak.</li>
+        <li>If you stop to think, it pauses and keeps your words. Tap <b>Continue</b> to carry on.</li>
         <li>Tap <b>Finish</b> when you've finished.</li>
         <li>Wait a few seconds. Claude's version shows above yours.</li>
         <li>Change anything you want in it.</li>
         <li>Tap <b>Use this</b> to put it in the box, or <b>Keep mine</b> to keep what you said as it is.</li>
       </ol>
-      <p>Or hold the microphone while you talk, and let go when you've finished. If nothing is heard for two minutes, it finishes by itself.</p>
+      <p>Or hold the microphone while you talk, and let go when you've finished. While you hold it, it keeps listening through pauses.</p>
+      <p>Chrome sounds an alert each time the microphone starts listening. Pausing doesn't start it again; only <b>Continue</b> does.</p>
       <p>Say how you want it laid out as you go: "make that a bullet list", "scratch that", "delete the last sentence", "new paragraph". Claude does it and leaves those words out.</p>
       <p>To tidy something you typed, or dictated with the keyboard's microphone:</p>
       <ol>
