@@ -974,7 +974,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v116';
+const APP_BUILD = 'v117';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1032,6 +1032,15 @@ const COL = {
   mgr:'Account Manager', tier:'Account Tier', foc:'Account Focus', rep:'Account Representative',
   lad:'Last Activity Date', lastAppt:'Last Appointment', team:'Industry Team', seg:'Segment'
 };
+/* v117: a multi-site customer's group, when the export carries one. The
+   column's name is not settled yet, so any heading that names a group or a
+   parent account will do; without one, sites are grouped by the customer name
+   before " - " (acctGroup). */
+const GROUP_HEAD = /^(parent account|parent customer|account group|customer group|group code|group name|group)\b/i;
+function pickGroup(row){
+  const k = Object.keys(row).find(x => GROUP_HEAD.test(x.replace(/\u00a0/g,' ').trim()));
+  return k && row[k] != null ? String(row[k]).replace(/\u00a0/g,' ').trim() : '';
+}
 function pick(row, name){
   const want = name.trim().toLowerCase();
   if(row[name] != null) return String(row[name]).trim();
@@ -1139,7 +1148,7 @@ function buildAccounts(rows){
     out.push({
       a:nm, sub:disp, z:z, tier:pick(rs[0],COL.tier), foc:foc, cad:CAD[foc]||CAD['No Focus'],
       seg:pick(rs[0],COL.seg), team:pick(rs[0],COL.team), mgr:pick(rs[0],COL.mgr),
-      rep:pick(rs[0],COL.rep), last:last, lastAppt:lastAppt,
+      rep:pick(rs[0],COL.rep), grp:pickGroup(rs[0]), last:last, lastAppt:lastAppt,
       idle: lastT > 0 ? Math.round((Date.now()-lastT)/86400000) : null,
       c:cs
     });
@@ -1328,7 +1337,7 @@ const TITLES = {
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
-  ccontacts:['People on this call','Call'],
+  ccontacts:['People on this call','Call'], lap:['Large account',''],
   note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity','']
 };
 /* ---------- navigation ----------
@@ -1417,6 +1426,7 @@ function showScreen(name){
   if(window.HealthLib && name !== 'health') HealthLib.closePicker();
   // leaving the map with a change still being typed: save it now (v115)
   if(screen === 'opp' && name !== 'opp' && opSaveTimer) oppSaveNow().catch(e => console.error('opportunity', e));
+  if(screen === 'lap' && name !== 'lap' && lapSaveTimer) lapSaveNow().catch(e => console.error('large account', e));
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -1444,7 +1454,8 @@ function showScreen(name){
   if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
   if(name==='plan') renderPlan();
   if(name==='opp') renderOpp();
-  if(name==='acct') try { renderOppsCard(); } catch(e){ console.error('opportunities', e); }
+  if(name==='lap') renderLap();
+  if(name==='acct') try { renderOppsCard(); renderLapCard(); } catch(e){ console.error('opportunities', e); }
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
   document.body.classList.toggle('planning', name === 'plan' || name === 'opp');
@@ -1506,7 +1517,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', lists:'home', opp:'acct'
+  today:'home', settings:'home', help:'home', lists:'home', opp:'acct', lap:'acct'
 };
 function parentOf(name){
   const up = PARENT[name] || 'home';
@@ -1724,6 +1735,7 @@ function openAccount(name){
   renderAccount();
   renderPlanCard();
   renderOppsCard();
+  renderLapCard();
   go('acct');
 }
 function renderAccount(){
@@ -6589,8 +6601,8 @@ async function cloudSyncRecs(){
     await loadQuotes();
     await loadLists();
     if(screen === 'lists') try { renderLists(); } catch(e){ console.error('lists', e); }
-    if(screen === 'acct') try { renderPlanCard(); renderOppsCard(); } catch(e){ console.error('plan card', e); }
-    try { oppCloudIn(); } catch(e){ console.error('opportunity', e); }
+    if(screen === 'acct') try { renderPlanCard(); renderOppsCard(); renderLapCard(); } catch(e){ console.error('plan card', e); }
+    try { oppCloudIn(); lapCloudIn(); } catch(e){ console.error('opportunity', e); }
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -10720,7 +10732,8 @@ function coachMain(text){
 const PL_ROLES = ['Signs the order', 'Uses it', 'Checks the spec', 'On our side'];
 const PL_MODES = ['Growth', 'Trouble', 'Steady', 'Overconfident'];
 // two devices can each start a plan before they sync; the latest one is the plan
-const planFor = name => PLANS.filter(p => p.acct === name).sort((x, y) => (y.updated || 0) - (x.updated || 0))[0] || null;
+// a site's own plan; a large account's plan (kind 'large', v117) spans sites and is not one
+const planFor = name => PLANS.filter(p => p.acct === name && p.kind !== 'large').sort((x, y) => (y.updated || 0) - (x.updated || 0))[0] || null;
 const plPersonLine = x => [x.role, x.mode && 'sees it as ' + x.mode, x.note].filter(Boolean).join(', ');
 function planText(name){
   const p = planFor(name);
@@ -10791,6 +10804,7 @@ function openPlan(name){
   $('plNames').innerHTML = (a ? a.c || [] : []).filter(c => c.n)
     .map(c => '<option value="' + esc(c.n) + '">' + esc(c.t || c.r || '') + '</option>').join('');
   $('plDel').hidden = plIsNew;
+  $('plLarge').checked = !!largeFor(name);
   plBefore = JSON.stringify(plRead());
   const d = $('plandlg');
   if(!d.open){
@@ -10806,12 +10820,15 @@ async function plFinish(){
   plEdit = null;
   const d = $('plandlg');
   if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  // the large account tick (v117): start or join the group's plan, or leave it
+  const ticked = $('plLarge').checked !== !!largeFor(r.acct);
+  if(ticked) await lapTick(r.acct, $('plLarge').checked);
   if(plIsNew && !r.goal && !r.people.length && !r.flags.trim() && !r.strengths.trim()) return;   // nothing entered: nothing kept
   if(!plIsNew && JSON.stringify(r) === plBefore) return;
   r.updated = Date.now();
   await plansPut(r);
   PLANS = PLANS.filter(x => x.id !== r.id).concat([r]);
-  toast('Account plan saved');
+  if(!ticked) toast('Account plan saved');
   renderPlanCard();
 }
 $('plAdd').addEventListener('click', () => {
@@ -11000,11 +11017,15 @@ function opFlag(parent, x, y){
   opEl('circle', {cx: 8, cy: 8, r: 9, fill: c('--warn')}, g);
   opEl('path', {d: 'M5,13 V3 M5,3 H12 L10,5.5 L12,8 H5', stroke: '#fff', 'stroke-width': 1.6, fill: 'none', 'stroke-linejoin': 'round'}, g);
 }
-function drawOpp(){
-  const svg = $('opMap');
+// with a target and data: someone else's map, drawn for looking only (the large account's, v117)
+function drawOpp(target, data){
+  if(target){ const keep = OPP; OPP = data; try { drawOppIn(target, false); } finally { OPP = keep; } return; }
+  drawOppIn($('opMap'), true);
+}
+function drawOppIn(svg, live){
   if(!svg || !OPP) return;
   const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  svg.setAttribute('viewBox', opView.x + ' ' + opView.y + ' ' + opView.w + ' ' + opView.h);
+  if(live) svg.setAttribute('viewBox', opView.x + ' ' + opView.y + ' ' + opView.w + ' ' + opView.h);
   svg.innerHTML = '';
   const defs = opEl('defs', {}, svg);
   [['act', '--act'], ['ink', '--ink-3'], ['warn', '--warn']].forEach(([k, v]) => {
@@ -11012,7 +11033,7 @@ function drawOpp(){
     opEl('path', {d: 'M0,0 L10,5 L0,10 z', fill: c(v)}, m);
   });
   OP_LANES.forEach((L, i) => {
-    opEl('rect', {x: L.x, y: 0, width: OP_LW, height: OP_H, rx: 12, fill: c(i % 2 ? '--sunk' : '--surface'), stroke: c('--line-2')}, svg);
+    opEl('rect', {x: L.x, y: 0, width: OP_LW, height: OPP.laneH || OP_H, rx: 12, fill: c(i % 2 ? '--sunk' : '--surface'), stroke: c('--line-2')}, svg);
     opText(svg, {x: L.x + 16, y: 26, class: 'op-lane'}, L.t);
   });
   const seen = {};
@@ -11034,20 +11055,20 @@ function drawOpp(){
     const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
     opText(g, {x: mx, y: my - 5, 'text-anchor': 'middle', class: 'op-elbl'}, l.kind);
     if(opPinned('l:' + l.id)) opFlag(g, mx - 8, my + 2);
-    g.addEventListener('pointerdown', e => e.stopPropagation());
-    g.addEventListener('click', e => { e.stopPropagation(); opSelect({t: 'l', id: l.id}); });
-    g.addEventListener('keydown', e => { if(e.key === 'Enter') opSelect({t: 'l', id: l.id}); });
+    if(live) g.addEventListener('pointerdown', e => e.stopPropagation());
+    if(live) g.addEventListener('click', e => { e.stopPropagation(); opSelect({t: 'l', id: l.id}); });
+    if(live) g.addEventListener('keydown', e => { if(e.key === 'Enter') opSelect({t: 'l', id: l.id}); });
   });
   const og = opEl('g', {class: 'op-node', tabindex: '0', role: 'button', 'aria-label': 'The opportunity: ' + (OPP.name || '')}, svg);
   opEl('rect', {x: OPP.ox, y: OPP.oy, width: OP_OW, height: OP_OH, rx: 10, fill: c('--act')}, og);
   opText(og, {x: OPP.ox + 14, y: OPP.oy + 24, fill: '#fff', 'font-size': 14, 'font-weight': 700}, opCut(OPP.name || 'Untitled', 26));
-  opText(og, {x: OPP.ox + 14, y: OPP.oy + 44, fill: '#fff', 'font-size': 11.5}, [OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ') || 'No value or close date yet');
-  opText(og, {x: OPP.ox + 14, y: OPP.oy + 61, fill: '#fff', 'font-size': 11, opacity: .85}, 'The opportunity');
-  og.addEventListener('pointerdown', e => {
+  opText(og, {x: OPP.ox + 14, y: OPP.oy + 44, fill: '#fff', 'font-size': 11.5}, OPP.nodeSub || [OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ') || 'No value or close date yet');
+  opText(og, {x: OPP.ox + 14, y: OPP.oy + 61, fill: '#fff', 'font-size': 11, opacity: .85}, OPP.nodeLabel || 'The opportunity');
+  if(live) og.addEventListener('pointerdown', e => {
     e.stopPropagation();
     if(opEditing() && !opLinkFrom){ const m = opToMap(e); opGesture = {kind: 'node', dx: m.x - OPP.ox, dy: m.y - OPP.oy, sx: e.clientX, sy: e.clientY, moved: false}; svg.setPointerCapture(e.pointerId); }
   });
-  og.addEventListener('click', e => { e.stopPropagation(); if(opLinkFrom) opMakeLink('OPP'); });
+  if(live) og.addEventListener('click', e => { e.stopPropagation(); if(opLinkFrom) opMakeLink('OPP'); });
   (OPP.people || []).forEach(p => {
     const isSel = opSel && opSel.t === 'p' && opSel.id === p.id, ours = p.side === 'us';
     const role = OP_BADGE[p.role] || '';
@@ -11067,13 +11088,13 @@ function drawOpp(){
       }
     }
     if(opPinned('p:' + p.id)) opFlag(g, -6, -8);
-    g.addEventListener('pointerdown', e => {
+    if(live) g.addEventListener('pointerdown', e => {
       e.stopPropagation();
       const m = opToMap(e);
       opGesture = {kind: opEditing() && !opLinkFrom ? 'card' : 'tap', p, dx: m.x - p.x, dy: m.y - p.y, sx: e.clientX, sy: e.clientY, vx: opView.x, vy: opView.y, moved: false};
       svg.setPointerCapture(e.pointerId);
     });
-    g.addEventListener('keydown', e => { if(e.key === 'Enter') opCardTap(p); });
+    if(live) g.addEventListener('keydown', e => { if(e.key === 'Enter') opCardTap(p); });
   });
 }
 const opCut = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
@@ -11544,16 +11565,26 @@ function renderSheet(){
    the same off the page. */
 async function oppMapPng(){
   const live = $('opMap');
+  if(!live || !OPP || !canvasOk()) return '';
+  const keepSel = opSel, keepFrom = opLinkFrom;
+  opSel = null; opLinkFrom = null; drawOpp();
+  const xs = [0, 3 * OP_LW + 40, OPP.ox, OPP.ox + OP_OW], ys = [0, OP_H, OPP.oy, OPP.oy + OP_OH];
+  (OPP.people || []).forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y - 14, p.y + OP_CH); });
+  const x0 = Math.min(...xs) - 10, y0 = Math.min(...ys) - 10;
+  const png = svgToPng(live, x0, y0, Math.max(...xs) + 10 - x0, Math.max(...ys) + 10 - y0);
+  opSel = keepSel; opLinkFrom = keepFrom; drawOpp();
+  return png;
+}
+function canvasOk(){
+  try { const cv = document.createElement('canvas'); return !!(cv.getContext && cv.getContext('2d')); } catch(e){ return false; }
+}
+/* A map on screen as a PNG for a document: the svg is copied at once with its
+   colours and type written in (an image does not see the page's styles), then
+   drawn to a canvas. '' when it cannot be drawn: the document leaves it out. */
+async function svgToPng(svg, x0, y0, w, h){
   try {
-    const cv = document.createElement('canvas');
-    if(!live || !cv.getContext || !cv.getContext('2d')) return '';
-    const keepSel = opSel, keepFrom = opLinkFrom;
-    opSel = null; opLinkFrom = null; drawOpp();
-    const xs = [0, 3 * OP_LW + 40, OPP.ox, OPP.ox + OP_OW], ys = [0, OP_H, OPP.oy, OPP.oy + OP_OH];
-    (OPP.people || []).forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y - 14, p.y + OP_CH); });
-    const x0 = Math.min(...xs) - 10, y0 = Math.min(...ys) - 10, w = Math.max(...xs) + 10 - x0, h = Math.max(...ys) + 10 - y0;
-    const clone = live.cloneNode(true);
-    const a = live.querySelectorAll('*'), b = clone.querySelectorAll('*');
+    const clone = svg.cloneNode(true);
+    const a = svg.querySelectorAll('*'), b = clone.querySelectorAll('*');
     const PROPS = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linejoin', 'paint-order', 'opacity',
       'font-family', 'font-size', 'font-weight', 'letter-spacing', 'text-transform'];
     for(let i = 0; i < a.length; i++){
@@ -11561,13 +11592,12 @@ async function oppMapPng(){
       b[i].setAttribute('style', PROPS.map(k => k + ':' + cs.getPropertyValue(k)).join(';'));
     }
     const W = 1600, H = Math.round(W * h / w);
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns', SVGNS);
     clone.setAttribute('viewBox', x0 + ' ' + y0 + ' ' + w + ' ' + h);
     clone.setAttribute('width', W); clone.setAttribute('height', H);
-    clone.insertBefore(Object.assign(document.createElementNS(SVGNS, 'rect'), {}), clone.firstChild);
-    const bg = clone.firstChild;
+    const bg = document.createElementNS(SVGNS, 'rect');
     bg.setAttribute('x', x0); bg.setAttribute('y', y0); bg.setAttribute('width', w); bg.setAttribute('height', h); bg.setAttribute('fill', '#E1EAF0');
-    opSel = keepSel; opLinkFrom = keepFrom; drawOpp();
+    clone.insertBefore(bg, clone.firstChild);
     const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
     const img = await new Promise((res, rej) => {
       const im = new Image();
@@ -11576,9 +11606,9 @@ async function oppMapPng(){
       im.onerror = () => { clearTimeout(t); rej(new Error('the map picture would not draw')); };
       im.src = src;
     });
+    const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
-    const ctx = cv.getContext('2d');
-    ctx.drawImage(img, 0, 0, W, H);
+    cv.getContext('2d').drawImage(img, 0, 0, W, H);
     return cv.toDataURL('image/png');
   } catch(e){ console.warn('map picture', e); return ''; }
 }
@@ -11625,14 +11655,319 @@ async function shareBlueSheet(){
   const html = buildBlueSheetHTML(OPP, png);
   const safe = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').slice(0, 60);
   const name = safe(OPP.acct) + '_' + safe(OPP.name) + '_blue_sheet_' + todayISOdate() + '.html';
+  await deliverDoc(html, name, 'Blue Sheet ' + (OPP.name || ''));
+}
+$('opShare').addEventListener('click', () => shareBlueSheet().catch(reportErr));
+
+/* ================= the large account plan (v117) =================
+   One plan across a customer's sites: where we are, where we want to get to,
+   and how we get there - Miller Heiman's large account management, cut to
+   what a field engineer keeps up. A record in the plans store (kind 'large'),
+   so it syncs and is shared like a site's own plan, which each site keeps.
+   Sites are grouped by the export's group column when there is one, else by
+   the customer name before " - ". The tick is on the site's account plan.
+   The open opportunities and the relationship map are read from the sites'
+   opportunities, never kept twice. */
+const LAP_LADDER = ['Commodity supplier', 'Product supplier', 'Service provider', 'Business partner', 'Trusted advisor'];
+let LAP = null, lapSaveTimer = null;
+const custOf = name => String(name || '').split(' - ')[0].trim();
+function acctGroup(a){ return a && a.grp ? 'g:' + a.grp.toLowerCase() : 'n:' + custOf(a ? a.a : '').toLowerCase(); }
+function groupSites(name){
+  const a = ACC_BY_NAME.get(name);
+  if(!a) return [name];
+  const k = acctGroup(a);
+  return ACCOUNTS.filter(x => acctGroup(x) === k).map(x => x.a).sort();
+}
+const largeFor = name => PLANS.filter(p => p.kind === 'large' && (p.sites || []).includes(name))
+  .sort((x, y) => (y.updated || 0) - (x.updated || 0))[0] || null;
+const lapOpps = L => OPPS.filter(o => (L.sites || []).includes(o.acct))
+  .sort((a, b) => String(a.close || '9999').localeCompare(String(b.close || '9999')));
+function renderLapCard(){
+  const a = viewAcct, el = $('avLap');
+  if(!a || !el) return;
+  const L = largeFor(a.a);
+  el.hidden = !L;
+  if(!L) return;
+  const n = (L.sites || []).length, no = lapOpps(L).length;
+  el.innerHTML = '<div class="hd"><span class="t">Large account: ' + esc(L.name || custOf(a.a)) + '</span></div>' +
+    '<p class="meta">' + esc([n + (n === 1 ? ' site' : ' sites'), no + (no === 1 ? ' opportunity' : ' opportunities'),
+      L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet'].join(' · ')) + '</p>';
+}
+$('avLap').addEventListener('click', () => { const L = viewAcct && largeFor(viewAcct.a); if(L) openLap(L.id); });
+$('avLap').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); const L = viewAcct && largeFor(viewAcct.a); if(L) openLap(L.id); } });
+
+/* the tick on the site's account plan: start or join the group's plan, or leave it */
+async function lapTick(site, want){
+  const have = largeFor(site);
+  if(want && !have){
+    const sites = groupSites(site);
+    // another site of the group may already have one: join it rather than start a second
+    const join = PLANS.find(p => p.kind === 'large' && (p.sites || []).some(x => sites.includes(x)));
+    if(join){
+      join.sites = [...new Set((join.sites || []).concat([site]))].sort();
+      join.updated = Date.now();
+      await plansPut(JSON.parse(JSON.stringify(join)));
+      PLANS = PLANS.filter(x => x.id !== join.id).concat([join]);
+      toast(site + ' added to the large account ' + (join.name || ''));
+      openLap(join.id);
+      return;
+    }
+    const a = ACC_BY_NAME.get(site);
+    const L = {id: newId('la'), kind: 'large', acct: '', name: a && a.grp ? a.grp : custOf(site), sites, created: Date.now(), updated: Date.now(),
+      business: '', ladder: '', today: '', spendUs: '', spendAll: '', comp: '', strengths: [], flags: [],
+      vision: '', objectives: [], strategies: [], invest: '', actions: [], reviewed: 0};
+    await plansPut(JSON.parse(JSON.stringify(L)));
+    PLANS = PLANS.concat([L]);
+    toast('Large account plan started across ' + sites.length + (sites.length === 1 ? ' site' : ' sites'));
+    openLap(L.id);
+    return;
+  }
+  if(!want && have){
+    if(!confirm('Take ' + site + ' out of the large account ' + (have.name || '') + '?\n\nThe plan stays, with its other ' +
+        ((have.sites || []).length - 1) + ' sites. Delete the plan itself from its own screen.')) { renderLapCard(); return; }
+    have.sites = (have.sites || []).filter(x => x !== site);
+    have.updated = Date.now();
+    await plansPut(JSON.parse(JSON.stringify(have)));
+    PLANS = PLANS.filter(x => x.id !== have.id).concat([have]);
+    toast(site + ' taken out of ' + (have.name || 'the large account'));
+    renderLapCard();
+  }
+}
+
+function openLap(id){
+  const L = PLANS.find(p => p.id === id);
+  if(!L){ toast('That plan could not be found'); return; }
+  LAP = L;
+  go('lap');
+}
+async function lapSaveNow(){
+  if(!LAP) return;
+  clearTimeout(lapSaveTimer); lapSaveTimer = null;
+  LAP.updated = Date.now();
+  await plansPut(JSON.parse(JSON.stringify(LAP)));
+  PLANS = PLANS.filter(x => x.id !== LAP.id).concat([LAP]);
+}
+function lapSaveSoon(){ clearTimeout(lapSaveTimer); lapSaveTimer = setTimeout(() => lapSaveNow().catch(reportErr), 700); }
+// "AUD 180k", "1.2m", "250,000": a number for the share, or null
+function moneyOf(t){
+  const m = /([\d.,]+)\s*([km])?/i.exec(String(t || ''));
+  if(!m) return null;
+  const n = parseFloat(m[1].replace(/,/g, ''));
+  if(isNaN(n)) return null;
+  return n * (/k/i.test(m[2] || '') ? 1e3 : /m/i.test(m[2] || '') ? 1e6 : 1);
+}
+function lapShareLine(L){
+  const us = moneyOf(L.spendUs), all = moneyOf(L.spendAll);
+  return us != null && all ? 'About ' + Math.round(us / all * 100) + '% of their belting spend' : '';
+}
+// the account's map: every person on its sites' opportunities, once each, laid out down the lanes
+function lapMapData(L){
+  const opps = lapOpps(L), people = [], idOf = {}, links = [], seen = new Set();
+  const key = p => p.side + '|' + String(p.n || '').trim().toLowerCase();
+  opps.forEach(o => (o.people || []).forEach(p => {
+    const k = key(p);
+    let c = people.find(x => x.k === k);
+    if(!c){ c = Object.assign({}, p, {id: 'c' + people.length, k}); people.push(c); }
+    idOf[o.id + ':' + p.id] = c.id;
+  }));
+  opps.forEach(o => (o.links || []).forEach(l => {
+    const a = idOf[o.id + ':' + l.a], b = l.b === 'OPP' ? 'OPP' : idOf[o.id + ':' + l.b];
+    if(!a || !b) return;
+    const k = [a, b].sort().join('|') + '|' + l.kind;
+    if(seen.has(k)) return;
+    seen.add(k); links.push(Object.assign({}, l, {id: 'k' + links.length, a, b}));
+  }));
+  let laneH = 400;
+  OP_LANES.forEach(Ln => {
+    const top = Ln.k === 'oem' ? 170 : 60;
+    people.filter(p => p.side === Ln.k).forEach((p, i) => { p.x = Ln.x + 20 + (i % 2) * 140; p.y = top + i * 82; laneH = Math.max(laneH, p.y + OP_CH + 30); });
+  });
+  return {name: L.name || 'Large account', people, links, flags: [], ox: 460, oy: 50, laneH,
+    nodeLabel: 'The large account', nodeSub: opps.length + (opps.length === 1 ? ' opportunity' : ' opportunities') + ' · ' + (L.sites || []).length + ' sites'};
+}
+function lapList(key, good){
+  const items = LAP[key] || [];
+  // strengths green, vulnerabilities red, objectives and strategies plain
+  const cls = good === true ? ' good' : good === 'plain' ? ' bsacts' : '';
+  return '<ul class="opitems' + cls + '">' + (items.length ? items.map((f, i) => '<li><span>' + esc(f.t) +
+    (f.measure || f.by ? '<span class="pin">' + esc([f.measure, f.by && 'by ' + oppMonth(f.by)].filter(Boolean).join(' · ')) + '</span>' : '') +
+    '</span><button type="button" class="opx" data-laprm="' + key + ':' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('')
+    : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>';
+}
+function renderLap(){
+  const el = $('lapBody');
+  if(!LAP){ go('acct', true); return; }
+  const L = LAP, opps = lapOpps(L);
+  $('title').textContent = L.name || 'Large account';
+  $('subtitle').textContent = (L.sites || []).length + ((L.sites || []).length === 1 ? ' site' : ' sites');
+  const suggest = [...new Set((L.sites || []).flatMap(groupSites))].filter(x => !(L.sites || []).includes(x));
+  const owners = [...new Set(teamPeople().map(m => m.name).concat([localStorage.getItem(LS('mgr')) || '']).filter(Boolean))];
+  el.innerHTML =
+    '<h2>The account</h2><div class="opsum">' +
+      '<label class="l" for="lapName">Name</label><input type="text" id="lapName" value="' + esc(L.name || '') + '">' +
+      '<label class="l">Sites</label><div class="lapsites">' + (L.sites || []).map((x, i) => '<span>' + esc(x) + '<button type="button" data-lapsite="' + i + '" aria-label="Take ' + esc(x) + ' out">' + icon('close') + '</button></span>').join('') + '</div>' +
+      (suggest.length ? '<label class="l">More sites of this customer</label><div class="lapsites">' + suggest.map((x, i) => '<button type="button" class="add" data-lapadd="' + i + '">+ ' + esc(x) + '</button>').join('') + '</div>' : '') +
+      '<div class="opadd"><input type="text" id="lapSite" list="lapSites" placeholder="Add another site" aria-label="Add another site"><button type="button" class="btn act2" id="lapSiteGo">Add</button></div>' +
+      '<datalist id="lapSites">' + ACCOUNTS.filter(a => !(L.sites || []).includes(a.a)).map(a => '<option value="' + esc(a.a) + '">').join('') + '</datalist>' +
+      '<p class="meta" style="margin-top:8px">' + (L.reviewed ? 'Last reviewed ' + esc(new Date(L.reviewed).toLocaleDateString()) : 'Not reviewed yet') + '</p>' +
+      '<button type="button" class="btn act2" id="lapReviewed">Reviewed today</button></div>' +
+    '<h2>Where we are</h2>' +
+      '<label class="l" for="lapBiz">Their business</label><textarea id="lapBiz" rows="3" placeholder="What they make, where they are heading, what is pressing on them">' + esc(L.business || '') + '</textarea>' +
+      '<label class="l">How they see us</label>' + opChips('ladder', LAP_LADDER, L.ladder || '') +
+      '<label class="l" for="lapToday">What we have today</label><textarea id="lapToday" rows="3" placeholder="The lines and products we are on">' + esc(L.today || '') + '</textarea>' +
+      '<div class="row"><div><label class="l" for="lapUs">Our yearly sales here</label><input type="text" id="lapUs" value="' + esc(L.spendUs || '') + '" placeholder="e.g. AUD 250k"></div>' +
+      '<div><label class="l" for="lapAll">Their yearly belting spend</label><input type="text" id="lapAll" value="' + esc(L.spendAll || '') + '" placeholder="e.g. AUD 900k"></div></div>' +
+      '<p class="lapshare" id="lapShareLine">' + esc(lapShareLine(L)) + '</p>' +
+      '<label class="l" for="lapComp">Competition</label><textarea id="lapComp" rows="2" placeholder="Who else is in there, and where">' + esc(L.comp || '') + '</textarea>' +
+      '<label class="l">Strengths</label>' + lapList('strengths', true) +
+      '<div class="opadd"><input type="text" id="lapNs" placeholder="A strength" aria-label="A strength"><button type="button" class="btn act2" id="lapNsGo">Add</button></div>' +
+      '<label class="l">Vulnerabilities</label>' + lapList('flags') +
+      '<div class="opadd"><input type="text" id="lapNf" placeholder="A vulnerability or red flag" aria-label="A vulnerability"><button type="button" class="btn act2" id="lapNfGo">Add</button></div>' +
+    '<h2>Open opportunities</h2>' +
+      (opps.length ? opps.map(o => '<button type="button" class="opprow" data-lapopp="' + esc(o.id) + '" style="display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 10px;margin-top:6px;cursor:pointer;color:var(--ink);font:inherit"><b>' + esc(o.name || 'Untitled') + '</b>' +
+        '<span class="meta" style="display:block">' + esc([o.acct, o.value, o.close && 'close ' + oppMonth(o.close), o.pos != null && 'position ' + opPosLabel(o.pos)].filter(Boolean).join(' · ')) + '</span></button>').join('')
+        : '<p class="hint">None on these sites yet. Start one from a site\'s account screen.</p>') +
+    '<h2>Where we want to get to</h2>' +
+      '<label class="l" for="lapVision">Vision</label><input type="text" id="lapVision" value="' + esc(L.vision || '') + '" placeholder="e.g. Intralox is the standard on every line at both plants">' +
+      '<label class="l">Objectives</label>' + lapList('objectives', 'plain') +
+      '<div class="lapform"><input type="text" id="lapObj" placeholder="An objective" aria-label="An objective"><input type="text" id="lapObjM" placeholder="Measure, e.g. AUD 400k" aria-label="Measure"><input type="month" id="lapObjBy" aria-label="By when"><button type="button" class="btn act2" id="lapObjGo">Add</button></div>' +
+    '<h2>How we get there</h2>' +
+      '<label class="l">Strategies</label>' + lapList('strategies', 'plain') +
+      '<div class="opadd"><input type="text" id="lapStr" placeholder="A strategy" aria-label="A strategy"><button type="button" class="btn act2" id="lapStrGo">Add</button></div>' +
+      '<label class="l" for="lapInv">Investment</label><textarea id="lapInv" rows="2" placeholder="The time, trials, samples or people it will take">' + esc(L.invest || '') + '</textarea>' +
+      '<label class="l">Action plan</label><ul class="opitems lapacts bsacts">' + ((L.actions || []).length ? L.actions.map((a, i) => '<li class="' + (a.done ? 'done' : '') + '">' +
+        '<input type="checkbox" data-lapdone="' + i + '"' + (a.done ? ' checked' : '') + ' aria-label="Done">' +
+        '<span><b>' + esc(a.t) + '</b><span class="lapmeta">' + esc([a.owner, a.due && 'due ' + dayLabel(a.due)].filter(Boolean).join(' · ') || 'No owner or date') + '</span></span>' +
+        '<button type="button" class="btn act2" data-laptask="' + i + '">Make a task</button>' +
+        '<button type="button" class="opx" data-laprm="actions:' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
+      '<div class="lapform"><input type="text" id="lapAct" placeholder="An action" aria-label="An action"><input type="text" id="lapOwn" list="lapOwners" placeholder="Owner" aria-label="Owner"><input type="date" id="lapDue" aria-label="Due"><button type="button" class="btn act2" id="lapActGo">Add</button></div>' +
+      '<datalist id="lapOwners">' + owners.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' +
+    '<h2>Relationship map</h2>' +
+      (opps.some(o => (o.people || []).length) ? '<svg id="lapMap" role="img" aria-label="The account\'s relationship map"></svg><p class="hint">Everyone on these sites\' opportunities, once each. Change them on each opportunity\'s own map.</p>'
+        : '<p class="hint">Fills in from the opportunities\' maps once they have people on them.</p>');
+  if($('lapMap')){
+    const data = lapMapData(L);
+    drawOpp($('lapMap'), data);
+    $('lapMap').setAttribute('viewBox', '-10 -10 ' + (3 * OP_LW + 60) + ' ' + (data.laneH + 20));
+  }
+  const typed = (id, key, after) => $(id).addEventListener('input', e => { L[key] = e.target.value; if(after) after(); lapSaveSoon(); });
+  typed('lapName', 'name', () => { $('title').textContent = L.name || 'Large account'; });
+  typed('lapBiz', 'business'); typed('lapToday', 'today'); typed('lapComp', 'comp'); typed('lapVision', 'vision'); typed('lapInv', 'invest');
+  typed('lapUs', 'spendUs', () => { $('lapShareLine').textContent = lapShareLine(L); });
+  typed('lapAll', 'spendAll', () => { $('lapShareLine').textContent = lapShareLine(L); });
+  const redraw = () => { lapSaveNow().catch(reportErr); renderLap(); };
+  el.querySelectorAll('[data-opchips="ladder"] button').forEach(b => b.addEventListener('click', () => { L.ladder = b.classList.contains('on') ? '' : b.dataset.v; redraw(); }));
+  $('lapReviewed').addEventListener('click', () => { L.reviewed = Date.now(); redraw(); toast('Marked reviewed today'); });
+  el.querySelectorAll('[data-lapsite]').forEach(b => b.addEventListener('click', () => {
+    const x = L.sites[+b.dataset.lapsite];
+    if(!x || !confirm('Take ' + x + ' out of this large account plan?')) return;
+    L.sites = L.sites.filter(s => s !== x); redraw();
+  }));
+  el.querySelectorAll('[data-lapadd]').forEach(b => b.addEventListener('click', () => { L.sites = [...new Set(L.sites.concat([suggest[+b.dataset.lapadd]]))].sort(); redraw(); }));
+  $('lapSiteGo').addEventListener('click', () => {
+    const x = $('lapSite').value.trim();
+    if(!ACC_BY_NAME.has(x)){ toast('Pick a site from the list'); return; }
+    const other = largeFor(x);
+    if(other && other.id !== L.id){ toast(x + ' is already in ' + (other.name || 'another large account')); return; }
+    L.sites = [...new Set(L.sites.concat([x]))].sort(); redraw();
+  });
+  const add = (key, inp, extra) => { const t = $(inp).value.trim(); if(!t) return; L[key] = (L[key] || []).concat([Object.assign({id: newId('li'), t}, extra ? extra() : {})]); redraw(); };
+  $('lapNsGo').addEventListener('click', () => add('strengths', 'lapNs'));
+  $('lapNfGo').addEventListener('click', () => add('flags', 'lapNf'));
+  $('lapStrGo').addEventListener('click', () => add('strategies', 'lapStr'));
+  $('lapObjGo').addEventListener('click', () => add('objectives', 'lapObj', () => ({measure: $('lapObjM').value.trim(), by: $('lapObjBy').value})));
+  $('lapActGo').addEventListener('click', () => add('actions', 'lapAct', () => ({owner: $('lapOwn').value.trim(), due: $('lapDue').value, done: false})));
+  [['lapNs', 'lapNsGo'], ['lapNf', 'lapNfGo'], ['lapStr', 'lapStrGo']].forEach(([i, b]) => $(i).addEventListener('keydown', e => { if(e.key === 'Enter') $(b).click(); }));
+  el.querySelectorAll('[data-laprm]').forEach(b => b.addEventListener('click', () => {
+    const [key, i] = b.dataset.laprm.split(':'), f = L[key][+i];
+    const what = {strengths: 'strength', flags: 'vulnerability', objectives: 'objective', strategies: 'strategy', actions: 'action'}[key];
+    if(!f || !confirm('Remove this ' + what + '?\n\n' + f.t)) return;
+    L[key] = L[key].filter((_, j) => j !== +i); redraw();
+  }));
+  el.querySelectorAll('[data-lapdone]').forEach(b => b.addEventListener('change', () => { const a = L.actions[+b.dataset.lapdone]; if(a){ a.done = b.checked; redraw(); } }));
+  el.querySelectorAll('[data-laptask]').forEach(b => b.addEventListener('click', () => {
+    const a = L.actions[+b.dataset.laptask]; if(!a) return;
+    openTask(null, Object.assign({title: a.t.slice(0, 200), acct: (L.sites || [])[0] || ''}, a.due ? {date: a.due} : {}));
+  }));
+  el.querySelectorAll('[data-lapopp]').forEach(b => b.addEventListener('click', () => {
+    const o = OPPS.find(x => x.id === b.dataset.lapopp); if(!o) return;
+    // back from the opportunity goes to its own site
+    if(ACC_BY_NAME.has(o.acct)){ viewAcct = ACC_BY_NAME.get(o.acct); renderAccount(); renderPlanCard(); }
+    openOpp(o.id);
+  }));
+}
+function buildLapHTML(L, png){
+  const v = x => (x == null ? '' : String(x)).trim();
+  const cell = x => v(x) ? esc(v(x)).replace(/\n/g, '<br>') : '—';
+  const rows = pairs => '<table>' + pairs.map(([l, x]) => '<tr><td class="l">' + esc(l) + '</td><td class="v">' + x + '</td></tr>').join('') + '</table>';
+  const list = (items, fmt) => items && items.length ? '<ul>' + items.map(fmt || (f => '<li>' + esc(f.t) + '</li>')).join('') + '</ul>' : '<p>—</p>';
+  const opps = lapOpps(L);
+  const p = [];
+  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Large account plan ' + DASH_CH + ' ' + esc(L.name || '') + '</title>' +
+    '<link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>');
+  p.push('<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">');
+  p.push('<p class="eyebrow">Intralox</p>');
+  p.push('<h1>Large account plan ' + DASH_CH + ' ' + esc(L.name || '') + '</h1>');
+  p.push('<p class="sub">' + esc([(L.sites || []).length + ((L.sites || []).length === 1 ? ' site' : ' sites'),
+    L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet', 'as at ' + new Date().toLocaleDateString()].join(' · ')) + '</p>');
+  p.push('<h2>Sites</h2>' + list((L.sites || []).map(t => ({t}))));
+  p.push('<h2>Where we are</h2>' + rows([['Their business', cell(L.business)], ['How they see us', cell(L.ladder)], ['What we have today', cell(L.today)],
+    ['Our yearly sales here', cell(L.spendUs)], ['Their yearly belting spend', cell(L.spendAll)], ['Our share', cell(lapShareLine(L))], ['Competition', cell(L.comp)]]));
+  p.push('<h3>Strengths</h3>' + list(L.strengths) + '<h3>Vulnerabilities</h3>' + list(L.flags));
+  p.push('<h2>Open opportunities</h2>' + (opps.length ? '<table><tr><th>Opportunity</th><th>Site</th><th>Value</th><th>Close</th><th>Position</th></tr>' +
+    opps.map(o => '<tr><td><b>' + cell(o.name) + '</b></td><td>' + cell(o.acct) + '</td><td>' + cell(o.value) + '</td><td>' + cell(oppMonth(o.close)) + '</td><td>' + (o.pos == null ? '—' : esc(opPosLabel(o.pos))) + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
+  p.push('<h2>Where we want to get to</h2>' + rows([['Vision', cell(L.vision)]]) + '<h3>Objectives</h3>' +
+    list(L.objectives, o => '<li>' + esc(o.t) + (o.measure || o.by ? ' <span style="color:#77787A">(' + esc([o.measure, o.by && 'by ' + oppMonth(o.by)].filter(Boolean).join(', ')) + ')</span>' : '') + '</li>'));
+  p.push('<h2>How we get there</h2><h3>Strategies</h3>' + list(L.strategies) + rows([['Investment', cell(L.invest)]]));
+  p.push('<h3>Action plan</h3>' + ((L.actions || []).length ? '<table><tr><th>Action</th><th>Owner</th><th>Due</th><th>Done</th></tr>' +
+    L.actions.map(a => '<tr><td>' + cell(a.t) + '</td><td>' + cell(a.owner) + '</td><td>' + (a.due ? esc(dayLabel(a.due)) : '—') + '</td><td>' + (a.done ? 'Done' : '—') + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
+  if(png) p.push('<h2>Relationship map</h2><p><img src="' + png + '" alt="Relationship map" style="width:100%;height:auto;border:1px solid #E3E3E3"></p>');
+  p.push('<p class="sub" style="margin-top:24px">Made with Field CRM.</p></div></body></html>');
+  return p.join('');
+}
+// one way out for the opportunity and account documents: a tab on the PC, the share sheet on the phone
+async function deliverDoc(html, name, title){
   if(!isPhone()){ openInTab(html, name); return; }
   const file = new File([html], name, {type: 'text/html'});
   if(navigator.canShare && navigator.canShare({files: [file]})){
-    try { await navigator.share({files: [file], title: 'Blue Sheet ' + (OPP.name || '')}); toast('Shared'); }
+    try { await navigator.share({files: [file], title}); toast('Shared'); }
     catch(e){ if(e.name !== 'AbortError'){ console.error(e); toast('Share failed - saving instead'); download(html, name); } }
   } else download(html, name);
 }
-$('opShare').addEventListener('click', () => shareBlueSheet().catch(reportErr));
+$('lapShare').addEventListener('click', async () => {
+  if(!LAP) return;
+  if(lapSaveTimer) await lapSaveNow();
+  toast('Building' + String.fromCharCode(8230));
+  let png = '';
+  if($('lapMap') && canvasOk()){
+    const data = lapMapData(LAP);
+    png = await svgToPng($('lapMap'), -10, -10, 3 * OP_LW + 60, data.laneH + 20);
+  }
+  const safe = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').slice(0, 60);
+  await deliverDoc(buildLapHTML(LAP, png), safe(LAP.name) + '_large_account_plan_' + todayISOdate() + '.html', 'Large account plan ' + (LAP.name || ''));
+});
+$('lapDel').addEventListener('click', async () => {
+  const L = LAP; if(!L) return;
+  const n = (L.sites || []).length, o = (L.objectives || []).length, a = (L.actions || []).length;
+  if(!confirm('Delete the large account plan ' + (L.name || '') + '?\n\nIt covers ' + n + (n === 1 ? ' site' : ' sites') + ', with ' + o + (o === 1 ? ' objective' : ' objectives') +
+      ' and ' + a + (a === 1 ? ' action' : ' actions') + '. The sites, their own plans and their opportunities stay. It is gone from this device' +
+      (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return;
+  clearTimeout(lapSaveTimer); lapSaveTimer = null;
+  await plansDel(L.id);
+  PLANS = PLANS.filter(x => x.id !== L.id);
+  LAP = null;
+  toast('Large account plan deleted');
+  go('acct');
+});
+function lapCloudIn(){
+  if(screen !== 'lap' || !LAP) return;
+  const fresh = PLANS.find(x => x.id === LAP.id);
+  if(!fresh){ toast('This plan was deleted on another device'); LAP = null; go('acct'); return; }
+  if(fresh === LAP || (fresh.updated || 0) <= (LAP.updated || 0) || lapSaveTimer) return;
+  if(document.activeElement && $('lapBody').contains(document.activeElement)) return;
+  LAP = fresh; renderLap();
+}
+
 // a newer copy from the cloud replaces the one on screen, unless something is being moved or typed
 function oppCloudIn(){
   if(screen !== 'opp' || !OPP) return;
