@@ -37,6 +37,8 @@ The app arrives empty. You load your own customers, and they stay on your device
 
 Do this again whenever the CRM changes. Monthly is plenty. With cloud sync on, your phone gets the accounts by itself.
 
+In a team, only the admin does this and step 4. Everyone else gets the accounts and the belt data from the cloud.
+
 ### 4. Load the belt data
 
 1. Tap **⋯** on Home, then **Settings**, then **CRM and belt data**.
@@ -388,6 +390,20 @@ Once the file has gone, open Create and share again and tap **Drop the photos, k
 3. Tap the call to open it.
 
 To finish a call, tap **⋯** on it in Reports, then **Mark done**. Done with nothing to report is a normal finish.
+
+### Read a colleague's report
+
+1. Tap **Reports** on Home.
+2. Tap **Team**. Each call shows who wrote it.
+3. Tap a call. It opens to read, as it would be sent.
+4. To change it, tap **Edit**.
+5. Tap **Close** when you have finished reading.
+
+**Mine** shows your own calls. Resume, the Home count and your calendar show only your own.
+
+An account's history shows everyone's calls there, with the name of whoever wrote each one.
+
+Only the person who wrote a call, or the team's admin, can delete it.
 
 ### Save done calls to a folder on the PC
 

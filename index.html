@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v111">
+<meta name="build" content="v112">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -162,6 +162,12 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 #aidlg{width:min(640px,96vw)}
 #tidydlg{width:min(680px,96vw)}
 #coachdlg{width:min(640px,96vw)}
+/* a colleague's report, read-only until Edit (v112) */
+#rvdlg{width:min(760px,96vw);height:92vh;max-height:92vh;flex-direction:column}
+#rvdlg[open]{display:flex}
+#rvdlg .dlg-b{flex:1;display:flex;flex-direction:column;min-height:0;padding:0}
+#rvSub{padding:8px 16px 0}
+#rvFrame{flex:1;width:100%;border:0;min-height:0;background:#fff}
 .coach h3{font-size:14px;font-weight:700;margin:14px 0 4px;color:var(--ink)}
 .coach h3:first-child{margin-top:0}
 .coach ul{margin:0;padding-left:20px}
@@ -1337,27 +1343,28 @@ details.bsx > .msg{margin:8px 12px}
 
   <details class="sx" id="sxData">
     <summary><b>CRM and belt data</b><span class="sxs" id="sumData"></span></summary>
+  <p class="hint memberonly" hidden><span class="adminname"></span> keeps the CRM export, the belt data and the audit register up to date for the team. They reach this device by themselves when it syncs.</p>
   <div class="fld">
     <label>Contact database</label>
     <p class="stat" id="dbStat">No data loaded.</p>
     <div id="impReport"></div>
-    <input type="file" id="xlsxFile" accept=".xlsx,.csv" style="margin-top:10px">
-    <button class="ghost" id="importBtn">Import CRM export</button>
-    <p class="hint">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
+    <input type="file" class="adminonly" id="xlsxFile" accept=".xlsx,.csv" style="margin-top:10px">
+    <button class="ghost adminonly" id="importBtn">Import CRM export</button>
+    <p class="hint adminonly">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
   </div>
   <div class="fld">
     <label>Plant audit register</label>
     <p class="stat" id="assetStat">No register loaded.</p>
-    <input type="file" id="assetFile" accept=".xlsx,.xlsm,.csv" style="margin-top:10px">
-    <button class="ghost" id="assetBtn">Import master database</button>
-    <p class="hint">Copy_of_Plant_Audit_Master_Database.xlsx. Which belts are actually installed, by Intralox asset number. Reload it whenever you refresh it &mdash; a reload replaces the whole register, so new belts appear and nothing needs merging. This is customer data: it stays on the device and never goes to GitHub.</p>
+    <input type="file" class="adminonly" id="assetFile" accept=".xlsx,.xlsm,.csv" style="margin-top:10px">
+    <button class="ghost adminonly" id="assetBtn">Import master database</button>
+    <p class="hint adminonly">Copy_of_Plant_Audit_Master_Database.xlsx. Which belts are actually installed, by Intralox asset number. Reload it whenever you refresh it &mdash; a reload replaces the whole register, so new belts appear and nothing needs merging. This is customer data: it stays on the device and never goes to GitHub.</p>
   </div>
   <div class="fld">
     <label>Belt reference data</label>
     <p class="stat" id="refStat">No data loaded.</p>
-    <input type="file" id="refFile" accept=".xlsm,.xlsx" style="margin-top:10px">
-    <button class="ghost" id="refBtn">Import plant audit workbook</button>
-    <p class="hint">Plant_Audit_Template_1.xlsm. This is what drives the series, style, material, sprocket and flight pickers on the belt form. It is the bigger of the two files &mdash; the app will sit still for a few seconds while it reads. Leave the screen on until it says it is done.</p>
+    <input type="file" class="adminonly" id="refFile" accept=".xlsm,.xlsx" style="margin-top:10px">
+    <button class="ghost adminonly" id="refBtn">Import plant audit workbook</button>
+    <p class="hint adminonly">Plant_Audit_Template_1.xlsm. This is what drives the series, style, material, sprocket and flight pickers on the belt form. It is the bigger of the two files &mdash; the app will sit still for a few seconds while it reads. Leave the screen on until it says it is done.</p>
   </div>
   </details>
 
@@ -1391,7 +1398,7 @@ details.bsx > .msg{margin:8px 12px}
     <p class="msg" id="tsMsg"></p>
     <p class="hint">A one-off move out of Task Slaughterer. Open tasks go on today from 8am; done ones go on the day you ticked them off. Saved notes and products go to Lists. Importing the same file again adds nothing.</p>
   </div>
-  <div class="fld">
+  <div class="fld adminonly">
     <label>Zone overrides</label>
     <input type="file" id="ovFile" accept=".json">
     <button class="ghost" id="ovBtn">Load zone overrides</button>
@@ -1486,6 +1493,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Import CRM export</b>.</li>
       </ol>
       <p>Do this again whenever the CRM changes. Monthly is plenty. With cloud sync on, your phone gets the accounts by itself.</p>
+      <p>In a team, only the admin does this and step 4. Everyone else gets the accounts and the belt data from the cloud.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1893,6 +1901,21 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Read a colleague's report</b><span class="sxs">Working in a team</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Reports</b> on Home.</li>
+        <li>Tap <b>Team</b>. Each call shows who wrote it.</li>
+        <li>Tap a call. It opens to read, as it would be sent.</li>
+        <li>To change it, tap <b>Edit</b>.</li>
+        <li>Tap <b>Close</b> when you have finished reading.</li>
+      </ol>
+      <p><b>Mine</b> shows your own calls. Resume, the Home count and your calendar show only your own.</p>
+      <p>An account's history shows everyone's calls there, with the name of whoever wrote each one.</p>
+      <p>Only the person who wrote a call, or the team's admin, can delete it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Save done calls to a folder on the PC</b><span class="sxs">Chrome or Edge on the PC</span></summary>
     <div class="fld help">
       <ol>
@@ -2142,6 +2165,11 @@ details.bsx > .msg{margin:8px 12px}
   <!-- Compiled and done are separate states in the data and always have been:
        compiled means a document was produced, done means the call is finished.
        This used to collapse both into "Finished". -->
+  <!-- v112: shown only in a team. Mine is yours; Team is your colleagues' -->
+  <div class="seg" id="rpWho" hidden>
+    <button type="button" data-v="mine" class="on">Mine</button>
+    <button type="button" data-v="team">Team</button>
+  </div>
   <div class="seg" id="rpView">
     <button type="button" data-v="all" class="on">All</button>
     <button type="button" data-v="open">Open</button>
@@ -2306,6 +2334,19 @@ details.bsx > .msg{margin:8px 12px}
   </div>
 </dialog>
 
+<!-- A colleague's report (v112): read-only, as it would be compiled. Edit opens it in the call menu. -->
+<dialog id="rvdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="btn" id="rvClose">Close</button>
+    <b id="rvHead">Report</b>
+    <button type="button" class="btn act2" id="rvEdit">Edit</button>
+  </div>
+  <div class="dlg-b">
+    <p class="hint" id="rvSub"></p>
+    <iframe id="rvFrame" title="The report" sandbox=""></iframe>
+  </div>
+</dialog>
+
 <!-- The account plan (v106): Strategic Selling's account sheet, cut down. Done saves. -->
 <dialog id="plandlg">
   <div class="dlg-h tkh">
@@ -2451,7 +2492,7 @@ details.bsx > .msg{margin:8px 12px}
     <button class="big" id="pmExport" type="button">Download to Outlook</button>
     <button class="ghost" id="pmExportAll" type="button">Re-download everything shown</button>
     <button class="ghost" id="pmToday" type="button">Today's list</button>
-    <button class="ghost" id="pmReassign" type="button">Reassign manager</button>
+    <button class="ghost adminonly" id="pmReassign" type="button">Reassign manager</button>
     <p class="note" id="pmHint"></p>
   </div>
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="pmClose" type="button">Close</button></div>

@@ -545,7 +545,10 @@ function renderHomeSetup(){
   if(!REF) missing.push('belt reference data');
   if(!missing.length){ el.className = 'msg'; el.innerHTML = ''; return; }
   el.className = 'msg info show';
-  el.innerHTML = 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="settings">open Settings to import it</span>';
+  // a member does not import: the admin's copy arrives with the sync (v112)
+  el.innerHTML = isMember()
+    ? 'No '+missing.join(' or ')+' here yet. It comes from '+esc(teamName(TEAM.admin))+' when this device syncs.'
+    : 'No '+missing.join(' or ')+' loaded yet. <span class="lnk" data-go="settings">open Settings to import it</span>';
 }
 
 /* ================= the plant audit register =================
@@ -968,7 +971,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v111';
+const APP_BUILD = 'v112';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1180,7 +1183,8 @@ function indexAccounts(list){
 }
 async function loadAccounts(){
   indexAccounts(await accAll());
-  APPTS = await apptsAll();
+  await ownersLoad();
+  APPTS = await apptsMine();
   TASKS = await tasksAll();
   await loadQuotes();
   await loadLists();
@@ -1337,7 +1341,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1764,6 +1768,7 @@ function renderAccount(){
         const bits = [n ? n+' entr'+(n===1?'y':'ies') : 'no report'];
         if(belts) bits.push(belts+' belt'+(belts===1?'':'s'));
         if(c.site) bits.push(c.site);
+        if(callAuthor(c)) bits.unshift(callAuthor(c));
         return '<div class="card"><div class="hd"><span class="t">'+esc(c.date)+
           '<span class="st '+st.cls+'">'+st.label+'</span></span>'+
           '<button class="x" data-openc="'+esc(c.id)+'">Open</button></div>'+
@@ -1772,9 +1777,8 @@ function renderAccount(){
     : '<p class="empty">No calls logged here yet.</p>';
   $('avHistory').querySelectorAll('[data-openc]').forEach(b =>
     b.addEventListener('click', async ()=>{
-      const all = await callsAll();
-      call = all.find(x => x.id === b.dataset.openc);
-      if(call){ call.loose = call.loose || []; go('dash'); }
+      const found = (await callsAll()).find(x => x.id === b.dataset.openc);
+      if(found) openCallRecord(found);
     }));
 }
 /* A planned visit that never happened, one that happened but was never written up,
@@ -2753,6 +2757,7 @@ function scopeAccounts(sc){
 }
 function openReassign(seed){
   seed = seed || {};
+  if(isMember()){ toast(teamName(TEAM.admin) + ' looks after manager changes for the team'); return; }
   if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
   rScopes = [];
   if(seed.account){
@@ -4124,7 +4129,7 @@ async function mergeCallFile(data){
     await apptsPut(copy);
     booked++;
   }
-  if(booked) APPTS = await apptsAll();
+  if(booked) APPTS = await apptsMine();
 
   // visit outcomes ride back with the calls
   let visits = 0, visitsKept = 0;
@@ -4152,7 +4157,7 @@ async function mergeCallFile(data){
     await apptsPut(ap);
     visits++;
   }
-  APPTS = await apptsAll();
+  APPTS = await apptsMine();
   indexCalls(await callsAll());
   return {added, updated, skipped, visits, visitsKept, booked,
           photos: data.withPhotos ? 'with photos' : 'no photos'};
@@ -4534,7 +4539,9 @@ function quoteCal(q){
     belts: (q.entries || []).filter(e => e.type === 'belt').length};
 }
 async function loadQuotes(){
-  QUOTES = (await quotesAll()).map(quoteCal).filter(q => q.date);
+  // the calendar is yours (v112): a colleague's quote requests stay off it
+  await ownersLoad();
+  QUOTES = (await quotesAll()).filter(q => isMine('calls', q.id)).map(quoteCal).filter(q => q.date);
 }
 function quotesOn(dISO){ return QUOTES.filter(q => q.date === dISO).sort((x,y) => x.start.localeCompare(y.start)); }
 const quoteLabel = q => (q.start || '') + ' RFQ ' + q.acct;
@@ -5287,6 +5294,7 @@ function sbSay(e){
 }
 
 function renderSb(){
+  paintRole();
   const el = $('sbStat');
   if(!el) return;
   [['sbUrl','url'],['sbKey','key']].forEach(([id,k]) => {
@@ -5496,6 +5504,7 @@ async function sbLoadTeam(){
       members: (m.data || []).filter(x => x.team_id === team.id).map(x => ({user_id: x.user_id, name: x.name, role: x.role}))} : null;
     await kvSet('cloudTeam', TEAM);
   } catch(e){ console.warn('team', e); }
+  finally { paintRole(); }
 }
 // function declarations, not consts: renderSb can run before this line has
 function iAmAdmin(){ return !TEAM || !!(sbUser && TEAM.admin === sbUser.id); }
@@ -5508,6 +5517,24 @@ async function ownersLoad(){
 }
 function recOwner(store, id){ return (OWNERS && OWNERS[store + '/' + id]) || (sbUser && sbUser.id); }
 function teamName(uid){ const m = TEAM && TEAM.members.find(x => x.user_id === uid); return m && m.name || 'a teammate'; }
+/* What colleagues see (v112). A record is yours unless the cloud said a
+   teammate wrote it; OWNERS is loaded at start-up, and until then everything
+   counts as yours, which is how the app behaved before teams. */
+function isMine(store, id){ return !(OWNERS && OWNERS[store + '/' + id]); }
+function callAuthor(c){ return isMine('calls', c.id) ? '' : teamName(OWNERS['calls/' + c.id]); }
+async function apptsMine(){ await ownersLoad(); return (await apptsAll()).filter(a => isMine('appts', a.id)); }
+function inTeam(){ return !!(TEAM && TEAM.members && TEAM.members.length > 1); }
+/* The CRM export, the belt catalogue, the audit register, zone overrides and
+   reassignments are the admin's to load; a member's copy follows theirs. */
+function paintRole(){
+  const m = isMember();
+  document.querySelectorAll('.adminonly').forEach(el => { el.hidden = m; });
+  document.querySelectorAll('.memberonly').forEach(el => { el.hidden = !m; });
+  const who = m ? teamName(TEAM.admin) : '';
+  document.querySelectorAll('.adminname').forEach(el => { el.textContent = who; });
+  if($('sumOther')) $('sumOther').textContent = m ? 'Task Slaughterer' : 'Task Slaughterer and zone overrides';
+  try { renderHomeSetup(); } catch(e){}   // can run before the accounts are declared
+}
 
 /* The passphrase can change without touching any record: only the data key's
    lock changes (envelope encryption). Ben uses this to set the team
@@ -6293,7 +6320,7 @@ async function cloudSyncRecs(){
     const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
-    APPTS = await apptsAll();
+    APPTS = await apptsMine();
     TASKS = await tasksAll();
     await loadQuotes();
     await loadLists();
@@ -6422,6 +6449,9 @@ function renderPeopleCount(){
    the only thing you remember about a visit six weeks later. */
 
 let rpView = 'all';
+/* v112: in a team, Mine and Team are tabs, so a colleague's call is never
+   mistaken for one of yours. Team is everyone else's; each row names who wrote it. */
+let rpWho = 'mine';
 function reportHay(c){
   if(c._hay) return c._hay;
   const bits = [c.customer, c.site, c.date, c.type, c.mgr];
@@ -6443,7 +6473,11 @@ function reportLine(c){
   return bits.join(' \u00b7 ');
 }
 async function renderReports(){
-  const all = (await callsAll()).slice().sort((a,b) => callWhen(b) - callWhen(a));
+  await ownersLoad();
+  const team = inTeam();
+  $('rpWho').hidden = !team;
+  const all = (await callsAll()).filter(c => !team || (rpWho === 'team') !== isMine('calls', c.id))
+    .sort((a,b) => callWhen(b) - callWhen(a));
   let list = all;
   /* Filtering on callStatus, not on c.closed. A call that has been compiled but
      not closed out is neither open nor done, and the old two-way split had to
@@ -6476,7 +6510,7 @@ function reportRow(c){
     '<div class="rt"><span class="rd">'+esc(c.date)+'</span>'+
     '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
     '<div class="rn">'+esc(c.customer)+(c.test ? ' <span class="tag test">TEST</span>' : '')+'</div>'+
-    '<div class="rm">'+esc(reportLine(c))+'</div></button>'+
+    '<div class="rm">'+(callAuthor(c) ? '<b>'+esc(callAuthor(c))+'</b> \u00b7 ' : '')+esc(reportLine(c))+'</div></button>'+
     '<button class="rpmore" data-rpmenu="'+esc(c.id)+'" aria-label="More for '+esc(c.customer)+'">&#8943;</button>'+
     '</div>';
 }
@@ -6486,11 +6520,7 @@ function wireReportRows(el, list, before){
     const found = (await callsAll()).find(c => c.id === b.dataset.rpt);
     if(!found){ toast('That call could not be opened'); return; }
     if(before) before();
-    /* Reopening a finished call to edit it does not un-finish it. The status
-       only moves when you actually change something and close it again. */
-    call = found;
-    call.loose = call.loose || [];
-    go('dash');
+    openCallRecord(found);
   }));
   el.querySelectorAll('[data-rpmenu]').forEach(b => b.addEventListener('click', ()=>{
     const c = list.find(x => x.id === b.dataset.rpmenu);
@@ -6508,14 +6538,62 @@ function openReportMenu(c){
     if(!await markCallDone(found)) return;
     toast('Marked done'); refresh();
   }});
-  acts.push({label: 'Delete', icon: 'trash', danger: true, run: async () => {
+  // a teammate's report is theirs to delete (or the admin's); the cloud would refuse anyone else
+  if(isMine('calls', c.id) || iAmAdmin()) acts.push({label: 'Delete', icon: 'trash', danger: true, run: async () => {
     const found = await fresh();
     if(!found){ toast('That call could not be found'); return; }
     if(!await deleteCallRecord(found)) return;
     refresh();
   }});
-  openCardMenu(c.customer, c.date + ' \u00b7 ' + callStatus(c).label, acts);
+  openCardMenu(c.customer, [c.date, callAuthor(c), callStatus(c).label].filter(Boolean).join(' \u00b7 '), acts);
 }
+/* Opening a call from Reports or an account's history. Your own opens to edit,
+   as always. A teammate's opens to read (v112): the report as it would be
+   compiled, with Edit for when something needs changing - so a colleague's
+   notes are not changed by a stray tap. */
+function openCallRecord(c){
+  /* Reopening a finished call to edit it does not un-finish it. The status
+     only moves when you actually change something and close it again. */
+  if(isMine('calls', c.id)){ call = c; call.loose = call.loose || []; go('dash'); return; }
+  openReadView(c).catch(reportErr);
+}
+let rvCall = null, rvSeq = 0;
+async function openReadView(c){
+  rvCall = c;
+  const n = ++rvSeq;
+  c.loose = c.loose || [];
+  $('rvHead').textContent = c.customer;
+  $('rvSub').textContent = [callAuthor(c) && 'Written by ' + callAuthor(c), c.date, callStatus(c).label].filter(Boolean).join(' \u00b7 ');
+  const fr = $('rvFrame');
+  fr.setAttribute('srcdoc', '');
+  const d = $('rvdlg');
+  if(!d.hasAttribute('open')){
+    if(d.showModal) d.showModal(); else d.setAttribute('open','');
+    pushDialog('rvdlg');
+  }
+  const html = await buildNotesHTML('full', 'full', c);
+  if(n === rvSeq) fr.setAttribute('srcdoc', html);
+}
+function closeReadView(){
+  rvSeq++; rvCall = null;
+  const d = $('rvdlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+$('rvClose').addEventListener('click', () => {
+  if(history.state && history.state.dialog === 'rvdlg') history.back();
+  else closeReadView();
+});
+$('rvEdit').addEventListener('click', async () => {
+  const id = rvCall && rvCall.id;
+  // closed in place: the call menu takes over the dialog's history entry
+  closeReadView();
+  const found = id && (await recordsAll()).find(x => x.id === id);
+  if(!found){ toast('That call could not be opened'); return; }
+  call = found; call.loose = call.loose || [];
+  go('dash');
+});
+// however it closes - Close, back, Edit - the copy of the report goes with it
+$('rvdlg').addEventListener('close', () => { rvSeq++; $('rvFrame').setAttribute('srcdoc', ''); });
 $('rpSearch').innerHTML = icon('search');
 $('rpSearch').addEventListener('click', () => openSearch({
   placeholder: 'Account, contact, asset or note',
@@ -6529,6 +6607,11 @@ $('rpSearch').addEventListener('click', () => openSearch({
       (hits.length > 100 ? '<p class="hint">' + (hits.length - 100) + ' more \u2014 add another word</p>' : '');
     wireReportRows(el, hits, closeSearch);
   }
+}));
+$('rpWho').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
+  rpWho = b.dataset.v;
+  $('rpWho').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  renderReports().catch(reportErr);
 }));
 $('rpView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
   rpView = b.dataset.v;
@@ -6856,7 +6939,8 @@ async function archAll(){
 async function renderReportsCount(){
   const el = $('reportsInfo');
   if(!el) return;
-  const all = await callsAll();
+  await ownersLoad();
+  const all = (await callsAll()).filter(c => isMine('calls', c.id));
   const open = all.filter(c => !c.closed).length;
   el.textContent = all.length
     ? all.length + ' call' + (all.length===1?'':'s') + (open ? ', ' + open + ' open' : '')
@@ -7096,7 +7180,8 @@ async function renderHome(){
   // only calls index into the account history and the cadence figures
   const all = every.filter(c => !isQuote(c));
   indexCalls(all);
-  const open = every.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
+  await ownersLoad();
+  const open = every.filter(c=>!c.closed && isMine('calls', c.id)).sort((a,b)=>b.updated-a.updated);
   $('resumeInfo').textContent = open.length ? open[0].customer : 'None open';
   renderHomeCounts();
   renderPeopleCount(); renderReportsCount().catch(()=>{});
@@ -7177,8 +7262,10 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     /* Calls and quote requests together. They were separate tiles briefly; one
        Resume is simpler, and the picker names each one so a half-finished
        request is not mistaken for a half-finished call. */
+    // your own: a colleague's open call is theirs to finish (v112)
+    await ownersLoad();
     const all = await recordsAll();
-    const open = all.filter(c=>!c.closed).sort((a,b)=>b.updated-a.updated);
+    const open = all.filter(c=>!c.closed && isMine('calls', c.id)).sort((a,b)=>b.updated-a.updated);
     if(!open.length){ toast('Nothing open'); return; }
     /* One open call is the common case and asking which would be noise. More
        than one, and picking the most recent silently is how you end up writing
@@ -7996,7 +8083,9 @@ async function startTestCall(){
   toast('Test call started - delete it from Settings when you are done');
 }
 async function deleteTestCalls(){
-  const tests = (await recordsAll()).filter(c => c.test);
+  // your own: a colleague's test calls are theirs to clear
+  await ownersLoad();
+  const tests = (await recordsAll()).filter(c => c.test && isMine('calls', c.id));
   if(!tests.length){ toast('There are no test calls on this device'); return; }
   const ph = tests.reduce((n, c) => n + (c.loose || []).length + (c.entries || []).reduce((m, e) => m + (e.photos || []).length, 0), 0);
   if(!confirm('Delete ' + tests.length + (tests.length === 1 ? ' test call' : ' test calls') +
@@ -11654,7 +11743,7 @@ async function doRestore(file){
     if(!haveAp.has(ap.id)) apptsAdded++;
     await apptsPut(ap);
   }
-  if(appts.length) APPTS = await apptsAll();
+  if(appts.length) APPTS = await apptsMine();
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   for(const t of tasks) if(t && t.id) await tasksPut(t);
   if(tasks.length) TASKS = await tasksAll();

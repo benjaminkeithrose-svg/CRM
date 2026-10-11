@@ -452,6 +452,16 @@ server playing the 0004 rules); the existing cloud suite unchanged. The live
 two-person test against the real project still to do (needs a second
 throwaway account).
 
+**v112, what colleagues see:** Reports has Mine and Team tabs in a team, with
+the author's name on each colleague's call. A colleague's call opens to read
+(the compiled report, in a sandboxed frame) with Edit; your own opens to edit
+as before. An account's history shows everyone's calls, named. Resume, the
+Home counts, the calendar, quote requests on the calendar and Delete test
+calls are your own only. Delete appears on a colleague's call only for the
+admin. A member has no import buttons, no zone overrides and no Reassign, and
+is told who keeps the data. The Team calendar view moves to v113 with Add a
+colleague.
+
 ### Step 9 (earlier note) — Later: colleagues, and the new stores
 
 - **Colleagues:** invite flow, a team in the access rules, and a shared data
