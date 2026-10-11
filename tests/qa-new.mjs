@@ -43,7 +43,8 @@ d.querySelector('[data-go="newcall"]').click(); await tick();
 ok(g('screen') === 'account', 'New opens the New screen');
 ok(shown($('newChoose')) && /What would you like to do/.test($('newChoose').textContent), 'asks what you would like to do');
 const picks = [...$('newPick').querySelectorAll('button')].map(b => b.textContent);
-ok(JSON.stringify(picks) === JSON.stringify(['Site call', 'Phone call', 'Teams call', 'Quote request', 'Task', 'Book a visit']), 'six touch buttons: ' + picks.join(', '));
+// v107 added Test call at the end
+ok(JSON.stringify(picks) === JSON.stringify(['Site call', 'Phone call', 'Teams call', 'Quote request', 'Task', 'Book a visit', 'Test call']), 'seven touch buttons: ' + picks.join(', '));
 ok(!shown($('accQ')) && !shown($('cDate')) && !shown($('cMgr')), 'nothing else until a choice is made');
 ok(!d.querySelector('#s-account select:not([hidden])') || !shown($('cType')), 'no call-type dropdown');
 

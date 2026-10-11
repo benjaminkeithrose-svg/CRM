@@ -421,10 +421,25 @@ In a call, the book icon at the top opens the manuals without leaving the call.
 
 ### Get the latest version
 
-1. Tap **⋯** on Home, then **Settings**, then **App version**.
-2. Tap **Get the latest version**.
+1. Tap **⋯** on Home, then **Settings**.
+2. Tap **Get the latest version**. The button shows the version you have now.
 
 Your calls, accounts and photos aren't touched.
+
+### Try things out with a test call
+
+1. Tap **New** on Home.
+2. Tap **Test call**.
+
+The call opens for a made-up customer, Test customer, with one belt already logged. Try dictating, Tidy, Write summary, Coach me or Create and share on it. It's marked **TEST**, stays off the calendar, and syncs to your other devices like any call.
+
+To clear them all away:
+
+1. Tap **⋯** on Home, then **Settings**.
+2. Tap **Delete test calls**.
+3. Check how many calls and photos it names, then tap **OK**.
+
+Only test calls go, here and on your other devices. Real calls are never touched.
 
 ### Back up, or restore a backup
 
