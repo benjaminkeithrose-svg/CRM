@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v119">
+<meta name="build" content="v120">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -764,6 +764,11 @@ body.planning #s-opp{padding:0}
 .bsstar{flex:none;width:32px;height:32px;border:0;background:transparent;cursor:pointer;font-size:18px;color:var(--ink-3);padding:0}
 .bsstar.on{color:var(--act)}
 
+/* the Strategy screen (v120) */
+#stWho{margin-top:8px}
+button.rpt .st-pos{font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums}
+button.rpt .st-flag{color:var(--warn);font-weight:700}
+
 /* the large account plan (v117) */
 .lapsites{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .lapsites span{display:inline-flex;align-items:center;gap:4px;background:var(--sunk);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:4px 4px 4px 10px;font-size:13px}
@@ -1385,7 +1390,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- The tiles no longer carry a count line. These keep the existing render
@@ -1925,6 +1930,19 @@ details.bsx > .msg{margin:8px 12px}
       <p>Only empty boxes are filled. Anything you'd already typed or picked stays as it is. A tinted box goes back to normal once you change it.</p>
       <p>The line under the button says what was filled, what was left alone, and anything it couldn't read. Series, style and materials have to match your belt reference data; anything that doesn't is listed for you to pick.</p>
       <p>The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>See what you are working on</b><span class="sxs">The Strategy tile</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Strategy</b> on Home.</li>
+        <li>Tap <b>Opportunities</b>, <b>Large accounts</b> or <b>Account plans</b>.</li>
+        <li>Tap one to open it.</li>
+        <li>Tap the back arrow to come back to the list.</li>
+      </ol>
+      <p>Opportunities are listed by close date, nearest first, with their position and red flags. Large accounts show their sites and when they were last reviewed. Account plans show their goal, last changed first.</p>
+      <p>In a team, <b>Mine</b> shows your own and <b>Team</b> your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3411,6 +3429,24 @@ details.bsx > .msg{margin:8px 12px}
 </section>
 
 <!-- LISTS (v97): saved notes and the Not stocked products, from Task Slaughterer -->
+<!-- STRATEGY (v120): the opportunities, large account plans and account plans being worked on, in one place -->
+<section class="scr" id="s-strategy">
+  <div class="seg tabs" id="stTabs">
+    <button type="button" data-v="opps" class="on">Opportunities</button>
+    <button type="button" data-v="laps">Large accounts</button>
+    <button type="button" data-v="plans">Account plans</button>
+  </div>
+  <div class="seg" id="stWho" hidden>
+    <button type="button" data-v="mine" class="on">Mine</button>
+    <button type="button" data-v="team">Team</button>
+  </div>
+  <div class="rptop lsrow">
+    <p class="hint" id="stHint"></p>
+    <button type="button" class="tvi" id="stSearch" aria-label="Search" title="Search"></button>
+  </div>
+  <div id="stRes"></div>
+</section>
+
 <section class="scr" id="s-lists">
   <div class="seg tabs" id="lsTabs">
     <button type="button" data-pane="notes" class="on">Saved notes</button>

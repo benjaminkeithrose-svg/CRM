@@ -260,6 +260,17 @@ The line under the button says what was filled, what was left alone, and anythin
 
 The photo of the sheet is kept with the belt. It needs signal and cloud sync signed in, and the photo is sent to Anthropic to be read. It counts towards the 200 a day.
 
+### See what you are working on
+
+1. Tap **Strategy** on Home.
+2. Tap **Opportunities**, **Large accounts** or **Account plans**.
+3. Tap one to open it.
+4. Tap the back arrow to come back to the list.
+
+Opportunities are listed by close date, nearest first, with their position and red flags. Large accounts show their sites and when they were last reviewed. Account plans show their goal, last changed first.
+
+In a team, **Mine** shows your own and **Team** your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.
+
 ### Map a large opportunity
 
 1. Open the account: tap **Directory** on Home, then the account.
