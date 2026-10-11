@@ -390,7 +390,10 @@ calls, open tasks and unstocked products — only when tapped, and the answer
 is kept encrypted on the visit or the call like everything else. v106 added
 the account plan, a new record store (`plans`) synced like tasks; the plan
 goes to Anthropic with the account's records when Prepare or Coach me is
-tapped, and Prepare tomorrow sends each of tomorrow's visited accounts in turn.
+tapped, and Prepare tomorrow sends each of tomorrow's visited accounts in turn. v108
+added a microphone beside Tidy: the words come from the phone's own speech
+recognition (on Android, Google's), and only the resulting text goes to
+Anthropic, exactly as with Tidy. The Anthropic API takes no audio.
 
 
 A Supabase Edge Function holds the Anthropic API key (in Supabase's secret
