@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v110">
+<meta name="build" content="v111">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1308,6 +1308,21 @@ details.bsx > .msg{margin:8px 12px}
       <button class="big" id="sbPhGo">Unlock</button>
     </div>
     <button class="big" id="sbSync" hidden>Sync now</button>
+    <!-- v111: the admin (or someone on their own) can change the passphrase; Ben uses it to set the team's -->
+    <button class="ghost" id="sbChgOpen" type="button" hidden>Change the passphrase</button>
+    <div id="sbChg" hidden>
+      <div class="gap"></div>
+      <label for="sbChgOld">Current passphrase</label>
+      <input type="password" id="sbChgOld" autocomplete="off">
+      <div class="gap"></div>
+      <label for="sbChgNew">New passphrase</label>
+      <input type="password" id="sbChgNew" autocomplete="off">
+      <div class="gap"></div>
+      <label for="sbChgNew2">New passphrase again</label>
+      <input type="password" id="sbChgNew2" autocomplete="off">
+      <p class="hint" id="sbChgHint">Devices that are already unlocked carry on as they are. A new device, or a colleague, uses the new one. Nothing is sent again.</p>
+      <button class="big" id="sbChgGo" type="button">Change it</button>
+    </div>
     <button class="ghost" id="sbSignOut" hidden>Sign out of this device</button>
     <div class="gap"></div>
     <label>Project address</label>
@@ -1495,10 +1510,18 @@ details.bsx > .msg{margin:8px 12px}
         <li>Paste the <b>Project address</b> and the <b>Publishable key</b>.</li>
         <li>Type your email and password.</li>
         <li>Tap <b>Sign in</b>.</li>
-        <li>Type your passphrase. On your first device, type it twice to set it.</li>
+        <li>Type your passphrase. On your first device, type it twice to set it. If you are in a team, type the team passphrase you were given.</li>
         <li>Tap <b>Unlock</b>.</li>
       </ol>
       <p>Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.</p>
+      <p>In a team, <b>Cloud sync</b> shows the team's name and its admin. The team shares its call reports, visits, account plans, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.</p>
+      <p>To change the passphrase (on your own, or as a team's admin):</p>
+      <ol>
+        <li>In <b>Cloud sync</b>, tap <b>Change the passphrase</b>.</li>
+        <li>Type the current passphrase, then the new one twice.</li>
+        <li>Tap <b>Change it</b>.</li>
+      </ol>
+      <p>Devices already unlocked carry on. New devices, and colleagues, use the new one.</p>
       <p>After that it runs by itself: when the app opens, when you come back to it, when signal comes back, and a few seconds after any change. With the phone and the PC both open and online, a change on one shows on the other within a few seconds. <b>Cloud sync</b> in Settings says "Live updates: on" while that is working.</p>
     </div>
   </details>

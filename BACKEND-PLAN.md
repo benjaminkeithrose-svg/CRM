@@ -424,7 +424,35 @@ thinking before answering, which adds a little to its output.) Either needs
 an Anthropic API account with a payment method — separate from a Claude
 subscription. Edge Function calls themselves are within the free tier.
 
-### Step 9 — Later: colleagues, and the new stores
+### Step 9 — Colleagues: a team — **groundwork in v111 (2026-10-11)**
+
+Ben's answers (2026-10-11), for 4 to 10 people within 2 to 3 weeks:
+- **Shared, readable and editable by the team:** call reports and quote
+  requests, visits, account plans, not-stocked products, saved notes.
+  A colleague's report opens read-only by default, with Edit (v112).
+- **Shared, written by Ben only:** the CRM export, belt catalogue, plant
+  audit register, zone overrides and reassignments.
+- **Private:** tasks, and each person's planning weeks.
+- **One team passphrase** unlocks the team key; Ben sets it with Change the
+  passphrase and gives it out. Leaving colleague: change it.
+- **Storage:** stay on the free plan for now (Ben's call); about 10 people's
+  photos fill 1 GB in roughly six weeks, so watch it.
+- **Company approval:** Ben is checking before colleagues load real data.
+
+How (migration `0004_teams.sql`): a named team with an admin, members added
+by the admin, access rules by team, the admin's vault readable by members,
+photos in the author's folder, and a teammate's delete skipped by the server.
+Encryption is bound to each record's author, so nothing already in the cloud
+needed re-encrypting. A user in no team (or a project without the migration)
+works exactly as before. A throwaway test account sits in a test team, never
+in Ben's.
+
+**Checked:** `tests/qa-team.mjs` (admin, member, outsider, against a stand-in
+server playing the 0004 rules); the existing cloud suite unchanged. The live
+two-person test against the real project still to do (needs a second
+throwaway account).
+
+### Step 9 (earlier note) — Later: colleagues, and the new stores
 
 - **Colleagues:** invite flow, a team in the access rules, and a shared data
   key for the team, locked separately for each person. Who sees what needs

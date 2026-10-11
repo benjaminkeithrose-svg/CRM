@@ -56,10 +56,20 @@ You get the project address, the key and your sign-in from whoever set up the cl
 2. Paste the **Project address** and the **Publishable key**.
 3. Type your email and password.
 4. Tap **Sign in**.
-5. Type your passphrase. On your first device, type it twice to set it.
+5. Type your passphrase. On your first device, type it twice to set it. If you are in a team, type the team passphrase you were given.
 6. Tap **Unlock**.
 
 Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.
+
+In a team, **Cloud sync** shows the team's name and its admin. The team shares its call reports, visits, account plans, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.
+
+To change the passphrase (on your own, or as a team's admin):
+
+1. In **Cloud sync**, tap **Change the passphrase**.
+2. Type the current passphrase, then the new one twice.
+3. Tap **Change it**.
+
+Devices already unlocked carry on. New devices, and colleagues, use the new one.
 
 After that it runs by itself: when the app opens, when you come back to it, when signal comes back, and a few seconds after any change. With the phone and the PC both open and online, a change on one shows on the other within a few seconds. **Cloud sync** in Settings says "Live updates: on" while that is working.
 
