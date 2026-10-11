@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v117">
+<meta name="build" content="v118">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1965,6 +1965,14 @@ details.bsx > .msg{margin:8px 12px}
       <p>Who covers each person comes from the map: link one of ours to them with <b>Our coverage</b>. The Gaps list shows what is missing: nobody who signs the order, no coach, someone not covered, or a part not known.</p>
       <p>Create and share makes an A4 document with the map as a picture. On the PC it opens in a new tab, ready to print or save as a PDF; on the phone it goes to the share sheet.</p>
       <p>The Blue Sheet works the same on the phone and the PC. Tap <b>Map</b> to go back to the map.</p>
+      <p>To get coaching on it:</p>
+      <ol>
+        <li>On the Blue Sheet, tap <b>Coach</b>. It needs signal and cloud sync.</li>
+        <li>Read where it stands, the biggest risks, who to see next and the questions to ask.</li>
+        <li>Under <b>Suggested for the Blue Sheet</b>, tick the red flags, strengths and actions you agree with.</li>
+        <li>Tap <b>Add ticked to the Blue Sheet</b>.</li>
+      </ol>
+      <p>The coaching is kept with the opportunity, so <b>Coach</b> shows it again with no signal. After the sheet changes, tap <b>Write it again</b>. The coaching is never in the Blue Sheet document.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2527,6 +2535,8 @@ details.bsx > .msg{margin:8px 12px}
     </div>
     <button type="button" class="btn go" id="opAdd">Add person</button>
     <button type="button" class="btn go" id="opShare" hidden>Create and share</button>
+    <!-- v118: the sales coach reads the Blue Sheet and the map -->
+    <button type="button" class="btn act2" id="opCoach" hidden>Coach</button>
     <button type="button" class="btn act2" id="opEdit">Details</button>
     <span class="spacer"></span>
     <button type="button" class="btn opz" id="opOut" aria-label="Zoom out" title="Zoom out">&minus;</button>

@@ -298,6 +298,15 @@ Create and share makes an A4 document with the map as a picture. On the PC it op
 
 The Blue Sheet works the same on the phone and the PC. Tap **Map** to go back to the map.
 
+To get coaching on it:
+
+1. On the Blue Sheet, tap **Coach**. It needs signal and cloud sync.
+2. Read where it stands, the biggest risks, who to see next and the questions to ask.
+3. Under **Suggested for the Blue Sheet**, tick the red flags, strengths and actions you agree with.
+4. Tap **Add ticked to the Blue Sheet**.
+
+The coaching is kept with the opportunity, so **Coach** shows it again with no signal. After the sheet changes, tap **Write it again**. The coaching is never in the Blue Sheet document.
+
 ### Plan a large account
 
 1. Open one of the customer's sites: tap **Directory** on Home, then the site.

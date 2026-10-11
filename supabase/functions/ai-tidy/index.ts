@@ -2,8 +2,9 @@
 // the visit summary that heads the call notes (v100), reading a
 // photographed belt spec sheet into the belt form (v101), and the sales
 // coach: a pre-visit brief and coaching after a call (v102), with the
-// account plan and suggested plan changes (v106). Tidy and Draft it follow
-// spoken instructions about the text's wording and layout (v108).
+// account plan and suggested plan changes (v106), and coaching on an
+// opportunity's Blue Sheet with suggested additions to it (v118). Tidy and
+// Draft it follow spoken instructions about the text's wording and layout (v108).
 //
 // The app cannot hold an Anthropic API key - it is a public web page, and a
 // key in it is anyone's. So the key lives here, in the Supabase project's
@@ -148,6 +149,21 @@ Then finish with the heading Plan changes. Under it, list only changes to the ac
 • Red flag: <one line>
 • Strength: <one line>
 Suggest a person only if they are named in the records. Leave out anything the plan already says. If there is nothing to change, write "• None".`;
+// v118: coaching on a large opportunity, from its Blue Sheet and relationship map
+const OPP = METHOD + `
+
+Coach him on the opportunity in <opportunity> - its Blue Sheet and the relationship map of the people around it, the customer's, the OEMs' and integrators', and ours - using the account's records in <history> for context. Coverage means which of ours has a relationship with that person; a person no one of ours covers is a red flag in Strategic Selling. Use these headings in this order:
+Where this stands
+Biggest risks
+Who to see next
+Questions to ask
+Under Where this stands, judge our position honestly against what the sheet shows, and say whether the position he gave looks right. Under Biggest risks, name the missing or uncovered buying influences, unknown win-results, people who rate us poorly or see no reason to change, and the competition. Under Who to see next, name people from the sheet and say which of ours should see them and why. Under Questions to ask, write SPIN questions, each starting with [S], [P], [I] or [N].
+
+Then finish with the heading Sheet changes. Under it, list only additions to the Blue Sheet that the sheet or the history supports, one per line, each in exactly one of these forms:
+• Red flag: <one line>
+• Strength: <one line>
+• Action: <one line, starting with a verb, naming who if the sheet says>
+Leave out anything the sheet already says. If there is nothing to add, write "• None".`;
 const COACH_MAX = 24000;     // a call or an account's history, each
 
 const clip = (v: unknown, n = MAX_CHARS) => String(v ?? "").slice(0, n);
@@ -170,14 +186,17 @@ Deno.serve(async (req) => {
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch (_) { return json({ error: "bad-request", message: "That request was not readable." }, 400); }
-  const KINDS = ["email", "summary", "spec", "brief", "coach"];
+  const KINDS = ["email", "summary", "spec", "brief", "coach", "opp"];
   const kind = KINDS.includes(String(body.kind)) ? String(body.kind) : "tidy";
 
   let system: string, content: unknown;
-  if (kind === "brief" || kind === "coach") {
+  if (kind === "brief" || kind === "coach" || kind === "opp") {
     const a = clip(body.a, COACH_MAX).trim(), b = clip(body.b, COACH_MAX).trim(), v = clip(body.visit, 2000).trim();
     if (!a) return json({ error: "empty", message: "There is nothing to go on yet." }, 400);
-    if (kind === "brief") {
+    if (kind === "opp") {
+      system = OPP;
+      content = "<opportunity>\n" + esc(a) + "\n</opportunity>\n<history>\n" + esc(b || "No earlier records.") + "\n</history>";
+    } else if (kind === "brief") {
       system = BRIEF;
       content = "<account>\n" + esc(a) + "\n</account>\n<records>\n" + esc(b || "No earlier records.") + "\n</records>\n<visit>\n" + esc(v || "Not booked yet.") + "\n</visit>";
     } else {
@@ -226,7 +245,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       // the coach reasons over a whole account, so it gets more room and more effort
-      body: JSON.stringify(kind === "brief" || kind === "coach"
+      body: JSON.stringify(kind === "brief" || kind === "coach" || kind === "opp"
         ? { model: MODEL, max_tokens: 8000, output_config: { effort: "high" }, system, messages: [{ role: "user", content }] }
         : { model: MODEL, max_tokens: 2000, system, messages: [{ role: "user", content }] }),
     });
@@ -243,7 +262,7 @@ Deno.serve(async (req) => {
   if (out.stop_reason === "refusal") return json({ error: "refused", message: "The AI declined to answer this one." }, 502);
   if (!text) return json({ error: "upstream", message: "The answer came back empty." }, 502);
 
-  if (kind === "brief" || kind === "coach") return json({ text, used });
+  if (kind === "brief" || kind === "coach" || kind === "opp") return json({ text, used });
   if (kind === "summary") return json({ text, used });
   if (kind === "spec") {
     // the JSON object, with or without a code fence round it; only the known keys go back
