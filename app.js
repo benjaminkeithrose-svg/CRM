@@ -974,7 +974,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v117';
+const APP_BUILD = 'v118';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10721,7 +10721,8 @@ function coachSection(text, head){
 // coaching ends with Plan changes, which is shown as ticks rather than read
 function coachMain(text){
   const L = String(text || '').split('\n');
-  const i = L.findIndex(l => !isBullet(l.trim()) && coachHead(l.trim()).toLowerCase() === 'plan changes');
+  // the suggestions at the end (an account plan's, or a Blue Sheet's, v118) are shown as ticks, not text
+  const i = L.findIndex(l => !isBullet(l.trim()) && /^(plan|sheet) changes$/.test(coachHead(l.trim()).toLowerCase()));
   return i < 0 ? String(text || '') : L.slice(0, i).join('\n');
 }
 
@@ -11404,6 +11405,7 @@ function renderOpp(){
   $('opView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === opMode));
   $('opAdd').hidden = sheet || !opEditing();
   $('opShare').hidden = !sheet;
+  $('opCoach').hidden = !sheet;
   ['opOut', 'opFit', 'opIn'].forEach(id => { $(id).hidden = sheet; });
   document.querySelector('#s-opp .oppmain').hidden = sheet;
   $('opSheet').hidden = !sheet;
@@ -11612,6 +11614,121 @@ async function svgToPng(svg, x0, y0, w, h){
     return cv.toDataURL('image/png');
   } catch(e){ console.warn('map picture', e); return ''; }
 }
+/* ---- the sales coach on an opportunity (v118) ----
+   The coach reads the Blue Sheet and the map - every person with their part,
+   view, rating, coverage, wins and evidence, the links, red flags, strengths
+   and actions - and the account's recent records, and writes where it stands,
+   the biggest risks, who to see next and what to ask. Its suggested red flags,
+   strengths and actions are ticked onto the sheet, never added unasked. The
+   coaching is kept on the opportunity, so it reads again with no signal. */
+function oppText(o){
+  const prev = OPP; OPP = o;
+  try {
+    const v = x => (x == null ? '' : String(x)).trim();
+    const L = ['Opportunity: ' + (o.name || 'Untitled') + ' at ' + o.acct];
+    if(v(o.obj)) L.push('Objective: ' + o.obj);
+    if(v(o.value) || o.close) L.push('Value and close: ' + [o.value, o.close && oppMonth(o.close)].filter(Boolean).join(', '));
+    L.push('Our position, -5 panic to +5 euphoria: ' + (o.pos == null ? 'not rated' : opPosLabel(o.pos)) + (v(o.posWhy) ? ' - ' + o.posWhy : ''));
+    if(v(o.comp)) L.push('Competition: ' + o.comp);
+    const side = {cust: 'customer', oem: 'OEM or integrator', us: 'ours'};
+    L.push('People:');
+    (o.people || []).forEach(p => {
+      if(p.side === 'us'){ L.push('- ' + p.n + ' (ours' + (v(p.title) ? ', ' + p.title : '') + ')'); return; }
+      const cov = opCoverage(p);
+      L.push('- ' + [p.n + ' (' + side[p.side] + (v(p.title) ? ', ' + p.title : '') + (p.side === 'oem' && v(p.org) ? ', ' + p.org : '') + ')',
+        'part: ' + (p.role || 'unknown'), p.infl && 'influence: ' + p.infl, 'sees it as: ' + (p.mode || 'unknown'), 'rates us ' + opPosLabel(p.rate || 0),
+        'covered by: ' + (cov.length ? cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ') : 'nobody'),
+        v(p.win) && 'personal win: ' + p.win, v(p.result) && 'business result: ' + p.result, v(p.evid) && 'evidence: ' + p.evid, v(p.note) && 'note: ' + p.note].filter(Boolean).join('; '));
+    });
+    const links = (o.links || []).filter(l => l.kind !== 'Our coverage');
+    if(links.length) L.push('Links:\n' + links.map(l => '- ' + opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ' (' + String(l.str).toLowerCase() + ')' + (v(l.note) ? ': ' + l.note : '')).join('\n'));
+    const list = (h, items) => { if((items || []).length) L.push(h + ':\n' + items.map(f => '- ' + f.t + (f.pin ? ' (' + opPinLabel(f.pin).replace(/^On /, 'on ') + ')' : '')).join('\n')); };
+    list('Red flags', o.flags); list('Strengths', o.strengths);
+    if((o.actions || []).length) L.push('Possible actions:\n' + o.actions.map(a => '- ' + a.t + (a.best ? ' (best action)' : '')).join('\n'));
+    return L.join('\n');
+  } finally { OPP = prev; }
+}
+function sheetChanges(text){
+  const L = String(text || '').split('\n');
+  const i = L.findIndex(l => !isBullet(l.trim()) && coachHead(l.trim()).toLowerCase() === 'sheet changes');
+  const out = [];
+  if(i < 0) return out;
+  for(const raw of L.slice(i + 1)){
+    const l = unBullet(raw.trim()).trim();
+    let m;
+    if(!l || /^none\.?$/i.test(l)) continue;
+    if((m = l.match(/^red flags?\s*:\s*(.+)$/i))) out.push({k: 'flags', text: m[1].trim()});
+    else if((m = l.match(/^strengths?\s*:\s*(.+)$/i))) out.push({k: 'strengths', text: m[1].trim()});
+    else if((m = l.match(/^actions?\s*:\s*(.+)$/i))) out.push({k: 'actions', text: m[1].trim()});
+  }
+  return out;
+}
+const SHEET_LABEL = {flags: 'Red flag', strengths: 'Strength', actions: 'Action'};
+function showOppCoaching(o, text){
+  const body = $('coBody');
+  body.innerHTML = coachHTML(coachMain(text));
+  const chs = sheetChanges(text);
+  if(!chs.length) return;
+  const applied = new Set((o.coaching && o.coaching.applied) || []);
+  const has = ch => (o[ch.k] || []).some(f => String(f.t).trim().toLowerCase() === ch.text.toLowerCase());
+  const box = document.createElement('div');
+  box.className = 'plch';
+  box.innerHTML = '<h3>Suggested for the Blue Sheet</h3><p class="hint">Tick the ones you agree with. Nothing on the sheet changes until you do.</p>' +
+    '<button type="button" class="btn go" id="coSheetApply" disabled>Add ticked to the Blue Sheet</button>' +
+    chs.map((ch, i) => {
+      const why = applied.has(i) ? 'added' : has(ch) ? 'already on the sheet' : '';
+      return '<label' + (why ? ' class="dim"' : '') + '><input type="checkbox" data-sch="' + i + '"' + (applied.has(i) ? ' checked' : '') +
+        (why ? ' disabled' : '') + '><span>' + esc(SHEET_LABEL[ch.k] + ': ' + ch.text) + (why ? ' (' + esc(why) + ')' : '') + '</span></label>';
+    }).join('');
+  body.appendChild(box);
+  const ticks = [...box.querySelectorAll('input[data-sch]:not([disabled])')];
+  const apply = box.querySelector('#coSheetApply');
+  apply.hidden = !ticks.length;
+  ticks.forEach(t => t.addEventListener('change', () => { apply.disabled = !ticks.some(x => x.checked); }));
+  apply.addEventListener('click', async () => {
+    const idx = ticks.filter(x => x.checked).map(x => +x.dataset.sch);
+    if(!idx.length) return;
+    for(const i of idx){
+      const ch = chs[i];
+      if(!ch || has(ch)) continue;
+      o[ch.k] = (o[ch.k] || []).concat([ch.k === 'actions' ? {id: newId('ac'), t: ch.text, best: false} : {id: newId('fl'), t: ch.text, pin: ''}]);
+    }
+    o.coaching.applied = [...new Set((o.coaching.applied || []).concat(idx))];
+    if(OPP && OPP.id === o.id) await oppSaveNow();
+    else { o.updated = Date.now(); await oppsPut(JSON.parse(JSON.stringify(o))); OPPS = OPPS.filter(x => x.id !== o.id).concat([o]); }
+    toast(idx.length === 1 ? 'Added to the Blue Sheet' : idx.length + ' added to the Blue Sheet');
+    showOppCoaching(o, o.coaching.text);
+    if(screen === 'opp' && OPP && OPP.id === o.id) renderOpp();
+  });
+}
+async function coachOpp(fresh){
+  const o = OPP;
+  if(!o) return;
+  if(opSaveTimer) await oppSaveNow();
+  coAgain = () => coachOpp(true);
+  const head = 'Coaching: ' + (o.name || 'Opportunity');
+  if(o.coaching && o.coaching.text && !fresh){
+    coachOpen(head, 'Written ' + writtenOn(o.coaching.at) + '. Write it again after the sheet changes.');
+    showOppCoaching(o, o.coaching.text);
+    $('coAgain').disabled = false;
+    return;
+  }
+  if(!(o.people || []).some(p => p.side !== 'us') && !(o.obj || '').trim()){ toast('Add the objective or some people first'); return; }
+  const why = aiBlocked();
+  if(why){ toast(why); return; }
+  const n = coachOpen(head, 'From the Blue Sheet, the map and the account\'s records.');
+  const text = await coachAsk(n, {kind: 'opp', a: oppText(o), b: accountHistory(o.acct)}, t => { $('coBody').innerHTML = coachHTML(coachMain(t)); });
+  if(!text) return;
+  // new coaching, new suggestions: what was added from the last one stays on the sheet
+  o.coaching = {text, at: Date.now(), applied: []};
+  if(OPP && OPP.id === o.id) await oppSaveNow();
+  if(n === coSeq){
+    showOppCoaching(o, text);
+    $('coSub').textContent = 'Written just now. Kept with the opportunity; not in the Blue Sheet document.';
+  }
+}
+$('opCoach').addEventListener('click', () => coachOpp(false).catch(reportErr));
+
 function buildBlueSheetHTML(o, png){
   const v = x => (x == null ? '' : String(x)).trim();
   const cell = x => v(x) ? esc(v(x)) : '—';

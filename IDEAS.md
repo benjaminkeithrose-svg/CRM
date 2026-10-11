@@ -720,8 +720,13 @@ for now. Reviewed a clickable mock first.*
   unknown), each one tap to a red flag; red flags and strengths; possible
   actions with a starred best one and Make a task. Edited on the phone too.
   Create and share: A4 HTML (NOTES_CSS) with the map drawn to a PNG.
-- **Still to come here:** the coach reading the opportunity and suggesting
-  red flags and actions.
+- **Built (v118): the coach on an opportunity.** Coach on the Blue Sheet
+  sends the sheet and map as text (each person's part, view, rating,
+  coverage, wins, evidence; the links; red flags, strengths, actions) and
+  the account's records to ai-tidy (kind 'opp', deployed as version 10).
+  It writes where it stands, biggest risks, who to see next and SPIN
+  questions, then Sheet changes: red flags, strengths and actions offered as
+  ticks, added only when ticked. Kept on the opportunity.
 - **Built (v117): the large account plan.** Ben: large accounts are
   multi-site, usually with a group code in the database (column name not
   known yet). One plan across a customer's sites, in the plans store
