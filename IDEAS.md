@@ -157,6 +157,12 @@ instruction words out - checked live on the test account. No microphone shows
 where the browser has no speech recognition. Not yet tried on a phone, so
 recognition quality and the microphone permission prompt are unverified.
 
+**v109, after Ben tried it on the phone:** it finished after a few seconds of
+silence, because Android's recogniser ends itself on a pause. Now a pause
+never finishes it - the recogniser is started again and the words carry on.
+Tap to start and tap Finish, or hold while talking and let go (Ben chose
+both). It finishes by itself after two minutes with nothing heard.
+
 **The original note:**
 *Added 2026-10-10, for later.* Ben wants a small microphone icon at the edge
 of each free-text box, using Claude through the Anthropic API instead of the
