@@ -968,7 +968,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v106';
+const APP_BUILD = 'v107';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -6344,7 +6344,7 @@ function reportRow(c){
     '<button class="rpt" data-rpt="'+esc(c.id)+'">'+
     '<div class="rt"><span class="rd">'+esc(c.date)+'</span>'+
     '<span class="st '+st.cls+'">'+st.label+'</span></div>'+
-    '<div class="rn">'+esc(c.customer)+'</div>'+
+    '<div class="rn">'+esc(c.customer)+(c.test ? ' <span class="tag test">TEST</span>' : '')+'</div>'+
     '<div class="rm">'+esc(reportLine(c))+'</div></button>'+
     '<button class="rpmore" data-rpmenu="'+esc(c.id)+'" aria-label="More for '+esc(c.customer)+'">&#8943;</button>'+
     '</div>';
@@ -7150,6 +7150,7 @@ $('newPick').addEventListener('click', e => {
     return;
   }
   if(kind === 'book'){ startBooking(); return; }
+  if(kind === 'test'){ newMark(''); startTestCall().catch(reportErr); return; }
   if(!ACCOUNTS.length) toast('No contact database - manual account entry only');
   bookingMode = false;
   $('cType').value = NEW_TYPE[kind];
@@ -7365,7 +7366,7 @@ function renderDash(){
   renderDashTasks();
   const onDoc = c.contacts.filter(docContact).length;
   $('dashStat').innerHTML =
-    '<b>'+esc(c.customer)+'</b><br>'+esc(c.date)+' &middot; '+esc(c.type)+' &middot; '+esc(c.mgr)+
+    '<b>'+esc(c.customer)+'</b>'+(c.test ? ' <span class="tag test">TEST</span>' : '')+'<br>'+esc(c.date)+' &middot; '+esc(c.type)+' &middot; '+esc(c.mgr)+
     (c.site?'<br>'+esc(c.site):'')+
     '<br>'+c.contacts.map(x=>esc(x.name)+(x.crm?'':' <span class="tag">not in CRM</span>')).join(', ')+
     '<br><span class="hint">'+onDoc+' of '+c.contacts.length+
@@ -7824,6 +7825,63 @@ async function deleteCallRecord(c){
   toast('Call deleted');
   return true;
 }
+/* ---------- Test call (v107) ----------
+   One tap on New: a made-up customer with one belt already logged, so the
+   dictation, Tidy, the summary, the coach and Create and share can be tried
+   without entering anything. Marked test:true. It is not in any account and
+   stays off the calendar; it syncs like a real call, so it can be started on
+   the phone and read on the PC; Settings > Delete test calls removes every one,
+   everywhere. Nothing in it is real. */
+const TEST_CUSTOMER = 'Test customer';
+function testBelt(){
+  const e = {type: 'belt', asset: 'Line 1 infeed (test)', beltdesc: 'S800 Flat Top', series: '800', style: 'Flat Top',
+    beltmat: 'PP', colour: 'White', rodmat: 'PP', clength: '9', frame: '620', width: '600', beltlen: '18', retrofit: '',
+    comment: 'Edge modules worn on the drive side. This is a test belt.', flights: false, tsg: false, sprspacers: false, sprhdret: false, photos: []};
+  for(const k of ['sprocket', 'sprbore', 'sprpd', 'sprmat', 'sprvar', 'sprpn', 'sprdrive', 'spridle', 'sprhdretqty', 'fstyle', 'flmat',
+    'fheight', 'frows', 'fspacing', 'findent', 'cnotch', 'sgtype', 'sgmat', 'sgheight', 'qcontact', 'qty']) e[k] = '';
+  return e;
+}
+async function startTestCall(){
+  call = {
+    id: 'c' + Date.now(),
+    test: true,
+    date: ddmmyyyy(todayISO()),
+    type: 'Site call',
+    mgr: $('cMgr').value || localStorage.getItem(LS('mgr')) || '',
+    customer: TEST_CUSTOMER,
+    manualAccount: false,
+    zone: '', suburb: '', focus: '',
+    site: 'Test site',
+    contacts: [{name: 'Test Contact', role: 'Maintenance Manager', email: '', mobile: '', crm: false}],
+    entries: [testBelt()],
+    loose: [],
+    status: 'in progress',
+    when: Date.now(),
+    closed: false,
+    updated: Date.now()
+  };
+  await saveCall();
+  go('dash');
+  toast('Test call started - delete it from Settings when you are done');
+}
+async function deleteTestCalls(){
+  const tests = (await recordsAll()).filter(c => c.test);
+  if(!tests.length){ toast('There are no test calls on this device'); return; }
+  const ph = tests.reduce((n, c) => n + (c.loose || []).length + (c.entries || []).reduce((m, e) => m + (e.photos || []).length, 0), 0);
+  if(!confirm('Delete ' + tests.length + (tests.length === 1 ? ' test call' : ' test calls') +
+      ' and ' + ph + (ph === 1 ? ' photo' : ' photos') + '?\n\nOnly calls started with Test call go. They are erased from this device' +
+      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return;
+  for(const c of tests){
+    (c.entries || []).forEach(e => (e.photos || []).forEach(releasePhoto));
+    (c.loose || []).forEach(releasePhoto);
+    await callsDel(c.id);
+  }
+  if(call && call.test){ call = null; if(CALL_SCREENS.includes(screen)) go('home'); }
+  indexCalls(await callsAll());
+  toast(tests.length === 1 ? 'Test call deleted' : tests.length + ' test calls deleted');
+}
+$('delTests').addEventListener('click', () => deleteTestCalls().catch(reportErr));
+
 async function markCallDone(c){
   if(!c) return false;
   const q = isQuote(c);
@@ -11752,7 +11810,7 @@ function renderSettingsSummary(){
   put('sumBk', (first('bkStat')[0] || '').replace(/\s+/g, ' ') || 'No backup taken on this device');
   put('sumMe', ($('setEmail') && $('setEmail').value) || 'Email not set');
   put('sumLog', LOAD_LOG.length ? LOAD_LOG.length + ' recent' : 'None yet');
-  put('sumVer', 'Build ' + APP_BUILD);
+  if($('upBtn') && !$('upBtn').disabled) $('upBtn').textContent = 'Get the latest version (' + APP_BUILD + ')';
 }
 function renderBackupAge(){
   const el = $('bkHomeStat');

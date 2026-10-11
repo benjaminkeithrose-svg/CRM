@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v106">
+<meta name="build" content="v107">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -770,6 +770,10 @@ body.planning{padding-bottom:0}
 .mailacts .btn{min-height:40px;flex:1}
 .autotag{font-size:11px;font-weight:600;color:var(--cyan-dk);background:var(--cyan-lt);border-radius:999px;padding:1px 7px;margin-left:6px}
 .btn.danger{color:var(--warn);border-color:#E4C4C6}
+.setbtn .btn,.setbtn .ghost{width:100%}
+#delTests{display:flex;align-items:center;justify-content:center;gap:8px}
+#delTests .ic{color:var(--warn);flex:none}
+.tag.test{background:var(--orange-lt);color:var(--orange-dk);border-color:var(--orange)}
 /* A gutter of hour labels, then the seven days (v94). Saturday and Sunday are
    narrower and shaded, as on the month. */
 .week{display:grid;grid-template-columns:46px repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:8px;align-items:start}
@@ -1393,15 +1397,16 @@ details.bsx > .msg{margin:8px 12px}
   </details>
 
 
-  <details class="sx" id="sxVer">
-    <summary><b>App version</b><span class="sxs" id="sumVer"></span></summary>
-  <div class="fld">
+  <!-- v107: a plain button, not a section to open. Ben, 2026-10-10. -->
+  <div class="fld setbtn" id="sxVer">
+    <button class="ghost" id="upBtn" type="button">Get the latest version</button>
     <p class="stat" id="upStat"></p>
-    <button class="ghost" id="upBtn">Get the latest version</button>
-    <p class="hint">The app checks once a day by itself when it opens with signal, and updates if there is a newer version. This button checks now. Your calls, accounts and photos are not affected.</p>
     <p class="hint" id="appVer"></p>
   </div>
-  </details>
+  <!-- v107: every call started with Test call on New, gone in one go -->
+  <div class="fld setbtn">
+    <button class="btn danger" id="delTests" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg> Delete test calls</button>
+  </div>
 
 
   <details class="sx" id="sxBk">
@@ -1909,10 +1914,27 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Get the latest version</b><span class="sxs">It updates itself once a day</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>App version</b>.</li>
-        <li>Tap <b>Get the latest version</b>.</li>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
+        <li>Tap <b>Get the latest version</b>. The button shows the version you have now.</li>
       </ol>
       <p>Your calls, accounts and photos aren't touched.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Try things out with a test call</b><span class="sxs">Nothing to type first</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>New</b> on Home.</li>
+        <li>Tap <b>Test call</b>.</li>
+      </ol>
+      <p>The call opens for a made-up customer, Test customer, with one belt already logged. Try dictating, Tidy, Write summary, Coach me or Create and share on it. It's marked <b>TEST</b>, stays off the calendar, and syncs to your other devices like any call.</p>
+      <p>To clear them all away:</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
+        <li>Tap <b>Delete test calls</b>.</li>
+        <li>Check how many calls and photos it names, then tap <b>OK</b>.</li>
+      </ol>
+      <p>Only test calls go, here and on your other devices. Real calls are never touched.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1964,6 +1986,8 @@ details.bsx > .msg{margin:8px 12px}
       <button type="button" data-new="quote">Quote request</button>
       <button type="button" data-new="task">Task</button>
       <button type="button" data-new="book">Book a visit</button>
+      <!-- v107: a made-up customer with a belt logged, to try things on -->
+      <button type="button" data-new="test">Test call</button>
     </div>
     <p class="hint" id="cSummary"></p>
   </div>

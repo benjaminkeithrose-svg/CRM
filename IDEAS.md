@@ -145,6 +145,39 @@ checked in an actual browser tab or on a phone.
 
 ---
 
+## Open: A microphone button on every free-text box
+*Added 2026-10-10, for later.* Ben wants a small microphone icon at the edge
+of each free-text box, using Claude through the Anthropic API instead of the
+Samsung keyboard's voice typing, which doesn't work as well for him. The icon
+also shows colleagues the feature is there. He wants more than a tidy-up: the
+way Claude infers from speech, including spoken instructions such as "do this
+as a list of bullet points". No Word-style formatting controls in the app;
+formatting is asked for by voice. Needs signal, or records and sends later.
+
+**Checked 2026-10-10 against the current API reference:** the Messages API
+takes text, images and PDFs. It has **no audio input**, so the speech-to-text
+step itself cannot be done by Claude. The microphone needs something else to
+turn speech into words, then Claude does the part Ben values: understanding
+and following what was said. Three routes:
+1. **The browser's own speech recognition** (Web Speech API; on Android Chrome
+   it is Google's recogniser). Free, no new provider, live only with signal,
+   nothing recorded. Recognition quality is likely similar to the keyboard's;
+   the gain is the icon and Claude acting on the words afterwards.
+2. **A transcription service** behind a second Supabase function (for example
+   OpenAI Whisper, Deepgram or Google Speech-to-Text). The app records the
+   audio, holds it with no signal and sends it later. A new provider, a new
+   key, a per-minute cost, and the recording of a customer conversation goes
+   to a third party; needs Ben's decision on all four.
+3. **Keep the keyboard microphone and teach Tidy to follow spoken
+   instructions** ("make that a list", "drop the last bit"). Cheapest and
+   doable now in the existing `ai-tidy` function. Today's Tidy deliberately
+   only cleans up and never acts on what it reads.
+
+**Not decided:** which route (1 and 3 can be combined); whether customer audio
+may go to a third-party service; whether a recording is kept.
+
+---
+
 ## Built (v106): Sales coach, round two — account plan, tasks, Prepare tomorrow, questions in the call
 *Proposed and agreed 2026-10-10.* Ben asked for a proposal on how the coach
 should work; he chose all four parts, and to record how each person sees the
