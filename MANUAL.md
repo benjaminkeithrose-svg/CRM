@@ -279,6 +279,25 @@ On the phone, the map is for looking: drag the background to move around, use âˆ
 
 Everything saves as you go, and the team shares it. To change the name or value, or delete the opportunity, tap **Details**.
 
+### Fill in the Blue Sheet
+
+1. Open the opportunity from its account.
+2. Tap **Blue Sheet** at the top.
+3. Under **Where we stand**, set our position from âˆ’5 (panic) to +5 (euphoria). Say why, and who the competition is.
+4. Under **Buying influences**, tap a person to open them. Set their part in the decision, how much they sway it, how they see it and how they rate us.
+5. Type their personal win, the business result they want, and the evidence for the rating.
+6. Under **Gaps**, tap **Add as a red flag** for any gap that matters.
+7. Under **Possible actions**, type each action and tap **Add**.
+8. Tap the star next to the best action.
+9. To put an action in your calendar, tap **Make a task** next to it.
+10. To send the sheet, tap **Create and share**.
+
+Who covers each person comes from the map: link one of ours to them with **Our coverage**. The Gaps list shows what is missing: nobody who signs the order, no coach, someone not covered, or a part not known.
+
+Create and share makes an A4 document with the map as a picture. On the PC it opens in a new tab, ready to print or save as a PDF; on the phone it goes to the share sheet.
+
+The Blue Sheet works the same on the phone and the PC. Tap **Map** to go back to the map.
+
 ### Prepare for a visit, and get coaching after it
 
 Keep an account plan:

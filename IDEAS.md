@@ -711,11 +711,17 @@ for now. Reviewed a clickable mock first.*
   coverage, supplies) and a strength (strong, neutral, weak, hostile); red
   flags and strengths pinned to a person or a link. Store `opps` (IndexedDB
   v7), shared with the team (migration 0007). Plain SVG, no library.
-- **Next: the Blue Sheet behind the map.** The same record as the classic
-  sheet (objective, position, buying influences with coverage and evidence,
-  red flags, strengths, possible actions, best action); Create and share as
-  A4 HTML with the map as a picture; possible actions to tasks; the coach
-  reading the opportunity.
+- **Built (v116): the Blue Sheet behind the map.** A Map | Blue Sheet switch
+  on the opportunity. The sheet: the objective; where we stand (-5 panic to
+  +5 euphoria, why, competition); each buying influence (part, how much they
+  sway it, how they see it, rating, personal win, business result, evidence,
+  and who of ours covers them, read from the map's Our coverage links); the
+  gaps the app finds (no one who signs, no coach, not covered, part or view
+  unknown), each one tap to a red flag; red flags and strengths; possible
+  actions with a starred best one and Make a task. Edited on the phone too.
+  Create and share: A4 HTML (NOTES_CSS) with the map drawn to a PNG.
+- **Still to come here:** the coach reading the opportunity and suggesting
+  red flags and actions.
 - **Then: the large account plan.** Situation (position, competition, how
   decisions are made, open opportunities), vision and objectives with
   measures, strategies, the action plan, and an account-wide relationship map

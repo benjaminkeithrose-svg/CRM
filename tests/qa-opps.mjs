@@ -1,4 +1,4 @@
-// v115: opportunities and the relationship map. An opportunity on the
+// v115: opportunities and the relationship map. v116: the Blue Sheet. An opportunity on the
 // account; its details sheet (nothing typed, nothing kept); the map's people,
 // links, red flags and strengths, each saved and marked for cloud sync; the
 // PC builds it (Add person, Link to, Remove) and the phone only looks and
@@ -153,17 +153,63 @@ $('opDone').click(); await tick();
 ok(/looking and tapping/.test(panel()), 'and the panel says the map is built on the PC');
 phone = false;
 
+// ---- the Blue Sheet (v116)
+await g(`(async () => {
+  OPP.people.find(p => p.side === 'cust').role = 'Uses it';
+  OPP.people.push({id: 'pX', side: 'cust', n: 'Priya Nair', title: 'Engineering Lead', role: 'Checks the spec', mode: '', rate: -2, x: 20, y: 300});
+  await oppSaveNow(); renderOpp();
+})()`);
+$('opView').querySelector('[data-v="sheet"]').click(); await tick(100);
+ok(!$('opSheet').hidden && d.querySelector('#s-opp .oppmain').hidden && !$('opShare').hidden && $('opAdd').hidden && $('opFit').hidden, 'Blue Sheet swaps the map for the sheet, with Create and share at the top');
+const sheet = () => $('opSheet').textContent;
+ok(/Single sales objective/.test(sheet()) && /Line 3 upgrade/.test(sheet()) && /Where we stand/.test(sheet()) && /Buying influences/.test(sheet()) && /Possible actions/.test(sheet()), 'the sheet has the Blue Sheet\'s sections');
+ok($('opSheet').querySelectorAll('details.bsp').length === 3, 'one entry for each of their people, none for ours');
+ok(/Covered by Ben \(strong\)/.test($('opSheet').querySelector('details.bsp').textContent), 'coverage is read from the map\'s links');
+const gaps = () => [...$('opSheet').querySelectorAll('.bsgaps li span')].map(x => x.textContent);
+ok(gaps().includes('Nobody identified who signs the order') && gaps().includes('No coach: nobody on their side is marked as on our side') && gaps().includes('Priya Nair is not covered by anyone on our team') && gaps().includes('Priya Nair: how they see it is unknown'), 'the gaps are found: ' + gaps().join(' / '));
+const nf = g(`OPP.flags.length`);
+[...$('opSheet').querySelectorAll('[data-bsgap]')].find(b => /Priya Nair is not covered/.test(b.parentNode.textContent)).click(); await tick(100);
+ok(g(`OPP.flags.length`) === nf + 1 && g(`OPP.flags[OPP.flags.length - 1].pin`) === 'p:pX' && !gaps().includes('Priya Nair is not covered by anyone on our team'), 'a gap becomes a red flag pinned to the person, and leaves the gaps');
+const pri = [...$('opSheet').querySelectorAll('details.bsp')].find(x => /Priya/.test(x.textContent));
+pri.querySelector('[data-opchips] [data-v="Signs the order"]').click(); await tick(50);
+[...$('opSheet').querySelectorAll('details.bsp')].find(x => /Priya/.test(x.textContent)).querySelector('[data-bsinfl] [data-v="High"]').click(); await tick(50);
+const pri2 = [...$('opSheet').querySelectorAll('details.bsp')].find(x => /Priya/.test(x.textContent));
+const win = pri2.querySelector('[data-bsf^="win:"]'); win.value = 'A clean audit'; win.dispatchEvent(new w.Event('input'));
+const ev = pri2.querySelector('[data-bsf^="evid:"]'); ev.value = 'Said so in March'; ev.dispatchEvent(new w.Event('input'));
+$('bsPos').value = '2'; $('bsPos').dispatchEvent(new w.Event('input'));
+$('bsComp').value = 'Cheaper acetal belt'; $('bsComp').dispatchEvent(new w.Event('input'));
+await tick(900);
+const pr = (await g(`oppsAll()`))[0];
+const px = pr.people.find(p => p.id === 'pX');
+ok(px.role === 'Signs the order' && px.infl === 'High' && px.win === 'A clean audit' && px.evid === 'Said so in March' && pr.pos === 2 && pr.comp === 'Cheaper acetal belt', 'role, influence, win, evidence, position and competition saved');
+ok(!gaps().includes('Nobody identified who signs the order'), 'and the gap closes');
+$('bsNa').value = 'Meet Tom with Sam'; $('bsNaGo').click(); await tick(50);
+$('bsNa').value = 'Run a trial belt'; $('bsNaGo').click(); await tick(50);
+$('opSheet').querySelector('[data-bsbest="1"]').click(); await tick(50);
+ok(g(`OPP.actions.map(a => a.best).join()`) === 'false,true' && /Best action: Run a trial belt/.test(sheet()), 'two actions, the second starred as the best');
+$('opSheet').querySelector('[data-bsbest="0"]').click(); await tick(50);
+ok(g(`OPP.actions.map(a => a.best).join()`) === 'true,false', 'only one best at a time');
+$('opSheet').querySelector('[data-bstask="0"]').click(); await tick(100);
+ok($('taskdlg').hasAttribute('open') && $('tkTitle').value === 'Meet Tom with Sam', 'Make a task opens the task form, filled in');
+g(`closeDialogsNow()`); await tick();
+const doc = await g(`(async () => buildBlueSheetHTML(OPP, await oppMapPng()))()`);
+ok(/<title>Blue Sheet/.test(doc) && /@page\{size:A4/.test(doc) && /Single sales objective/.test(doc) && /Priya Nair/.test(doc) && /Personal win:<\/b> A clean audit/.test(doc), 'the document is the A4 Blue Sheet');
+ok(/Best action<\/h2><p><b>Meet Tom with Sam<\/b>/.test(doc) && /Run a trial belt/.test(doc) && !/N\/A/.test(doc), 'with the best action first, and no N/A');
+ok(!/Relationship map/.test(doc), 'where a picture cannot be drawn (as here), the map is left out rather than broken');
+$('opView').querySelector('[data-v="map"]').click(); await tick(50);
+ok($('opSheet').hidden && !d.querySelector('#s-opp .oppmain').hidden && $('opShare').hidden, 'Map brings the map back');
+
 // ---- details from the map, backup, and delete
 $('opEdit').click(); await tick();
 ok($('oppdlg').hasAttribute('open') && $('odName').value === 'Line 3 upgrade' && !$('odDel').hidden, 'Details opens the sheet, with the bin');
 $('odValue').value = 'AUD 210k'; $('odOk').click(); await tick(300);
-ok(g(`OPP.value`) === 'AUD 210k' && g(`OPP.people.length`) === 3 && /AUD 210k/.test(panel()), 'a changed value saves and keeps the map');
+ok(g(`OPP.value`) === 'AUD 210k' && g(`OPP.people.length`) === 4 && /AUD 210k/.test(panel()), 'a changed value saves and keeps the map');
 const bk = await g(`buildBackup(false)`);
-ok(Array.isArray(bk.opps) && bk.opps.length === 1 && bk.opps[0].people.length === 3, 'backups carry opportunities');
+ok(Array.isArray(bk.opps) && bk.opps.length === 1 && bk.opps[0].people.length === 4, 'backups carry opportunities');
 $('opEdit').click(); await tick();
 confirms = [];
 $('odDel').click(); await tick(300);
-ok(/Delete the opportunity Line 3 upgrade at Example Meats - Dandenong\?/.test(confirms[0]) && /3 people and 2 links/.test(confirms[0]) && /1 red flag or strength/.test(confirms[0]), 'delete names what goes: ' + (confirms[0] || '').split('\n')[2]);
+ok(/Delete the opportunity Line 3 upgrade at Example Meats - Dandenong\?/.test(confirms[0]) && /4 people and 2 links/.test(confirms[0]) && /2 red flags and strengths and 2 possible actions/.test(confirms[0]), 'delete names what goes: ' + (confirms[0] || '').split('\n')[2]);
 ok(g(`OPPS.length`) === 0 && (await g(`oppsAll()`)).length === 0 && g(`screen`) === 'acct' && g(`Object.entries(cloudDirty).some(([k, v]) => k.startsWith('opps/') && v.del)`), 'deleted, back on the account, the delete marked to sync');
 await g(`doRestore(new File([${JSON.stringify(JSON.stringify(bk))}], 'b.json'))`); await tick(200);
 ok((await g(`oppsAll()`)).length === 1, 'a restore brings it back');
