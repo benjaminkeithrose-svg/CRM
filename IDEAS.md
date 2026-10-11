@@ -740,8 +740,13 @@ for now. Reviewed a clickable mock first.*
   action plan with owners, dates and done ticks; the relationship map of
   everyone on the sites' opportunities, once each; Reviewed today; Create
   and share as A4.
-- **Later:** the export for Claude and the coach reading the large account
-  plan; the group column's real name once Ben has checked the export.
+- **Built (v119): opportunities and large account plans in Export for
+  Claude.** Large account plans first; each opportunity on its account,
+  before the calls, as the coach reads it (with its coaching, without the
+  suggestions); condensed to one short block; customer and OEM names by
+  title when names are hidden. Opportunities ignore the period.
+- **Later:** the coach reading the large account plan; the group column's
+  real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
   opportunities import (needs the column headings).
 

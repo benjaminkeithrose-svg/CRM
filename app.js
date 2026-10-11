@@ -974,7 +974,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v118';
+const APP_BUILD = 'v119';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -13289,6 +13289,55 @@ function cxAccountHead(name, o, st){
   if(st.quotes.length) L.push('Quote requests: ' + st.quotes.map(cxQuoteLine).join(' | '));
   return L.join('\n');
 }
+/* v119: an opportunity and a large account plan in the export. Names of
+   the customer's and the OEMs' people give way to their roles when contact
+   names are hidden; ours stay. */
+function cxHideOpp(x){
+  const y = JSON.parse(JSON.stringify(x)), seen = {};
+  (y.people || []).forEach(p => {
+    if(p.side === 'us') return;
+    const base = (p.title || p.role || 'contact').trim();
+    seen[base] = (seen[base] || 0) + 1;
+    p.n = base + (seen[base] > 1 ? ' ' + seen[base] : '');
+    delete p.win; delete p.note;
+  });
+  return y;
+}
+function cxOppBlock(x, o){
+  const y = o.hide ? cxHideOpp(x) : x;
+  const head = '### Opportunity: ' + (x.name || 'Untitled') + ' · ' + [x.value || 'no value', x.close ? 'close ' + oppMonth(x.close) : 'no close date',
+    'position ' + (x.pos == null ? 'not rated' : opPosLabel(x.pos))].join(' · ');
+  if(o.detail === 'condensed'){
+    const prev = OPP; OPP = y;
+    try {
+      const theirs = (y.people || []).filter(p => p.side !== 'us');
+      const bare = theirs.filter(p => p.side === 'cust' && !opCoverage(p).length).map(p => p.n);
+      const best = (y.actions || []).find(a => a.best);
+      return [head, (y.obj ? 'Objective: ' + cxCut(y.obj, 200) : ''),
+        theirs.length + ' buying influences; ' + (bare.length ? 'not covered: ' + bare.join(', ') : 'all covered'),
+        (y.flags || []).length ? 'Red flags: ' + y.flags.map(f => cxCut(f.t, 120)).join('; ') : '',
+        best ? 'Best action: ' + cxCut(best.t, 160) : ''].filter(Boolean).join('\n');
+    } finally { OPP = prev; }
+  }
+  // the opportunity's Blue Sheet as the coach reads it, less its first line (the head says it)
+  const body = oppText(y).split('\n').slice(1).join('\n');
+  return head + '\n' + body + (x.coaching && x.coaching.text ? '\nCoaching on it: ' + coachMain(x.coaching.text).trim().replace(/\n+/g, ' / ') : '');
+}
+function cxLapBlock(L, o){
+  const v = t => String(t == null ? '' : t).trim();
+  const lines = ['## Large account: ' + (L.name || 'Untitled'), 'Sites: ' + (L.sites || []).join('; ')];
+  const add = (k, t) => { if(v(t)) lines.push(k + ': ' + (o.detail === 'condensed' ? cxCut(t, 240) : v(t).replace(/\n+/g, ' / '))); };
+  add('Their business', L.business); add('How they see us', L.ladder); add('What we have today', L.today);
+  if(v(L.spendUs) || v(L.spendAll)) lines.push('Spend: ours ' + (v(L.spendUs) || 'unknown') + ', their belting ' + (v(L.spendAll) || 'unknown') + (lapShareLine(L) ? ' (' + lapShareLine(L).toLowerCase() + ')' : ''));
+  add('Competition', L.comp); add('Vision', L.vision);
+  const list = (k, items, f) => { if((items || []).length) lines.push(k + ': ' + items.map(f || (x => x.t)).join('; ')); };
+  list('Strengths', L.strengths); list('Vulnerabilities', L.flags);
+  list('Objectives', L.objectives, x => x.t + (x.measure || x.by ? ' (' + [x.measure, x.by && 'by ' + oppMonth(x.by)].filter(Boolean).join(', ') + ')' : ''));
+  list('Strategies', L.strategies); add('Investment', L.invest);
+  list('Actions', L.actions, x => x.t + ' (' + [x.owner, x.due && 'due ' + x.due, x.done ? 'done' : 'open'].filter(Boolean).join(', ') + ')');
+  if(L.reviewed) lines.push('Last reviewed: ' + cxDay(L.reviewed));
+  return lines.join('\n');
+}
 async function buildClaudeExport(o){
   await ownersLoad();
   const now = Date.now();
@@ -13299,9 +13348,12 @@ async function buildClaudeExport(o){
   const appts = (o.who === 'team' ? APPTS.concat(TEAM_APPTS) : APPTS).filter(a => a.acct && cxInScope(a.acct, o.narrow));
   const today = todayISOdate(), fromDay = cxDay(from || 0);
   const byAcct = new Map();
-  const acct = name => { if(!byAcct.has(name)) byAcct.set(name, {calls: [], quotes: [], visits: {done: 0, missed: 0, cancelled: 0}, next: ''}); return byAcct.get(name); };
+  const acct = name => { if(!byAcct.has(name)) byAcct.set(name, {calls: [], quotes: [], opps: [], visits: {done: 0, missed: 0, cancelled: 0}, next: ''}); return byAcct.get(name); };
   calls.forEach(c => acct(c.customer || 'Unnamed').calls.push(c));
   quotes.forEach(q => acct(q.customer || 'Unnamed').quotes.push(q));
+  // v119: opportunities are what is live now, so the period does not narrow them; an account with one is in the export
+  const opps = OPPS.filter(x => cxInScope(x.acct, o.narrow) && (o.who === 'team' || isMine('opps', x.id)));
+  opps.forEach(x => acct(x.acct).opps.push(x));
   appts.forEach(a => {
     if(!byAcct.has(a.acct)) return;            // visits are context for accounts with calls, not a list of their own
     const st = byAcct.get(a.acct), s = apStatus(a);
@@ -13317,8 +13369,11 @@ async function buildClaudeExport(o){
     const st = byAcct.get(name);
     st.calls.sort((x, y) => callWhen(x) - callWhen(y));
     return cxAccountHead(name, o, {calls: st.calls.length, visits: st.visits, next: st.next, quotes: st.quotes}) + '\n\n' +
-      st.calls.map(c => cxCallBlock(c, o)).join('\n\n');
+      st.opps.map(x => cxOppBlock(x, o)).concat(st.calls.map(c => cxCallBlock(c, o))).join('\n\n');
   });
+  // large account plans with a site in scope come first: they frame the accounts below them
+  const laps = PLANS.filter(L => L.kind === 'large' && (L.sites || []).some(x => cxInScope(x, o.narrow)) && (o.who === 'team' || isMine('plans', L.id)));
+  laps.slice().sort((a, b) => String(b.name).localeCompare(String(a.name))).forEach(L => blocks.unshift(cxLapBlock(L, o)));
   // accounts in scope with no call in the period: the ones going quiet
   // your own: the accounts of the manager set on this device, as the planner uses
   const myMgr = localStorage.getItem(LS('mgr')) || '';
@@ -13345,7 +13400,8 @@ async function buildClaudeExport(o){
     '# Field CRM export for Claude: read this first',
     '',
     'Made ' + stamp + '. Covers ' + period + ', ' + (o.who === 'team' ? 'the whole team' + (TEAM ? ' (' + TEAM.name + ')' : '') : 'one engineer\'s own calls') + ', ' + narrowLabel + '.',
-    cxN(names.length, 'account') + ' with activity, ' + cxN(calls.length, 'call') + ', ' + cxN(quotes.length, 'quote request') + (quiet.length ? '; ' + cxN(quiet.length, 'account') + ' in scope with no call' : '') + '. ' +
+    cxN(names.length, 'account') + ' with activity, ' + cxN(calls.length, 'call') + ', ' + cxN(quotes.length, 'quote request') +
+      (opps.length ? ', ' + opps.length + (opps.length === 1 ? ' opportunity' : ' opportunities') : '') + (laps.length ? ', ' + cxN(laps.length, 'large account plan') : '') + (quiet.length ? '; ' + cxN(quiet.length, 'account') + ' in scope with no call' : '') + '. ' +
       (files.length === 1 ? 'The data is in one file.' : 'The data is in ' + files.length + ' files; read them all.'),
     '',
     '## What this is',
@@ -13365,6 +13421,8 @@ async function buildClaudeExport(o){
     '  - Note: anything else from the meeting.',
     o.detail === 'condensed' ? '- This is the condensed export: each call is its summary, or its key lines shortened. Belt specifications are left out.' : '- Coaching after a call is the app\'s own AI coaching (SPIN Selling, Strategic Selling) on that call.',
     '- A call marked "done, nothing to report" was a normal visit with nothing to write up.',
+    '- An opportunity (### Opportunity) comes before the account\'s calls: a large project or pursuit, with its Blue Sheet - the objective, our position from -5 (panic) to +5 (euphoria), the competition, each buying influence with their part in the decision (Signs the order = Economic Buyer, Uses it = User Buyer, Checks the spec = Technical Buyer, On our side = Coach), how they see it (Growth, Trouble, Steady = even keel, Overconfident), how they rate us from -5 to +5 and who of ours covers them, then red flags, strengths and possible actions. People can be the customer\'s, an OEM\'s or integrator\'s, or ours.',
+    '- A large account plan (## Large account) at the start covers a customer\'s sites together: where we are, how they see us, our share of their spend, the vision, objectives, strategies and the action plan.',
     '- The last section lists accounts in scope with no call in the period, highest focus first.',
     o.hide ? '- Contact names have been replaced with their roles. Free-text notes may still mention people by name.' : '',
     '',
@@ -13375,12 +13433,13 @@ async function buildClaudeExport(o){
     '- Which accounts look like the best growth opportunities in the next 12 months, and why?',
     '- Where could a strategic partnership (an OEM, an integrator, a group of plants under one owner) open more doors?',
     '- For the 10 accounts that matter most, draft key account actions: what to do, who to see, by when.',
+    '- Across the opportunities, which are really winnable, which buying influences nobody of ours covers, and where are we over-confident about our position?',
     '- What do the coaching notes say about how the visits themselves could be better?',
     '',
     'Answer from this data. Say when something is a guess, and which account and call each point comes from.'
   ].join('\n').replace(/\n{3,}/g, '\n\n');
   files.unshift({name: 'Field CRM ' + stamp + ' - read me first.txt', text: cover + '\n'});
-  return {files, accounts: names.length, calls: calls.length, quotes: quotes.length, chars: files.reduce((n, f) => n + f.text.length, 0)};
+  return {files, accounts: names.length, calls: calls.length, quotes: quotes.length, opps: opps.length, laps: laps.length, chars: files.reduce((n, f) => n + f.text.length, 0)};
 }
 async function shareExport(files){
   const list = files.map(f => new File([f.text], f.name, {type: 'text/plain'}));
@@ -13405,11 +13464,11 @@ async function runClaudeExport(){
   showMsg($('cxMsg'), 'info', 'Gathering the calls' + String.fromCharCode(8230));
   try {
     const r = await buildClaudeExport(cxOptions());
-    if(!r.calls && !r.quotes){ showMsg($('cxMsg'), 'warn', 'No calls in that period and those accounts. Try a longer period or every account.'); return; }
+    if(!r.calls && !r.quotes && !r.opps){ showMsg($('cxMsg'), 'warn', 'No calls in that period and those accounts. Try a longer period or every account.'); return; }
     const how = await shareExport(r.files);
     if(how === 'cancelled'){ showMsg($('cxMsg'), '', ''); return; }
     const words = Math.round(r.chars / 6 / 1000) * 1000;
-    showMsg($('cxMsg'), 'ok', esc(cxN(r.calls, 'call') + ' from ' + cxN(r.accounts, 'account') + ', about ' + (words ? words.toLocaleString() : 'under 1,000') + ' words, in ' + r.files.length + ' files. ' +
+    showMsg($('cxMsg'), 'ok', esc(cxN(r.calls, 'call') + (r.opps ? ' and ' + r.opps + (r.opps === 1 ? ' opportunity' : ' opportunities') : '') + ' from ' + cxN(r.accounts, 'account') + ', about ' + (words ? words.toLocaleString() : 'under 1,000') + ' words, in ' + r.files.length + ' files. ' +
       (how === 'shared' ? 'Add them all to a Claude Project.' : 'They are in Downloads. Add them all to a Claude Project.')));
   } catch(e){ showMsg($('cxMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e))); }
   finally { cxBusy = false; btn.disabled = false; }
