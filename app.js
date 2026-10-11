@@ -974,7 +974,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v119';
+const APP_BUILD = 'v120';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1337,7 +1337,7 @@ const TITLES = {
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
-  ccontacts:['People on this call','Call'], lap:['Large account',''],
+  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''],
   note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity','']
 };
 /* ---------- navigation ----------
@@ -1455,6 +1455,8 @@ function showScreen(name){
   if(name==='plan') renderPlan();
   if(name==='opp') renderOpp();
   if(name==='lap') renderLap();
+  if(name==='strategy' || name === 'home' || name === 'acct') stOpened = '';
+  if(name==='strategy') renderStrategy().catch(e => console.error('strategy', e));
   if(name==='acct') try { renderOppsCard(); renderLapCard(); } catch(e){ console.error('opportunities', e); }
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
@@ -1517,9 +1519,11 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', lists:'home', opp:'acct', lap:'acct'
+  today:'home', settings:'home', help:'home', lists:'home', opp:'acct', lap:'acct', strategy:'home'
 };
 function parentOf(name){
+  // an opportunity or large account opened from Strategy goes back there, not to an account (v120)
+  if((name === 'opp' || name === 'lap') && stOpened === name) return 'strategy';
   const up = PARENT[name] || 'home';
   // a call screen with no call open has nothing to go up to
   if(CALL_SCREENS.includes(up) && !call) return 'home';
@@ -7518,6 +7522,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
   } else if(t==='lists'){
     showLists();
+  } else if(t==='strategy'){
+    go('strategy');
   } else if(t==='reports'){
     go('reports');
   } else if(t==='manuals'){
@@ -10831,6 +10837,7 @@ async function plFinish(){
   PLANS = PLANS.filter(x => x.id !== r.id).concat([r]);
   if(!ticked) toast('Account plan saved');
   renderPlanCard();
+  if(screen === 'strategy') renderStrategy().catch(console.error);   // opened from Strategy (v120)
 }
 $('plAdd').addEventListener('click', () => {
   plDraw(plPeopleRead(true).concat([{n: '', role: '', mode: '', note: ''}]));
@@ -10853,6 +10860,7 @@ $('plDel').addEventListener('click', async () => {
   else if(d.close) d.close(); else d.removeAttribute('open');
   toast('Account plan deleted');
   renderPlanCard();
+  if(screen === 'strategy') renderStrategy().catch(console.error);
 });
 $('plandlg').addEventListener('cancel', e => { e.preventDefault(); plFinish().catch(console.error); });
 $('plandlg').addEventListener('close', () => { if(plEdit) plFinish().catch(console.error); });
@@ -12076,6 +12084,97 @@ $('lapDel').addEventListener('click', async () => {
   toast('Large account plan deleted');
   go('acct');
 });
+/* ================= Strategy (v120) =================
+   Everything Ben is working on beyond the next call, in one place: the
+   opportunities with their Blue Sheets, the large account plans and the
+   account plans. A Home tile; three tabs; Mine and Team in a team, as in
+   Reports. Each opens where it lives; back comes here. */
+let stTab = 'opps', stWho = 'mine', stOpened = '';
+const stStore = {opps: 'opps', laps: 'plans', plans: 'plans'};
+function stItems(tab){
+  const team = inTeam(), mine = (store, id) => !team || (stWho === 'team') !== isMine(store, id);
+  if(tab === 'opps') return OPPS.filter(o => mine('opps', o.id))
+    .sort((a, b) => String(a.close || '9999').localeCompare(String(b.close || '9999')) || (b.updated || 0) - (a.updated || 0));
+  if(tab === 'laps') return PLANS.filter(p => p.kind === 'large' && mine('plans', p.id))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  return PLANS.filter(p => p.kind !== 'large' && mine('plans', p.id))
+    .sort((a, b) => (b.updated || 0) - (a.updated || 0));
+}
+function stAuthor(store, id){ return isMine(store, id) ? '' : teamName(OWNERS[store + '/' + id]); }
+function stRow(tab, x){
+  const by = stAuthor(stStore[tab], x.id);
+  if(tab === 'opps'){
+    const flags = (x.flags || []).length, n = (x.people || []).filter(p => p.side !== 'us').length;
+    return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.close ? 'close ' + oppMonth(x.close) : 'no close date') + '</span>' +
+      '<span class="st-pos">' + (x.pos == null ? '' : 'position ' + esc(opPosLabel(x.pos))) + '</span></div>' +
+      '<div class="rn">' + esc(x.name || 'Untitled') + '</div>' +
+      '<div class="rm">' + esc([by, x.acct, x.value, n + (n === 1 ? ' buying influence' : ' buying influences')].filter(Boolean).join(' · ')) +
+      (flags ? ' · <span class="st-flag">' + flags + (flags === 1 ? ' red flag' : ' red flags') + '</span>' : '') + '</div></button>';
+  }
+  if(tab === 'laps'){
+    const ns = (x.sites || []).length, no = lapOpps(x).length;
+    return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.reviewed ? 'reviewed ' + new Date(x.reviewed).toLocaleDateString() : 'not reviewed yet') + '</span></div>' +
+      '<div class="rn">' + esc(x.name || 'Large account') + '</div>' +
+      '<div class="rm">' + esc([by, ns + (ns === 1 ? ' site' : ' sites'), no + (no === 1 ? ' opportunity' : ' opportunities'), x.vision ? opCut(x.vision, 60) : ''].filter(Boolean).join(' · ')) + '</div></button>';
+  }
+  const np = (x.people || []).length;
+  return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.updated ? 'changed ' + new Date(x.updated).toLocaleDateString() : '') + '</span></div>' +
+    '<div class="rn">' + esc(x.acct || '') + '</div>' +
+    '<div class="rm">' + esc([by, x.goal ? opCut(x.goal, 70) : 'No goal yet', np + (np === 1 ? ' person' : ' people')].filter(Boolean).join(' · ')) + '</div></button>';
+}
+const STEMPTY = {opps: 'No opportunities yet.', laps: 'No large account plans yet.', plans: 'No account plans yet.'};
+const STWORD = {opps: ['opportunity', 'opportunities'], laps: ['large account plan', 'large account plans'], plans: ['account plan', 'account plans']};
+function stWire(el, tab, before){
+  el.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
+    if(before) before();
+    stOpen(tab, b.dataset.st);
+  }));
+}
+function stOpen(tab, id){
+  if(tab === 'opps'){
+    const o = OPPS.find(x => x.id === id); if(!o) return;
+    if(ACC_BY_NAME.has(o.acct)) viewAcct = ACC_BY_NAME.get(o.acct);
+    openOpp(id); stOpened = 'opp';
+  } else if(tab === 'laps'){ openLap(id); stOpened = 'lap'; }
+  else { const p = PLANS.find(x => x.id === id); if(p) openPlan(p.acct); }
+}
+async function renderStrategy(){
+  await ownersLoad();
+  const team = inTeam();
+  $('stWho').hidden = !team;
+  $('stTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === stTab));
+  $('stWho').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === stWho));
+  const items = stItems(stTab), w = STWORD[stTab];
+  $('stHint').textContent = items.length ? items.length + ' ' + (items.length === 1 ? w[0] : w[1]) : '';
+  $('stRes').innerHTML = items.length ? items.map(x => stRow(stTab, x)).join('')
+    : '<p class="empty">' + STEMPTY[stTab] + (stTab !== 'laps' ? ' Start one from an account.' : ' Tick Large account on an account plan.') + '</p>';
+  stWire($('stRes'), stTab);
+}
+$('stTabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { stTab = b.dataset.v; renderStrategy().catch(reportErr); }));
+$('stWho').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { stWho = b.dataset.v; renderStrategy().catch(reportErr); }));
+$('stSearch').innerHTML = icon('search');
+$('stSearch').addEventListener('click', () => openSearch({
+  placeholder: 'Opportunity, account or plan',
+  render(q, el, hint){
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if(!terms.length){ el.innerHTML = ''; hint.textContent = ''; return; }
+    const hay = (tab, x) => (tab === 'opps' ? [x.name, x.acct, x.obj, x.comp].concat((x.people || []).map(p => p.n))
+      : tab === 'laps' ? [x.name, x.vision, x.business].concat(x.sites || []) : [x.acct, x.goal].concat((x.people || []).map(p => p.n)))
+      .filter(Boolean).join(' ').toLowerCase();
+    // every tab, all of the team's: a search is for finding, wherever it is
+    const keep = stWho; stWho = 'team';
+    const hits = ['opps', 'laps', 'plans'].map(tab => [tab, (inTeam() ? stItems(tab).concat(stWhoMine(tab)) : stItems(tab)).filter(x => terms.every(t => hay(tab, x).includes(t)))]);
+    stWho = keep;
+    const n = hits.reduce((a, [, xs]) => a + xs.length, 0);
+    hint.textContent = n ? n + ' found' : 'Nothing matches that.';
+    el.innerHTML = hits.filter(([, xs]) => xs.length).map(([tab, xs]) => '<p class="hint">' + {opps: 'Opportunities', laps: 'Large accounts', plans: 'Account plans'}[tab] + '</p>' +
+      '<div data-sttab="' + tab + '">' + xs.map(x => stRow(tab, x)).join('') + '</div>').join('');
+    el.querySelectorAll('[data-sttab]').forEach(box => stWire(box, box.dataset.sttab, closeSearch));
+  }
+}));
+// in a team, the Team list is everyone else's: the search adds your own back
+function stWhoMine(tab){ const keep = stWho; stWho = 'mine'; const r = stItems(tab); stWho = keep; return r; }
+
 function lapCloudIn(){
   if(screen !== 'lap' || !LAP) return;
   const fresh = PLANS.find(x => x.id === LAP.id);

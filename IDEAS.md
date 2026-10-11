@@ -745,6 +745,10 @@ for now. Reviewed a clickable mock first.*
   before the calls, as the coach reads it (with its coaching, without the
   suggestions); condensed to one short block; customer and OEM names by
   title when names are hidden. Opportunities ignore the period.
+- **Built (v120): the Strategy tile on Home.** Opportunities (nearest close
+  first), large accounts and account plans in three tabs; Mine and Team in a
+  team; a search across all three; each opens where it lives and back
+  returns to Strategy.
 - **Later:** the coach reading the large account plan; the group column's
   real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
