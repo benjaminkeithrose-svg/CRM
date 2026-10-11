@@ -968,7 +968,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v108';
+const APP_BUILD = 'v109';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10677,23 +10677,27 @@ $('dPrep').addEventListener('click', () => {
 document.querySelectorAll('[data-ai]').forEach(b =>
   b.addEventListener('click', () => aiTidy(b.dataset.ai, b.dataset.field).catch(reportErr)));
 
-/* ---------- the microphone (v108) ----------
+/* ---------- the microphone (v108, v109) ----------
    A microphone beside Tidy on every free-text box of a call, and on a task's
-   notes and an email task's body. Tap it and talk: the phone's own speech
-   recognition writes the words into the box as you speak (on Android that is
-   Google's, so it needs signal and nothing is recorded or kept). When you stop
-   - tap again, or just stop talking - Claude's version opens straight away:
-   Tidy for a note, Draft it for an email's points. Spoken instructions such as
-   "make that a bullet list" are followed there (the ai-tidy prompts, v108).
-   The Anthropic API takes no audio, which is why the words come from the phone.
-   Where the browser has no speech recognition, no microphone is shown. */
+   notes and an email task's body. The phone's own speech recognition writes
+   the words into the box as you speak (on Android that is Google's, so it
+   needs signal and nothing is recorded or kept). When you finish, Claude's
+   version opens straight away: Tidy for a note, Draft it for an email's
+   points. Spoken instructions such as "make that a bullet list" are followed
+   there (the ai-tidy prompts, v108). The Anthropic API takes no audio, which
+   is why the words come from the phone.
+   v109, Ben: the recogniser ends itself after a few seconds of silence, and
+   v108 took that as finished - a pause to think sent half a note. Now a pause
+   never finishes it: the recogniser is quietly started again and the words
+   carry on in the same box. Tap to start and tap Finish to stop, or hold the
+   button while talking and let go. With nothing heard for two minutes it
+   finishes by itself. Where the browser has no speech recognition, no
+   microphone is shown. */
 const SPEECH = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-var micRec = null, micDone = null;     // var: showScreen can call micAbort before this line has run
-function micAbort(){
-  if(!micRec) return;
-  micDone = null;                         // nothing goes to Claude
-  try { micRec.abort(); } catch(_){}
-}
+const MIC_IDLE_MS = 120000;    // nothing heard for this long: finish
+const MIC_HOLD_MS = 450;       // pressed longer than this: hold to talk, let go to finish
+// var: showScreen can call micAbort before this line has run
+var micSession = null;
 const MIC_ERR = {
   'not-allowed': 'The microphone is not allowed for this app. Allow it in the phone\'s settings, or use the keyboard microphone',
   'service-not-allowed': 'Speech recognition is turned off on this phone. Use the keyboard microphone instead',
@@ -10707,51 +10711,115 @@ function micJoin(acc, t){
   if(acc && t.toLowerCase().startsWith(acc.toLowerCase())) return t;
   return acc ? acc + ' ' + t : t;
 }
-function micStart(btn){
-  if(micRec){ try { micRec.stop(); } catch(_){} return; }   // a second tap: stop listening, then on to Claude
-  const id = btn.dataset.mic, box = $(id);
-  if(!box) return;
-  const base = box.value.replace(/\s+$/, '');
-  const sep = base ? (box.tagName === 'INPUT' ? ' ' : '\n') : '';
-  let finals = '', failed = '', heard = false;
+function micLabel(btn, on){
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.setAttribute('aria-label', on ? 'Finish talking' : 'Talk into this box');
+  btn.innerHTML = icon('mic') + (on ? '<span>Finish</span>' : '');
+}
+function micAbort(){
+  const s = micSession;
+  if(!s) return;
+  s.after = null;                         // nothing goes to Claude
+  s.ending = true;
+  try { s.rec.abort(); } catch(_){}
+}
+function micFinish(){
+  const s = micSession;
+  if(!s || s.ending) return;
+  s.ending = true;
+  try { s.rec.stop(); } catch(_){ micEnd(s); }
+}
+// one run of the recogniser; a session is as many runs as the pauses need
+function micRun(s){
   const rec = new SPEECH();
   rec.lang = 'en-AU'; rec.interimResults = true; rec.continuous = true;
+  let finals = '';
+  const began = Date.now();
   rec.onresult = ev => {
     let interim = '';
     for(let i = ev.resultIndex; i < ev.results.length; i++){
       const r = ev.results[i];
       if(r.isFinal) finals = micJoin(finals, r[0].transcript); else interim += r[0].transcript;
     }
-    const said = micJoin(finals, interim);
-    if(said){ heard = true; box.value = base + sep + said; }
+    s.run = micJoin(finals, interim);
+    if(s.run){ s.heard = true; s.lastHeard = Date.now(); s.box.value = s.base + s.sep + micJoin(s.kept, s.run); }
   };
-  rec.onerror = ev => { failed = ev.error || 'failed'; };
+  rec.onerror = ev => { if(MIC_ERR[ev.error]) s.failed = ev.error; };
   rec.onend = () => {
-    const done = micDone;
-    micRec = null; micDone = null;
-    document.querySelectorAll('.micbtn.on').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
-    if(heard) aiSet(box, box.value);      // saved like typing
-    if(!done) return;                     // abandoned: the screen moved on
-    if(failed && MIC_ERR[failed]){ toast(MIC_ERR[failed]); return; }
-    if(!heard){ toast('Nothing was heard. Tap the microphone and try again'); return; }
-    const why = aiBlocked();
-    if(why){ toast('Your words are in the box. ' + why); return; }
-    done();
+    if(s !== micSession) return;
+    s.kept = micJoin(s.kept, s.run); s.run = '';
+    if(s.ending || s.failed){ micEnd(s); return; }
+    // ended by itself on a pause: carry on, unless it has been quiet too long or will not stay up
+    if(Date.now() - s.lastHeard > MIC_IDLE_MS){ micEnd(s); return; }
+    s.quick = Date.now() - began < 400 ? s.quick + 1 : 0;
+    if(s.quick >= 5){ micEnd(s); return; }
+    micRun(s);
   };
-  micDone = btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr) : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr);
-  try { rec.start(); } catch(e){ micDone = null; toast('The microphone could not start: ' + e.message); return; }
-  micRec = rec;
-  btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
-  toast('Listening. Tap the microphone again when you have finished');
+  s.rec = rec;
+  try { rec.start(); } catch(e){ s.failed = 'start'; s.startErr = e.message; micEnd(s); }
+}
+function micEnd(s){
+  if(s !== micSession) return;
+  micSession = null;
+  micLabel(s.btn, false);
+  if(s.heard) aiSet(s.box, s.box.value);  // saved like typing
+  if(!s.after) return;                    // abandoned: the screen moved on
+  if(s.failed === 'start'){ toast('The microphone could not start: ' + s.startErr); return; }
+  if(s.failed){ toast(MIC_ERR[s.failed] + (s.heard ? '. Your words so far are in the box' : '')); return; }
+  if(!s.heard){ toast('Nothing was heard. Tap the microphone and try again'); return; }
+  const why = aiBlocked();
+  if(why){ toast('Your words are in the box. ' + why); return; }
+  s.after();
+}
+function micStart(btn){
+  const id = btn.dataset.mic, box = $(id);
+  if(!box || micSession) return;
+  const base = box.value.replace(/\s+$/, '');
+  micSession = {btn, box, base, sep: base ? (box.tagName === 'INPUT' ? ' ' : '\n') : '',
+    kept: '', run: '', heard: false, failed: '', ending: false, quick: 0, lastHeard: Date.now(),
+    after: btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr) : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr)};
+  micLabel(btn, true);
+  micRun(micSession);
+  if(micSession) toast('Listening. Pause whenever you like; tap Finish when you are done');
+}
+/* Tap: on, then Finish. Hold: talk while pressed, let go to finish. Pointer
+   events carry both; the click that follows a press is ignored (a touch tap's
+   click does not always say it came from a pointer), and a click with no press
+   before it (Enter on a keyboard) works as a tap. */
+function micWire(b){
+  let pressed = 0, startedHere = false, lastPress = 0;
+  b.addEventListener('contextmenu', e => e.preventDefault());   // a long press must not open the text menu
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { b.setPointerCapture(e.pointerId); } catch(_){}
+    pressed = lastPress = Date.now();
+    startedHere = !micSession;
+    if(startedHere) micStart(b);
+  });
+  const release = () => {
+    if(!pressed) return;
+    const held = Date.now() - pressed;
+    pressed = 0; lastPress = Date.now();
+    if(!micSession || micSession.btn !== b) return;
+    // a short tap that started it leaves it on; a hold, or a tap while it was on, finishes
+    if(!startedHere || held >= MIC_HOLD_MS) micFinish();
+  };
+  b.addEventListener('pointerup', release);
+  b.addEventListener('pointercancel', release);
+  b.addEventListener('click', () => {
+    if(Date.now() - lastPress < 1500) return;   // already handled by the pointer events
+    if(micSession && micSession.btn === b) micFinish(); else micStart(b);
+  });
 }
 function micButton(id, field, after){
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'bullet-btn aibtn micbtn';
   b.dataset.mic = id; b.dataset.field = field || 'note';
   if(after) b.dataset.after = after;
-  b.setAttribute('aria-label', 'Talk into this box'); b.setAttribute('aria-pressed', 'false'); b.title = 'Talk into this box';
-  b.innerHTML = icon('mic');
-  b.addEventListener('click', () => micStart(b));
+  b.title = 'Tap to talk and tap Finish, or hold while you talk';
+  micLabel(b, false);
+  micWire(b);
   return b;
 }
 if(SPEECH){

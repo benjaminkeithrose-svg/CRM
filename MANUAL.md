@@ -171,11 +171,13 @@ Every free-text box on a call has a microphone beside **Tidy**: the note, a proj
 
 1. Tap the microphone.
 2. The first time, allow the microphone when the phone asks.
-3. Talk. Your words appear in the box as you speak.
-4. Tap the microphone again when you've finished, or just stop talking.
+3. Talk. Your words appear in the box as you speak. Stop to think whenever you like; it keeps listening.
+4. Tap **Finish** when you've finished.
 5. Wait a few seconds. Claude's version shows above yours.
 6. Change anything you want in it.
 7. Tap **Use this** to put it in the box, or **Keep mine** to keep what you said as it is.
+
+Or hold the microphone while you talk, and let go when you've finished. If nothing is heard for two minutes, it finishes by itself.
 
 Say how you want it laid out as you go: "make that a bullet list", "scratch that", "delete the last sentence", "new paragraph". Claude does it and leaves those words out.
 
@@ -310,7 +312,7 @@ Open tasks go on today from 8am. Done ones go on the day you ticked them off. Sa
 2. Pick the account and contact further down. **To** fills with the contact's email.
 3. Type the **Subject**, or leave it to use the title.
 4. Type the **Body**, or tap the microphone on your keyboard and dictate it.
-5. To have it written for you, tap the microphone beside **Draft it** and say the points. When you stop, the email is drafted straight away. Or type the points and tap **Draft it**. Check the draft, then tap **Use this**.
+5. To have it written for you, tap the microphone beside **Draft it**, say the points, then tap **Finish**. The email is drafted straight away. Or type the points and tap **Draft it**. Check the draft, then tap **Use this**.
 6. Tap **Done**. The draft stays on the task.
 7. When you're ready to send, open the task and tap **Open in Outlook**. Check it and press Send in Outlook.
 8. Tick the task when it's sent.
