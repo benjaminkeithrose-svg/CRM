@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v113">
+<meta name="build" content="v114">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1472,6 +1472,43 @@ details.bsx > .msg{margin:8px 12px}
   </div>
 
 
+  <!-- v114: the calls packed as text for a Claude Project, for analysis across accounts -->
+  <details class="sx" id="sxClaude">
+    <summary><b>Export for Claude</b><span class="sxs">Call reports, for deeper analysis</span></summary>
+  <div class="fld">
+    <button class="big" id="cxGo" type="button">Create the export</button>
+    <p class="msg" id="cxMsg"></p>
+    <div class="gap"></div>
+    <label for="cxPeriod">Period</label>
+    <select id="cxPeriod">
+      <option value="3">Last 3 months</option>
+      <option value="6">Last 6 months</option>
+      <option value="12" selected>Last 12 months</option>
+      <option value="all">Everything</option>
+    </select>
+    <div id="cxWhoWrap" hidden>
+      <div class="gap"></div>
+      <label>Whose calls</label>
+      <div class="seg" id="cxWho">
+        <button type="button" data-v="team" class="on">Whole team</button>
+        <button type="button" data-v="mine">Mine</button>
+      </div>
+    </div>
+    <div class="gap"></div>
+    <label for="cxNarrow">Accounts</label>
+    <select id="cxNarrow"><option value="">Every account</option></select>
+    <div class="gap"></div>
+    <label>Detail</label>
+    <div class="seg" id="cxDetail">
+      <button type="button" data-v="full" class="on">Full</button>
+      <button type="button" data-v="condensed">Condensed</button>
+    </div>
+    <div class="gap"></div>
+    <label class="chk"><input type="checkbox" id="cxHide"> Hide contact names (use their roles)</label>
+    <p class="hint">Text files to add to a Claude Project, grouped by account, with a read-me that tells Claude what everything means and where to start. Photos are never included. Condensed keeps each call to its summary, for a quicker read. Free-text notes can still mention people by name. The files hold customer details: send them only where the company allows.</p>
+  </div>
+  </details>
+
   <details class="sx" id="sxBk">
     <summary><b>Backup and restore</b><span class="sxs" id="sumBk"></span></summary>
   <div class="fld">
@@ -2093,6 +2130,25 @@ details.bsx > .msg{margin:8px 12px}
         <li>Check how many calls and photos it names, then tap <b>OK</b>.</li>
       </ol>
       <p>Only test calls go, here and on your other devices. Real calls are never touched.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Analyse the calls with Claude</b><span class="sxs">Export for Claude, in Settings</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Export for Claude</b>.</li>
+        <li>Pick the <b>Period</b>, usually the last 12 months.</li>
+        <li>In a team, pick <b>Whole team</b> or <b>Mine</b>.</li>
+        <li>Pick the <b>Accounts</b>: every account, or one manager, focus level or zone.</li>
+        <li>Pick <b>Full</b>, or <b>Condensed</b> for a shorter read.</li>
+        <li>Tick <b>Hide contact names</b> if people's names should not go.</li>
+        <li>Tap <b>Create the export</b>.</li>
+        <li>Send the files to OneDrive or to yourself. On the PC they go to Downloads.</li>
+        <li>On claude.ai, make a Project and add every file to it.</li>
+        <li>Start a chat in the Project and ask a question. The read-me file suggests where to start.</li>
+      </ol>
+      <p>The files are text: each account's details and plan, then its calls, oldest first. Photos and test calls are never included. A big export comes in several parts; add them all.</p>
+      <p>The files hold customer details. Send them only where the company allows.</p>
     </div>
   </details>
   <details class="sx hx">

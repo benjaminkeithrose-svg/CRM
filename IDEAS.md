@@ -671,6 +671,28 @@ and "links, plus save the installation manual offline".*
 - Manuals are still per device (not in cloud sync); downloading on each
   device is now one tap.
 
+## In progress: Deeper analysis with Claude, and the actions back (v114 on)
+*Added 2026-10-11. Ben: "export the sales data back to Claude... a year's
+worth... generate key account actions". He chose: export then import, the
+whole team by default, and an option to hide contact names.*
+
+- **Built (v114): Export for Claude.** Settings → Export for Claude packs the
+  calls as text files for a Claude Project: a read-me (what the data is, the
+  fields, where to start), then the accounts grouped by zone, each with its
+  CRM details, visit record, plan, not-stocked products and quote requests,
+  then its calls oldest first (`callDigest`, plus the coaching). Choices:
+  period, whole team or mine, accounts (manager, focus, zone), full or
+  condensed, hide contact names. About 100,000 tokens per file, never
+  splitting an account. Test calls and photos never go; the per-contact
+  document tick is respected.
+- **Next: Import actions.** The read-me will give Claude an exact format for
+  "write these as Field CRM actions" (tasks with dates, account plan
+  changes, next-visit agendas). Pasting the reply into the app shows each
+  item ticked for review before anything is made, as the coach's Plan changes
+  already do for one account.
+- The company still has to say whether customer data may go to claude.ai,
+  and which account (a company Claude account or a personal one).
+
 ---
 
 <!-- Add new ideas above this line. -->

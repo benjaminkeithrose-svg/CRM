@@ -971,7 +971,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v113';
+const APP_BUILD = 'v114';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10514,18 +10514,19 @@ $('vSummary').addEventListener('input', () => {
   renderVisitSummary();
 });
 // the call as plain text, for the AI to sum up: what was logged, nothing more
-function callDigest(c){
+// hide (v114, Export for Claude): people's names give way to their roles
+function callDigest(c, hide){
   const L = [];
   const v = x => (x == null ? '' : String(x)).trim();
   const line = (k, x) => { x = v(x); if(x) L.push(k + ': ' + x); };
   line('Customer', c.customer); line('Site', c.site); line('Date', c.date); line('Call type', c.type);
-  const ppl = (c.contacts || []).filter(docContact).map(x => [x.name, x.role].map(v).filter(Boolean).join(', ')).filter(Boolean);
+  const ppl = (c.contacts || []).filter(docContact).map(x => hide ? v(x.role) || 'a contact' : [x.name, x.role].map(v).filter(Boolean).join(', ')).filter(Boolean);
   if(ppl.length) line('People seen', ppl.join('; '));
   let nb = 0, nh = 0;
   for(const e of c.entries || []){
     if(e.type === 'note') line('Note' + (v(e.topic) ? ' (' + v(e.topic) + ')' : ''), e.text);
     else if(e.type === 'project') line('Project ' + v(e.project), ['status ' + v(e.status), v(e.next) && 'next action ' + v(e.next),
-      v(e.target) && 'target ' + v(e.target), v(e.owner) && 'owner ' + v(e.owner), v(e.notes) && 'notes ' + v(e.notes)].filter(x => v(x) && x !== 'status ').join('; '));
+      v(e.target) && 'target ' + v(e.target), !hide && v(e.owner) && 'owner ' + v(e.owner), v(e.notes) && 'notes ' + v(e.notes)].filter(x => v(x) && x !== 'status ').join('; '));
     else if(e.type === 'belt') line('Belt ' + (++nb) + (v(e.asset) ? ' (' + v(e.asset) + ')' : ''), [...new Set([v(e.beltdesc), [v(e.series), v(e.style)].filter(Boolean).join(' ')]),
       [v(e.beltmat), v(e.colour)].filter(Boolean).join(' '), v(e.width) && v(e.width) + ' mm wide', v(e.beltlen) && v(e.beltlen) + ' m long',
       v(e.sprocket) && 'sprockets ' + v(e.sprocket), v(e.qty) && 'quantity ' + v(e.qty), v(e.comment) && 'comments ' + v(e.comment)].filter(Boolean).join('; '));
@@ -11938,6 +11939,223 @@ async function buildBackup(withPhotos){
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos)
   };
 }
+/* ================= Export for Claude (v114) =================
+   A year of call reports is more than the app's own AI should read, so this
+   packs them for Claude itself: plain text files to add to a Claude Project,
+   grouped by account with each account's calls in date order, plus a cover
+   file that says what everything means and suggests where to start. Photos
+   never go. The per-contact document tick is respected, and contact names
+   can be swapped for roles. Nothing is sent anywhere by the app: the files
+   go to the share sheet, or download on the PC. */
+const CX_BUDGET = 400000;          // characters per file, about 100,000 tokens
+const cxMonths = {'3': 3, '6': 6, '12': 12, 'all': 0};
+function cxOptions(){
+  const pick = id => { const b = $(id) && $(id).querySelector('button.on'); return b ? b.dataset.v : ''; };
+  return {months: cxMonths[$('cxPeriod').value] != null ? cxMonths[$('cxPeriod').value] : 12,
+    who: inTeam() ? (pick('cxWho') || 'team') : 'mine',
+    narrow: $('cxNarrow').value || '', detail: pick('cxDetail') || 'full', hide: $('cxHide').checked};
+}
+function renderCxNarrow(){
+  const el = $('cxNarrow');
+  if(!el) return;
+  const was = el.value;
+  const mgrs = [...new Set(ACCOUNTS.map(effMgr).filter(Boolean))].sort();
+  const zones = [...new Set(ACCOUNTS.map(a => a.z).filter(Boolean))].sort();
+  el.innerHTML = '<option value="">Every account</option>' +
+    (mgrs.length ? '<optgroup label="Account manager">' + mgrs.map(m => '<option value="m:' + esc(m) + '">' + esc(m) + '</option>').join('') + '</optgroup>' : '') +
+    '<optgroup label="Focus">' + ['High', 'Medium', 'Low'].map(f => '<option value="f:' + f + '">Focus ' + f + '</option>').join('') + '</optgroup>' +
+    (zones.length ? '<optgroup label="Zone">' + zones.map(z => '<option value="z:' + esc(z) + '">' + esc(zoneName(z)) + '</option>').join('') + '</optgroup>' : '');
+  if([...el.options].some(o => o.value === was)) el.value = was;
+  $('cxWhoWrap').hidden = !inTeam();
+}
+function cxInScope(name, narrow){
+  if(!narrow) return true;
+  const a = ACC_BY_NAME.get(name);
+  if(!a) return false;
+  const k = narrow.slice(0, 2), v = narrow.slice(2);
+  return k === 'm:' ? effMgr(a) === v : k === 'f:' ? a.foc === v : k === 'z:' ? a.z === v : true;
+}
+const cxN = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const cxDay = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const cxCut = (t, n) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+function cxCallBlock(c, o){
+  const who = isMine('calls', c.id) ? (o.me || 'me') : teamName(OWNERS['calls/' + c.id]);
+  const head = '### ' + c.date + ' · ' + (c.type || 'Call') + (o.who === 'team' ? ' · ' + who : '') + ' · ' +
+    (c.closed ? (c.noReport ? 'done, nothing to report' : 'done') : 'open');
+  const L = [head];
+  if((c.summary || '').trim()) L.push('Summary: ' + c.summary.trim());
+  const d = callDigest(c, o.hide).split('\n').filter(l => l && !/^(Customer|Date|Call type):/.test(l));
+  if(o.detail === 'condensed'){
+    // the summary carries the call; without one, the key lines, shortened
+    if(!(c.summary || '').trim()) d.forEach(l => L.push(cxCut(l, 220)));
+    else d.filter(l => /^(Project|Health check)/.test(l)).forEach(l => L.push(cxCut(l, 160)));
+  } else {
+    d.forEach(l => L.push(l));
+    if(c.coaching && c.coaching.text) L.push('Coaching after the call: ' + coachMain(c.coaching.text).trim().replace(/\n+/g, ' / '));
+  }
+  return L.join('\n');
+}
+function cxQuoteLine(q){
+  const belts = (q.entries || []).filter(e => e.type === 'belt');
+  return q.date + ' · ' + belts.length + (belts.length === 1 ? ' belt' : ' belts') + (q.closed ? ' · done' : ' · open') +
+    (belts.length ? ' · ' + belts.map(e => [e.beltdesc || [e.series, e.style].filter(Boolean).join(' '), e.qty && 'qty ' + e.qty].filter(Boolean).join(' ')).filter(Boolean).join('; ') : '');
+}
+function cxAccountHead(name, o, st){
+  const a = ACC_BY_NAME.get(name);
+  const L = ['## ' + name];
+  if(a) L.push([a.foc && 'Focus ' + a.foc + (a.cad ? ' (' + a.cad + ')' : ''), a.tier && 'Tier ' + a.tier, effMgr(a) && 'Manager ' + effMgr(a),
+    a.z && 'Zone ' + zoneName(a.z), a.sub && 'Suburb ' + a.sub, [a.seg, a.team].filter(Boolean).join(', ')].filter(Boolean).join(' · '));
+  else L.push('Not in the CRM export (typed in by hand)');
+  const v = st.visits;
+  L.push('In this period: ' + st.calls + (st.calls === 1 ? ' call' : ' calls') +
+    (v.done || v.missed || v.cancelled ? ', visits ' + [v.done && v.done + ' done', v.missed && v.missed + ' missed', v.cancelled && v.cancelled + ' cancelled'].filter(Boolean).join(', ') : '') +
+    (st.next ? '; next visit booked ' + st.next : '; no visit booked'));
+  const p = planFor(name);
+  if(p){
+    const P = [];
+    if((p.goal || '').trim()) P.push('goal: ' + p.goal.trim());
+    (p.people || []).filter(x => x.n).forEach(x => P.push('person: ' + (o.hide ? (x.role || 'a contact') + (x.mode ? ', sees it as ' + x.mode : '') + (x.note ? ', ' + x.note : '') : x.n + (plPersonLine(x) ? ' (' + plPersonLine(x) + ')' : ''))));
+    const lines = t => String(t || '').split('\n').map(z => z.trim()).filter(Boolean).join('; ');
+    if(lines(p.flags)) P.push('red flags: ' + lines(p.flags));
+    if(lines(p.strengths)) P.push('strengths: ' + lines(p.strengths));
+    if(P.length) L.push('Account plan: ' + P.join(' | '));
+  }
+  const prods = PRODS.filter(x => x.acct === name && !x.stocked).map(x => [x.name, x.status].filter(Boolean).join(' - ')).filter(Boolean);
+  if(prods.length) L.push('Products not yet stocked: ' + prods.join('; '));
+  if(st.quotes.length) L.push('Quote requests: ' + st.quotes.map(cxQuoteLine).join(' | '));
+  return L.join('\n');
+}
+async function buildClaudeExport(o){
+  await ownersLoad();
+  const now = Date.now();
+  const from = o.months ? new Date(new Date().setMonth(new Date().getMonth() - o.months)).getTime() : 0;
+  o.me = (TEAM && TEAM.members && (TEAM.members.find(m => sbUser && m.user_id === sbUser.id) || {}).name) || 'me';
+  const recs = (await recordsAll()).filter(c => (o.who === 'team' || isMine('calls', c.id)) && callWhen(c) >= from && !c.test && cxInScope(c.customer, o.narrow));
+  const calls = recs.filter(c => !isQuote(c)), quotes = recs.filter(isQuote);
+  const appts = (o.who === 'team' ? APPTS.concat(TEAM_APPTS) : APPTS).filter(a => a.acct && cxInScope(a.acct, o.narrow));
+  const today = todayISOdate(), fromDay = cxDay(from || 0);
+  const byAcct = new Map();
+  const acct = name => { if(!byAcct.has(name)) byAcct.set(name, {calls: [], quotes: [], visits: {done: 0, missed: 0, cancelled: 0}, next: ''}); return byAcct.get(name); };
+  calls.forEach(c => acct(c.customer || 'Unnamed').calls.push(c));
+  quotes.forEach(q => acct(q.customer || 'Unnamed').quotes.push(q));
+  appts.forEach(a => {
+    if(!byAcct.has(a.acct)) return;            // visits are context for accounts with calls, not a list of their own
+    const st = byAcct.get(a.acct), s = apStatus(a);
+    if(a.date >= fromDay && a.date <= today && st.visits[s] != null) st.visits[s]++;
+    if(a.date >= today && !apSettled(a) && (!st.next || a.date < st.next)) st.next = a.date;
+  });
+  // by zone, then name, so a split falls between regions
+  const names = [...byAcct.keys()].sort((x, y) => {
+    const ax = ACC_BY_NAME.get(x), ay = ACC_BY_NAME.get(y);
+    return String(ax ? ax.z : '~').localeCompare(String(ay ? ay.z : '~')) || x.localeCompare(y);
+  });
+  const blocks = names.map(name => {
+    const st = byAcct.get(name);
+    st.calls.sort((x, y) => callWhen(x) - callWhen(y));
+    return cxAccountHead(name, o, {calls: st.calls.length, visits: st.visits, next: st.next, quotes: st.quotes}) + '\n\n' +
+      st.calls.map(c => cxCallBlock(c, o)).join('\n\n');
+  });
+  // accounts in scope with no call in the period: the ones going quiet
+  // your own: the accounts of the manager set on this device, as the planner uses
+  const myMgr = localStorage.getItem(LS('mgr')) || '';
+  const quiet = ACCOUNTS.filter(a => !byAcct.has(a.a) && cxInScope(a.a, o.narrow) && (o.who === 'team' || !myMgr || effMgr(a) === myMgr))
+    .sort((x, y) => (FOCUS_RANK[x.foc] ?? 9) - (FOCUS_RANK[y.foc] ?? 9) || x.a.localeCompare(y.a))
+    .map(a => { const lv = callsFor(a.a).map(callWhen).sort((p, q) => q - p)[0];
+      return '- ' + a.a + ' · ' + [a.foc && 'Focus ' + a.foc, effMgr(a), a.z && zoneName(a.z), lv ? 'last call ' + cxDay(lv) : 'no call on record'].filter(Boolean).join(' · '); });
+  const quietText = quiet.length ? '## Accounts with no call in this period\n' + quiet.join('\n') : '';
+  // pack into files of about CX_BUDGET characters, never splitting an account
+  const parts = [];
+  let cur = [];
+  const size = arr => arr.reduce((n, b) => n + b.length + 2, 0);
+  blocks.concat(quietText ? [quietText] : []).forEach(b => {
+    if(cur.length && size(cur) + b.length > CX_BUDGET){ parts.push(cur); cur = []; }
+    cur.push(b);
+  });
+  if(cur.length) parts.push(cur);
+  const stamp = cxDay(now);
+  const period = o.months ? 'the last ' + o.months + ' months (' + fromDay + ' to ' + stamp + ')' : 'everything on record, to ' + stamp;
+  const narrowLabel = o.narrow ? ($('cxNarrow').selectedOptions[0] || {}).textContent : 'every account';
+  const files = parts.map((p, i) => ({name: 'Field CRM ' + stamp + ' - part ' + (i + 1) + ' of ' + parts.length + '.txt',
+    text: '# Field CRM export, part ' + (i + 1) + ' of ' + parts.length + '\n\n' + p.join('\n\n') + '\n'}));
+  const cover = [
+    '# Field CRM export for Claude: read this first',
+    '',
+    'Made ' + stamp + '. Covers ' + period + ', ' + (o.who === 'team' ? 'the whole team' + (TEAM ? ' (' + TEAM.name + ')' : '') : 'one engineer\'s own calls') + ', ' + narrowLabel + '.',
+    cxN(names.length, 'account') + ' with activity, ' + cxN(calls.length, 'call') + ', ' + cxN(quotes.length, 'quote request') + (quiet.length ? '; ' + cxN(quiet.length, 'account') + ' in scope with no call' : '') + '. ' +
+      (files.length === 1 ? 'The data is in one file.' : 'The data is in ' + files.length + ' files; read them all.'),
+    '',
+    '## What this is',
+    'Call reports from Intralox field sales engineers in Australia and New Zealand. Intralox makes modular plastic conveyor belting, sprockets and conveyor equipment, mostly for food processing plants (meat, poultry, bakery, produce, dairy, beverage). The engineers visit plants to look at belts, run conveyor health checks, find projects, and keep the relationship going.',
+    '',
+    '## How the data is laid out',
+    '- One section (##) per account, grouped by zone. Each starts with the account\'s details from the CRM:',
+    '  - Focus: High, Medium, Low or No Focus. It sets how often the account should be visited (the cadence in brackets).',
+    '  - Tier, account manager, zone, suburb and segment where known.',
+    '  - The visit record for the period: visits done, missed and cancelled, and the next one booked.',
+    '  - The account plan, where the engineer keeps one: the goal, the buying influences (economic, user, technical or coach, and whether they see the situation as growth, trouble, even keel or overconfident), red flags and strengths.',
+    '  - Products not yet stocked by the customer, and quote requests.',
+    '- Then each call (###), oldest first: the date (DD/MM/YYYY), the call type, ' + (o.who === 'team' ? 'who wrote it, ' : '') + 'and whether it is done. Below it the summary, who was seen, and every entry:',
+    '  - Belt: an installed belt, by asset number where known, with series, style, material, colour, width, length, sprockets and comments.',
+    '  - Health check: a fault found on a conveyor, its severity and the recommended action.',
+    '  - Project: an opportunity, with status, next action and target date.',
+    '  - Note: anything else from the meeting.',
+    o.detail === 'condensed' ? '- This is the condensed export: each call is its summary, or its key lines shortened. Belt specifications are left out.' : '- Coaching after a call is the app\'s own AI coaching (SPIN Selling, Strategic Selling) on that call.',
+    '- A call marked "done, nothing to report" was a normal visit with nothing to write up.',
+    '- The last section lists accounts in scope with no call in the period, highest focus first.',
+    o.hide ? '- Contact names have been replaced with their roles. Free-text notes may still mention people by name.' : '',
+    '',
+    '## Good places to start',
+    '- Which High and Medium focus accounts are drifting: visited less than their cadence, or quiet altogether?',
+    '- Where do the same belt or conveyor problems keep coming back, and what would fix them for good?',
+    '- Which projects have stalled, and what would move each one?',
+    '- Which accounts look like the best growth opportunities in the next 12 months, and why?',
+    '- Where could a strategic partnership (an OEM, an integrator, a group of plants under one owner) open more doors?',
+    '- For the 10 accounts that matter most, draft key account actions: what to do, who to see, by when.',
+    '- What do the coaching notes say about how the visits themselves could be better?',
+    '',
+    'Answer from this data. Say when something is a guess, and which account and call each point comes from.'
+  ].join('\n').replace(/\n{3,}/g, '\n\n');
+  files.unshift({name: 'Field CRM ' + stamp + ' - read me first.txt', text: cover + '\n'});
+  return {files, accounts: names.length, calls: calls.length, quotes: quotes.length, chars: files.reduce((n, f) => n + f.text.length, 0)};
+}
+async function shareExport(files){
+  const list = files.map(f => new File([f.text], f.name, {type: 'text/plain'}));
+  if(navigator.canShare && navigator.canShare({files: list})){
+    try { await navigator.share({files: list, title: 'Field CRM export'}); return 'shared'; }
+    catch(e){ if(e.name === 'AbortError') return 'cancelled'; console.error(e); }
+  }
+  for(const f of files){
+    const url = URL.createObjectURL(new Blob([f.text], {type: 'text/plain'}));
+    const a = document.createElement('a'); a.href = url; a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  return 'downloaded';
+}
+let cxBusy = false;
+async function runClaudeExport(){
+  if(cxBusy) return;
+  cxBusy = true;
+  const btn = $('cxGo');
+  btn.disabled = true;
+  showMsg($('cxMsg'), 'info', 'Gathering the calls' + String.fromCharCode(8230));
+  try {
+    const r = await buildClaudeExport(cxOptions());
+    if(!r.calls && !r.quotes){ showMsg($('cxMsg'), 'warn', 'No calls in that period and those accounts. Try a longer period or every account.'); return; }
+    const how = await shareExport(r.files);
+    if(how === 'cancelled'){ showMsg($('cxMsg'), '', ''); return; }
+    const words = Math.round(r.chars / 6 / 1000) * 1000;
+    showMsg($('cxMsg'), 'ok', esc(cxN(r.calls, 'call') + ' from ' + cxN(r.accounts, 'account') + ', about ' + (words ? words.toLocaleString() : 'under 1,000') + ' words, in ' + r.files.length + ' files. ' +
+      (how === 'shared' ? 'Add them all to a Claude Project.' : 'They are in Downloads. Add them all to a Claude Project.')));
+  } catch(e){ showMsg($('cxMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e))); }
+  finally { cxBusy = false; btn.disabled = false; }
+}
+$('cxGo').addEventListener('click', () => runClaudeExport().catch(reportErr));
+['cxWho', 'cxDetail'].forEach(id => $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  $(id).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+})));
+$('sxClaude').addEventListener('toggle', () => { if($('sxClaude').open) renderCxNarrow(); });
+
 function backupName(withPhotos){
   const d = new Date(), p = n => String(n).padStart(2,'0');
   return 'field_crm_backup'+(withPhotos?'_with_photos':'')+'_'+

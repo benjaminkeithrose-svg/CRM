@@ -531,6 +531,23 @@ To clear them all away:
 
 Only test calls go, here and on your other devices. Real calls are never touched.
 
+### Analyse the calls with Claude
+
+1. Tap **⋯** on Home, then **Settings**, then **Export for Claude**.
+2. Pick the **Period**, usually the last 12 months.
+3. In a team, pick **Whole team** or **Mine**.
+4. Pick the **Accounts**: every account, or one manager, focus level or zone.
+5. Pick **Full**, or **Condensed** for a shorter read.
+6. Tick **Hide contact names** if people's names should not go.
+7. Tap **Create the export**.
+8. Send the files to OneDrive or to yourself. On the PC they go to Downloads.
+9. On claude.ai, make a Project and add every file to it.
+10. Start a chat in the Project and ask a question. The read-me file suggests where to start.
+
+The files are text: each account's details and plan, then its calls, oldest first. Photos and test calls are never included. A big export comes in several parts; add them all.
+
+The files hold customer details. Send them only where the company allows.
+
 ### Back up, or restore a backup
 
 1. Tap **⋯** on Home, then **Settings**, then **Backup and restore**.
