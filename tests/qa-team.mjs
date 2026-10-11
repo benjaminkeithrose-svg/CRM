@@ -1,4 +1,4 @@
-// v111: a team. Ben (the admin) and a colleague share one team's data; an
+// v111: a team. v112: what each person sees of it. Ben (the admin) and a colleague share one team's data; an
 // outsider in no team sees nothing of it. The stand-in server below plays the
 // access rules of migration 0004 (who may read and write which rows, photos
 // in the author's folder, the admin's vault readable by members, a teammate's
@@ -161,6 +161,8 @@ async function boot() {
   w.Response = Response; w.Headers = Headers; w.Request = Request;
   w.CompressionStream = CompressionStream; w.DecompressionStream = DecompressionStream;
   w.Blob = Blob;
+  // jsdom's FileReader takes only its own Blobs; the photos here are Node's
+  w.FileReader = class { readAsDataURL(b) { b.arrayBuffer().then(buf => { this.result = 'data:' + (b.type || '') + ';base64,' + Buffer.from(buf).toString('base64'); if (this.onload) this.onload(); }, e => { this.error = e; if (this.onerror) this.onerror(); }); } };
   w.fetch = fakeFetch(w);
 
   for (const f of ['zones.js', 'manuals.js', 'healthlib.js', LIB, 'app.js']) {
@@ -276,6 +278,86 @@ await sync(jo);
 ok(RECORDS[U.ben.id + '|calls|cBen1'] && !RECORDS[U.ben.id + '|calls|cBen1'].deleted, 'Jo cannot delete Ben\'s call');
 ok(await jo.g(`recGet('calls', 'cBen1')`), 'and it comes back on her device');
 
+// ================= v112: what each of them sees =================
+// an open call of Ben's, and a test call of Ben's, reach Jo
+await ben.g(`(async () => {
+  await callsPut({id: 'cBen2', customer: 'Acme Foods', date: '11/10/2026', type: 'Site call', contacts: [], loose: [], entries: [], closed: false, status: 'open', updated: 4000});
+  await callsPut({id: 'cBenT', customer: 'Acme Foods', date: '11/10/2026', type: 'Site call', contacts: [], loose: [], entries: [], closed: true, status: 'done', test: true, updated: 4000});
+})()`);
+await sync(ben); await sync(jo);
+ok(jo.g(`isMine('calls', 'cJo1')`) && !jo.g(`isMine('calls', 'cBen2')`) && jo.g(`callAuthor({id: 'cBen2'})`) === 'Ben', 'Jo\'s device tells hers from Ben\'s');
+
+// Reports: Mine and Team
+jo.g(`go('reports')`); await tick(200);
+ok(!jo.$('rpWho').hidden, 'in a team, Reports has Mine and Team');
+const rows = x => [...x.$('rpRes').querySelectorAll('[data-rpt]')].map(b => b.dataset.rpt).sort().join(',');
+ok(rows(jo) === 'cJo1', 'Mine shows only Jo\'s own: ' + rows(jo));
+jo.$('rpWho').querySelector('[data-v="team"]').click(); await tick(200);
+ok(rows(jo) === 'cBen1,cBen2,cBenT', 'Team shows Ben\'s: ' + rows(jo));
+ok([...jo.$('rpRes').querySelectorAll('.rm')].every(el => /^Ben \u00b7/.test(el.textContent)), 'each with his name on it');
+ok(/3 calls/.test(jo.$('rpHint').textContent), 'and the count is of what is shown: ' + jo.$('rpHint').textContent);
+
+// a teammate's report opens to read; Edit opens it in the call menu
+jo.$('rpRes').querySelector('[data-rpt="cBen1"]').click(); await tick(400);
+ok(jo.$('rvdlg').hasAttribute('open') && jo.g('screen') === 'reports', 'Ben\'s call opens to read, not to edit');
+ok(/Written by Ben/.test(jo.$('rvSub').textContent) && jo.$('rvHead').textContent === 'Acme Foods', 'saying who wrote it: ' + jo.$('rvSub').textContent);
+ok(/Line 2 belt stretched/.test(jo.$('rvFrame').getAttribute('srcdoc') || '') && /Jo added this/.test(jo.$('rvFrame').getAttribute('srcdoc') || ''), 'the report itself is shown');
+ok(jo.$('rvFrame').getAttribute('sandbox') === '', 'in a sandbox: nothing in it can run');
+ok(jo.g(`history.state && history.state.dialog`) === 'rvdlg', 'and back closes it');
+jo.$('rvEdit').click(); await tick(300);
+ok(!jo.$('rvdlg').hasAttribute('open') && jo.g('screen') === 'dash' && jo.g('call && call.id') === 'cBen1', 'Edit opens it in the call menu');
+ok(jo.g(`history.state && history.state.screen`) === 'dash' && !jo.g(`history.state.dialog`), 'taking over the reader\'s history entry');
+jo.g(`call = null, go('reports')`); await tick(200);
+jo.$('rpWho').querySelector('[data-v="mine"]').click(); await tick(200);
+jo.$('rpRes').querySelector('[data-rpt="cJo1"]').click(); await tick(300);
+ok(jo.g('screen') === 'dash' && jo.g('call.id') === 'cJo1' && !jo.$('rvdlg').hasAttribute('open'), 'her own call opens to edit, as always');
+jo.g(`call = null, go('reports')`); await tick(200);
+
+// the ⋯ menu: Delete only where the cloud would allow it
+jo.g(`rpWho = 'team'`); await jo.g('renderReports()');
+jo.$('rpRes').querySelector('[data-rpmenu="cBen1"]').click(); await tick(100);
+const menu = x => [...x.$('vmBody').querySelectorAll('[data-cm]')].map(b => b.textContent.trim());
+ok(!menu(jo).includes('Delete') && /Ben/.test(jo.$('vmWhen').textContent), 'Jo cannot delete Ben\'s call from its menu: ' + menu(jo));
+jo.g(`closeVisitMenu()`);
+ben.g(`go('reports')`); await tick(200);
+ben.$('rpWho').querySelector('[data-v="team"]').click(); await tick(200);
+ok(rows(ben) === 'cJo1', 'Ben\'s Team tab shows Jo\'s call');
+ben.$('rpRes').querySelector('[data-rpmenu="cJo1"]').click(); await tick(100);
+ok(menu(ben).includes('Delete'), 'the admin can delete it');
+ben.g(`closeVisitMenu()`);
+
+// an account's history: everyone's, with names
+await ben.g(`(async () => { viewAcct = ACC_BY_NAME.get('Acme Foods'); indexCalls(await callsAll()); renderAccount(); })()`); await tick(100);
+const hist = ben.$('avHistory').textContent;
+ok(/Jo/.test(hist) && ben.$('avHistory').querySelectorAll('[data-openc]').length === 4, 'Ben\'s account history has Jo\'s call, named');
+ben.$('avHistory').querySelector('[data-openc="cJo1"]').click(); await tick(400);
+ok(ben.$('rvdlg').hasAttribute('open') && /Jo rang Sam/.test(ben.$('rvFrame').getAttribute('srcdoc') || ''), 'and opens it to read');
+ben.$('rvClose').click(); await tick(200);
+ok(!ben.$('rvdlg').hasAttribute('open'), 'Close closes it');
+
+// Home, Resume and the calendar: your own
+await jo.g('renderHome()'); await tick(100);
+ok(jo.$('resumeInfo').textContent === 'None open' && /^1 call$/.test(jo.$('reportsInfo').textContent), 'Jo\'s Home counts only hers: ' + jo.$('reportsInfo').textContent);
+jo.g(`go('home')`); await tick(100);
+jo.d.querySelector('[data-go="resume"]').click(); await tick(300);
+ok(jo.g('screen') === 'home' && /Nothing open/.test(jo.$('toast').textContent), 'Resume does not offer Ben\'s open call');
+await jo.g('loadAccounts()');
+ok(!jo.g(`APPTS.some(a => a.id === 'apBen1')`) && await jo.g(`recGet('appts', 'apBen1')`), 'Ben\'s visit is on Jo\'s device but not on her calendar');
+await ben.g('loadAccounts()');
+ok(ben.g(`APPTS.some(a => a.id === 'apBen1')`), 'and is on his');
+await jo.g('deleteTestCalls()');
+ok(await jo.g(`recGet('calls', 'cBenT')`), 'Delete test calls leaves a colleague\'s alone');
+
+// the team's reference data: a member has nothing to import
+jo.g('paintRole()');
+ok(jo.$('importBtn').hidden && jo.$('refBtn').hidden && jo.$('assetBtn').hidden && jo.$('ovFile').closest('.fld').hidden && jo.$('pmReassign').hidden, 'Jo has no import buttons and no Reassign');
+const note = jo.d.querySelector('#sxData .memberonly');
+ok(!note.hidden && /Ben keeps the CRM export/.test(note.textContent), 'and is told who keeps the data: ' + note.textContent);
+jo.g(`openReassign({account: 'Acme Foods'})`); await tick(50);
+ok(!jo.$('rdlg').hasAttribute('open') && /Ben looks after manager changes/.test(jo.$('toast').textContent), 'reassigning a manager is the admin\'s too');
+ben.g('paintRole()');
+ok(!ben.$('importBtn').hidden && !ben.$('ovFile').closest('.fld').hidden && !ben.$('pmReassign').hidden && ben.d.querySelector('#sxData .memberonly').hidden, 'Ben keeps every import');
+
 // ================= Sam, in no team =================
 const sam = await boot();
 await signIn(sam, U.sam);
@@ -283,6 +365,8 @@ ok(!/Team:/.test(sam.stat()) && sam.g('TEAM') === null && sam.g('sbVault') === '
 await phrase(sam, 'sam own passphrase', 'sam own passphrase');
 await sync(sam);
 ok(!sam.g('window.__syncErr') && sam.g('ACCOUNTS.length') === 0 && !(await sam.g(`recGet('calls', 'cBen1')`)), 'and sees nothing of the team\'s');
+sam.g(`go('reports')`); await tick(200);
+ok(sam.$('rpWho').hidden && !sam.$('importBtn').hidden, 'on your own: no Mine and Team, every import');
 
 const real = [...ben.errs, ...jo.errs, ...sam.errs].filter(e => !/Not implemented|Could not parse CSS|zones\.js|team\b/i.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));
