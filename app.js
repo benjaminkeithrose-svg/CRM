@@ -974,7 +974,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v115';
+const APP_BUILD = 'v116';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10931,9 +10931,9 @@ $('oppdlg').addEventListener('close', () => { if(odEdit) odFinish().catch(consol
 $('odDel').addEventListener('click', async () => {
   const r = odEdit;
   if(!r) return;
-  const n = (r.people || []).length, l = (r.links || []).length, f = (r.flags || []).length + (r.strengths || []).length;
+  const n = (r.people || []).length, l = (r.links || []).length, f = (r.flags || []).length + (r.strengths || []).length, a = (r.actions || []).length;
   if(!confirm('Delete the opportunity ' + (r.name || 'Untitled') + ' at ' + r.acct + '?\n\nIts map of ' + n + (n === 1 ? ' person' : ' people') + ' and ' + l + (l === 1 ? ' link' : ' links') +
-      ', and ' + f + (f === 1 ? ' red flag or strength' : ' red flags and strengths') + ', are gone from this device' +
+      ', ' + f + (f === 1 ? ' red flag or strength' : ' red flags and strengths') + ' and ' + a + (a === 1 ? ' possible action' : ' possible actions') + ', and its Blue Sheet, are gone from this device' +
       (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return;
   odEdit = null;
   await oppsDel(r.id);
@@ -10949,10 +10949,11 @@ $('odDel').addEventListener('click', async () => {
 function openOpp(id){
   const o = OPPS.find(x => x.id === id);
   if(!o){ toast('That opportunity could not be found'); return; }
-  OPP = o; opSel = null; opLinkFrom = null; opConfirm = false;
+  OPP = o; opSel = null; opLinkFrom = null; opConfirm = false; opSheetOpen.clear();
+  opFitPending = true;
   go('opp');
-  setTimeout(opFit, 0);
 }
+let opFitPending = false;       // a map shown from the Blue Sheet fits itself once it has a size
 async function oppSaveNow(){
   if(!OPP) return;
   clearTimeout(opSaveTimer); opSaveTimer = null;
@@ -11378,17 +11379,267 @@ function renderOpp(){
   if(!OPP){ go('acct', true); return; }
   $('title').textContent = OPP.name || 'Opportunity';
   $('subtitle').textContent = OPP.acct;
-  $('opAdd').hidden = !opEditing();
+  const sheet = opMode === 'sheet';
+  $('opView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === opMode));
+  $('opAdd').hidden = sheet || !opEditing();
+  $('opShare').hidden = !sheet;
+  ['opOut', 'opFit', 'opIn'].forEach(id => { $(id).hidden = sheet; });
+  document.querySelector('#s-opp .oppmain').hidden = sheet;
+  $('opSheet').hidden = !sheet;
+  if(sheet){ opLinkFrom = null; $('opHint').hidden = true; drawOpp(); renderSheet(); return; }
   $('opHint').hidden = !opLinkFrom;
   drawOpp(); opPanel();
+  if(opFitPending){ opFitPending = false; setTimeout(opFit, 0); }
 }
+/* ---------- the Blue Sheet (v116) ----------
+   The same opportunity read down the page, as Strategic Selling's Blue Sheet:
+   the objective, where we stand, each buying influence with what they want and
+   who of ours covers them, the gaps, the red flags and strengths, and the
+   possible actions with the best one. Coverage is read from the map's
+   Our coverage links, so it is never kept twice. The sheet is a form, so it
+   is edited on the phone as well as the PC. Create and share makes it an A4
+   document with the map as a picture. */
+const OP_INFL = ['High', 'Medium', 'Low'];
+let opMode = (() => { try { return localStorage.getItem(LS('oppView')) === 'sheet' ? 'sheet' : 'map'; } catch(e){ return 'map'; } })();
+const opSheetOpen = new Set();          // which people are folded open on the sheet
+function opSetMode(m){
+  opMode = m === 'sheet' ? 'sheet' : 'map';
+  try { localStorage.setItem(LS('oppView'), opMode); } catch(e){}
+  renderOpp();
+}
+$('opView').querySelectorAll('button').forEach(b => b.addEventListener('click', () => opSetMode(b.dataset.v)));
+// who of ours covers this person, from the map's links
+function opCoverage(p){
+  return (OPP.links || []).filter(l => l.kind === 'Our coverage' && (l.a === p.id || l.b === p.id))
+    .map(l => { const o = opPerson(l.a === p.id ? l.b : l.a); return o && o.side === 'us' ? {n: o.n, str: l.str} : null; }).filter(Boolean);
+}
+const opTheirs = () => (OPP.people || []).filter(p => p.side !== 'us');
+// what the sheet says is missing: the classic Blue Sheet red flags
+function opGaps(){
+  const out = [], theirs = opTheirs();
+  if(!theirs.length) return [{t: 'No buying influences on the map yet', pin: ''}];
+  if(!theirs.some(p => p.role === 'Signs the order')) out.push({t: 'Nobody identified who signs the order', pin: ''});
+  if(!theirs.some(p => p.role === 'On our side')) out.push({t: 'No coach: nobody on their side is marked as on our side', pin: ''});
+  theirs.forEach(p => {
+    if(!p.role) out.push({t: (p.n || 'Someone') + ': their part in the decision is unknown', pin: 'p:' + p.id});
+    if(p.side === 'cust' && !opCoverage(p).length) out.push({t: (p.n || 'Someone') + ' is not covered by anyone on our team', pin: 'p:' + p.id});
+    if(p.role && !p.mode) out.push({t: (p.n || 'Someone') + ': how they see it is unknown', pin: 'p:' + p.id});
+  });
+  // already a red flag: not offered again
+  return out.filter(g => !(OPP.flags || []).some(f => f.t === g.t));
+}
+const opPosLabel = v => v == null || v === '' ? 'Not rated' : (v > 0 ? '+' : '') + v;
+function renderSheet(){
+  const el = $('opSheet');
+  if(!el || !OPP) return;
+  const o = OPP, gaps = opGaps(), acts = o.actions || [];
+  const best = acts.find(a => a.best);
+  el.innerHTML =
+    '<h2>Single sales objective</h2><div class="opsum"><b>' + esc(o.name || 'Untitled') + '</b>' +
+      (o.obj ? '<div>' + esc(o.obj) + '</div>' : '<div class="meta">No objective yet: what, how much and by when.</div>') +
+      '<div class="meta">' + esc([o.value || 'No value', o.close ? 'close ' + oppMonth(o.close) : 'no close date'].join(' · ')) + '</div>' +
+      '<button type="button" class="btn act2" id="bsDetails">Change</button></div>' +
+    '<h2>Where we stand</h2>' +
+      '<label class="l" for="bsPos">Our position</label><div class="oprate"><input type="range" id="bsPos" min="-5" max="5" step="1" value="' + (o.pos == null ? 0 : o.pos) + '"><output id="bsPosV">' + esc(opPosLabel(o.pos)) + '</output></div>' +
+      '<div class="poslbl"><span>−5 panic</span><span>+5 euphoria</span></div>' +
+      '<label class="l" for="bsWhy">Why we stand there</label><textarea id="bsWhy" rows="2">' + esc(o.posWhy || '') + '</textarea>' +
+      '<label class="l" for="bsComp">Competition</label><textarea id="bsComp" rows="2" placeholder="Who else, and what they are offering">' + esc(o.comp || '') + '</textarea>' +
+    '<h2>Buying influences</h2>' +
+      (opTheirs().length ? opTheirs().map(p => {
+        const cov = opCoverage(p), role = OP_BADGE[p.role] || '';
+        return '<details class="bsp" data-bsp="' + esc(p.id) + '"' + (opSheetOpen.has(p.id) ? ' open' : '') + '><summary><b>' + esc(p.n || 'Someone') + '</b>' +
+          '<span class="meta">' + esc([p.title, p.side === 'oem' ? p.org : '', p.role ? p.role + ' (' + role + ')' : 'part unknown', p.infl ? p.infl + ' influence' : '', p.mode, 'rates us ' + opPosLabel(p.rate || 0)].filter(Boolean).join(' · ')) + '</span></summary>' +
+          '<div class="bspb">' +
+            '<label class="l">Their part in the decision</label>' + opChips('role:' + p.id, OP_ROLES, p.role || '') +
+            '<label class="l">How much they sway it</label><div class="seg" data-bsinfl="' + esc(p.id) + '">' + OP_INFL.map(v => '<button type="button" data-v="' + v + '"' + (p.infl === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</div>' +
+            '<label class="l">How they see it</label>' + opChips('mode:' + p.id, OP_MODES, p.mode || '') +
+            '<label class="l" for="bsR' + esc(p.id) + '">How they rate us</label><div class="oprate"><input type="range" id="bsR' + esc(p.id) + '" data-bsrate="' + esc(p.id) + '" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output>' + opPosLabel(p.rate || 0) + '</output></div>' +
+            '<div class="cov' + (cov.length ? '' : ' none') + '">' + (cov.length ? 'Covered by ' + esc(cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ')) : 'Not covered by anyone on our team: link one of ours to them on the map') + '</div>' +
+            '<label class="l" for="bsW' + esc(p.id) + '">Their personal win</label><input type="text" data-bsf="win:' + esc(p.id) + '" id="bsW' + esc(p.id) + '" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
+            '<label class="l" for="bsB' + esc(p.id) + '">The business result they want</label><input type="text" data-bsf="result:' + esc(p.id) + '" id="bsB' + esc(p.id) + '" value="' + esc(p.result || '') + '" placeholder="e.g. less downtime on Line 3">' +
+            '<label class="l" for="bsE' + esc(p.id) + '">Evidence for the rating</label><input type="text" data-bsf="evid:' + esc(p.id) + '" id="bsE' + esc(p.id) + '" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
+          '</div></details>';
+      }).join('') : '<p class="hint">Nobody yet. Add the customer\'s and the OEMs\' people on the map, on the PC.</p>') +
+    (gaps.length ? '<h2>Gaps</h2><ul class="bsgaps">' + gaps.map((g, i) => '<li><span>' + esc(g.t) + '</span><button type="button" class="btn act2" data-bsgap="' + i + '">Add as a red flag</button></li>').join('') + '</ul>' : '') +
+    '<h2>Red flags</h2>' + opList('flags') +
+    '<div class="opadd"><input type="text" id="bsNf" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="bsNfGo">Add</button></div>' +
+    '<h2>Strengths</h2>' + opList('strengths', true) +
+    '<div class="opadd"><input type="text" id="bsNs" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="bsNsGo">Add</button></div>' +
+    '<h2>Possible actions</h2>' +
+    (best ? '<p class="hint">Best action: <b>' + esc(best.t) + '</b></p>' : acts.length ? '<p class="hint">Tap the star on the best one.</p>' : '') +
+    '<ul class="opitems bsacts">' + (acts.length ? acts.map((a, i) => '<li class="' + (a.best ? 'best' : '') + '">' +
+      '<button type="button" class="bsstar' + (a.best ? ' on' : '') + '" data-bsbest="' + i + '" aria-pressed="' + !!a.best + '" aria-label="Best action">' + (a.best ? '★' : '☆') + '</button>' +
+      '<span>' + esc(a.t) + '</span><button type="button" class="btn act2" data-bstask="' + i + '">Make a task</button>' +
+      '<button type="button" class="opx" data-bsact="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
+    '<div class="opadd"><input type="text" id="bsNa" placeholder="A possible action" aria-label="A possible action"><button type="button" class="btn act2" id="bsNaGo">Add</button></div>';
+
+  const redraw = () => { oppSaveNow().catch(reportErr); renderSheet(); };
+  $('bsDetails').addEventListener('click', () => openOppDetails(OPP));
+  $('bsPos').addEventListener('input', e => { o.pos = +e.target.value; $('bsPosV').textContent = opPosLabel(o.pos); oppSaveSoon(); });
+  $('bsWhy').addEventListener('input', e => { o.posWhy = e.target.value; oppSaveSoon(); });
+  $('bsComp').addEventListener('input', e => { o.comp = e.target.value; oppSaveSoon(); });
+  el.querySelectorAll('details.bsp').forEach(d => d.addEventListener('toggle', () => { if(d.open) opSheetOpen.add(d.dataset.bsp); else opSheetOpen.delete(d.dataset.bsp); }));
+  el.querySelectorAll('[data-opchips]').forEach(box => box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const [key, id] = box.dataset.opchips.split(':'), p = opPerson(id);
+    if(!p) return;
+    p[key] = b.classList.contains('on') ? '' : b.dataset.v;
+    redraw();
+  })));
+  el.querySelectorAll('[data-bsinfl]').forEach(box => box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const p = opPerson(box.dataset.bsinfl); if(!p) return;
+    p.infl = p.infl === b.dataset.v ? '' : b.dataset.v;
+    redraw();
+  })));
+  el.querySelectorAll('[data-bsrate]').forEach(r => r.addEventListener('input', () => {
+    const p = opPerson(r.dataset.bsrate); if(!p) return;
+    p.rate = +r.value; r.nextElementSibling.textContent = opPosLabel(p.rate);
+    oppSaveSoon();
+  }));
+  el.querySelectorAll('[data-bsf]').forEach(inp => inp.addEventListener('input', () => {
+    const [key, id] = inp.dataset.bsf.split(':'), p = opPerson(id);
+    if(p){ p[key] = inp.value; oppSaveSoon(); }
+  }));
+  el.querySelectorAll('[data-bsgap]').forEach(b => b.addEventListener('click', () => {
+    const g = gaps[+b.dataset.bsgap]; if(!g) return;
+    o.flags = (o.flags || []).concat([{id: newId('fl'), t: g.t, pin: g.pin}]);
+    redraw();
+  }));
+  const addItem = (key, inp) => {
+    const t = $(inp).value.trim(); if(!t) return;
+    o[key] = (o[key] || []).concat([key === 'actions' ? {id: newId('ac'), t, best: false} : {id: newId('fl'), t, pin: ''}]);
+    redraw();
+  };
+  [['flags', 'bsNf'], ['strengths', 'bsNs'], ['actions', 'bsNa']].forEach(([k, inp]) => {
+    $(inp + 'Go').addEventListener('click', () => addItem(k, inp));
+    $(inp).addEventListener('keydown', e => { if(e.key === 'Enter') addItem(k, inp); });
+  });
+  el.querySelectorAll('[data-oprm]').forEach(b => b.addEventListener('click', () => {
+    const [key, i] = b.dataset.oprm.split(':'), f = o[key][+i];
+    if(!f || !confirm('Remove this ' + (key === 'flags' ? 'red flag' : 'strength') + '?\n\n' + f.t)) return;
+    o[key] = o[key].filter((_, j) => j !== +i);
+    redraw();
+  }));
+  el.querySelectorAll('[data-bsbest]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.bsbest, was = !!acts[i].best;
+    acts.forEach(a => { a.best = false; });
+    acts[i].best = !was;
+    redraw();
+  }));
+  el.querySelectorAll('[data-bstask]').forEach(b => b.addEventListener('click', () => {
+    const a = acts[+b.dataset.bstask]; if(!a) return;
+    openTask(null, {title: a.t.slice(0, 200), acct: o.acct});
+  }));
+  el.querySelectorAll('[data-bsact]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.bsact, a = acts[i];
+    if(!a || !confirm('Remove this action?\n\n' + a.t)) return;
+    o.actions = acts.filter((_, j) => j !== i);
+    redraw();
+  }));
+}
+
+/* ---- the Blue Sheet as a document ----
+   NOTES_CSS, like the call notes: A4, the red masthead, the spec-table look.
+   The map goes in as a PNG: Word and Outlook drop SVG, and an image survives.
+   It is drawn from the screen's map with its colours written in, so it looks
+   the same off the page. */
+async function oppMapPng(){
+  const live = $('opMap');
+  try {
+    const cv = document.createElement('canvas');
+    if(!live || !cv.getContext || !cv.getContext('2d')) return '';
+    const keepSel = opSel, keepFrom = opLinkFrom;
+    opSel = null; opLinkFrom = null; drawOpp();
+    const xs = [0, 3 * OP_LW + 40, OPP.ox, OPP.ox + OP_OW], ys = [0, OP_H, OPP.oy, OPP.oy + OP_OH];
+    (OPP.people || []).forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y - 14, p.y + OP_CH); });
+    const x0 = Math.min(...xs) - 10, y0 = Math.min(...ys) - 10, w = Math.max(...xs) + 10 - x0, h = Math.max(...ys) + 10 - y0;
+    const clone = live.cloneNode(true);
+    const a = live.querySelectorAll('*'), b = clone.querySelectorAll('*');
+    const PROPS = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linejoin', 'paint-order', 'opacity',
+      'font-family', 'font-size', 'font-weight', 'letter-spacing', 'text-transform'];
+    for(let i = 0; i < a.length; i++){
+      const cs = getComputedStyle(a[i]);
+      b[i].setAttribute('style', PROPS.map(k => k + ':' + cs.getPropertyValue(k)).join(';'));
+    }
+    const W = 1600, H = Math.round(W * h / w);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('viewBox', x0 + ' ' + y0 + ' ' + w + ' ' + h);
+    clone.setAttribute('width', W); clone.setAttribute('height', H);
+    clone.insertBefore(Object.assign(document.createElementNS(SVGNS, 'rect'), {}), clone.firstChild);
+    const bg = clone.firstChild;
+    bg.setAttribute('x', x0); bg.setAttribute('y', y0); bg.setAttribute('width', w); bg.setAttribute('height', h); bg.setAttribute('fill', '#E1EAF0');
+    opSel = keepSel; opLinkFrom = keepFrom; drawOpp();
+    const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      const t = setTimeout(() => rej(new Error('the map picture took too long')), 5000);
+      im.onload = () => { clearTimeout(t); res(im); };
+      im.onerror = () => { clearTimeout(t); rej(new Error('the map picture would not draw')); };
+      im.src = src;
+    });
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0, W, H);
+    return cv.toDataURL('image/png');
+  } catch(e){ console.warn('map picture', e); return ''; }
+}
+function buildBlueSheetHTML(o, png){
+  const v = x => (x == null ? '' : String(x)).trim();
+  const cell = x => v(x) ? esc(v(x)) : '—';
+  const rows = pairs => '<table>' + pairs.map(([l, x]) => '<tr><td class="l">' + esc(l) + '</td><td class="v">' + x + '</td></tr>').join('') + '</table>';
+  const people = (o.people || []).filter(p => p.side !== 'us');
+  const prev = OPP; OPP = o;                      // coverage reads the map's links
+  const covOf = p => opCoverage(p).map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ');
+  const best = (o.actions || []).find(a => a.best);
+  const list = items => items && items.length ? '<ul>' + items.map(f => '<li>' + esc(f.t) +
+    (f.pin ? ' <span style="color:#77787A">(' + esc(opPinLabel(f.pin).replace(/^On /, '')) + ')</span>' : '') + '</li>').join('') + '</ul>' : '<p>—</p>';
+  const p = [];
+  p.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Blue Sheet ' + DASH_CH + ' ' + esc(o.name || '') + '</title>' +
+    '<link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>');
+  p.push('<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">');
+  p.push('<p class="eyebrow">Intralox</p>');
+  p.push('<h1>Blue Sheet ' + DASH_CH + ' ' + esc(o.name || 'Untitled') + '</h1>');
+  p.push('<p class="sub">' + [o.acct, o.value, o.close && 'close ' + oppMonth(o.close), 'as at ' + new Date().toLocaleDateString()].filter(Boolean).map(esc).join(' &middot; ') + '</p>');
+  p.push('<h2>Single sales objective</h2>' + rows([['Objective', cell(o.obj)], ['Value', cell(o.value)], ['Expected close', cell(oppMonth(o.close))]]));
+  p.push('<h2>Where we stand</h2>' + rows([['Our position', o.pos == null ? '—' : esc(opPosLabel(o.pos)) + ' <span style="color:#77787A">(−5 panic to +5 euphoria)</span>'],
+    ['Why', cell(o.posWhy)], ['Competition', cell(o.comp)]]));
+  if(png) p.push('<h2>Relationship map</h2><p><img src="' + png + '" alt="Relationship map" style="width:100%;height:auto;border:1px solid #E3E3E3"></p>');
+  p.push('<h2>Buying influences</h2>' + (people.length ? '<table><tr><th>Person</th><th>Part in the decision</th><th>How they see it</th><th>Rates us</th><th>Covered by</th></tr>' +
+    people.map(x => '<tr><td><b>' + cell(x.n) + '</b>' + (v(x.title) || v(x.side === 'oem' ? x.org : '') ? '<br><span style="color:#77787A">' + esc([x.title, x.side === 'oem' ? x.org : ''].filter(Boolean).join(', ')) + '</span>' : '') + '</td>' +
+      '<td>' + cell(x.role) + (x.infl ? '<br><span style="color:#77787A">' + esc(x.infl) + ' influence</span>' : '') + '</td><td>' + cell(x.mode) + '</td>' +
+      '<td>' + esc(opPosLabel(x.rate || 0)) + '</td><td>' + (covOf(x) ? esc(covOf(x)) : '<span class="flag">Not covered</span>') + '</td></tr>' +
+      (v(x.win) || v(x.result) || v(x.evid) ? '<tr><td colspan="5" style="color:#4D4D4F;font-size:9.5pt">' + [v(x.win) && '<b>Personal win:</b> ' + esc(x.win), v(x.result) && '<b>Business result:</b> ' + esc(x.result), v(x.evid) && '<b>Evidence:</b> ' + esc(x.evid)].filter(Boolean).join(' &nbsp;&middot;&nbsp; ') + '</td></tr>' : '')).join('') +
+    '</table>' : '<p>—</p>'));
+  p.push('<h2>Red flags</h2>' + list(o.flags));
+  p.push('<h2>Strengths</h2>' + list(o.strengths));
+  p.push('<h2>Best action</h2><p>' + (best ? '<b>' + esc(best.t) + '</b>' : '—') + '</p>');
+  p.push('<h2>Possible actions</h2>' + list((o.actions || []).filter(a => !a.best)));
+  p.push('<p class="sub" style="margin-top:24px">Made with Field CRM.</p></div></body></html>');
+  OPP = prev;
+  return p.join('');
+}
+async function shareBlueSheet(){
+  if(!OPP) return;
+  if(opSaveTimer) await oppSaveNow();
+  toast('Building' + String.fromCharCode(8230));
+  const png = await oppMapPng();
+  const html = buildBlueSheetHTML(OPP, png);
+  const safe = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').slice(0, 60);
+  const name = safe(OPP.acct) + '_' + safe(OPP.name) + '_blue_sheet_' + todayISOdate() + '.html';
+  if(!isPhone()){ openInTab(html, name); return; }
+  const file = new File([html], name, {type: 'text/html'});
+  if(navigator.canShare && navigator.canShare({files: [file]})){
+    try { await navigator.share({files: [file], title: 'Blue Sheet ' + (OPP.name || '')}); toast('Shared'); }
+    catch(e){ if(e.name !== 'AbortError'){ console.error(e); toast('Share failed - saving instead'); download(html, name); } }
+  } else download(html, name);
+}
+$('opShare').addEventListener('click', () => shareBlueSheet().catch(reportErr));
 // a newer copy from the cloud replaces the one on screen, unless something is being moved or typed
 function oppCloudIn(){
   if(screen !== 'opp' || !OPP) return;
   const fresh = OPPS.find(x => x.id === OPP.id);
   if(!fresh){ toast('This opportunity was deleted on another device'); OPP = null; go('acct'); return; }
   if(fresh === OPP || (fresh.updated || 0) <= (OPP.updated || 0) || opGesture || opSaveTimer) return;
-  if(document.activeElement && $('opPanel').contains(document.activeElement)) return;
+  if(document.activeElement && ($('opPanel').contains(document.activeElement) || $('opSheet').contains(document.activeElement))) return;
   OPP = fresh; renderOpp();
 }
 
