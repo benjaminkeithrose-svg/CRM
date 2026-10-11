@@ -23,7 +23,7 @@ work from a copy of a file anywhere other than this checkout.
 | File | Purpose |
 |---|---|
 | `index.html` | Every screen as a `<section class="scr">`, every dialog, all CSS |
-| `app.js` | Everything else: storage (IndexedDB v7: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`, `opps`), import, navigation, planner, calls, tasks, output, sync |
+| `app.js` | Everything else: storage (IndexedDB v8: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`, `opps`, `cip`), import, navigation, planner, calls, tasks, output, sync |
 | `sw.js` | Service worker, cache-first, offline |
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
@@ -50,6 +50,13 @@ change this. Account names, contacts and CRM exports are loaded manually on
 each device. The app is meant to be handed to colleagues who load their own.
 `.gitignore` blocks spreadsheets as a backstop; do not rely on it.
 
+**CIP and MBOs are not in this repo either** (v121). Store `cip` holds three
+records per person: `me` (CIP periods and the four pillars), `mbo` and `ref`
+(job indicants, LCI principles, BU goals, booklist). The record is personal and
+the reference is Intralox's internal wording, so both are imported on a device
+from a file and sync encrypted. `cip` is private: never add it to the shared
+stores in the team migrations.
+
 **The belt/sprocket product catalogue is not in this repo either**, for the
 same public-Pages reason, even though it isn't customer data — it's Intralox's
 own part numbers. It is imported on a device and travels between devices
@@ -66,7 +73,7 @@ failure.
 key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
 waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()`/
 `tasksPut()`/`tasksDel()`/`snippetsPut()`/`snippetsDel()`/`productsPut()`/
-`productsDel()`/`plansPut()`/`plansDel()`/`oppsPut()`/`oppsDel()` mark that record. Bump `call.updated` /
+`productsDel()`/`plansPut()`/`plansDel()`/`oppsPut()`/`oppsDel()`/`cipPut()`/`cipDel()` mark that record. Bump `call.updated` /
 `appointment.touchedAt` / `task.updated` on a real edit, or the change can
 lose to an older copy. Photos stay Blobs in `entry.photos` and
 `call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never

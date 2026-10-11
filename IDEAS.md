@@ -749,6 +749,19 @@ for now. Reviewed a clickable mock first.*
   first), large accounts and account plans in three tabs; Mine and Team in a
   team; a search across all three; each opens where it lives and back
   returns to Strategy.
+- **Built (v121): CIP and MBOs, from the separate CIP and MBO page.** Two
+  Home tiles. CIP: periods with Start (carrying goals and the development
+  plan forward), Compare with, pickers from the reference, per-item and
+  per-period locks, the four pillars and the reference. MBO: the year's grid,
+  quarterly cap with carry, Mega MBO, quarter locks that keep their values,
+  editing the list, copying it to a new year; one quarter at a time on the
+  phone. Create and share for the CIP, the pillars, the reference and the
+  MBO claim. Private store `cip`; the record and the reference come in from
+  a file, never the repo.
+- **Next (agreed 2026-10-11): the Blue Sheet against the real Miller Heiman
+  form.** The visual map stays the working view; the output is the
+  traditional Blue Sheet for people outside MPS, as an A4 document and as an
+  .xls, the map added when asked; and an .xls import of existing sheets.
 - **Later:** the coach reading the large account plan; the group column's
   real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
