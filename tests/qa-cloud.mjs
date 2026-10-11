@@ -628,8 +628,9 @@ ok(pcC.entries[0].photos.length === 2 && !pcC.syncedPhotos, 'and the PC ends up 
   await tick(200);
   const live = () => P.w.__live;
   ok(live().authed.length === 1 && /^ey/.test(live().authed[0] || ''), 'the listener carries the signed-in session (without it, nothing arrives)');
-  ok(live().channels.length === 1 && live().filter.table === 'records' && live().filter.schema === 'public' && live().filter.filter === 'owner=eq.' + USER.id,
-    'an unlocked device listens for changes to its own records: ' + JSON.stringify(live().filter));
+  // v111: no owner filter - the access rules decide what is heard, so a team member hears the team's changes
+  ok(live().channels.length === 1 && live().filter.table === 'records' && live().filter.schema === 'public' && !live().filter.filter,
+    'an unlocked device listens for changes to the records it may read: ' + JSON.stringify(live().filter));
   ok(/Live updates: on/.test(P.$('sbStat').textContent), 'Settings says live updates are on');
   P.w.eval('renderSb()'); await tick(30);
   ok(live().channels.length === 1, 'redrawing Settings does not open a second listener');

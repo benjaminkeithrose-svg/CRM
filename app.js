@@ -968,7 +968,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v110';
+const APP_BUILD = 'v111';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -5302,15 +5302,20 @@ function renderSb(){
   if(signedIn) line += '<br>' + ({
     open:    'Encryption: <b>unlocked on this device</b>.',
     none:    '<span class="flagline">Encryption: no passphrase set yet.</span> Set one below &mdash; every device uses the same one.',
+    noteam:  '<span class="flagline">Encryption: waiting for the team passphrase.</span> ' + esc(TEAM ? teamName(TEAM.admin) : 'The team admin') + ' sets it up first.',
     locked:  '<span class="flagline">Encryption: locked on this device.</span> Type your passphrase below.',
     offline: '<span class="flagline">Encryption: locked.</span> Unlocking needs signal the first time on each device.',
     error:   '<span class="flagline">Encryption: could not check.</span> ' + esc(sbVaultMsg),
     unknown: 'Encryption: checking&hellip;'
   }[sbVault] || '');
+  if(signedIn && TEAM) line += '<br>Team: <b>' + esc(TEAM.name) + '</b> &middot; ' +
+    (iAmAdmin() ? 'you are its admin' : 'admin ' + esc(teamName(TEAM.admin))) + ' &middot; ' +
+    TEAM.members.length + (TEAM.members.length === 1 ? ' person' : ' people');
   const open = signedIn && sbVault === 'open';
   if(open){
     const last = Number(localStorage.getItem(LS('cloudSync')) || 0);
-    const waiting = (cloudSets ? CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty).length : 0) +
+    // a member's copy of the team's reference data is never sent, so it is never "waiting"
+    const waiting = (cloudSets ? CLOUD_SETS.filter(n => cloudSets[n] && cloudSets[n].dirty && (n === 'weeks' || iAmAdmin())).length : 0) +
       (cloudDirty ? Object.keys(cloudDirty).length : 0);
     line += '<br>Sync: ' + (cloudRun ? 'syncing&hellip;' + (cloudProgress ? ' ' + esc(cloudProgress) : '')
       : cloudLast.failed ? '<span class="flagline">last sync failed &mdash; ' + esc(cloudLast.msg) + '</span>'
@@ -5325,6 +5330,8 @@ function renderSb(){
   $('sbSignOut').hidden = !signedIn;
   $('sbSync').hidden = !open;
   $('sbSync').disabled = !!cloudRun;
+  $('sbChgOpen').hidden = !open || !iAmAdmin();
+  if(!open || !iAmAdmin()) $('sbChg').hidden = true;
   const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
   $('sbLock').hidden = !ask;
   if(ask){
@@ -5334,6 +5341,7 @@ function renderSb(){
     $('sbPhGo').textContent = first ? 'Set passphrase' : 'Unlock';
     $('sbPhHint').innerHTML = first
       ? 'At least ' + PH_MIN + ' characters. It locks everything before it leaves this device, and unlocks it on your other devices. <b>If it is lost, nobody can read the cloud copy</b> &mdash; not even you. Keep it in your password manager.'
+      : isMember() ? 'The team passphrase ' + esc(teamName(TEAM.admin)) + ' gave you.'
       : 'The passphrase you set on your first device.';
   }
 }
@@ -5383,6 +5391,8 @@ $('sbSignOut').addEventListener('click', async ()=>{
   try { await sbClient.auth.signOut({scope:'local'}); } catch(e){ console.warn(e); }
   sbUser = null;
   await sbForget();
+  TEAM = null;
+  try { await kvSet('cloudTeam', null); } catch(e){}
   toast('Signed out of this device');
   await logLoad(SB.url, 'cloud', 'Signed out');
   renderSb();
@@ -5458,22 +5468,90 @@ async function sbLoadKey(){
     if(k && k.key && sbUser && k.uid === sbUser.id){ sbKeyRec = k; sbVault = 'open'; }
   } catch(e){ console.warn('cloud key', e); }
 }
-async function sbVaultRow(){
-  const r = await sbClient.from('vaults').select('key_id,kdf,wrapped_key,wrap_iv').limit(1);
+/* ---------- Step 9: the team (v111) ----------
+   A team is a named group in the project (migration 0004): its admin (Ben)
+   keeps the team key in his vault, locked with the team passphrase, and the
+   shared reference data; everyone reads and edits the team's calls, visits,
+   account plans, products and saved notes; tasks and planning weeks stay each
+   person's own. Someone in no team works exactly as before. */
+var TEAM = null;         // {uid, id, name, admin, members: [{user_id, name, role}]}, or null on your own
+var OWNERS = null;       // {'store/id': author} for records a teammate wrote; kv 'cloudOwners'
+var ownersDirty = false;
+async function sbLoadTeam(){
+  if(!sbClient || !sbUser){ TEAM = null; return; }
+  try { const t = await kvGet('cloudTeam'); TEAM = t && t.uid === sbUser.id ? t : null; } catch(e){}
+  if(!navigator.onLine) return;
+  try {
+    const m = await sbClient.from('team_members').select('user_id,team_id,name,role');
+    // a project without teams (before migration 0004): on your own, as before
+    if(m.error){ if(/team_members|does not exist|schema cache/i.test(m.error.message || '')){ TEAM = null; await kvSet('cloudTeam', null); return; } throw m.error; }
+    const mine = (m.data || []).find(x => x.user_id === sbUser.id);
+    let team = null;
+    if(mine){
+      const t = await sbClient.from('teams').select('id,name,admin').eq('id', mine.team_id);
+      if(t.error) throw t.error;
+      team = t.data && t.data[0];
+    }
+    TEAM = team ? {uid: sbUser.id, id: team.id, name: team.name, admin: team.admin,
+      members: (m.data || []).filter(x => x.team_id === team.id).map(x => ({user_id: x.user_id, name: x.name, role: x.role}))} : null;
+    await kvSet('cloudTeam', TEAM);
+  } catch(e){ console.warn('team', e); }
+}
+// function declarations, not consts: renderSb can run before this line has
+function iAmAdmin(){ return !TEAM || !!(sbUser && TEAM.admin === sbUser.id); }
+function isMember(){ return !!TEAM && !iAmAdmin(); }
+// whose copy of a dataset this device follows: the admin's reference data, your own weeks
+function dataOwner(name){ return name === 'weeks' || !TEAM ? sbUser.id : TEAM.admin; }
+async function ownersLoad(){
+  if(!OWNERS){ try { OWNERS = (await kvGet('cloudOwners')) || {}; } catch(e){ OWNERS = {}; } }
+  return OWNERS;
+}
+function recOwner(store, id){ return (OWNERS && OWNERS[store + '/' + id]) || (sbUser && sbUser.id); }
+function teamName(uid){ const m = TEAM && TEAM.members.find(x => x.user_id === uid); return m && m.name || 'a teammate'; }
+
+/* The passphrase can change without touching any record: only the data key's
+   lock changes (envelope encryption). Ben uses this to set the team
+   passphrase he gives colleagues. Devices already unlocked carry on. */
+async function sbChangePass(oldp, newp){
+  const r = await sbClient.from('vaults').select('owner,key_id,kdf,wrapped_key,wrap_iv').eq('owner', sbUser.id);
   if(r.error) throw r.error;
-  return r.data && r.data[0] || null;
+  const row = r.data && r.data[0];
+  if(!row) throw new Error('no vault');
+  const aad = vaultAad(sbUser.id);
+  let dk;
+  try {
+    // extractable only so it can be locked again; dropped at the end of the function
+    dk = await crypto.subtle.unwrapKey('raw', b64u8(row.wrapped_key), await sbPassKey(oldp, row.kdf),
+      {name:'AES-GCM', iv:b64u8(row.wrap_iv), additionalData:aad}, {name:'AES-GCM'}, true, ['encrypt','decrypt']);
+  } catch(e){ throw new Error('passphrase mismatch'); }
+  const kdf = Object.assign({}, VAULT_KDF, {salt: u8b64(crypto.getRandomValues(new Uint8Array(16)))});
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrapped = new Uint8Array(await crypto.subtle.wrapKey('raw', dk, await sbPassKey(newp, kdf), {name:'AES-GCM', iv:iv, additionalData:aad}));
+  const u = await sbClient.from('vaults').update({kdf: kdf, wrapped_key: u8b64(wrapped), wrap_iv: u8b64(iv)}).eq('owner', sbUser.id);
+  if(u.error) throw u.error;
+}
+
+// your own vault, or for a team member the admin's, which holds the team key (v111)
+async function sbVaultRow(){
+  const r = await sbClient.from('vaults').select('owner,key_id,kdf,wrapped_key,wrap_iv');
+  if(r.error) throw r.error;
+  const rows = r.data || [];
+  return rows.find(x => x.owner === sbUser.id) || (TEAM && rows.find(x => x.owner === TEAM.admin)) || null;
 }
 async function sbCheckVault(){
   if(!sbClient || !sbUser) return;
+  await sbLoadTeam();
   if(sbKeyRec && sbKeyRec.uid === sbUser.id){ sbVault = 'open'; renderSb(); return; }
   if(!navigator.onLine){ sbVault = 'offline'; renderSb(); return; }
   try {
-    sbVault = (await sbVaultRow()) ? 'locked' : 'none';
+    // a member never starts a key of their own: the team's comes from the admin
+    sbVault = (await sbVaultRow()) ? 'locked' : isMember() ? 'noteam' : 'none';
   } catch(e){ console.warn('vault', e); sbVault = 'error'; sbVaultMsg = sbSay(e); }
   renderSb();
 }
 
 async function sbCreateVault(pass){
+  if(isMember()) throw new Error('no vault');
   const uid = sbUser.id;
   const kdf = Object.assign({}, VAULT_KDF, {salt: u8b64(crypto.getRandomValues(new Uint8Array(16)))});
   const wk = await sbPassKey(pass, kdf);
@@ -5496,7 +5574,7 @@ async function sbUnlock(pass){
   if(!row) throw new Error('no vault');
   const wk = await sbPassKey(pass, row.kdf);
   let key;
-  try { key = await sbUnwrap(row, wk, sbUser.id); }
+  try { key = await sbUnwrap(row, wk, row.owner || sbUser.id); }
   catch(e){ throw new Error('passphrase mismatch'); }   // AES-GCM refuses: wrong passphrase, or a tampered vault
   await sbKeep(sbUser.id, row.key_id, key);
 }
@@ -5538,6 +5616,31 @@ $('sbPhGo').addEventListener('click', async ()=>{
   }
 });
 
+$('sbChgOpen').addEventListener('click', () => {
+  $('sbChg').hidden = !$('sbChg').hidden;
+  if(!$('sbChg').hidden) setTimeout(() => { try { $('sbChgOld').focus(); } catch(_){} }, 50);
+});
+$('sbChgGo').addEventListener('click', async () => {
+  const btn = $('sbChgGo'), o = $('sbChgOld').value, n1 = $('sbChgNew').value, n2 = $('sbChgNew2').value;
+  if(!navigator.onLine){ toast('No connection - try again when you have signal.'); return; }
+  if(!o){ toast('Type the current passphrase first'); return; }
+  if(n1.length < PH_MIN){ toast('The new passphrase needs at least ' + PH_MIN + ' characters'); return; }
+  if(n1 !== n2){ toast('The two new passphrases are different - type them again'); return; }
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Working\u2026';
+  try {
+    await sbChangePass(o, n1);
+    ['sbChgOld', 'sbChgNew', 'sbChgNew2'].forEach(id => { $(id).value = ''; });
+    $('sbChg').hidden = true;
+    toast('Passphrase changed. Use the new one on any new device.');
+    await logLoad(SB.url, 'cloud', 'Passphrase changed');
+  } catch(e){
+    console.warn(e);
+    if(e && e.message === 'passphrase mismatch'){ toast('That is not the current passphrase.'); $('sbChgOld').value = ''; }
+    else toast(sbSay(e));
+  } finally { btn.disabled = false; btn.textContent = label; renderSb(); }
+});
+
 /* Encrypt and decrypt one synced thing. The JSON is gzipped first (the CRM
    export shrinks several times over, which is upload time on one bar of signal
    and free-tier storage), then encrypted. The store and ID are bound into the
@@ -5548,18 +5651,21 @@ async function sbPipe(u8, stream){
   w.write(u8); w.close();
   return new Uint8Array(await new Response(stream.readable).arrayBuffer());
 }
-async function sbSeal(store, id, obj){
+/* The additional data names the record's author (v111): a teammate opening it
+   is not its author, so binding it to whoever is signed in would lock them out.
+   For your own records it is the same as before. */
+async function sbSeal(store, id, obj, owner){
   if(!sbKeyRec) throw new Error('encryption is locked on this device');
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const packed = await sbPipe(TE.encode(JSON.stringify(obj)), new CompressionStream('gzip'));
-  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:TE.encode((owner || sbKeyRec.uid) + '/' + store + '/' + id)},
     sbKeyRec.key, packed);
   return {key_id: sbKeyRec.key_id, iv: u8b64(iv), body: u8b64(new Uint8Array(ct))};
 }
 async function sbOpen(store, id, row){
   if(!sbKeyRec) throw new Error('encryption is locked on this device');
   if(row.key_id !== sbKeyRec.key_id) throw new Error('encrypted with a different key');
-  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(row.iv), additionalData:TE.encode(sbKeyRec.uid + '/' + store + '/' + id)},
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64u8(row.iv), additionalData:TE.encode((row.owner || sbKeyRec.uid) + '/' + store + '/' + id)},
     sbKeyRec.key, b64u8(row.body));
   return JSON.parse(TD.decode(await sbPipe(new Uint8Array(pt), new DecompressionStream('gzip'))));
 }
@@ -5706,7 +5812,8 @@ function liveEnsure(){
   try {
     // held before subscribing: a status that comes back at once must find it set
     const ch = liveCh = sbClient.channel('records-' + liveUid)
-      .on('postgres_changes', {event: '*', schema: 'public', table: 'records', filter: 'owner=eq.' + liveUid}, () => liveNudge());
+      // no owner filter (v111): the access rules decide, and a team member hears the team's changes
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'records'}, () => liveNudge());
     /* The connection has to carry the signed-in session, or the "own records"
        rule filters every row out and nothing arrives. The library is meant to
        pass it on by itself; tested against the real project it had not by the
@@ -5756,14 +5863,19 @@ async function cloudSyncOnce(){
   await cloudSetsLoad();
   const sent = [], got = [];
   try {
-    const r = await sbClient.from('records').select('id,client_updated').eq('store', 'datasets');
+    const r = await sbClient.from('records').select('id,owner,client_updated').eq('store', 'datasets');
     if(r.error) throw r.error;
     const cloud = {};
-    for(const row of r.data || []) cloud[row.id] = Number(row.client_updated);
+    for(const row of r.data || []) if(row.owner === dataOwner(row.id)) cloud[row.id] = Number(row.client_updated);
 
     const pull = [];
     for(const name of CLOUD_SETS){
       const mine = cloudLocalVer(name), theirs = cloud[name];
+      if(name !== 'weeks' && !iAmAdmin()){
+        // the team's reference data is the admin's to send; a member only ever receives it
+        if(theirs != null && (!cloudSets[name] || cloudSets[name].ver !== theirs)) pull.push(name);
+        continue;
+      }
       if(theirs == null){
         if(mine != null) await cloudPush(name, mine || Date.now(), sent);
       } else if(mine != null && mine > theirs){
@@ -5776,10 +5888,11 @@ async function cloudSyncOnce(){
       }
     }
     if(pull.length){
-      const b = await sbClient.from('records').select('id,key_id,iv,body,client_updated')
+      const b = await sbClient.from('records').select('id,owner,key_id,iv,body,client_updated')
         .eq('store', 'datasets').in('id', pull);
       if(b.error) throw b.error;
       for(const row of b.data || []){
+        if(row.owner !== dataOwner(row.id)) continue;
         const data = await sbOpen('datasets', row.id, row);
         await cloudApply(row.id, data);
         cloudSets[row.id] = {ver: Number(row.client_updated), dirty: false};
@@ -5929,8 +6042,9 @@ const photoBytesOf = p => blobBytes(isBlobPhoto(p) || blobLike(p) ? p : dataURLT
 async function photoId(bytes){
   return toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).slice(0, 32);
 }
-const cloudPhotoDir = callId => sbUser.id + '/' + callId;
-const photoAad = (callId, pid) => TE.encode(sbKeyRec.uid + '/photo/' + callId + '/' + pid);
+// in the call's author's folder, bound to the author (v111); your own calls are as before
+const cloudPhotoDir = (owner, callId) => (owner || sbUser.id) + '/' + callId;
+const photoAad = (owner, callId, pid) => TE.encode((owner || sbKeyRec.uid) + '/photo/' + callId + '/' + pid);
 async function sbSealBytes(aad, bytes){
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv:iv, additionalData:aad}, sbKeyRec.key, bytes));
@@ -5942,15 +6056,15 @@ async function sbOpenBytes(aad, u8){
   return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv:u8.subarray(0, 12), additionalData:aad},
     sbKeyRec.key, u8.subarray(12)));
 }
-async function cloudPhotoList(callId){
-  const r = await sbClient.storage.from('photos').list(cloudPhotoDir(callId), {limit: 1000});
+async function cloudPhotoList(owner, callId){
+  const r = await sbClient.storage.from('photos').list(cloudPhotoDir(owner, callId), {limit: 1000});
   if(r.error) throw r.error;
   return new Set((r.data || []).map(x => x.name));
 }
-async function cloudPhotoGet(callId, pid){
-  const r = await sbClient.storage.from('photos').download(cloudPhotoDir(callId) + '/' + pid);
+async function cloudPhotoGet(owner, callId, pid){
+  const r = await sbClient.storage.from('photos').download(cloudPhotoDir(owner, callId) + '/' + pid);
   if(r.error || !r.data) return null;
-  try { return new Blob([await sbOpenBytes(photoAad(callId, pid), await blobBytes(r.data))], {type: 'image/jpeg'}); }
+  try { return new Blob([await sbOpenBytes(photoAad(owner, callId, pid), await blobBytes(r.data))], {type: 'image/jpeg'}); }
   catch(e){ console.warn('photo would not open', callId, pid, e); return null; }
 }
 
@@ -5976,7 +6090,7 @@ async function cloudCallOut(c){
   return {body: body, files: files};
 }
 /* And back: names replaced by pictures, reusing any this device already holds. */
-async function cloudCallIn(body, local){
+async function cloudCallIn(body, local, owner){
   const have = new Map();
   if(local){
     const all = [].concat(...(local.entries || []).map(e => e.photos || []), local.loose || []);
@@ -5988,7 +6102,7 @@ async function cloudCallIn(body, local){
     for(const x of list || []){
       if(!x || !x.ph){ out.push(x); continue; }
       let b = have.get(x.ph);
-      if(!b){ b = await cloudPhotoGet(body.id, x.ph); if(b) fetched++; }
+      if(!b){ b = await cloudPhotoGet(owner, body.id, x.ph); if(b) fetched++; }
       if(b) out.push(b); else missing++;
     }
     return out;
@@ -6020,15 +6134,24 @@ async function cloudPushRecs(stats){
   const flush = async () => {
     if(!batch.length) return;
     const written = await cloudUpsert(batch.map(b => b.row));
+    const refused = [];
     for(const b of batch){
       if(written.has(b.key) && b.row.deleted && b.row.store === 'calls'){
-        const gone = [...await cloudPhotoList(b.row.id)];
-        if(gone.length) await sbClient.storage.from('photos').remove(gone.map(n => cloudPhotoDir(b.row.id) + '/' + n));
+        const gone = [...await cloudPhotoList(b.row.owner, b.row.id)];
+        if(gone.length) await sbClient.storage.from('photos').remove(gone.map(n => cloudPhotoDir(b.row.owner, b.row.id) + '/' + n));
       }
+      // only its author (or the admin) can delete a teammate's record: the server kept it, so it comes back
+      if(!written.has(b.key) && b.row.deleted && b.row.owner !== sbUser.id) refused.push(b.row);
       done(b.key, b.at);
     }
     batch.length = 0;
     await cloudDirtySave();
+    for(const x of refused){
+      const r = await sbClient.from('records').select('store,id,owner,key_id,iv,body,client_updated,deleted,server_updated')
+        .eq('store', x.store).eq('id', x.id).eq('owner', x.owner);
+      if(r.error) throw r.error;
+      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
+    }
   };
   let i = 0;
   for(const k of keys){
@@ -6039,41 +6162,42 @@ async function cloudPushRecs(stats){
     renderSb();
     const rec = d.del ? null : await recGet(store, id);
     if(!d.del && !rec){ done(k, d.at); continue; }                  // gone since; its delete is marked separately
+    const owner = recOwner(store, id);
     if(d.del){
-      batch.push({key: k, at: d.at, row: Object.assign({store: store, id: id, client_updated: d.v, deleted: true},
-        await sbSeal(store, id, null))});
+      batch.push({key: k, at: d.at, row: Object.assign({owner: owner, store: store, id: id, client_updated: d.v, deleted: true},
+        await sbSeal(store, id, null, owner))});
       stats.gone++;
     } else if(store !== 'calls'){
-      batch.push({key: k, at: d.at, row: Object.assign({store: store, id: id, client_updated: recVer(store, rec) || d.v, deleted: false},
-        await sbSeal(store, id, rec))});
+      batch.push({key: k, at: d.at, row: Object.assign({owner: owner, store: store, id: id, client_updated: recVer(store, rec) || d.v, deleted: false},
+        await sbSeal(store, id, rec, owner))});
       stats[store]++;
     } else {
       await flush();
       // the 800px copies from the GitHub sync lose to the originals of the same edit
       const ver = (recVer(store, rec) || d.v) - (rec.syncedPhotos ? 1 : 0);
       const out = await cloudCallOut(rec);
-      const listed = await cloudPhotoList(id);
+      const listed = await cloudPhotoList(owner, id);
       let n = 0;
       const added = [];
       for(const [pid, bytes] of out.files){
         if(listed.has(pid)) continue;
         cloudProgress = 'sending photos for call ' + i + ' of ' + keys.length + ' (' + (++n) + ' of ' + out.files.size + ')';
         renderSb();
-        const r = await sbClient.storage.from('photos').upload(cloudPhotoDir(id) + '/' + pid,
-          await sbSealBytes(photoAad(id, pid), bytes), {upsert: true, contentType: 'application/octet-stream'});
+        const r = await sbClient.storage.from('photos').upload(cloudPhotoDir(owner, id) + '/' + pid,
+          await sbSealBytes(photoAad(owner, id, pid), bytes), {upsert: true, contentType: 'application/octet-stream'});
         if(r.error) throw r.error;
         added.push(pid);
         stats.photosUp++;
       }
-      const written = await cloudUpsert([Object.assign({store: store, id: id, client_updated: ver, deleted: false},
-        await sbSeal(store, id, out.body))]);
+      const written = await cloudUpsert([Object.assign({owner: owner, store: store, id: id, client_updated: ver, deleted: false},
+        await sbSeal(store, id, out.body, owner))]);
       // photos this call no longer uses - only once its new version is the one in the cloud
       if(written.has(k)){
         const stale = [...listed].filter(x => !out.files.has(x));
-        if(stale.length) await sbClient.storage.from('photos').remove(stale.map(x => cloudPhotoDir(id) + '/' + x));
+        if(stale.length) await sbClient.storage.from('photos').remove(stale.map(x => cloudPhotoDir(owner, id) + '/' + x));
       } else if(added.length){
         // the cloud kept a newer version, which cannot use photos that were not there before this push
-        await sbClient.storage.from('photos').remove(added.map(x => cloudPhotoDir(id) + '/' + x));
+        await sbClient.storage.from('photos').remove(added.map(x => cloudPhotoDir(owner, id) + '/' + x));
         stats.photosUp -= added.length;
       }
       done(k, d.at);
@@ -6107,15 +6231,18 @@ async function cloudApplyRec(row, stats){
       await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut})[store](await sbOpen(store, id, row));
       stats[store]++;
     } else {
-      const got = await cloudCallIn(await sbOpen(store, id, row), local);
+      const got = await cloudCallIn(await sbOpen(store, id, row), local, row.owner);
       await callsPut(got.call);
       stats.calls++; stats.photosDown += got.fetched; stats.missing += got.missing;
     }
   } finally { cloudQuiet = false; }
   delete cloudDirty[k];
+  // whose it is (v111): kept for a teammate's record, so it goes back up as theirs
+  if(row.owner && sbUser && row.owner !== sbUser.id && !row.deleted) OWNERS[k] = row.owner; else delete OWNERS[k];
+  ownersDirty = true;
 }
 async function cloudPullRecs(stats){
-  const cols = 'store,id,key_id,iv,body,client_updated,deleted,server_updated';
+  const cols = 'store,id,owner,key_id,iv,body,client_updated,deleted,server_updated';
   // updates held back while their call was open
   const later = (await kvGet('cloudLater')) || [];
   const ready_ = later.filter(id => !(call && call.id === id));
@@ -6139,6 +6266,7 @@ async function cloudPullRecs(stats){
     from += page.length;
   } while(page.length === 200);
   await cloudDirtySave();
+  if(ownersDirty){ await kvSet('cloudOwners', OWNERS); ownersDirty = false; }
   /* A minute's overlap: a write that began before this read but finished after
      it carries an earlier server time. Re-reading a minute is harmless - the
      versions match and nothing is applied twice. */
@@ -6147,6 +6275,7 @@ async function cloudPullRecs(stats){
 }
 
 async function cloudSyncRecs(){
+  await ownersLoad();
   const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
   const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, gone: 0, photosUp: 0};
