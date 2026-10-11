@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v116">
+<meta name="build" content="v117">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -763,6 +763,20 @@ body.planning #s-opp{padding:0}
 .bsacts li.best{border-left-color:var(--act);background:var(--cyan-lt)}
 .bsstar{flex:none;width:32px;height:32px;border:0;background:transparent;cursor:pointer;font-size:18px;color:var(--ink-3);padding:0}
 .bsstar.on{color:var(--act)}
+
+/* the large account plan (v117) */
+.lapsites{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.lapsites span{display:inline-flex;align-items:center;gap:4px;background:var(--sunk);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:4px 4px 4px 10px;font-size:13px}
+.lapsites button{border:0;background:transparent;color:var(--warn);cursor:pointer;width:28px;height:28px;padding:4px}
+.lapsites .add{color:var(--act);border:1px dashed var(--edge);background:var(--surface);padding:4px 10px;border-radius:var(--r-pill);width:auto;height:auto;font-size:13px}
+.lapacts li .lapmeta{display:block;font-size:12px;color:var(--ink-3)}
+.lapacts li input[type=checkbox]{flex:none;width:22px;height:22px;margin:4px 6px 0 0;accent-color:var(--act)}
+.lapacts li.done span b{text-decoration:line-through;color:var(--ink-3)}
+.lapform{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.lapform input:first-child{grid-column:1 / -1}
+.lapform .btn{min-height:40px}
+.lapshare{font-size:13px;color:var(--ink-2);margin-top:6px}
+#lapMap{width:100%;height:auto;display:block;background:var(--ground);border-radius:var(--r);border:1px solid var(--line-2)}
 
 /* ---------- plan screen ----------
    Ported from the Zone Call Planner. Planning stays desktop-shaped: a rail, a
@@ -1954,6 +1968,27 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Plan a large account</b><span class="sxs">One plan across a customer's sites</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open one of the customer's sites: tap <b>Directory</b> on Home, then the site.</li>
+        <li>Tap the <b>Account plan</b> card.</li>
+        <li>Tick <b>Large account: several sites under one plan</b>.</li>
+        <li>Tap <b>Done</b>. The large account plan opens, with the customer's other sites already in it.</li>
+        <li>Check the sites. Tap <b>&times;</b> to take one out, or type a name and tap <b>Add</b> to add one.</li>
+        <li>Under <b>Where we are</b>, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.</li>
+        <li>Under <b>Where we want to get to</b>, write the vision and add the objectives, each with a measure and a date.</li>
+        <li>Under <b>How we get there</b>, add the strategies, the investment and the actions. Give each action an owner and a due date.</li>
+        <li>Tick an action when it is done. Tap <b>Make a task</b> to put one in your calendar.</li>
+        <li>After a review, tap <b>Reviewed today</b>.</li>
+        <li>To send the plan, tap <b>Create and share</b>.</li>
+      </ol>
+      <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
+      <p>Open opportunities and the relationship map come from the sites' opportunities: a person on several opportunities shows once. Change people on each opportunity's own map.</p>
+      <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Prepare for a visit, and get coaching after it</b><span class="sxs">The sales coach</span></summary>
     <div class="fld help">
       <p>Keep an account plan:</p>
@@ -2471,6 +2506,8 @@ details.bsx > .msg{margin:8px 12px}
   <div class="card plancard" id="avPlan" role="button" tabindex="0"></div>
   <!-- v115: opportunities, each with its relationship map -->
   <div class="card oppcard" id="avOpps"></div>
+  <!-- v117: the large account plan this site belongs to -->
+  <div class="card plancard" id="avLap" role="button" tabindex="0" hidden></div>
   <!-- v102: the sales coach's pre-visit brief, from this account's records -->
   <button class="ghost" id="avPrep" type="button">Prepare for a visit</button>
   <h2>Contacts</h2>
@@ -2504,6 +2541,16 @@ details.bsx > .msg{margin:8px 12px}
     <aside class="opppanel" id="opPanel" aria-live="polite"></aside>
   </div>
   <div class="oppsheet" id="opSheet" hidden></div>
+</section>
+
+<!-- LARGE ACCOUNT (v117): one plan across a customer's sites. Where we are, where we want to get to, how. -->
+<section class="scr" id="s-lap">
+  <div class="opptools">
+    <button type="button" class="btn go" id="lapShare">Create and share</button>
+    <span class="spacer"></span>
+    <button type="button" class="tkdel" id="lapDel" aria-label="Delete this large account plan" title="Delete this large account plan"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+  </div>
+  <div class="oppsheet" id="lapBody"></div>
 </section>
 
 <!-- PLAN -->
@@ -2705,6 +2752,8 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   <div class="dlg-b">
     <p class="hint" id="plSub"></p>
+    <!-- v117: a multi-site customer gets one large account plan across its sites -->
+    <label class="chk"><input type="checkbox" id="plLarge"> Large account: several sites under one plan</label>
     <div class="f"><label for="plGoal">Goal for this account</label><input type="text" id="plGoal" autocomplete="off" placeholder="e.g. Replace the Line 2 belt and sprockets before the December shutdown"></div>
     <div class="f"><label>People</label><div id="plPeople"></div>
       <button type="button" class="btn act2" id="plAdd">Add a person</button></div>

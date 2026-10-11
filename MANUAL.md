@@ -298,6 +298,26 @@ Create and share makes an A4 document with the map as a picture. On the PC it op
 
 The Blue Sheet works the same on the phone and the PC. Tap **Map** to go back to the map.
 
+### Plan a large account
+
+1. Open one of the customer's sites: tap **Directory** on Home, then the site.
+2. Tap the **Account plan** card.
+3. Tick **Large account: several sites under one plan**.
+4. Tap **Done**. The large account plan opens, with the customer's other sites already in it.
+5. Check the sites. Tap **×** to take one out, or type a name and tap **Add** to add one.
+6. Under **Where we are**, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.
+7. Under **Where we want to get to**, write the vision and add the objectives, each with a measure and a date.
+8. Under **How we get there**, add the strategies, the investment and the actions. Give each action an owner and a due date.
+9. Tick an action when it is done. Tap **Make a task** to put one in your calendar.
+10. After a review, tap **Reviewed today**.
+11. To send the plan, tap **Create and share**.
+
+Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
+
+Open opportunities and the relationship map come from the sites' opportunities: a person on several opportunities shows once. Change people on each opportunity's own map.
+
+To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
+
 ### Prepare for a visit, and get coaching after it
 
 Keep an account plan:

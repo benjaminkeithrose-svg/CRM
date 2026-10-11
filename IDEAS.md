@@ -722,10 +722,21 @@ for now. Reviewed a clickable mock first.*
   Create and share: A4 HTML (NOTES_CSS) with the map drawn to a PNG.
 - **Still to come here:** the coach reading the opportunity and suggesting
   red flags and actions.
-- **Then: the large account plan.** Situation (position, competition, how
-  decisions are made, open opportunities), vision and objectives with
-  measures, strategies, the action plan, and an account-wide relationship map
-  built from its opportunities.
+- **Built (v117): the large account plan.** Ben: large accounts are
+  multi-site, usually with a group code in the database (column name not
+  known yet). One plan across a customer's sites, in the plans store
+  (kind 'large'), started or joined by a tick on a site's account plan.
+  Sites grouped by a group/parent-account column when the export has one
+  (any heading naming a group or parent account), else by the name before
+  " - ". Where we are (business, how they see us on a five-step ladder,
+  what we have today, our and their spend with the share worked out,
+  competition, strengths, vulnerabilities); the sites' open opportunities;
+  vision, objectives with measures and dates; strategies, investment, an
+  action plan with owners, dates and done ticks; the relationship map of
+  everyone on the sites' opportunities, once each; Reviewed today; Create
+  and share as A4.
+- **Later:** the export for Claude and the coach reading the large account
+  plan; the group column's real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
   opportunities import (needs the column headings).
 
