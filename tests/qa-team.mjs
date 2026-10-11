@@ -31,9 +31,13 @@ const byId = id => Object.values(U).find(u => u.id === id);
 const TEAM_ID = 'tttttttt-0000-0000-0000-000000000009';
 const TEAMS = { [TEAM_ID]: { id: TEAM_ID, name: 'ANZ field sales', admin: U.ben.id } };
 const MEMBERS = { [U.ben.id]: { team_id: TEAM_ID, name: 'Ben', role: 'admin' }, [U.jo.id]: { team_id: TEAM_ID, name: 'Jo', role: 'member' } };
+// teamOf: the team a row's author belongs to, removed or not (the trigger's view, and in_my_team's).
+// myTeam: the caller's team for access - none once removed (migration 0006's my_team()).
 const teamOf = uid => MEMBERS[uid] ? MEMBERS[uid].team_id : null;
-const sameTeam = (a, b) => !!teamOf(a) && teamOf(a) === teamOf(b);
-const adminOf = uid => teamOf(uid) ? TEAMS[teamOf(uid)].admin : null;
+const myTeam = uid => MEMBERS[uid] && !MEMBERS[uid].removed_at ? MEMBERS[uid].team_id : null;
+const sameTeam = (owner, sub) => !!myTeam(sub) && teamOf(owner) === myTeam(sub);
+const adminOf = uid => myTeam(uid) ? TEAMS[myTeam(uid)].admin : null;
+const BANNED = new Set();
 const SHARED = new Set(['calls', 'appts', 'plans', 'products', 'snippets']);
 
 const VAULTS = {}, RECORDS = {}, STORAGE = {};
@@ -45,6 +49,7 @@ const canRead = (row, sub) => row.owner === sub || (sameTeam(row.owner, sub) &&
 const canWrite = (row, sub) => (row.owner === sub && (row.store !== 'datasets' || row.id === 'weeks' || !teamOf(sub) || adminOf(sub) === sub))
   || (SHARED.has(row.store) && sameTeam(row.owner, sub));
 const canFolder = (folder, sub) => folder === sub || sameTeam(folder, sub);
+let fnCalls = 0;
 const subOf = (w, opts) => {
   const tok = (new w.Headers(opts.headers || {}).get('authorization') || '').replace(/^Bearer /, '');
   try { return JSON.parse(Buffer.from(tok.split('.')[1], 'base64url').toString()).sub || null; } catch (e) { return null; }
@@ -58,24 +63,51 @@ function fakeFetch(w) {
     if (u.includes('/auth/v1/token?grant_type=password')) {
       const b = JSON.parse(opts.body), x = byEmail(b.email);
       if (!x || x.pw !== b.password) return res(400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
+      if (BANNED.has(x.id)) return res(400, { code: 400, error_code: 'user_banned', msg: 'User is banned' });
       const user = { id: x.id, email: x.email, aud: 'authenticated', role: 'authenticated' };
       return res(200, { access_token: jwt({ sub: x.id, email: x.email, role: 'authenticated', exp: now() + 3600 }), token_type: 'bearer',
         expires_in: 3600, expires_at: now() + 3600, refresh_token: 'r-' + x.id, user });
     }
     if (u.includes('/auth/v1/logout')) return new w.Response(null, { status: 204 });
     const sub = subOf(w, opts);
-    if (u.includes('/auth/v1/user')) { const x = byId(sub); return res(200, { id: x.id, email: x.email, aud: 'authenticated', role: 'authenticated' }); }
+    if (u.includes('/auth/v1/user')) {
+      const x = byId(sub);
+      if (m === 'PUT') { const b = JSON.parse(opts.body); if (b.password) x.pw = b.password; }
+      return res(200, { id: x.id, email: x.email, aud: 'authenticated', role: 'authenticated' });
+    }
+    // the team-admin edge function (v113), as supabase/functions/team-admin plays it
+    if (u.includes('/functions/v1/team-admin')) {
+      fnCalls++;
+      if (!sub || BANNED.has(sub)) return res(401, { error: 'signed-out', message: 'Sign in to cloud sync first.' });
+      const team = Object.values(TEAMS).find(t => t.admin === sub);
+      if (!team || myTeam(sub) !== team.id) return res(403, { error: 'not-admin', message: 'Only the team\'s admin can add or remove people.' });
+      const b = JSON.parse(opts.body);
+      if (b.action === 'add') {
+        const email = String(b.email).trim().toLowerCase();
+        if (byEmail(email)) return res(409, { error: 'exists', message: 'That email address already has a sign-in. Nobody was added.' });
+        const id = 'dddddddd-0000-0000-0000-' + String(Object.keys(U).length + 1).padStart(12, '0');
+        U['added' + id.slice(-2)] = { id, email, pw: b.password };
+        MEMBERS[id] = { team_id: team.id, name: b.name, role: 'member', removed_at: null };
+        return res(200, { ok: true, user_id: id, name: b.name, email, team: team.name });
+      }
+      if (b.action === 'remove') {
+        if (!MEMBERS[b.user_id] || MEMBERS[b.user_id].team_id !== team.id) return res(404, { error: 'not-found', message: 'That person is not in your team.' });
+        MEMBERS[b.user_id].removed_at = new Date().toISOString(); BANNED.add(b.user_id);
+        return res(200, { ok: true });
+      }
+      return res(400, { error: 'bad-request', message: 'Unknown action.' });
+    }
     const q = new URL(u).searchParams;
     const eqv = k => q.get(k) ? q.get(k).replace(/^eq\./, '') : null;
     const inList = v => v.replace(/^in\.\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, ''));
     const pick = (rows) => { const cols = (q.get('select') || '*').split(','); return rows.map(r => cols[0] === '*' ? r : Object.fromEntries(cols.map(c => [c, r[c]]))); };
     if (u.includes('/rest/v1/team_members')) {
       if (!sub) return res(401, {});
-      return res(200, pick(Object.entries(MEMBERS).filter(([id, x]) => x.team_id === teamOf(sub)).map(([id, x]) => Object.assign({ user_id: id }, x))));
+      return res(200, pick(Object.entries(MEMBERS).filter(([id, x]) => x.team_id === myTeam(sub)).map(([id, x]) => Object.assign({ user_id: id }, x))));
     }
     if (u.includes('/rest/v1/teams')) {
       if (!sub) return res(401, {});
-      return res(200, pick(Object.values(TEAMS).filter(t => t.id === teamOf(sub) && (!eqv('id') || t.id === eqv('id')))));
+      return res(200, pick(Object.values(TEAMS).filter(t => t.id === myTeam(sub) && (!eqv('id') || t.id === eqv('id')))));
     }
     if (u.includes('/rest/v1/vaults')) {
       if (!sub) return res(401, {});
@@ -144,9 +176,9 @@ function fakeFetch(w) {
   };
 }
 
-async function boot() {
+async function boot(url) {
   const errs = [];
-  const dom = new JSDOM(html.replace(/<script[^>]*src=[^>]*><\/script>/g, ''), { runScripts: 'dangerously', url: 'https://example.org/' });
+  const dom = new JSDOM(html.replace(/<script[^>]*src=[^>]*><\/script>/g, ''), { runScripts: 'dangerously', url: url || 'https://example.org/' });
   const w = dom.window, d = w.document;
   w.indexedDB = new IDBFactory(); w.IDBKeyRange = IDBKeyRange;
   Object.defineProperty(w, 'crypto', { value: globalThis.crypto, configurable: true });
@@ -357,6 +389,92 @@ jo.g(`openReassign({account: 'Acme Foods'})`); await tick(50);
 ok(!jo.$('rdlg').hasAttribute('open') && /Ben looks after manager changes/.test(jo.$('toast').textContent), 'reassigning a manager is the admin\'s too');
 ben.g('paintRole()');
 ok(!ben.$('importBtn').hidden && !ben.$('ovFile').closest('.fld').hidden && !ben.$('pmReassign').hidden && ben.d.querySelector('#sxData .memberonly').hidden, 'Ben keeps every import');
+
+// ================= v113: the team in Settings, adding and removing people =================
+ben.g('renderSb()'); jo.g('renderSb()');
+ok(!ben.$('sxTeam').hidden && ben.$('sumTeam').textContent === 'ANZ field sales' && !ben.$('tmAdd').hidden, 'Ben has a Team section with Add a colleague');
+const names = x => [...x.$('tmList').querySelectorAll('.tmrow')].map(r => r.querySelector('.tmn').textContent.trim() + '/' + r.querySelector('.tmr').textContent).join(',');
+ok(names(ben) === 'Ben you/admin,Jo/member', 'listing the admin first: ' + names(ben));
+ok(ben.$('tmList').querySelectorAll('[data-tmmenu]').length === 1, 'with a menu on Jo, not on himself');
+ok(!jo.$('sxTeam').hidden && jo.$('tmAdd').hidden && !jo.$('tmList').querySelector('[data-tmmenu]') && /Ben adds and removes people/.test(jo.$('tmHint').textContent), 'Jo sees who is in the team, and cannot add or remove anyone');
+ok(!ben.$('sbPwOpen').hidden && !jo.$('sbPwOpen').hidden, 'everyone signed in can change their sign-in password');
+
+// a member cannot use the function, even directly
+const joTry = await jo.g(`teamCall({action: 'add', name: 'X', email: 'x@example.com', password: 'abcdefghijkl'}).then(() => 'added', e => e.message)`);
+ok(/Only the team's admin/.test(joTry) && !byEmail('x@example.com'), 'the server refuses a member: ' + joTry);
+
+// Ben adds Kim
+ben.$('tmAdd').click(); await tick(50);
+ok(ben.$('teamdlg').hasAttribute('open') && ben.g(`history.state.dialog`) === 'teamdlg', 'Add a colleague opens its sheet');
+ok(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/.test(ben.$('tmPw').value), 'with a temporary password made up: ' + ben.$('tmPw').value);
+const calls0 = fnCalls;
+ben.$('tmName').value = 'Kim Park'; ben.$('tmEmail').value = 'kim@'; ben.$('tmGo').click(); await tick(100);
+ok(/email address/.test(ben.$('tmMsg').textContent) && fnCalls === calls0, 'a bad email is caught before anything is sent');
+ben.$('tmEmail').value = 'jo@example.com'; ben.$('tmGo').click(); await tick(300);
+ok(/already has a sign-in/.test(ben.$('tmMsg').textContent) && !ben.$('tmForm').hidden, 'an email already in use is refused, in words: ' + ben.$('tmMsg').textContent);
+ben.$('tmEmail').value = 'Kim@Example.com'; ben.$('tmPw').value = 'kim-temp-2026'; ben.$('tmGo').click(); await tick(400);
+const kim = byEmail('kim@example.com');
+ok(kim && MEMBERS[kim.id] && MEMBERS[kim.id].name === 'Kim Park' && MEMBERS[kim.id].team_id === TEAM_ID, 'Kim has a sign-in and is in the team');
+ok(!ben.$('tmDone').hidden && ben.$('tmGo').hidden && ben.$('tmCancel').textContent === 'Done', 'the sheet turns to the message to send');
+const msg = ben.$('tmText').textContent;
+ok(/^Hi Kim,/.test(msg) && /ANZ field sales/.test(msg) && /kim-temp-2026/.test(msg) && /#join=/.test(msg), 'the message has the link and the temporary password');
+ok(!/team passphrase 2026/.test(msg) && /separately/.test(msg), 'and never the team passphrase');
+ok(names(ben) === 'Ben you/admin,Jo/member,Kim Park/member' && /3 people/.test(ben.stat()), 'Ben\'s list has Kim: ' + names(ben));
+ben.$('tmCancel').click(); await tick(100);
+ok(!ben.$('teamdlg').hasAttribute('open'), 'Done closes it');
+ben.$('tmAdd').click(); await tick(50);
+ok(ben.$('tmText').textContent === '' && !ben.$('tmForm').hidden && ben.$('tmPw').value !== 'kim-temp-2026' && !ben.$('tmGo').hidden, 'and opening it again starts afresh, with no trace of Kim\'s password');
+ben.$('tmCancel').click(); await tick(100);
+
+// Kim opens the link on a new phone
+const link = msg.match(/https:\S+#join=\S+/)[0];
+const kd = await boot(link);
+ok(kd.g('screen') === 'settings' && kd.$('sxCloud').open, 'the link opens Settings at Cloud sync');
+ok(kd.g('SB.url') === 'https://' + REF + '.supabase.co' && kd.g('SB.key') === 'sb_publishable_test', 'with the project address and key filled in');
+ok(kd.$('sbEmail').value === 'kim@example.com' && !/#join/.test(kd.w.location.href), 'and her email; the link leaves the address bar');
+kd.$('sbPass').value = 'kim-temp-2026'; kd.$('sbSignIn').click(); await tick(600);
+kd.w.eval('if(sbClient) sbClient.channel = undefined');
+ok(kd.g('isMember()') && kd.g('sbVault') === 'locked', 'Kim signs in, a member, asked for the team passphrase');
+await phrase(kd, 'team passphrase 2026');
+await sync(kd);
+ok(kd.g('sbVault') === 'open' && !kd.g('window.__syncErr') && (await kd.g(`recGet('calls', 'cBen1')`)), 'and has the team\'s calls');
+kd.$('sbPwOpen').click(); await tick();
+kd.$('sbPwNew').value = 'kims own password'; kd.$('sbPwNew2').value = 'kims own pasword'; kd.$('sbPwGo').click(); await tick(200);
+ok(/different/.test(kd.$('toast').textContent) && kim.pw === 'kim-temp-2026', 'two different new passwords are caught');
+kd.$('sbPwNew2').value = 'kims own password'; kd.$('sbPwGo').click(); await tick(400);
+ok(kim.pw === 'kims own password' && /password changed/.test(kd.$('toast').textContent) && kd.$('sbPw').hidden, 'Kim chooses her own sign-in password');
+
+// a damaged link, and a device on another project
+const bad = await boot('https://example.org/#join=notreal');
+ok(/damaged/.test(bad.$('toast').textContent) && !bad.g('SB.url'), 'a damaged link changes nothing');
+
+// the Team view on the calendar
+await jo.g('loadAccounts()');
+ok(jo.g(`calKinds().map(k => k[0]).join()`) === 'all,visit,task,quote,team', 'in a team the calendar has a Team chip');
+jo.g(`go('today')`); await tick(100);
+jo.g(`tvCursor = '2026-10-20', tvSetView('today')`); await tick(50);
+ok(!jo.$('tvBody').querySelector('[data-tvis]'), 'All shows only Jo\'s own');
+jo.$('tvKinds').querySelector('[data-kind="team"]').click(); await tick(50);
+const tv = jo.$('tvBody').querySelector('[data-tvis="apBen1"]');
+ok(tv && /Ben/.test(tv.textContent) && !jo.$('tvBody').querySelector('[data-vmenu]'), 'Team shows Ben\'s visit, named, with no menu to change it');
+tv.click(); await tick(100);
+ok(/^Ben: Site call at Acme Foods/.test(jo.$('toast').textContent) && jo.g('screen') === 'today', 'tapping it says whose it is, and starts nothing: ' + jo.$('toast').textContent);
+jo.g(`plan.view = 'week', plan.anchor = parseIso('2026-10-20'), go('plan')`); await tick(100);
+const blk = jo.$('calBody').querySelector('.appt.team');
+ok(blk && /Ben/.test(blk.textContent) && !blk.querySelector('.del') && !blk.draggable, 'the PC calendar shows it too, without a bin and without dragging');
+jo.$('tvKinds').querySelector('[data-kind="team"]').click(); await tick(50);
+jo.g(`go('home')`);
+
+// Ben removes Kim
+ben.$('tmList').querySelector('[data-tmmenu]') && [...ben.$('tmList').querySelectorAll('[data-tmmenu]')].find(b => b.dataset.tmmenu === kim.id).click(); await tick(50);
+ok(menu(ben).join() === 'Send the set-up link,Remove from the team', 'Kim\'s menu: ' + menu(ben));
+[...ben.$('vmBody').querySelectorAll('[data-cm]')].find(b => /Remove/.test(b.textContent)).click(); await tick(500);
+ok(MEMBERS[kim.id].removed_at && BANNED.has(kim.id), 'Kim is removed and cannot sign in');
+ok(names(ben) === 'Ben you/admin,Jo/member' && /change the passphrase/i.test(ben.$('toast').textContent), 'Ben\'s list drops her, and he is told to change the passphrase');
+const kimReads = Object.values(RECORDS).filter(r => canRead(r, kim.id) && r.owner !== kim.id).length;
+ok(kimReads === 0, 'the server gives her nothing of the team\'s');
+await jo.g('sbLoadTeam()');
+ok(jo.g(`teamName('${kim.id}')`) === 'Kim Park' && jo.g('teamPeople().length') === 2, 'what she wrote keeps her name for the others');
 
 // ================= Sam, in no team =================
 const sam = await boot();

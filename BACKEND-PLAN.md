@@ -462,6 +462,28 @@ admin. A member has no import buttons, no zone overrides and no Reassign, and
 is told who keeps the data. The Team calendar view moves to v113 with Add a
 colleague.
 
+**v113, adding and removing people:** Settings has a **Team** section. The
+admin taps **Add a colleague** (name, email, a made-up temporary password);
+the `team-admin` edge function, holding the service role the app never can,
+makes the sign-in (confirmed, no email sent) and the team membership. The app
+writes the message to send: a set-up link (`#join=` with the project address,
+the publishable key and their email), the temporary password, and a reminder
+that the team passphrase is told separately. The colleague opens the link,
+signs in, unlocks with the team passphrase and sets their own sign-in password
+(**Change your sign-in password**, for anyone). **Remove from the team** marks
+them removed (migration `0006_team_removed.sql`: `my_team()` ignores a removed
+membership) and bans their sign-in; what they wrote stays with the team and
+keeps their name. The calendar's **Team** chip shows colleagues' visits, read
+only. The function only answers a team's admin; teams themselves are still set
+up by hand.
+
+**Checked live (2026-10-11):** `tests/browser-team-live.mjs`, 23 checks in real
+Chromium against the real project, the throwaway test account as admin of its
+own test team (never Ben's): add through the real function, join from the
+link, each reads the other's call, a member refused by the function, the
+colleague's password change, removal (no team rows readable even on a token
+still in hand, sign-in refused, their call kept). Still not a phone test.
+
 ### Step 9 (earlier note) — Later: colleagues, and the new stores
 
 - **Colleagues:** invite flow, a team in the access rules, and a shared data

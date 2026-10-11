@@ -971,7 +971,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v112';
+const APP_BUILD = 'v113';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1341,7 +1341,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -2197,6 +2197,13 @@ function renderCalendar(){
         makeDraggableAppt(el, ap);
         b.appendChild(el);
       });
+      (calKind === 'team' ? TEAM_APPTS.filter(a => a.date === k) : []).forEach(ap => {
+        const el = teamApptEl(ap, false);
+        el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(ap))) + 'px';
+        el.style.height = Math.max(18, (ap.dur || 60) * PX_MIN) + 'px';
+        if(!oneDay && (ap.dur || 60) * PX_MIN < 36) el.classList.add('tiny');
+        b.appendChild(el);
+      });
       (showKind('task') ? tasksOn(k) : []).forEach(t => {
         const el = taskEl(t, false);
         el.style.top = Math.max(0, Math.min(GRID_H - 18, topFor(t))) + 'px';
@@ -2249,6 +2256,7 @@ function renderCalendar(){
         cell.className = 'mcell' + (i>4 ? ' wknd' : '') + (d.getMonth()!==m ? ' out' : '') + (k===TODAY ? ' today' : '');
         cell.innerHTML = '<div class="n">'+d.getDate()+'</div>';
         if(showKind('visit')) apptsOn(k).forEach(ap => cell.appendChild(apptEl(ap,true)));
+        if(calKind === 'team') TEAM_APPTS.filter(a => a.date === k).forEach(ap => cell.appendChild(teamApptEl(ap,true)));
         if(showKind('task')) tasksOn(k).forEach(t => cell.appendChild(taskEl(t,true)));
         if(showKind('quote')) quotesOn(k).forEach(q => cell.appendChild(quoteEl(q,true)));
         cell.addEventListener('dblclick', ()=>openDialog(null, {date:k}));
@@ -3435,7 +3443,7 @@ function taskCard(t){
 }
 // visits and tasks for one day, in time order
 function dayItems(k){
-  return calA().filter(a => a.date === k).map(a => ({at: a.start || '', html: visitCard(a)}))
+  return calA().filter(a => a.date === k).map(a => ({at: a.start || '', html: isMine('appts', a.id) ? visitCard(a) : teamVisitCard(a)}))
     .concat(calT().filter(x => x.date === k).map(x => ({at: x.start || '', html: taskCard(x)})))
     .concat(calQ().filter(q => q.date === k).map(q => ({at: q.start, html: quoteCard(q)})))
     .sort((a,b) => a.at.localeCompare(b.at)).map(x => x.html).join('');
@@ -3452,7 +3460,7 @@ function renderTodayList(el){
   const myQuotes = calQ().filter(x => x.date === t);
   const mon = iso(startOfWeek(new Date()));
   // earlier in the week, planned and never resolved
-  const late = isNow ? calA().filter(a => a.date >= mon && a.date < t && !apSettled(a))
+  const late = isNow && calKind !== 'team' ? calA().filter(a => a.date >= mon && a.date < t && !apSettled(a))
     .sort((x,y)=>x.date.localeCompare(y.date) || x.start.localeCompare(y.start)) : [];
 
   const when = isNow ? 'today' : 'on ' + dayLabel(t).toLowerCase();
@@ -3622,6 +3630,7 @@ function wireVisitCards(el){
   on('data-start',    id => startVisit(id).catch(reportErr));
   on('data-topen',    id => openTask(id));
   on('data-qopen',    id => openQuote(id).catch(reportErr));
+  on('data-tvis',     id => openTeamVisit(id).catch(reportErr));
   on('data-ttick',    id => { const t = TASKS.find(x => x.id === id); if(t) taskToggle(t).catch(reportErr); });
   on('data-closeout', id => closeOutVisit(id).catch(reportErr));
   on('data-move',     id => openMoveDialog(id));
@@ -4565,21 +4574,63 @@ function quoteCard(q){
       '<div class="vsub">' + ['Quote request', q.belts ? q.belts + ' belt' + (q.belts === 1 ? '' : 's') : '', q.done ? 'done' : ''].filter(Boolean).map(esc).join(' &middot; ') + '</div>' +
     '</button></div>';
 }
+/* A colleague's visit (v113): their name instead of your ⋯ menu, and a tap
+   that reads rather than starts anything. */
+function apptAuthor(ap){ return teamName(OWNERS && OWNERS['appts/' + ap.id]); }
+function teamVisitCard(ap){
+  const st = apStatus(ap);
+  return '<div class="vis team' + (apSettled(ap) ? ' settled' : '') + '">' +
+    '<button class="vopen" data-tvis="' + esc(ap.id) + '">' +
+      '<div class="vtop"><span class="when">' + esc(ap.start || '') + '</span><span class="who">' + esc(ap.acct) + '</span>' +
+        (st === 'planned' ? '' : '<span class="st ' + AP_STATUS[st].cls + '">' + AP_STATUS[st].label + '</span>') + '</div>' +
+      '<div class="vsub"><b>' + esc(apptAuthor(ap)) + '</b>' + (ap.type ? ' &middot; ' + esc(ap.type) : '') + '</div>' +
+    '</button></div>';
+}
+// on the PC calendar: a block that does not drag and has no bin
+function teamApptEl(ap, pill){
+  const el = document.createElement('div');
+  el.className = (pill ? 'pill' : 'appt') + ' team' + (apSettled(ap) ? ' done' : '');
+  el.tabIndex = 0;
+  el.innerHTML = pill ? '<span class="pt"></span>' : '<div class="t"><span></span></div><div class="a"><span></span></div><div class="k"></div>';
+  if(pill) el.querySelector('.pt').textContent = (ap.start || '') + ' ' + apptAuthor(ap) + ': ' + ap.acct;
+  else {
+    el.querySelector('.t span').textContent = (ap.start || '') + (ap.dur ? ' \u00b7 ' + ap.dur + ' min' : '');
+    el.querySelector('.a span').textContent = ap.acct;
+    el.querySelector('.k').textContent = apptAuthor(ap) + (ap.type ? ' \u00b7 ' + ap.type : '');
+  }
+  el.title = apptAuthor(ap) + ' \u00b7 ' + apptTitle(ap);
+  const open = e => { e.stopPropagation(); openTeamVisit(ap.id).catch(reportErr); };
+  el.addEventListener('click', open);
+  el.addEventListener('keydown', e => { if(e.key === 'Enter') open(e); });
+  return el;
+}
+async function openTeamVisit(id){
+  const ap = TEAM_APPTS.find(x => x.id === id);
+  if(!ap) return;
+  const c = ap.callId && (await callsAll()).find(x => x.id === ap.callId);
+  if(c){ openCallRecord(c); return; }
+  toast(apptAuthor(ap) + ': ' + (ap.type || 'visit') + ' at ' + ap.acct + ', ' + dayLabel(ap.date) + (ap.start ? ' ' + ap.start : '') +
+    (apSettled(ap) ? ' (' + AP_STATUS[apStatus(ap)].label + ')' : ''));
+}
 /* ---------- calendar filter and search (v87) ----------
    All, Visits, Tasks or Quotes, on the PC calendar and the phone's Day, Week
    and Month alike. Held in memory only: it is back on All every time the app
    opens, so a filter left on Tasks cannot quietly hide next week's visits. */
 let calKind = 'all';
 const CAL_KINDS = [['all', 'All'], ['visit', 'Visits'], ['task', 'Tasks'], ['quote', 'Quotes']];
+/* Team (v113), in a team only: your colleagues' visits, with their names,
+   instead of yours. They are theirs to change, so they open to read. */
+const calKinds = () => inTeam() ? CAL_KINDS.concat([['team', 'Team']]) : CAL_KINDS;
 const showKind = k => calKind === 'all' || calKind === k;
-const calA = () => showKind('visit') ? APPTS : [];
+const calA = () => calKind === 'team' ? TEAM_APPTS : showKind('visit') ? APPTS : [];
 const calT = () => showKind('task') ? TASKS : [];
 const calQ = () => showKind('quote') ? QUOTES : [];
 function renderKinds(){
+  if(calKind === 'team' && !inTeam()) calKind = 'all';
   ['tvKinds', 'pKinds'].forEach(id => {
     const el = $(id);
     if(!el) return;
-    el.innerHTML = '<div class="chips">' + CAL_KINDS.map(([k, label]) =>
+    el.innerHTML = '<div class="chips">' + calKinds().map(([k, label]) =>
       '<button type="button" data-kind="' + k + '" aria-pressed="' + (calKind === k) + '"' + (calKind === k ? ' class="on"' : '') + '>' + label + '</button>').join('') +
       '</div><button type="button" class="tvi" data-calsearch="1" aria-label="Search the calendar" title="Search the calendar">' + icon('search') + '</button>';
     el.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => {
@@ -4607,7 +4658,7 @@ function calJump(dISO){
   tvCursor = dISO; tvSetView('today');
 }
 function openCalSearch(){
-  const what = calKind === 'all' ? 'tasks, visits and quote requests' : CAL_KINDS.find(k => k[0] === calKind)[1].toLowerCase();
+  const what = calKind === 'all' ? 'tasks, visits and quote requests' : calKind === 'team' ? 'the team\'s visits' : CAL_KINDS.find(k => k[0] === calKind)[1].toLowerCase();
   openSearch({
     placeholder: 'Search ' + what,
     render(q, el, hint){
@@ -4621,7 +4672,7 @@ function openCalSearch(){
         .sort((a, b) => (a.done - b.done) || b.date.localeCompare(a.date));
       hint.textContent = rows.length ? rows.length + ' found' : 'Nothing matches that.';
       el.innerHTML = rows.slice(0, 100).map((r, i) => {
-        const x = r.x, label = r.kind === 'task' ? 'Task' : r.kind === 'quote' ? 'Quote request' : (x.type || 'Visit');
+        const x = r.x, label = r.kind === 'task' ? 'Task' : r.kind === 'quote' ? 'Quote request' : (x.type || 'Visit') + (isMine('appts', x.id) ? '' : ' \u00b7 ' + apptAuthor(x));
         const name = r.kind === 'task' ? taskTitle(x) : x.acct;
         const sub = [label, dayLabel(x.date) + (x.start ? ' ' + x.start : ''), r.kind === 'task' ? x.acct : '', r.done ? 'done' : '']
           .filter(Boolean).map(esc).join(' &middot; ');
@@ -5288,6 +5339,7 @@ function sbSay(e){
   const m = String(e && e.message || e || '');
   if(!navigator.onLine || /fetch|network|load failed/i.test(m)) return 'No connection - try again when you have signal.';
   if(/invalid login credentials/i.test(m)) return 'That email and password do not match an account in this project.';
+  if(/banned/i.test(m)) return 'This sign-in has been switched off. Ask your team\'s admin.';
   if(/email not confirmed/i.test(m)) return 'That account has not been confirmed yet. Confirm it in the Supabase dashboard.';
   if(/invalid api key|no api key/i.test(m)) return 'The project does not accept that key. Check the publishable key.';
   return m || 'Something went wrong.';
@@ -5318,7 +5370,7 @@ function renderSb(){
   }[sbVault] || '');
   if(signedIn && TEAM) line += '<br>Team: <b>' + esc(TEAM.name) + '</b> &middot; ' +
     (iAmAdmin() ? 'you are its admin' : 'admin ' + esc(teamName(TEAM.admin))) + ' &middot; ' +
-    TEAM.members.length + (TEAM.members.length === 1 ? ' person' : ' people');
+    teamPeople().length + (teamPeople().length === 1 ? ' person' : ' people');
   const open = signedIn && sbVault === 'open';
   if(open){
     const last = Number(localStorage.getItem(LS('cloudSync')) || 0);
@@ -5339,6 +5391,8 @@ function renderSb(){
   $('sbSync').hidden = !open;
   $('sbSync').disabled = !!cloudRun;
   $('sbChgOpen').hidden = !open || !iAmAdmin();
+  $('sbPwOpen').hidden = !signedIn;
+  if(!signedIn) $('sbPw').hidden = true;
   if(!open || !iAmAdmin()) $('sbChg').hidden = true;
   const ask = signedIn && (sbVault === 'none' || sbVault === 'locked');
   $('sbLock').hidden = !ask;
@@ -5490,10 +5544,12 @@ async function sbLoadTeam(){
   try { const t = await kvGet('cloudTeam'); TEAM = t && t.uid === sbUser.id ? t : null; } catch(e){}
   if(!navigator.onLine) return;
   try {
-    const m = await sbClient.from('team_members').select('user_id,team_id,name,role');
+    // '*': removed_at arrived in migration 0006, and naming it would fail on a project without it
+    const m = await sbClient.from('team_members').select('*');
     // a project without teams (before migration 0004): on your own, as before
     if(m.error){ if(/team_members|does not exist|schema cache/i.test(m.error.message || '')){ TEAM = null; await kvSet('cloudTeam', null); return; } throw m.error; }
-    const mine = (m.data || []).find(x => x.user_id === sbUser.id);
+    // taken out of the team (v113): on your own again
+    const mine = (m.data || []).find(x => x.user_id === sbUser.id && !x.removed_at);
     let team = null;
     if(mine){
       const t = await sbClient.from('teams').select('id,name,admin').eq('id', mine.team_id);
@@ -5501,7 +5557,7 @@ async function sbLoadTeam(){
       team = t.data && t.data[0];
     }
     TEAM = team ? {uid: sbUser.id, id: team.id, name: team.name, admin: team.admin,
-      members: (m.data || []).filter(x => x.team_id === team.id).map(x => ({user_id: x.user_id, name: x.name, role: x.role}))} : null;
+      members: (m.data || []).filter(x => x.team_id === team.id).map(x => ({user_id: x.user_id, name: x.name, role: x.role, removed: !!x.removed_at}))} : null;
     await kvSet('cloudTeam', TEAM);
   } catch(e){ console.warn('team', e); }
   finally { paintRole(); }
@@ -5522,8 +5578,17 @@ function teamName(uid){ const m = TEAM && TEAM.members.find(x => x.user_id === u
    counts as yours, which is how the app behaved before teams. */
 function isMine(store, id){ return !(OWNERS && OWNERS[store + '/' + id]); }
 function callAuthor(c){ return isMine('calls', c.id) ? '' : teamName(OWNERS['calls/' + c.id]); }
-async function apptsMine(){ await ownersLoad(); return (await apptsAll()).filter(a => isMine('appts', a.id)); }
-function inTeam(){ return !!(TEAM && TEAM.members && TEAM.members.length > 1); }
+// yours for the calendar; your colleagues' kept aside for its Team view (v113)
+var TEAM_APPTS = [];
+async function apptsMine(){
+  await ownersLoad();
+  const all = await apptsAll();
+  TEAM_APPTS = all.filter(a => !isMine('appts', a.id));
+  return all.filter(a => isMine('appts', a.id));
+}
+// the people in the team now; someone removed keeps their name on what they wrote
+function teamPeople(){ return TEAM && TEAM.members ? TEAM.members.filter(x => !x.removed) : []; }
+function inTeam(){ return teamPeople().length > 1; }
 /* The CRM export, the belt catalogue, the audit register, zone overrides and
    reassignments are the admin's to load; a member's copy follows theirs. */
 function paintRole(){
@@ -5534,6 +5599,7 @@ function paintRole(){
   document.querySelectorAll('.adminname').forEach(el => { el.textContent = who; });
   if($('sumOther')) $('sumOther').textContent = m ? 'Task Slaughterer' : 'Task Slaughterer and zone overrides';
   try { renderHomeSetup(); } catch(e){}   // can run before the accounts are declared
+  try { renderTeam(); } catch(e){}
 }
 
 /* The passphrase can change without touching any record: only the data key's
@@ -5666,6 +5732,196 @@ $('sbChgGo').addEventListener('click', async () => {
     if(e && e.message === 'passphrase mismatch'){ toast('That is not the current passphrase.'); $('sbChgOld').value = ''; }
     else toast(sbSay(e));
   } finally { btn.disabled = false; btn.textContent = label; renderSb(); }
+});
+
+/* ---------- the team in Settings (v113) ----------
+   The admin adds a colleague here: a name, their email and a temporary
+   password. The team-admin edge function makes the sign-in (the service role
+   it needs can never be in the app) and puts them in the team. The app then
+   writes the message to send them: a set-up link that fills in the project
+   address and key, their email and the temporary password. The team
+   passphrase is never in it - that is told separately. */
+const b64url = str => btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64url = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
+function joinLink(email){
+  const o = {u: SB.url, k: SB.key};
+  if(email) o.e = email;
+  return location.origin + location.pathname + '#join=' + b64url(JSON.stringify(o));
+}
+function joinMessage(name, email, pw){
+  const first = String(name || '').trim().split(/\s+/)[0];
+  return (first ? 'Hi ' + first + ',\n\n' : '') +
+    'You are set up in Field CRM, in the ' + TEAM.name + ' team.\n\n' +
+    '1. On your phone, open this link in Chrome:\n' + joinLink(email) + '\n' +
+    (pw ? '2. Type your temporary password: ' + pw + '\n' : '2. Type your email address and your password.\n') +
+    '3. Tap Sign in.\n' +
+    '4. Type the team passphrase. I will give it to you separately.\n' +
+    '5. In Settings, under Cloud sync, tap Change your sign-in password and choose your own.\n\n' +
+    'Help (⋯ on Home, then Help) has the rest.';
+}
+async function shareText(text, title){
+  if(navigator.share){
+    try { await navigator.share({title: title, text: text}); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; }
+  }
+  await copyText(text, 'Message');
+}
+// readable when typed from a message: no 0/O, 1/l/I
+function tempPassword(){
+  const A = 'abcdefghijkmnpqrstuvwxyz23456789', r = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(r, (b, i) => (i && i % 4 === 0 ? '-' : '') + A[b % A.length]).join('');
+}
+async function teamCall(body){
+  if(!navigator.onLine) throw new Error('No connection - try again when you have signal.');
+  const {data, error} = await sbClient.functions.invoke('team-admin', {body: body});
+  if(error){
+    let msg = '';
+    try { const j = await error.context.json(); msg = j && j.message; } catch(e){}
+    throw new Error(msg || (/not found|404/i.test(error.message || '') ? 'Adding people is not set up in Supabase yet.' : error.message));
+  }
+  return data;
+}
+function renderTeam(){
+  const sec = $('sxTeam');
+  if(!sec) return;
+  const show = !!(sbClient && sbUser && TEAM);
+  sec.hidden = !show;
+  if(!show) return;
+  const admin = iAmAdmin();
+  $('sumTeam').textContent = TEAM.name;
+  $('tmAdd').hidden = !admin;
+  const ppl = teamPeople().slice().sort((a, b) => (b.user_id === TEAM.admin) - (a.user_id === TEAM.admin) || String(a.name).localeCompare(String(b.name)));
+  $('tmList').innerHTML = ppl.map(x => '<div class="tmrow">' +
+    '<span class="tmn">' + esc(x.name || '—') + (x.user_id === sbUser.id ? ' <span class="tag">you</span>' : '') + '</span>' +
+    '<span class="tmr">' + (x.user_id === TEAM.admin ? 'admin' : 'member') + '</span>' +
+    (admin && x.user_id !== TEAM.admin ? '<button type="button" class="tmmore" data-tmmenu="' + esc(x.user_id) + '" aria-label="More for ' + esc(x.name) + '">&#8943;</button>' : '') +
+    '</div>').join('');
+  $('tmList').querySelectorAll('[data-tmmenu]').forEach(b => b.addEventListener('click', () => {
+    const x = teamPeople().find(m => m.user_id === b.dataset.tmmenu);
+    if(x) openCardMenu(x.name, 'Member of ' + TEAM.name, [
+      {label: 'Send the set-up link', icon: 'copy', run: () => shareText(joinMessage(x.name, '', ''), 'Field CRM').catch(reportErr)},
+      {label: 'Remove from the team', icon: 'trash', danger: true, run: () => removeColleague(x).catch(reportErr)}
+    ]);
+  }));
+  $('tmHint').textContent = admin
+    ? 'You add and remove people. Everyone in the team uses the team passphrase: your passphrase.'
+    : teamName(TEAM.admin) + ' adds and removes people.';
+}
+async function removeColleague(x){
+  if(!confirm('Remove ' + x.name + ' from ' + TEAM.name + '?\n\n' + x.name + ' can no longer sign in, or see anything the team shares. ' +
+      'The calls, visits and photos they wrote stay with the team.\n\nAfterwards, change the passphrase, so the one they know stops working on a new device.')) return;
+  await teamCall({action: 'remove', user_id: x.user_id});
+  await sbLoadTeam();
+  renderSb();
+  toast(x.name + ' removed. Now change the passphrase.');
+  await logLoad(SB.url, 'cloud', 'Removed ' + x.name + ' from the team');
+}
+// the Add a colleague sheet: the form, then the message to send
+function openTeamAdd(){
+  if(!iAmAdmin() || !TEAM){ toast('Only the team\'s admin can add people'); return; }
+  $('tmName').value = ''; $('tmEmail').value = ''; $('tmPw').value = tempPassword();
+  tmText = ''; $('tmText').textContent = '';
+  $('tmForm').hidden = false; $('tmDone').hidden = true;
+  $('tmGo').hidden = false; $('tmGo').disabled = false;
+  $('tmCancel').textContent = 'Cancel';
+  showMsg($('tmMsg'), '', '');
+  const d = $('teamdlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open','');
+  pushDialog('teamdlg');
+}
+function closeTeamAdd(){
+  if(history.state && history.state.dialog === 'teamdlg') history.back();
+  else { const d = $('teamdlg'); if(d.close) d.close(); else d.removeAttribute('open'); }
+}
+let tmText = '';
+$('tmAdd').addEventListener('click', openTeamAdd);
+$('tmCancel').addEventListener('click', closeTeamAdd);
+$('tmGo').addEventListener('click', async () => {
+  const name = $('tmName').value.trim(), email = $('tmEmail').value.trim(), pw = $('tmPw').value;
+  if(!name){ showMsg($('tmMsg'), 'warn', 'Type their name.'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showMsg($('tmMsg'), 'warn', 'Type their email address.'); return; }
+  if(pw.length < 10){ showMsg($('tmMsg'), 'warn', 'The temporary password needs at least 10 characters.'); return; }
+  $('tmGo').disabled = true;
+  showMsg($('tmMsg'), 'info', 'Adding ' + esc(name) + String.fromCharCode(8230));
+  let made;
+  try {
+    made = await teamCall({action: 'add', name: name, email: email, password: pw});
+  } catch(e){
+    showMsg($('tmMsg'), 'warn', esc(e.message));
+    $('tmGo').disabled = false;
+    return;
+  }
+  await sbLoadTeam();
+  renderSb();
+  await logLoad(SB.url, 'cloud', 'Added ' + name + ' to the team');
+  // as the server stored it (lower case), so the link fills in exactly that
+  tmText = joinMessage(name, (made && made.email) || email, pw);
+  $('tmDoneHead').textContent = name + ' is in the team. Send them this:';
+  $('tmText').textContent = tmText;
+  $('tmForm').hidden = true; $('tmDone').hidden = false;
+  $('tmGo').hidden = true; $('tmCancel').textContent = 'Done';
+  showMsg($('tmMsg'), '', '');
+});
+$('tmShare').addEventListener('click', () => shareText(tmText, 'Field CRM').catch(reportErr));
+$('tmCopy').addEventListener('click', () => copyText(tmText, 'Message').catch(reportErr));
+// leaving the sheet forgets the message: it holds a password
+$('teamdlg').addEventListener('close', () => { tmText = ''; $('tmText').textContent = ''; $('tmPw').value = ''; });
+
+/* The set-up link a colleague opens: it fills in the project address and key
+   and their email, and leaves them at Sign in. A device already set up for a
+   different project is left alone. */
+async function consumeJoin(){
+  const m = /^#join=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
+  if(!m) return;
+  try { history.replaceState(history.state, '', location.pathname + location.search); } catch(e){}
+  let o = null;
+  try { o = JSON.parse(unb64url(m[1])); } catch(e){}
+  const url = o ? sbNormUrl(o.u) : '', key = o ? String(o.k || '').trim() : '';
+  if(!url || !key || sbKeyProblem(key)){ toast('That set-up link is damaged. Ask for it again.'); return; }
+  if(SB.url && SB.url !== url && sbUser){
+    go('settings'); $('sxCloud').open = true;
+    toast('This device is signed in to a different cloud. Sign out first, then open the link again.');
+    return;
+  }
+  if(SB.url !== url || SB.key !== key){
+    if(sbClient && sbUser){ try { await sbClient.auth.signOut({scope:'local'}); } catch(e){} }
+    await sbForget();
+    SB.url = url; SB.key = key;
+    await kvSet('cloud', SB);
+    sbMake();
+  }
+  go('settings');
+  $('sxCloud').open = true;
+  if(!sbUser && o.e) $('sbEmail').value = String(o.e);
+  renderSb();
+  if(sbUser) toast('Already signed in');
+  else { toast('Type the password you were given, then tap Sign in'); setTimeout(() => { try { $('sbPass').focus(); } catch(_){} }, 100); }
+}
+
+/* Your own sign-in password (v113), for anyone: a colleague starts with the
+   temporary one the admin gave them. Separate from the passphrase, which
+   locks the data. */
+$('sbPwOpen').addEventListener('click', () => {
+  $('sbPw').hidden = !$('sbPw').hidden;
+  if(!$('sbPw').hidden) setTimeout(() => { try { $('sbPwNew').focus(); } catch(_){} }, 50);
+});
+$('sbPwGo').addEventListener('click', async () => {
+  const btn = $('sbPwGo'), n1 = $('sbPwNew').value, n2 = $('sbPwNew2').value;
+  if(!navigator.onLine){ toast('No connection - try again when you have signal.'); return; }
+  if(n1.length < 10){ toast('The new password needs at least 10 characters'); return; }
+  if(n1 !== n2){ toast('The two passwords are different - type them again'); return; }
+  btn.disabled = true;
+  try {
+    const r = await sbClient.auth.updateUser({password: n1});
+    if(r.error) throw r.error;
+    $('sbPwNew').value = ''; $('sbPwNew2').value = '';
+    $('sbPw').hidden = true;
+    toast('Sign-in password changed');
+    await logLoad(SB.url, 'cloud', 'Sign-in password changed');
+  } catch(e){
+    console.warn(e);
+    toast(/same|different from the old/i.test(e.message || '') ? 'That is your current password - choose a new one' : sbSay(e));
+  } finally { btn.disabled = false; }
 });
 
 /* Encrypt and decrypt one synced thing. The JSON is gzipped first (the CRM
@@ -11818,6 +12074,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   headerHeight(); window.addEventListener('resize', headerHeight);
   try { await renderHome(); } catch(e){ console.error('home', e); }
   try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
+  try { await consumeJoin(); } catch(e){ console.error('set-up link', e); }
   if(dbErr){
     $('dbStat').textContent = 'Storage error - ' + dbErr.message;
     toast('Storage error - ' + dbErr.message);

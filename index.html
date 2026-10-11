@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v112">
+<meta name="build" content="v113">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -163,6 +163,14 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 #tidydlg{width:min(680px,96vw)}
 #coachdlg{width:min(640px,96vw)}
 /* a colleague's report, read-only until Edit (v112) */
+#teamdlg{width:min(560px,96vw)}
+.tmtext{white-space:pre-wrap;word-break:break-all;font-size:13.5px;background:var(--sunk);border-radius:var(--r);padding:10px 12px;margin-top:10px;color:var(--ink-2)}
+.tmlist{margin:10px 0 4px}
+.tmrow{display:flex;align-items:center;gap:10px;min-height:44px;border-bottom:1px solid var(--line-2)}
+.tmrow:last-child{border-bottom:0}
+.tmn{flex:1;min-width:0;font-weight:600}
+.tmr{color:var(--ink-3);font-size:13px}
+.tmmore{width:44px;height:44px;flex:none;background:transparent;border:0;font-size:20px;color:var(--ink-2);cursor:pointer}
 #rvdlg{width:min(760px,96vw);height:92vh;max-height:92vh;flex-direction:column}
 #rvdlg[open]{display:flex}
 #rvdlg .dlg-b{flex:1;display:flex;flex-direction:column;min-height:0;padding:0}
@@ -901,6 +909,10 @@ body.planning{padding-bottom:0}
 .appt.quote .a{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .appt.quote.done,.pill.quote.done{opacity:.6}
 .vis.quote{border-left-color:var(--orange-dk)}
+/* a colleague's visit (v113): grey, no drag, no bin */
+.appt.team,.pill.team{border-left-color:var(--ink-3);background:var(--sunk);cursor:pointer}
+.appt.team.done,.pill.team.done{opacity:.6}
+.vis.team{border-left-color:var(--ink-3)}
 .pm-q{display:inline-block;min-width:18px;padding:1px 4px;border-radius:999px;font-size:11px;font-weight:700;
   line-height:15px;text-align:center;background:var(--orange-lt);color:var(--orange-dk)}
 .pm-key .pm-q{margin-left:8px}
@@ -1329,6 +1341,18 @@ details.bsx > .msg{margin:8px 12px}
       <p class="hint" id="sbChgHint">Devices that are already unlocked carry on as they are. A new device, or a colleague, uses the new one. Nothing is sent again.</p>
       <button class="big" id="sbChgGo" type="button">Change it</button>
     </div>
+    <!-- v113: anyone's own sign-in password; a colleague starts with a temporary one -->
+    <button class="ghost" id="sbPwOpen" type="button" hidden>Change your sign-in password</button>
+    <div id="sbPw" hidden>
+      <div class="gap"></div>
+      <label for="sbPwNew">New sign-in password</label>
+      <input type="password" id="sbPwNew" autocomplete="new-password">
+      <div class="gap"></div>
+      <label for="sbPwNew2">New sign-in password again</label>
+      <input type="password" id="sbPwNew2" autocomplete="new-password">
+      <p class="hint">At least 10 characters. This is the password you sign in with. The passphrase that unlocks the data does not change.</p>
+      <button class="big" id="sbPwGo" type="button">Change it</button>
+    </div>
     <button class="ghost" id="sbSignOut" hidden>Sign out of this device</button>
     <div class="gap"></div>
     <label>Project address</label>
@@ -1338,6 +1362,16 @@ details.bsx > .msg{margin:8px 12px}
     <input type="text" id="sbKey" autocomplete="off" placeholder="sb_publishable_...">
     <p class="hint">Both come from the Supabase project and are stored on this device only. The publishable key is meant to be public; the sign-in and the access rules protect the data. Never paste the <b>secret</b> key here. Signing out also locks this device.</p>
     <p class="hint">What syncs: calls and quote requests with their photos (full size), appointments, the CRM accounts and contacts, belt reference data, plant audit register, zone overrides, planning weeks and reassignments. Everything is locked with your passphrase before it leaves this device. A call you have open is not changed under you &mdash; an update to it waits until you leave it.</p>
+  </div>
+  </details>
+
+  <!-- v113: the team. The admin adds and removes people; everyone sees who is in it. -->
+  <details class="sx" id="sxTeam" hidden>
+    <summary><b>Team</b><span class="sxs" id="sumTeam"></span></summary>
+  <div class="fld">
+    <button class="big" id="tmAdd" type="button" hidden>Add a colleague</button>
+    <div id="tmList" class="tmlist"></div>
+    <p class="hint" id="tmHint"></p>
   </div>
   </details>
 
@@ -1459,6 +1493,23 @@ details.bsx > .msg{margin:8px 12px}
 <section class="scr" id="s-help">
   <h2>Getting started</h2>
   <details class="sx hx">
+    <summary><b>Joining a team? Start here</b><span class="sxs">When you were sent a set-up link</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Do step 1 below, to install the app on your phone.</li>
+        <li>On the phone, open the set-up link you were sent. Open it in Chrome.</li>
+        <li>The app opens at <b>Cloud sync</b> with your email filled in. Type the temporary password from the message.</li>
+        <li>Tap <b>Sign in</b>.</li>
+        <li>Type the team passphrase. Your admin tells you it separately.</li>
+        <li>Tap <b>Unlock</b>. The accounts, belt data and the team's calls arrive by themselves.</li>
+        <li>Tap <b>Change your sign-in password</b>.</li>
+        <li>Type a new password twice, then tap <b>Change it</b>.</li>
+        <li>Do step 6 below, to add your email address.</li>
+      </ol>
+      <p>Skip steps 3 and 4: in a team, the admin loads the accounts and the belt data for everyone. To use the app on your PC as well, do step 2, then open the same link there.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>1. Install it on your phone</b><span class="sxs">Once, from Chrome</span></summary>
     <div class="fld help">
       <ol>
@@ -1515,7 +1566,7 @@ details.bsx > .msg{margin:8px 12px}
       <p>You get the project address, the key and your sign-in from whoever set up the cloud project.</p>
       <ol>
         <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Cloud sync</b>.</li>
-        <li>Paste the <b>Project address</b> and the <b>Publishable key</b>.</li>
+        <li>Paste the <b>Project address</b> and the <b>Publishable key</b>. A set-up link fills these in for you.</li>
         <li>Type your email and password.</li>
         <li>Tap <b>Sign in</b>.</li>
         <li>Type your passphrase. On your first device, type it twice to set it. If you are in a team, type the team passphrase you were given.</li>
@@ -1594,6 +1645,18 @@ details.bsx > .msg{margin:8px 12px}
         <li>Use the arrows to move. Tap <b>Today</b> to come back.</li>
       </ol>
       <p>In Month, each day shows how many visits (navy), tasks (light blue) and quote requests (orange) it has. Tap a day to see it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>See the team's visits</b><span class="sxs">The Team chip on Plan</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Tap <b>Team</b> in the row of chips. Your colleagues' visits show, each with their name.</li>
+        <li>Tap a visit. If it has been written up, the report opens to read. If not, the app says whose it is and when.</li>
+        <li>Tap <b>Team</b> again to go back to your own.</li>
+      </ol>
+      <p>The Team chip appears only when your team has more than one person. A colleague's visits are theirs to move or change.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -1913,6 +1976,35 @@ details.bsx > .msg{margin:8px 12px}
       <p><b>Mine</b> shows your own calls. Resume, the Home count and your calendar show only your own.</p>
       <p>An account's history shows everyone's calls there, with the name of whoever wrote each one.</p>
       <p>Only the person who wrote a call, or the team's admin, can delete it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Add a colleague</b><span class="sxs">The team's admin</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Team</b>.</li>
+        <li>Tap <b>Add a colleague</b>.</li>
+        <li>Type their name and their work email.</li>
+        <li>Leave the temporary password as it is, or type your own.</li>
+        <li>Tap <b>Add</b>.</li>
+        <li>Tap <b>Share the message</b> and send it to them, by text or Teams.</li>
+        <li>Tell them the team passphrase by phone or in person. It is never in the message.</li>
+      </ol>
+      <p>The message has a set-up link, their email and the temporary password. They choose their own password once they are in. To send the link again later, tap <b>&#8943;</b> next to their name, then <b>Send the set-up link</b>.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Remove a colleague</b><span class="sxs">When someone leaves</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Team</b>.</li>
+        <li>Tap <b>&#8943;</b> next to their name.</li>
+        <li>Tap <b>Remove from the team</b>.</li>
+        <li>Tap <b>OK</b>.</li>
+        <li>Change the passphrase (step 5, <b>Change the passphrase</b>).</li>
+        <li>Give the new passphrase to everyone still in the team, for when they set up a new device.</li>
+      </ol>
+      <p>They can no longer sign in or see anything the team shares. The calls, visits and photos they wrote stay with the team, under their name.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2331,6 +2423,31 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint" id="coSub"></p>
     <p class="msg" id="coMsg"></p>
     <div class="coach" id="coBody"></div>
+  </div>
+</dialog>
+
+<!-- Add a colleague (v113): the form, then the message to send them -->
+<dialog id="teamdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="btn" id="tmCancel">Cancel</button>
+    <b>Add a colleague</b>
+    <button type="button" class="btn go" id="tmGo">Add</button>
+  </div>
+  <div class="dlg-b">
+    <p class="msg" id="tmMsg"></p>
+    <div id="tmForm">
+      <div class="f"><label for="tmName">Name</label><input type="text" id="tmName" autocomplete="off" placeholder="As the team will see it"></div>
+      <div class="f"><label for="tmEmail">Email</label><input type="email" id="tmEmail" autocomplete="off" placeholder="Their work email"></div>
+      <div class="f"><label for="tmPw">Temporary password</label><input type="text" id="tmPw" autocomplete="off" spellcheck="false"></div>
+      <p class="hint">They sign in with this once, then choose their own. Nothing is emailed to them: the app writes a message for you to send.</p>
+    </div>
+    <div id="tmDone" hidden>
+      <p class="stat" id="tmDoneHead"></p>
+      <button class="big" id="tmShare" type="button">Share the message</button>
+      <button class="ghost" id="tmCopy" type="button">Copy it</button>
+      <div class="tmtext" id="tmText"></div>
+      <p class="hint">Tell them the team passphrase separately &mdash; by phone or in person, not in the same message.</p>
+    </div>
   </div>
 </dialog>
 
