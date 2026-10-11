@@ -271,6 +271,46 @@ Opportunities are listed by close date, nearest first, with their position and r
 
 In a team, **Mine** shows your own and **Team** your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.
 
+### Bring in your CIP and MBOs
+
+1. Tap **CIP** on Home.
+2. Tap **⋯** at the top right.
+3. Tap **Import a CIP and MBO file**.
+4. Pick the file. It is either the one the CIP and MBO page saved with **Save to file**, or one that also holds the reference.
+5. If the app asks whether to replace what is there, tap **OK**.
+
+Do this on one device. Cloud sync takes it to your others. Your CIP and MBOs are yours alone: they never go to your team, the admin included. They are not in the app itself either, so each person brings in their own.
+
+### Keep your CIP
+
+1. Tap **CIP** on Home.
+2. Pick the period at the top, for example **2026 H2 year-end**.
+3. If it hasn't been started, tap **Start**. Starting from the period before carries your goals and development plan forward.
+4. Type into the boxes. Everything saves as you go.
+5. To fill a box from the list, pick from the list above it. The words drop into the box and can be changed.
+6. To see what you wrote before, tap **Compare with** and tap a period. What you wrote then shows in grey under each box.
+7. When the review is done, tap **⋯**, then **Lock**. Tap **⋯**, then **Unlock** to change it again.
+8. To send it, tap **Create and share**. Tick the box to add the reference at the end, then tap **Create and share**.
+
+Each goal, strength and gap can be locked on its own with **Lock**, and opened again with **Edit**. The bin removes one, after asking.
+
+**Four pillars** shows how your time splits across your role. Type the share now and the target for each pillar. Tap **+** to add a bubble, and tap a bubble to write its plan or move it to another pillar. On the PC you can also drag bubbles. **Reference** shows the job indicants, the LCI principles, the BU goals and the booklist.
+
+### Log your MBOs
+
+1. Tap **MBO** on Home.
+2. Pick the year at the top.
+3. On a phone, tap the quarter: **Q1**, **Q2**, **Q3** or **Q4**. The PC shows all four.
+4. Tap **+** in an MBO's row to log a completion.
+5. Type the customer, site or book. Add the date and the proof reference if you have them.
+6. Tap **Done**.
+7. When a quarter is submitted, tap **Lock** at the top of its column.
+8. To make the claim, tap **Create and share**, pick the quarter, then tap **Create and share**.
+
+Each quarter pays up to a quarter of the annual cap. Anything over carries to the next quarter, and whatever is still over after Q4 is not paid. A Mega MBO marked **Met** pays its share of the cap on top. A locked quarter keeps the values it was locked at, even if the list changes later.
+
+Tap an MBO's name to see the proof it needs. To change the list, tap **⋯**, then **Edit the MBO list**. If the list is locked, tap **⋯** and unlock it first. A new year starts by copying last year's list.
+
 ### Map a large opportunity
 
 1. Open the account: tap **Directory** on Home, then the account.

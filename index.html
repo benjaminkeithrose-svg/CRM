@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v120">
+<meta name="build" content="v121">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -778,6 +778,87 @@ button.rpt .st-flag{color:var(--warn);font-weight:700}
 .lapacts li input[type=checkbox]{flex:none;width:22px;height:22px;margin:4px 6px 0 0;accent-color:var(--act)}
 .lapacts li.done span b{text-decoration:line-through;color:var(--ink-3)}
 .lapform{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+/* CIP and MBOs (v121) */
+.toolsel{width:auto;min-width:0;max-width:52%;min-height:40px;font-size:14px}
+.cipsheet h2 .cipmute,.cipsheet label .cipmute{font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)}
+.cipsheet h3{font-size:14px;margin:16px 0 4px}
+.cipsheet label.l{display:block;font-size:12.5px;color:var(--ink-2);margin:10px 0 4px}
+.mbosheet h2{margin:20px 0 8px}
+.cipsheet textarea,.cipsheet input[type=text],.cipsheet input[type=date],.cipsheet input[type=number],.cipsheet select{width:100%}
+.cipsheet #cipTabs{margin-bottom:6px}
+.cipstat{font-size:13px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r);padding:8px 10px;margin:8px 0 0}
+.cipstat.lk{border-left:3px solid var(--act)}
+.cipcmp{margin-top:8px;font-size:13.5px}
+.cipcmp summary{cursor:pointer;color:var(--act);font-weight:700;padding:8px 0;min-height:24px}
+.cipgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.cippast{white-space:pre-wrap;font-size:13px;color:var(--ink-2);background:var(--sunk);border-left:3px solid var(--line);border-radius:var(--r-sm);padding:6px 9px;margin-top:5px}
+.cippast .tag{display:block;font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.cippast .cipcopy{display:block;margin-top:6px;min-height:36px}
+.cippick{margin-bottom:5px}
+.cipblk{background:var(--surface);border:1px solid var(--line-2);border-left:3px solid var(--cyan);border-radius:var(--r);padding:4px 12px 12px;margin-top:10px}
+.cipblk.saved{border-left-color:var(--act)}
+.cipbh{display:flex;align-items:center;gap:6px}
+.cipbh h3{flex:1;margin:10px 0 0}
+.cipbh .btn{min-height:36px;margin-top:6px}
+.cipbh .opx{flex:none;width:36px;height:36px;border:0;background:transparent;color:var(--warn);cursor:pointer;padding:6px;margin-top:6px}
+.cipaddb{min-height:40px;margin-top:10px}
+.cipstart{padding:16px 0}
+.cipstart .ghost{width:100%;margin-top:8px}
+.cipsheet .chk{margin-top:6px;font-size:14px}
+mark.cipconfirm{background:#FFF3C4;color:inherit}
+.ciptbl{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}
+.ciptbl th,.ciptbl td{border:1px solid var(--line-2);padding:6px 7px;vertical-align:top;text-align:left}
+.ciptbl th{background:var(--sunk)}
+.ciptbl td.area{background:var(--sunk);font-weight:700}
+.ciptbl td.res{font-weight:700;width:22%}
+.cipdef{white-space:pre-wrap;font-size:13.5px;background:var(--sunk);border-radius:var(--r);padding:8px 10px}
+.ptots{display:flex;flex-wrap:wrap;gap:4px 12px}
+.ptots .bad{color:var(--warn);font-weight:700}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pbox{background:var(--surface);border:1px solid var(--line-2);border-left:3px solid var(--cyan);border-radius:var(--r);padding:8px}
+.pbox .ptitle{font-weight:700}
+.ppcts{display:flex;gap:10px;margin:6px 0;font-size:12.5px;color:var(--ink-2)}
+.ppcts label{display:flex;align-items:center;gap:4px}
+.ppcts input{width:64px !important;min-height:36px;padding:4px 6px}
+.pzone{display:flex;flex-wrap:wrap;gap:6px;min-height:44px;align-content:flex-start}
+.pchip{border:1px solid var(--edge);background:var(--sunk);border-radius:var(--r-pill);padding:7px 12px;font-size:13px;cursor:pointer;color:var(--ink);text-align:left;min-height:36px}
+.pchip.hasnote::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--act);margin-left:6px;vertical-align:middle}
+.padd{width:40px;height:36px;border:1px dashed var(--edge);background:var(--surface);border-radius:var(--r-pill);color:var(--act);font-size:18px;cursor:pointer}
+.mbosheet{padding:12px 16px 40px;max-width:1280px;margin:0 auto}
+.mbocap{font-size:13.5px;color:var(--ink-2);margin:0 0 8px}
+.mboq{display:none;margin-bottom:8px}
+.mboq .ic{width:13px;height:13px;vertical-align:-2px}
+.mgridwrap{overflow-x:auto}
+.mgrid{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface)}
+.mgrid th,.mgrid td{border:1px solid var(--line-2);padding:6px;vertical-align:top;text-align:left}
+.mgrid thead th{background:var(--sunk)}
+.mgrid th.lk,.mgrid td.lk{background:#F5F6F7}
+.mgrid .qn{font-weight:700;margin-right:6px}
+.mgrid .qlock{min-height:32px;padding:3px 8px;font-size:12px}
+.mgrid tr.cat td{background:var(--sunk);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;color:var(--ink-2)}
+.mgrid .mc{width:24%}
+.mgrid .mtitle{border:0;background:transparent;padding:0;font:inherit;font-weight:700;text-align:left;cursor:pointer;color:var(--ink)}
+.mgrid .minfo{display:inline-block;width:18px;height:18px;border:1px solid var(--act);color:var(--act);border-radius:50%;font-size:11px;line-height:16px;text-align:center;font-style:italic;font-weight:700}
+.mgrid .mv{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.mchips{display:flex;flex-wrap:wrap;gap:4px}
+.mchip{border:1px solid var(--edge);background:var(--sunk);border-radius:var(--r-pill);padding:4px 9px;font-size:12px;cursor:pointer;color:var(--ink);min-height:32px;text-align:left}
+.mchip.has{border-color:var(--cyan-dk)}
+.madd{width:36px;height:32px;border:1px dashed var(--edge);background:var(--surface);border-radius:var(--r-pill);color:var(--act);font-size:16px;cursor:pointer}
+.camt{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+.mgrid .yc{width:9%;white-space:nowrap}
+.mgrid tfoot th{background:var(--sunk);font-weight:600}
+.mgrid tr.paid td,.mgrid tr.paid th{font-weight:700}
+.mgrid .carry{color:var(--ink-2)}
+.mgrid .mseg button{padding:6px 8px;font-size:12.5px}
+.mgrid tr.ytot th{text-align:right}
+@media (max-width:900px){
+  .mboq{display:flex}
+  .mgrid [data-q]{display:none}
+  .mgrid.sq-Q1 [data-q="Q1"],.mgrid.sq-Q2 [data-q="Q2"],.mgrid.sq-Q3 [data-q="Q3"],.mgrid.sq-Q4 [data-q="Q4"]{display:table-cell}
+  .mgrid .mc{width:34%}
+  .mgrid td.qall{display:none}
+}
+@media (max-width:520px){ .pgrid,.cipgrid{grid-template-columns:1fr} }
 .lapform input:first-child{grid-column:1 / -1}
 .lapform .btn{min-height:40px}
 .lapshare{font-size:13px;color:var(--ink-2);margin-top:6px}
@@ -1390,7 +1471,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="cip"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>CIP</b></button><button data-go="mbo"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M8.2 13.4 7 22l5-3 5 3-1.2-8.6"/></svg></span><b>MBO</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- The tiles no longer carry a count line. These keep the existing render
@@ -1943,6 +2024,53 @@ details.bsx > .msg{margin:8px 12px}
       </ol>
       <p>Opportunities are listed by close date, nearest first, with their position and red flags. Large accounts show their sites and when they were last reviewed. Account plans show their goal, last changed first.</p>
       <p>In a team, <b>Mine</b> shows your own and <b>Team</b> your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Bring in your CIP and MBOs</b><span class="sxs">Once, from the CIP and MBO page</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>CIP</b> on Home.</li>
+        <li>Tap <b>&#8943;</b> at the top right.</li>
+        <li>Tap <b>Import a CIP and MBO file</b>.</li>
+        <li>Pick the file. It is either the one the CIP and MBO page saved with <b>Save to file</b>, or one that also holds the reference.</li>
+        <li>If the app asks whether to replace what is there, tap <b>OK</b>.</li>
+      </ol>
+      <p>Do this on one device. Cloud sync takes it to your others. Your CIP and MBOs are yours alone: they never go to your team, the admin included. They are not in the app itself either, so each person brings in their own.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Keep your CIP</b><span class="sxs">The CIP tile</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>CIP</b> on Home.</li>
+        <li>Pick the period at the top, for example <b>2026 H2 year-end</b>.</li>
+        <li>If it hasn't been started, tap <b>Start</b>. Starting from the period before carries your goals and development plan forward.</li>
+        <li>Type into the boxes. Everything saves as you go.</li>
+        <li>To fill a box from the list, pick from the list above it. The words drop into the box and can be changed.</li>
+        <li>To see what you wrote before, tap <b>Compare with</b> and tap a period. What you wrote then shows in grey under each box.</li>
+        <li>When the review is done, tap <b>&#8943;</b>, then <b>Lock</b>. Tap <b>&#8943;</b>, then <b>Unlock</b> to change it again.</li>
+        <li>To send it, tap <b>Create and share</b>. Tick the box to add the reference at the end, then tap <b>Create and share</b>.</li>
+      </ol>
+      <p>Each goal, strength and gap can be locked on its own with <b>Lock</b>, and opened again with <b>Edit</b>. The bin removes one, after asking.</p>
+      <p><b>Four pillars</b> shows how your time splits across your role. Type the share now and the target for each pillar. Tap <b>+</b> to add a bubble, and tap a bubble to write its plan or move it to another pillar. On the PC you can also drag bubbles. <b>Reference</b> shows the job indicants, the LCI principles, the BU goals and the booklist.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Log your MBOs</b><span class="sxs">The MBO tile</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>MBO</b> on Home.</li>
+        <li>Pick the year at the top.</li>
+        <li>On a phone, tap the quarter: <b>Q1</b>, <b>Q2</b>, <b>Q3</b> or <b>Q4</b>. The PC shows all four.</li>
+        <li>Tap <b>+</b> in an MBO's row to log a completion.</li>
+        <li>Type the customer, site or book. Add the date and the proof reference if you have them.</li>
+        <li>Tap <b>Done</b>.</li>
+        <li>When a quarter is submitted, tap <b>Lock</b> at the top of its column.</li>
+        <li>To make the claim, tap <b>Create and share</b>, pick the quarter, then tap <b>Create and share</b>.</li>
+      </ol>
+      <p>Each quarter pays up to a quarter of the annual cap. Anything over carries to the next quarter, and whatever is still over after Q4 is not paid. A Mega MBO marked <b>Met</b> pays its share of the cap on top. A locked quarter keeps the values it was locked at, even if the list changes later.</p>
+      <p>Tap an MBO's name to see the proof it needs. To change the list, tap <b>&#8943;</b>, then <b>Edit the MBO list</b>. If the list is locked, tap <b>&#8943;</b> and unlock it first. A new year starts by copying last year's list.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2754,6 +2882,68 @@ details.bsx > .msg{margin:8px 12px}
 </dialog>
 
 <!-- An opportunity's details (v115). Done saves; nothing typed, nothing kept. -->
+<!-- CIP and MBOs (v121): the occasional options, on both screens -->
+<dialog id="cipmenu">
+  <div class="dlg-h"><b id="cmHead">CIP</b></div>
+  <div class="dlg-b">
+    <button class="ghost" id="cmLock" type="button">Lock this period</button>
+    <button class="ghost" id="cmEdit" type="button">Edit the MBO list</button>
+    <button class="ghost" id="cmListLock" type="button">Lock the MBO list</button>
+    <button class="ghost" id="cmImport" type="button">Import a CIP and MBO file</button>
+    <input type="file" id="cmFile" accept=".json,application/json" hidden>
+    <p class="note" id="cmNote"></p>
+  </div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="cmClose" type="button">Close</button></div>
+</dialog>
+
+<!-- A bubble on the four pillars. Done keeps it; nothing typed in a new one, nothing kept. -->
+<dialog id="cipbubdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="cbDel" aria-label="Remove this bubble" title="Remove this bubble"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="cbHead">Bubble</b>
+    <button type="button" class="btn go" id="cbOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <div class="f"><label for="cbT">Item</label><input type="text" id="cbT" autocomplete="off"></div>
+    <div class="f"><label for="cbNote">Plan and notes</label><textarea id="cbNote" rows="7" placeholder="How will I do this? Actions, timing, and how I'll know it is working."></textarea></div>
+    <div class="f"><label for="cbBox">Pillar</label><select id="cbBox"></select></div>
+  </div>
+</dialog>
+
+<!-- A completion logged against an MBO. Done keeps it. -->
+<dialog id="mboentdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="meDel" aria-label="Remove this completion" title="Remove this completion"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="meHead">Completion</b>
+    <button type="button" class="btn go" id="meOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <p class="hint" id="meSub"></p>
+    <div class="f"><label for="meSite" id="meSiteL">Customer / site</label><input type="text" id="meSite" autocomplete="off"></div>
+    <div class="f"><label for="meDate">Date</label><input type="date" id="meDate"></div>
+    <div class="f"><label for="meRef">Proof reference</label><input type="text" id="meRef" autocomplete="off" placeholder="Dynamics record, order no., etc."></div>
+    <datalist id="mboBooks"></datalist>
+  </div>
+</dialog>
+
+<!-- What an MBO asks for -->
+<dialog id="mboinfodlg">
+  <div class="dlg-h"><b id="miHead">MBO</b></div>
+  <div class="dlg-b" id="miBody"></div>
+  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="miClose" type="button">Close</button></div>
+</dialog>
+
+<!-- Create and share a CIP or an MBO claim -->
+<dialog id="cipoutdlg">
+  <div class="dlg-h"><b>Create and share</b></div>
+  <div class="dlg-b">
+    <div id="coQWrap"><label class="l">Which quarter are you claiming?</label><div class="seg" id="coQ"></div></div>
+    <label class="chk" id="coRefWrap"><input type="checkbox" id="coRef"> Add the reference at the end (indicants, LCI principles, BU goals)</label>
+    <p class="note" id="coNote"></p>
+  </div>
+  <div class="dlg-f"><button class="btn" id="coCancel" type="button">Cancel</button><span class="spacer"></span><button class="btn go" id="coGo" type="button">Create and share</button></div>
+</dialog>
+
 <dialog id="oppdlg">
   <div class="dlg-h tkh">
     <button type="button" class="tkdel" id="odDel" aria-label="Delete this opportunity" title="Delete this opportunity"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
@@ -3430,6 +3620,35 @@ details.bsx > .msg{margin:8px 12px}
 
 <!-- LISTS (v97): saved notes and the Not stocked products, from Task Slaughterer -->
 <!-- STRATEGY (v120): the opportunities, large account plans and account plans being worked on, in one place -->
+<!-- CIP (v121): the continuous improvement plan, the four pillars and their reference. Private to you. -->
+<section class="scr" id="s-cip">
+  <div class="opptools">
+    <select id="cipPeriod" class="toolsel" aria-label="Period"></select>
+    <button type="button" class="btn go" id="cipShare">Create and share</button>
+    <span class="spacer"></span>
+    <button type="button" class="tvi" id="cipMore" aria-label="More" title="More"><span class="dots" aria-hidden="true">&#8943;</span></button>
+  </div>
+  <div class="oppsheet cipsheet">
+    <div class="seg tabs" id="cipTabs">
+      <button type="button" data-v="plan" class="on">Plan</button>
+      <button type="button" data-v="pillars">Four pillars</button>
+      <button type="button" data-v="ref">Reference</button>
+    </div>
+    <div id="cipBody"></div>
+  </div>
+</section>
+
+<!-- MBOs (v121): each year's list, the completions logged against it, and what it pays. Private to you. -->
+<section class="scr" id="s-mbo">
+  <div class="opptools">
+    <select id="mboYear" class="toolsel" aria-label="MBO year"></select>
+    <button type="button" class="btn go" id="mboShare">Create and share</button>
+    <span class="spacer"></span>
+    <button type="button" class="tvi" id="mboMore" aria-label="More" title="More"><span class="dots" aria-hidden="true">&#8943;</span></button>
+  </div>
+  <div class="cipsheet mbosheet" id="mboBody"></div>
+</section>
+
 <section class="scr" id="s-strategy">
   <div class="seg tabs" id="stTabs">
     <button type="button" data-v="opps" class="on">Opportunities</button>

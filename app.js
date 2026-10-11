@@ -7,7 +7,7 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
-const DB_NAME = 'fieldcrm', DB_VER = 7;
+const DB_NAME = 'fieldcrm', DB_VER = 8;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
 /* Set while the account and contacts screens are being used to raise a quote
@@ -40,6 +40,8 @@ function openDB(){
       if(!d.objectStoreNames.contains('plans')) d.createObjectStore('plans', {keyPath:'id'});
       // v7 (app v115): opportunities, each with its relationship map
       if(!d.objectStoreNames.contains('opps')) d.createObjectStore('opps', {keyPath:'id'});
+      // v8 (app v121): the CIP, the MBOs and their reference - private to the person
+      if(!d.objectStoreNames.contains('cip')) d.createObjectStore('cip', {keyPath:'id'});
     };
     r.onsuccess = e => { db = e.target.result; res(db); };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
@@ -974,7 +976,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v120';
+const APP_BUILD = 'v121';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1002,7 +1004,8 @@ const ICONS = {
   folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
   close:  '<path d="M18 6L6 18M6 6l12 12"/>',
   gear:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-  help:   '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>'
+  help:   '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  lock:   '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1337,7 +1340,7 @@ const TITLES = {
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
-  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''],
+  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['CIP',''], mbo:['MBOs',''],
   note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity','']
 };
 /* ---------- navigation ----------
@@ -1353,7 +1356,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1427,6 +1430,7 @@ function showScreen(name){
   // leaving the map with a change still being typed: save it now (v115)
   if(screen === 'opp' && name !== 'opp' && opSaveTimer) oppSaveNow().catch(e => console.error('opportunity', e));
   if(screen === 'lap' && name !== 'lap' && lapSaveTimer) lapSaveNow().catch(e => console.error('large account', e));
+  if((screen === 'cip' || screen === 'mbo') && name !== screen && cipTimer) cipSaveNow().catch(e => console.error('cip', e));
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -1457,10 +1461,12 @@ function showScreen(name){
   if(name==='lap') renderLap();
   if(name==='strategy' || name === 'home' || name === 'acct') stOpened = '';
   if(name==='strategy') renderStrategy().catch(e => console.error('strategy', e));
+  if(name==='cip') renderCip();
+  if(name==='mbo') renderMbo();
   if(name==='acct') try { renderOppsCard(); renderLapCard(); } catch(e){ console.error('opportunities', e); }
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
-  document.body.classList.toggle('planning', name === 'plan' || name === 'opp');
+  document.body.classList.toggle('planning', name === 'plan' || name === 'opp' || name === 'mbo');
   renderCallStrip();
 }
 function go(name, replace){
@@ -1519,7 +1525,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', lists:'home', opp:'acct', lap:'acct', strategy:'home'
+  today:'home', settings:'home', help:'home', lists:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home'
 };
 function parentOf(name){
   // an opportunity or large account opened from Strategy goes back there, not to an account (v120)
@@ -4985,6 +4991,8 @@ let listsPane = 'notes', prView = 'open';
 async function loadLists(){
   try { SNIPS = await snippetsAll(); PRODS = await productsAll(); PLANS = await plansAll(); OPPS = await oppsAll(); }
   catch(e){ console.error('lists', e); }
+  // not while a change is still to be saved: the copy on screen is the newer one
+  try { if(!cipTimer) await cipLoad(); } catch(e){ console.error('cip', e); }
 }
 function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
 const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -6288,7 +6296,7 @@ async function cloudWaiting(){
 var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
 var cloudProgress = '';
 var cloudRecTimer = null;
-const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans', 'opps'];
+const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans', 'opps', 'cip'];
 
 async function cloudDirtyLoad(){
   if(!cloudDirty){
@@ -6327,7 +6335,7 @@ async function cloudSeed(){
   for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
   for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
   for(const t of await tasksAll()) if(!cloudDirty['tasks/' + t.id]) cloudDirty['tasks/' + t.id] = {v: recVer('tasks', t) || now, del: false, at: now};
-  for(const st of ['snippets', 'products', 'plans', 'opps'])
+  for(const st of ['snippets', 'products', 'plans', 'opps', 'cip'])
     for(const r of await storeAll(st)) if(!cloudDirty[st + '/' + r.id]) cloudDirty[st + '/' + r.id] = {v: recVer(st, r) || now, del: false, at: now};
   await cloudDirtySave();
   await kvSet('cloudSeeded', true);
@@ -6457,7 +6465,7 @@ async function cloudPushRecs(stats){
       const r = await sbClient.from('records').select('store,id,owner,key_id,iv,body,client_updated,deleted,server_updated')
         .eq('store', x.store).eq('id', x.id).eq('owner', x.owner);
       if(r.error) throw r.error;
-      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
+      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
     }
   };
   let i = 0;
@@ -6533,9 +6541,9 @@ async function cloudApplyRec(row, stats){
   cloudQuiet = true;
   try {
     if(row.deleted){
-      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel, opps: oppsDel})[store](id); stats.gone++; }
+      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel, opps: oppsDel, cip: cipDel})[store](id); stats.gone++; }
     } else if(store !== 'calls'){
-      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut, opps: oppsPut})[store](await sbOpen(store, id, row));
+      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut, opps: oppsPut, cip: cipPut})[store](await sbOpen(store, id, row));
       stats[store]++;
     } else {
       const got = await cloudCallIn(await sbOpen(store, id, row), local, row.owner);
@@ -6583,9 +6591,9 @@ async function cloudPullRecs(stats){
 
 async function cloudSyncRecs(){
   await ownersLoad();
-  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
-  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, gone: 0, photosUp: 0};
+  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, gone: 0, photosUp: 0};
   try {
     await cloudPushRecs(up);
     const down = stats;
@@ -6593,10 +6601,10 @@ async function cloudSyncRecs(){
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
   const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
-    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'),
+    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'), x.cip && n(x.cip, 'CIP and MBO record'),
     x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
-  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.opps + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
-  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.opps + stats.gone){
+  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.opps + up.cip + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
+  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.opps + stats.cip + stats.gone){
     const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
@@ -6607,6 +6615,7 @@ async function cloudSyncRecs(){
     if(screen === 'lists') try { renderLists(); } catch(e){ console.error('lists', e); }
     if(screen === 'acct') try { renderPlanCard(); renderOppsCard(); renderLapCard(); } catch(e){ console.error('plan card', e); }
     try { oppCloudIn(); lapCloudIn(); } catch(e){ console.error('opportunity', e); }
+    try { await cipCloudIn(); } catch(e){ console.error('cip', e); }
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -7524,6 +7533,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     showLists();
   } else if(t==='strategy'){
     go('strategy');
+  } else if(t==='cip' || t==='mbo'){
+    go(t);
   } else if(t==='reports'){
     go('reports');
   } else if(t==='manuals'){
@@ -12194,6 +12205,856 @@ function oppCloudIn(){
   OPP = fresh; renderOpp();
 }
 
+/* ================= CIP and MBOs (v121) =================
+   The continuous improvement plan, the MBOs and the four pillars, brought in
+   from the separate CIP and MBO page so they live with everything else.
+
+   Private to the person. Store 'cip' is not one the team shares (migration
+   0004 shares only the stores it names), so it syncs encrypted to their own
+   devices and nobody else's, admin included. Three records: 'me' (the plan's
+   periods and the four pillars), 'mbo' (each year's MBO list, completions and
+   payouts) and 'ref' (the job indicants, LCI principles, BU goals and booklist
+   the pickers read).
+
+   None of it ships in the repo. The reference is Intralox's own wording and the
+   plan is personal, so both come in from a file on the device: the CIP and MBO
+   page's "Save to file" (the plan and MBOs), or a file holding the reference
+   too (format 'fieldcrm-cip'). */
+const cipAll = () => storeAll('cip'), cipPut = r => storePut('cip', r), cipDel = id => storeDel('cip', id);
+let CIP = null, MBO = null, CIPREF = null;
+const CIP_RANGE = (() => { const a = []; for(let y = 2025; y <= 2030; y++) a.push(y + '-H1', y + '-H2'); return a; })();
+const MBO_YEARS = ['2025', '2026', '2027', '2028', '2029', '2030'];
+const MBO_QS = ['Q1', 'Q2', 'Q3', 'Q4'];
+const CIP_MAX_GOALS = 3;
+const CIP_RATING = {acceptable: 'Performance acceptable or above expectations, with opportunities to improve',
+  issues: 'Performance issues and gaps that require improvement in current role', own: 'Own statement (see comments)'};
+const CIP_SELF = [['accomplishments', 'Top accomplishments this period', 'Two or three'], ['notMet', 'Goals not yet met, and the biggest obstacle'],
+  ['learned', 'What I\'ve learned that I can apply going forward'], ['support', 'Support I need from my supervisor'], ['comments', 'Anything else to discuss']];
+const cipLabel = id => String(id).replace('-', ' ');
+const cipKind = id => String(id).endsWith('H1') ? 'mid-year' : 'year-end';
+const cipFilled = v => v != null && String(v).trim() !== '';
+const cipMoney = n => '$' + Math.round(+n || 0).toLocaleString('en-AU');
+const cipClone = o => JSON.parse(JSON.stringify(o));
+const cipArr = x => Array.isArray(x) ? x : [];
+function cipGetP(o, path){ return path.split('.').reduce((a, k) => a == null ? a : a[k], o); }
+function cipSetP(o, path, v){
+  const ks = path.split('.'); let a = o;
+  ks.slice(0, -1).forEach((k, i) => { if(a[k] == null) a[k] = /^\d+$/.test(ks[i + 1]) ? [] : {}; a = a[k]; });
+  a[ks[ks.length - 1]] = v;
+}
+function cipNowPeriod(){ const d = new Date(); return d.getFullYear() + '-H' + (d.getMonth() < 6 ? 1 : 2); }
+// the source standards mark wording still to be confirmed with ⟦ ⟧
+const cipConfirmHTML = s => esc(s).replace(/⟦(.*?)⟧/g, '<mark class="cipconfirm" title="Standard to be confirmed">$1</mark>');
+const cipConfirmPlain = s => String(s == null ? '' : s).replace(/⟦(.*?)⟧/g, '$1 [to confirm]');
+
+function cipBlankRec(){
+  return {id: 'me', employee: {name: '', title: '', hireDate: '', supervisor: ''}, periods: {},
+    pillars: {boxes: [1, 2, 3, 4].map(i => ({id: 'p' + i, title: '', pct: 0, target: null, items: []}))}, updated: 0};
+}
+function cipBlankGoal(){ return {goal: '', indicant: '', indicantId: '', lci: '', lciId: '', mbo: '', mboId: '', measure: '', progress: ''}; }
+function cipBlankPair(){ return {text: '', link: '', linkId: '', plan: ''}; }
+function cipBlankPeriod(){
+  return {locked: false, reviewer: CIP.employee.supervisor || '', reviewDate: '',
+    self: {accomplishments: '', notMet: '', learned: '', support: '', comments: ''},
+    goals: [cipBlankGoal()], strengths: [cipBlankPair()], gaps: [cipBlankPair()], manager: {rating: '', comments: ''}};
+}
+function cipPillarFix(P){
+  const out = P && Array.isArray(P.boxes) ? P : cipBlankRec().pillars;
+  out.boxes.forEach((b, i) => {
+    b.id = b.id || 'p' + (i + 1); b.title = b.title || '';
+    b.items = cipArr(b.items).map(x => typeof x === 'string' ? {t: x, note: ''} : {t: (x && x.t) || '', note: (x && x.note) || ''});
+    if(b.target === undefined) b.target = null;
+  });
+  return out;
+}
+const cipRec = () => CIP || (CIP = cipBlankRec());
+const mboRec = () => MBO || (MBO = {id: 'mbo', years: {}, updated: 0});
+async function cipLoad(){
+  const all = await cipAll();
+  CIP = all.find(r => r.id === 'me') || null;
+  MBO = all.find(r => r.id === 'mbo') || null;
+  CIPREF = all.find(r => r.id === 'ref') || null;
+  if(CIP) CIP.pillars = cipPillarFix(CIP.pillars);
+}
+
+/* where you were: the tab, the period and the MBO year, per device */
+let cipUi = null;
+function cipUiLoad(){
+  if(!cipUi){
+    try { cipUi = JSON.parse(localStorage.getItem(LS('cipUi')) || 'null'); } catch(e){ cipUi = null; }
+    cipUi = Object.assign({tab: 'plan', cur: '', cmp: null, my: '', mq: '', medit: false}, cipUi || {});
+  }
+  const st = cipStored();
+  if(!cipUi.cur || !cipPeriods().includes(cipUi.cur)) cipUi.cur = st.length ? st[st.length - 1] : cipNowPeriod();
+  if(!Array.isArray(cipUi.cmp)) cipUi.cmp = cipDefaultCmp();
+  if(!cipUi.my){ const ys = mboYears(), now = String(new Date().getFullYear()); cipUi.my = ys.includes(now) ? now : ys.length ? ys[ys.length - 1] : now; }
+  if(!MBO_QS.includes(cipUi.mq)) cipUi.mq = 'Q' + (Math.floor(new Date().getMonth() / 3) + 1);
+  return cipUi;
+}
+function cipUiSave(){ try { localStorage.setItem(LS('cipUi'), JSON.stringify(cipUi)); } catch(e){} }
+const cipStored = () => CIP ? Object.keys(CIP.periods || {}).sort() : [];
+const cipPeriods = () => [...new Set(CIP_RANGE.concat(cipStored()))].sort();
+function cipDefaultCmp(){ const prev = cipStored().filter(p => p < cipUi.cur); return prev.length ? [prev[prev.length - 1]] : []; }
+const cipCmpIds = () => (cipUi.cmp || []).filter(id => id !== cipUi.cur && CIP && CIP.periods[id]).sort().reverse();
+const mboYears = () => MBO ? Object.keys(MBO.years || {}).sort() : [];
+const mboAllYears = () => [...new Set(MBO_YEARS.concat(mboYears()))].sort();
+const mboYear = () => MBO && MBO.years[cipUi.my];
+
+/* saving: typed changes go in a moment later, and at once on leaving */
+let cipTimer = null;
+const cipDirty = new Set();
+function cipSaveSoon(which){
+  cipDirty.add(which);
+  clearTimeout(cipTimer);
+  cipTimer = setTimeout(() => cipSaveNow().catch(reportErr), 600);
+}
+async function cipSaveNow(){
+  clearTimeout(cipTimer); cipTimer = null;
+  const w = [...cipDirty]; cipDirty.clear();
+  for(const k of w){
+    const r = k === 'me' ? CIP : k === 'mbo' ? MBO : CIPREF;
+    if(!r) continue;
+    r.updated = Date.now();
+    await cipPut(r);
+  }
+}
+// a newer copy from another device replaces the one on screen, unless something is being typed
+async function cipCloudIn(){
+  if(cipTimer) return;
+  await cipLoad();
+  if(screen !== 'cip' && screen !== 'mbo') return;
+  const body = $(screen === 'cip' ? 'cipBody' : 'mboBody');
+  if(document.activeElement && body.contains(document.activeElement)) return;
+  if(screen === 'cip') renderCip(); else renderMbo();
+}
+
+/* ---------- the pickers: the text drops into the box below and can be edited ---------- */
+function cipFind(list, key, id){ for(const g of cipArr(list)) for(const i of cipArr(g.items)) if(i.id === id) return {g, i}; return null; }
+function cipTextFor(src, id){
+  const R = CIPREF || {};
+  if(src === 'ind'){ const r = cipFind(R.ind, 'ind', id); return r ? r.g.result + ': ' + r.i.b + '\nStandard: ' + cipConfirmPlain(r.i.s) : ''; }
+  if(src === 'lci'){ const r = cipFind(R.lci, 'lci', id); return r ? r.g.group + ': ' + r.i.t : ''; }
+  if(src === 'dev') return String(id).startsWith('l') ? cipTextFor('lci', id) : cipTextFor('ind', id);
+  if(src === 'mbo'){ const y = mboYearFor(cipUi.cur), m = y && cipArr(MBO.years[y].items).find(i => i.id === id);
+    return m ? m.title + ' (' + y + ' MBO, ' + (m.cat || 'Other') + ', ' + cipMoney(m.value) + ' per completion)' : ''; }
+  return '';
+}
+function mboYearFor(pid){
+  if(!MBO) return null;
+  const y = String(pid).slice(0, 4);
+  if(MBO.years[y]) return y;
+  const e = mboYears().filter(x => x <= y);
+  return e[e.length - 1] || null;
+}
+const cipTrunc = (s, n) => (s = String(s || '')).length > n ? s.slice(0, n - 1).trimEnd() + '…' : s;
+function cipOptions(src, sel){
+  const R = CIPREF || {};
+  const opt = (id, t) => '<option value="' + esc(id) + '"' + (sel === id ? ' selected' : '') + '>' + esc(t) + '</option>';
+  const ind = pre => cipArr(R.ind).map(g => '<optgroup label="' + esc(pre + g.area + ' – ' + g.result) + '">' + cipArr(g.items).map(i => opt(i.id, cipTrunc(i.b, 95))).join('') + '</optgroup>').join('');
+  const lci = pre => cipArr(R.lci).map(g => '<optgroup label="' + esc(pre + g.group) + '">' + cipArr(g.items).map(i => opt(i.id, i.t)).join('') + '</optgroup>').join('');
+  if(src === 'ind') return ind('');
+  if(src === 'lci') return lci('');
+  if(src === 'dev') return ind('Indicant: ') + lci('LCI: ');
+  if(src === 'bu') return cipArr(R.bu).map(g => '<optgroup label="' + esc(g.csf) + '">' + cipArr(g.items).map(i => opt(i.id, i.t)).join('') + '</optgroup>').join('');
+  if(src === 'mbo'){
+    const y = mboYearFor(cipUi.cur), Y = y && MBO.years[y];
+    if(!Y) return '';
+    return mboCats(Y).map(c => '<optgroup label="' + esc(y + ' MBOs – ' + c) + '">' + cipArr(Y.items).filter(i => (i.cat || 'Other') === c).map(i => opt(i.id, i.title + ' (' + cipMoney(i.value) + ')')).join('') + '</optgroup>').join('');
+  }
+  return '';
+}
+
+/* ---------- the CIP screen ---------- */
+let cipUid = 0;
+function cipObj(scope){ return scope === 'e' ? CIP.employee : CIP.periods[cipUi.cur]; }
+function cipPast(path){
+  return cipCmpIds().map(id => { const v = cipGetP(CIP.periods[id], path);
+    return cipFilled(v) ? '<div class="cippast"><span class="tag">' + cipLabel(id) + ' ' + cipKind(id) + '</span>' + esc(v) + '</div>' : ''; }).join('');
+}
+function cipTa(path, label, o){
+  o = o || {};
+  const id = 'cf' + (++cipUid), v = cipGetP(cipObj(o.scope || 'p'), path);
+  return '<label class="l" for="' + id + '">' + esc(label) + (o.hint ? ' <span class="cipmute">' + esc(o.hint) + '</span>' : '') + '</label>' +
+    '<textarea id="' + id + '" rows="' + (o.rows || 3) + '" data-cp="' + path + '" data-cs="' + (o.scope || 'p') + '"' + (o.locked ? ' readonly' : '') + '>' + esc(v == null ? '' : v) + '</textarea>' +
+    (o.noPast || (o.scope && o.scope !== 'p') ? '' : cipPast(path));
+}
+function cipIn(path, label, o){
+  o = o || {};
+  const id = 'cf' + (++cipUid), v = cipGetP(cipObj(o.scope || 'p'), path);
+  return '<div><label class="l" for="' + id + '">' + esc(label) + '</label><input id="' + id + '" type="' + (o.type || 'text') + '" value="' + esc(v == null ? '' : v) + '" data-cp="' + path + '" data-cs="' + (o.scope || 'p') + '"' + (o.locked ? ' readonly' : '') + '></div>';
+}
+function cipPick(path, label, src, locked, hint){
+  const P = CIP.periods[cipUi.cur], sel = cipGetP(P, path + 'Id') || '', id = 'cf' + (++cipUid);
+  const opts = cipOptions(src, sel);
+  return '<label class="l" for="' + id + '">' + esc(label) + (hint ? ' <span class="cipmute">' + esc(hint) + '</span>' : '') + '</label>' +
+    '<select class="cippick" data-pick="' + src + '" data-target="' + path + '" aria-label="Pick from the list: ' + esc(label) + '"' + (locked || !opts ? ' disabled' : '') + '>' +
+    '<option value="">' + (opts ? 'Pick from the list…' : src === 'mbo' ? 'No MBO list for this year' : 'No reference on this device') + '</option>' + opts + '</select>' +
+    '<textarea id="' + id + '" rows="2" data-cp="' + path + '" data-cs="p"' + (locked ? ' readonly' : '') + '>' + esc(cipGetP(P, path) || '') + '</textarea>';
+}
+function cipGoalPast(i){
+  return cipCmpIds().map(id => {
+    const g = cipArr(CIP.periods[id].goals)[i]; if(!g) return '';
+    const parts = [['Goal', g.goal], ['Job indicant', g.indicant], ['LCI principle', g.lci]].filter(p => cipFilled(p[1]));
+    if(!parts.length) return '';
+    return '<div class="cippast"><span class="tag">' + cipLabel(id) + ' ' + cipKind(id) + '</span>' + parts.map(p => '<b>' + esc(p[0]) + ':</b> ' + esc(p[1])).join('\n') +
+      '<button type="button" class="btn act2 cipcopy" data-cipcopy="' + esc(parts.map(p => p[0] + ': ' + p[1]).join('\n\n')) + '">Copy</button></div>';
+  }).join('');
+}
+function cipBlockHead(label, key, i, item, count, L){
+  const BL = L || !!item.locked;
+  return '<div class="cipbh"><h3>' + esc(label) + ' ' + (i + 1) + '</h3>' +
+    (!L ? '<button type="button" class="btn" data-cipblk="' + key + '.' + i + '">' + (item.locked ? 'Edit' : 'Lock') + '</button>' : '') +
+    (!BL && count > 1 ? '<button type="button" class="opx" data-cipdel="' + key + '.' + i + '" aria-label="Remove ' + esc(label.toLowerCase()) + ' ' + (i + 1) + '">' + icon('trash') + '</button>' : '') + '</div>';
+}
+
+function renderCip(){
+  cipUiLoad();
+  $('subtitle').textContent = CIP && CIP.employee.name ? [CIP.employee.name, CIP.employee.title].filter(Boolean).join(', ') : '';
+  $('cipTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cipUi.tab));
+  $('cipPeriod').hidden = cipUi.tab !== 'plan';
+  cipUid = 0;
+  if(cipUi.tab === 'pillars') cipRenderPillars();
+  else if(cipUi.tab === 'ref') $('cipBody').innerHTML = CIPREF ? cipRefHTML() : '<p class="empty">No reference on this device. Import it from &#8943;.</p>';
+  else cipRenderPlan();
+}
+function cipRenderPlan(){
+  const R = cipRec(), cur = cipUi.cur, P = R.periods[cur], el = $('cipBody');
+  $('cipPeriod').innerHTML = cipPeriods().map(id => '<option value="' + esc(id) + '"' + (id === cur ? ' selected' : '') + '>' + esc(cipLabel(id) + ' ' + cipKind(id)) + (R.periods[id] ? ' ✓' : '') + '</option>').join('');
+  if(!P){
+    const prev = cipStored().filter(p => p < cur), from = prev[prev.length - 1];
+    el.innerHTML = '<div class="cipstart"><h2>' + esc(cipLabel(cur) + ' ' + cipKind(cur)) + ' hasn\'t been started</h2>' +
+      '<p class="hint">' + (from ? 'Starting carries your goals and development plan forward from ' + esc(cipLabel(from)) + ' so you can update them. The self-evaluation and the manager\'s section start empty.' : 'This will be the first period in your plan.') + '</p>' +
+      (from ? '<button type="button" class="big" data-cipstart="carry">Start ' + esc(cipLabel(cur)) + ' from ' + esc(cipLabel(from)) + '</button><button type="button" class="ghost" data-cipstart="blank">Start blank</button>'
+        : '<button type="button" class="big" data-cipstart="blank">Start ' + esc(cipLabel(cur)) + '</button>') + '</div>';
+    return;
+  }
+  const L = !!P.locked, kind = cipKind(cur), others = cipStored().filter(id => id !== cur).reverse(), cmp = cipCmpIds();
+  const h = [];
+  h.push('<p class="cipstat' + (L ? ' lk' : '') + '">' + esc(cipLabel(cur) + ' ' + kind + ' review') + ' · ' + (L ? 'locked. Unlock it from &#8943; to change it.' : 'editing') + '</p>');
+  if(others.length) h.push('<details class="cipcmp"' + (cipCmpOpen ? ' open' : '') + '><summary>Compare with: ' + (cmp.length ? esc(cmp.map(cipLabel).join(', ')) : 'none') + '</summary>' +
+    '<div class="chips">' + others.map(id => '<button type="button" data-cipcmp="' + esc(id) + '"' + (cmp.includes(id) ? ' class="on"' : '') + ' aria-pressed="' + cmp.includes(id) + '">' + esc(cipLabel(id) + ' ' + cipKind(id)) + '</button>').join('') + '</div>' +
+    '<p class="hint">What you wrote then shows under each box, in grey.</p></details>');
+  h.push('<h2>Details</h2><div class="cipgrid">' + cipIn('name', 'Name', {scope: 'e'}) + cipIn('title', 'Job title', {scope: 'e'}) + cipIn('hireDate', 'Hire date', {scope: 'e', type: 'date'}) +
+    cipIn('supervisor', 'Current supervisor', {scope: 'e'}) + cipIn('reviewer', 'Reviewer for ' + cipLabel(cur), {locked: L}) + cipIn('reviewDate', 'Review date', {type: 'date', locked: L}) + '</div>');
+  h.push('<h2>1 Self-evaluation <span class="cipmute">' + kind + '</span></h2><p class="hint">Brief talking points for the review discussion.</p>' +
+    CIP_SELF.map(([k, l, hint]) => cipTa('self.' + k, l, {hint, locked: L, rows: k === 'comments' ? 2 : 3})).join(''));
+  const goals = cipArr(P.goals);
+  h.push('<h2>2 Vital few for focus <span class="cipmute">1–3 goals, next 1–6 months</span></h2><p class="hint">Link each goal to a job indicant, an LCI principle and, where one fits, an MBO. Pick from the list; the text drops into the box and can be edited.</p>' +
+    goals.map((g, i) => { const BL = L || !!g.locked;
+      return '<div class="cipblk' + (g.locked ? ' saved' : '') + '">' + cipBlockHead('Goal', 'goals', i, g, goals.length, L) +
+        cipTa('goals.' + i + '.goal', 'Goal', {rows: 2, locked: BL, noPast: true}) +
+        cipPick('goals.' + i + '.indicant', 'Job indicant', 'ind', BL) + cipPick('goals.' + i + '.lci', 'LCI principle', 'lci', BL) + cipGoalPast(i) +
+        cipPick('goals.' + i + '.mbo', 'Related MBO', 'mbo', BL, 'optional') +
+        cipTa('goals.' + i + '.measure', 'How I\'ll know it\'s working', {rows: 2, locked: BL}) +
+        cipTa('goals.' + i + '.progress', 'Progress update (' + kind + ')', {rows: 2, locked: BL}) + '</div>'; }).join('') +
+    (!L && goals.length < CIP_MAX_GOALS ? '<button type="button" class="btn act2 cipaddb" data-cipadd="goals">Add goal</button>' : ''));
+  const pairs = (key, label, planLabel) => { const arr = cipArr(P[key]);
+    return arr.map((p, i) => { const BL = L || !!p.locked;
+      return '<div class="cipblk' + (p.locked ? ' saved' : '') + '">' + cipBlockHead(label, key, i, p, arr.length, L) +
+        cipTa(key + '.' + i + '.text', label, {rows: 2, locked: BL}) + cipPick(key + '.' + i + '.link', 'Linked indicant or principle', 'dev', BL, 'optional') +
+        cipTa(key + '.' + i + '.plan', planLabel, {rows: 2, locked: BL}) + '</div>'; }).join('') +
+      (!L ? '<button type="button" class="btn act2 cipaddb" data-cipadd="' + key + '">Add ' + label.toLowerCase() + '</button>' : ''); };
+  h.push('<h2>3 Personal development plan</h2><h3>Key strengths</h3><p class="hint">What am I naturally good at where others may struggle? What am I passionate about? Where do others see me as an expert?</p>' +
+    pairs('strengths', 'Strength', 'Plan to leverage it') +
+    '<h3>Gaps worth improving</h3><p class="hint">What skill, technique or habit would make me more successful? Is there an LCI principle I can improve on?</p>' + pairs('gaps', 'Gap', 'Plan to improve'));
+  const r = (P.manager && P.manager.rating) || '';
+  h.push('<h2>4 Manager bottom line <span class="cipmute">completed by ' + esc(P.reviewer || 'your supervisor') + '</span></h2><label class="l">Overall performance, ' + kind + '</label>' +
+    Object.entries(CIP_RATING).map(([k, t]) => '<label class="chk"><input type="radio" name="ciprate" value="' + k + '"' + (r === k ? ' checked' : '') + (L ? ' disabled' : '') + '> ' + esc(t) + '</label>').join('') +
+    cipCmpIds().map(id => { const v = CIP.periods[id].manager && CIP.periods[id].manager.rating; return v ? '<div class="cippast"><span class="tag">' + cipLabel(id) + ' ' + cipKind(id) + '</span>' + esc(CIP_RATING[v] || v) + '</div>' : ''; }).join('') +
+    cipTa('manager.comments', 'Comments', {hint: 'the assessment and what to focus on next', rows: 5, locked: L}));
+  el.innerHTML = h.join('');
+}
+let cipCmpOpen = false;
+
+$('cipTabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  cipUi.tab = b.dataset.v; cipUiSave(); renderCip(); window.scrollTo(0, 0);
+});
+$('cipPeriod').addEventListener('change', e => {
+  cipUi.cur = e.target.value; cipUi.cmp = cipDefaultCmp(); cipUiSave(); renderCip(); window.scrollTo(0, 0);
+});
+$('cipBody').addEventListener('input', e => {
+  const t = e.target;
+  if(t.dataset.cp && t.tagName !== 'SELECT'){
+    const o = cipObj(t.dataset.cs); if(!o) return;
+    cipSetP(o, t.dataset.cp, t.value); cipSaveSoon('me');
+    if(t.dataset.cs === 'e' && /^(name|title)$/.test(t.dataset.cp)) $('subtitle').textContent = [CIP.employee.name, CIP.employee.title].filter(Boolean).join(', ');
+    return;
+  }
+  if(t.dataset.pf != null) return cipPillarInput(t);
+});
+$('cipBody').addEventListener('change', e => {
+  const t = e.target;
+  if(t.name === 'ciprate'){ cipSetP(CIP.periods[cipUi.cur], 'manager.rating', t.value); cipSaveSoon('me'); return; }
+  if(t.dataset.pick){
+    const P = CIP.periods[cipUi.cur], path = t.dataset.target, prev = cipGetP(P, path + 'Id') || '';
+    const box = t.nextElementSibling;
+    if(!t.value){ cipSetP(P, path + 'Id', ''); cipSaveSoon('me'); return; }
+    const txt = cipTextFor(t.dataset.pick, t.value);
+    if(box.value.trim() && box.value !== txt && !confirm('Replace the text in this box with the one you picked?')){ t.value = prev; return; }
+    cipSetP(P, path + 'Id', t.value); cipSetP(P, path, txt); box.value = txt; cipSaveSoon('me');
+  }
+});
+$('cipBody').addEventListener('toggle', e => { if(e.target.classList && e.target.classList.contains('cipcmp')) cipCmpOpen = e.target.open; }, true);
+$('cipBody').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const P = CIP && CIP.periods[cipUi.cur];
+  const redraw = () => { const y = window.scrollY; cipSaveSoon('me'); renderCip(); window.scrollTo(0, y); };
+  if(b.dataset.cipstart){
+    const R = cipRec(), prev = cipStored().filter(p => p < cipUi.cur), from = R.periods[prev[prev.length - 1]], np = cipBlankPeriod();
+    if(b.dataset.cipstart === 'carry' && from){
+      ['goals', 'strengths', 'gaps'].forEach(k => { if(cipArr(from[k]).length) np[k] = cipClone(from[k]); });
+      np.goals.forEach(g => { g.progress = ''; delete g.locked; });
+      np.strengths.concat(np.gaps).forEach(x => { delete x.locked; });
+    }
+    R.periods[cipUi.cur] = np; cipUi.cmp = cipDefaultCmp(); cipUiSave();
+    await cipSaveNow(); cipSaveSoon('me'); renderCip(); toast(cipLabel(cipUi.cur) + ' started'); return;
+  }
+  if(b.dataset.cipcmp){
+    const id = b.dataset.cipcmp, c = cipUi.cmp || [];
+    cipUi.cmp = c.includes(id) ? c.filter(x => x !== id) : c.concat([id]); cipUiSave();
+    cipCmpOpen = true; const y = window.scrollY; renderCip(); window.scrollTo(0, y); return;
+  }
+  if(b.dataset.cipcopy != null){
+    try { await navigator.clipboard.writeText(b.dataset.cipcopy); toast('Copied'); } catch(err){ toast('Copying is blocked here'); }
+    return;
+  }
+  if(!P) return;
+  if(b.dataset.cipadd){ const k = b.dataset.cipadd; P[k] = cipArr(P[k]); P[k].push(k === 'goals' ? cipBlankGoal() : cipBlankPair()); redraw(); return; }
+  if(b.dataset.cipblk){ const [k, i] = b.dataset.cipblk.split('.'); const o = cipArr(P[k])[+i]; if(o){ o.locked = !o.locked; redraw(); } return; }
+  if(b.dataset.cipdel){
+    const [k, i] = b.dataset.cipdel.split('.'), o = cipArr(P[k])[+i]; if(!o) return;
+    const word = {goals: 'Goal', strengths: 'Strength', gaps: 'Gap'}[k] + ' ' + (+i + 1);
+    const what = cipTrunc(o.goal || o.text || '', 80);
+    if(!confirm('Remove ' + word + (what ? ' (' + what + ')' : '') + ' from ' + cipLabel(cipUi.cur) + '?\n\nEverything written in it goes. This cannot be undone.')) return;
+    P[k].splice(+i, 1); redraw(); return;
+  }
+  if(b.dataset.padd != null) return cipBubOpen(+b.dataset.padd, -1);
+  if(b.dataset.pb){ const [bi, ii] = b.dataset.pb.split('|').map(Number); return cipBubOpen(bi, ii); }
+});
+
+/* ---------- the four pillars ---------- */
+function cipPillarTotals(){
+  const B = cipRec().pillars.boxes, sum = k => B.reduce((a, b) => a + (+b[k] || 0), 0), n = sum('pct'), t = sum('target');
+  const setN = B.filter(b => b.target != null && b.target !== '').length;
+  return {a: n === 100 ? 'Now adds up to 100%' : 'Now adds up to ' + n + '% (should be 100%)', bad: n !== 100,
+    g: setN ? (setN < B.length ? 'Targets set for ' + setN + ' of ' + B.length + ' pillars' : t === 100 ? 'Targets add up to 100%' : 'Targets add up to ' + t + '% (should be 100%)') : '',
+    gbad: setN === B.length && t !== 100};
+}
+function cipRenderPillars(){
+  const B = cipRec().pillars.boxes, T = cipPillarTotals();
+  $('cipBody').innerHTML = '<p class="hint ptots"><span id="ptNow"' + (T.bad ? ' class="bad"' : '') + '>' + esc(T.a) + '</span> <span id="ptTgt"' + (T.gbad ? ' class="bad"' : '') + '>' + esc(T.g) + '</span></p>' +
+    '<div class="pgrid">' + B.map((b, bi) => '<section class="pbox">' +
+      '<input type="text" class="ptitle" data-pf="title" data-bi="' + bi + '" value="' + esc(b.title) + '" placeholder="Pillar ' + (bi + 1) + '" aria-label="Pillar ' + (bi + 1) + ' title">' +
+      '<div class="ppcts"><label>Now <input type="number" min="0" max="100" inputmode="numeric" data-pf="pct" data-bi="' + bi + '" value="' + esc(b.pct) + '" aria-label="Percent of time now">%</label>' +
+      '<label>Target <input type="number" min="0" max="100" inputmode="numeric" data-pf="target" data-bi="' + bi + '" value="' + (b.target == null ? '' : esc(b.target)) + '" placeholder="–" aria-label="Target percent of time">%</label></div>' +
+      '<div class="pzone" data-zone="' + bi + '">' + b.items.map((it, ii) => '<button type="button" class="pchip' + (it.note ? ' hasnote' : '') + '" draggable="true" data-pb="' + bi + '|' + ii + '">' + esc(it.t || '(blank)') + '</button>').join('') +
+      '<button type="button" class="padd" data-padd="' + bi + '" aria-label="Add to pillar ' + (bi + 1) + '">+</button></div></section>').join('') + '</div>' +
+    '<p class="hint">Tap a bubble to write a plan for it or move it to another pillar. A bubble with a plan has a dot. On a PC you can also drag bubbles between pillars.</p>';
+}
+function cipPillarInput(t){
+  const B = cipRec().pillars.boxes[+t.dataset.bi]; if(!B) return;
+  if(t.dataset.pf === 'title') B.title = t.value;
+  else if(t.dataset.pf === 'pct') B.pct = t.value === '' ? 0 : Math.max(0, Math.min(100, +t.value || 0));
+  else B.target = t.value === '' ? null : Math.max(0, Math.min(100, +t.value || 0));
+  if(t.dataset.pf !== 'title'){
+    const T = cipPillarTotals();
+    $('ptNow').textContent = T.a; $('ptNow').className = T.bad ? 'bad' : '';
+    $('ptTgt').textContent = T.g; $('ptTgt').className = T.gbad ? 'bad' : '';
+  }
+  cipSaveSoon('me');
+}
+// drag a bubble between pillars, on a PC
+let cipDrag = null;
+$('cipBody').addEventListener('dragstart', e => { const c = e.target.closest && e.target.closest('.pchip'); if(!c) return;
+  cipDrag = c.dataset.pb.split('|').map(Number); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.textContent); } catch(_){} });
+$('cipBody').addEventListener('dragover', e => { if(cipDrag && e.target.closest && e.target.closest('.pzone')) e.preventDefault(); });
+$('cipBody').addEventListener('drop', e => {
+  const z = cipDrag && e.target.closest && e.target.closest('.pzone'); if(!z) return;
+  e.preventDefault();
+  const B = cipRec().pillars.boxes, tb = +z.dataset.zone, c = e.target.closest('.pchip'), [fb, fi] = cipDrag;
+  let ti = c ? +c.dataset.pb.split('|')[1] : B[tb].items.length;
+  const item = B[fb].items.splice(fi, 1)[0];
+  if(fb === tb && fi < ti) ti--;
+  B[tb].items.splice(Math.max(0, Math.min(ti, B[tb].items.length)), 0, item);
+  cipDrag = null; cipSaveSoon('me'); cipRenderPillars();
+});
+$('cipBody').addEventListener('dragend', () => { cipDrag = null; });
+
+/* the bubble: Done keeps it, nothing typed in a new one drops it */
+let cipBub = null;
+function cipBubOpen(bi, ii){
+  const B = cipRec().pillars.boxes, it = ii >= 0 ? B[bi].items[ii] : {t: '', note: ''};
+  if(!it) return;
+  cipBub = {bi, ii};
+  $('cbHead').textContent = ii >= 0 ? 'Bubble' : 'New bubble';
+  $('cbT').value = it.t; $('cbNote').value = it.note;
+  $('cbBox').innerHTML = B.map((b, i) => '<option value="' + i + '"' + (i === bi ? ' selected' : '') + '>' + esc(b.title || 'Pillar ' + (i + 1)) + '</option>').join('');
+  $('cbDel').hidden = ii < 0;
+  cipDlgOpen('cipbubdlg');
+  if(ii < 0) setTimeout(() => { try { $('cbT').focus(); } catch(_){} }, 50);
+}
+function cipBubFinish(){
+  const s = cipBub; if(!s) return;
+  cipBub = null;
+  const B = cipRec().pillars.boxes, t = $('cbT').value.trim(), note = $('cbNote').value, to = +$('cbBox').value;
+  if(s.ii < 0){
+    if(!t && !note.trim()) return;                  // nothing typed: nothing kept
+    B[to].items.push({t, note});
+  } else {
+    const it = B[s.bi].items[s.ii]; if(!it) return;
+    if(it.t === t && it.note === note && to === s.bi) return;
+    it.t = t; it.note = note;
+    if(to !== s.bi){ B[s.bi].items.splice(s.ii, 1); B[to].items.push(it); }
+  }
+  cipSaveSoon('me');
+  if(screen === 'cip' && cipUi.tab === 'pillars') cipRenderPillars();
+}
+$('cbOk').addEventListener('click', () => { cipBubFinish(); cipDlgShut('cipbubdlg'); });
+$('cbDel').addEventListener('click', () => {
+  const s = cipBub; if(!s || s.ii < 0) return;
+  const B = cipRec().pillars.boxes, it = B[s.bi].items[s.ii];
+  if(!confirm('Remove the bubble "' + (it.t || '(blank)') + '" from ' + (B[s.bi].title || 'Pillar ' + (s.bi + 1)) + '?' + (it.note ? '\n\nIts plan and notes go with it.' : ''))) return;
+  B[s.bi].items.splice(s.ii, 1); cipBub = null;
+  cipSaveSoon('me'); cipDlgShut('cipbubdlg'); cipRenderPillars();
+});
+$('cipbubdlg').addEventListener('cancel', e => { e.preventDefault(); cipBubFinish(); cipDlgShut('cipbubdlg'); });
+$('cipbubdlg').addEventListener('close', () => cipBubFinish());
+
+function cipDlgOpen(id){
+  const d = $(id);
+  if(!d.hasAttribute('open')){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog(id); }
+}
+function cipDlgShut(id){
+  const d = $(id);
+  if(!d.hasAttribute('open')) return;
+  if(history.state && history.state.dialog === id){ history.back(); return; }   // popstate closes it
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+
+/* ---------- the reference, on screen and in the documents ---------- */
+function cipRefHTML(){
+  const R = CIPREF || {}, h = [];
+  if(cipArr(R.ind).length){
+    let last = '';
+    h.push('<h2>Job specific indicants</h2>' + (JSON.stringify(R.ind).includes('⟦') ? '<p class="hint"><mark class="cipconfirm">Highlighted</mark> wording is still to be confirmed in the source standards.</p>' : '') +
+      '<table class="ciptbl"><tr><th>Result</th><th>Behaviours / indicants</th><th>Standard</th></tr>' + R.ind.map(g => {
+        let s = '';
+        if(g.area !== last){ s += '<tr><td class="area" colspan="3">' + esc(g.area) + '</td></tr>'; last = g.area; }
+        return s + cipArr(g.items).map((i, k) => '<tr>' + (k === 0 ? '<td class="res" rowspan="' + g.items.length + '">' + esc(g.result) + '</td>' : '') + '<td>' + esc(i.b) + '</td><td>' + cipConfirmHTML(i.s) + '</td></tr>').join('');
+      }).join('') + '</table>');
+  }
+  if(cipArr(R.lci).length) h.push('<h2>Business philosophy (LCI) principles</h2>' + R.lci.map(g => '<h3>' + esc(g.group) + '</h3><ul>' + cipArr(g.items).map(i => '<li>' + esc(i.t) + '</li>').join('') + '</ul>').join(''));
+  if(cipArr(R.bu).length) h.push('<h2>BU goals' + (R.buYear ? ' ' + esc(R.buYear) : '') + '</h2>' + R.bu.map(g => '<h3>' + esc(g.csf) + '</h3><ul>' +
+    cipArr(g.items).map(i => '<li><b>' + esc(i.t) + '</b>' + (cipArr(i.subs).length ? '<ul>' + i.subs.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '') + '</li>').join('') + '</ul>').join(''));
+  for(const x of cipArr(R.extra)){
+    h.push('<h2>' + esc(x.title) + '</h2>' + (x.note ? '<p class="hint">' + esc(x.note) + '</p>' : '') + cipArr(x.blocks).map(b => (b.h ? '<h3>' + esc(b.h) + '</h3>' : '') +
+      (b.p ? '<p>' + esc(b.p) + '</p>' : '') + (cipArr(b.ul).length ? '<ul>' + b.ul.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '') +
+      (b.table ? '<table class="ciptbl"><tr>' + cipArr(b.table.head).map(c => '<th>' + esc(c) + '</th>').join('') + '</tr>' + cipArr(b.table.rows).map(r => '<tr>' + cipArr(r).map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') + '</table>' : '')).join(''));
+  }
+  if(cipArr(R.books).length) h.push('<h2>Booklist</h2><p class="hint">Suggested reading for the professional development MBO. They are offered when you log that MBO.</p><ol>' + R.books.map(b => '<li>' + esc(b) + '</li>').join('') + '</ol>');
+  return h.join('') || '<p class="empty">The reference on this device is empty.</p>';
+}
+
+/* ---------- the MBO screen ---------- */
+function mboCats(Y){ const c = []; cipArr(Y.items).forEach(i => { if(!c.includes(i.cat || 'Other')) c.push(i.cat || 'Other'); }); return c; }
+function mboQ(Y, q){ Y.quarters = Y.quarters || {}; return Y.quarters[q] = Y.quarters[q] || {locked: false, log: {}}; }
+const mboLog = (Y, q, id) => (Y.quarters && Y.quarters[q] && Y.quarters[q].log && Y.quarters[q].log[id]) || [];
+function mboVal(Y, q, it){ const s = Y.quarters && Y.quarters[q] && Y.quarters[q].snap; return s && s.values[it.id] != null ? s.values[it.id] : (+it.value || 0); }
+function mboCap(Y, q){ const s = Y.quarters && Y.quarters[q] && Y.quarters[q].snap; return s ? s.cap : (+Y.cap || 0); }
+const mboLocked = (Y, q) => !!(Y.quarters && Y.quarters[q] && Y.quarters[q].locked);
+/* Each quarter pays up to a quarter of the annual cap; what is earned above that
+   carries into the next quarter, and whatever is still over at Q4 is not paid.
+   A Mega MBO met pays its share of the cap on top, with Q4. */
+function mboCalc(Y){
+  let carry = 0; const out = {};
+  for(const q of MBO_QS){
+    const qcap = mboCap(Y, q) / 4; let earned = 0;
+    for(const it of cipArr(Y.items)) earned += mboLog(Y, q, it.id).length * mboVal(Y, q, it);
+    const cin = carry, tot = earned + cin, paid = Math.min(tot, qcap); let cout = tot - paid, lost = 0;
+    if(q === 'Q4'){ lost = cout; cout = 0; }
+    out[q] = {qcap, earned, cin, tot, paid, cout, lost}; carry = cout;
+  }
+  out.megaPaid = cipArr(Y.mega).filter(m => m.met === 'yes').reduce((a, m) => a + mboCap(Y, 'Q4') * (+m.pct || 0) / 100, 0);
+  out.total = MBO_QS.reduce((a, q) => a + out[q].paid, 0) + out.megaPaid;
+  return out;
+}
+const mboEntryLabel = it => it.logLabel || (it.books ? 'Objective or book' : 'Customer / site');
+
+function renderMbo(){
+  cipUiLoad();
+  const el = $('mboBody'), Y = mboYear();
+  $('subtitle').textContent = CIP && CIP.employee.name ? CIP.employee.name : '';
+  $('mboYear').innerHTML = mboAllYears().map(y => '<option value="' + esc(y) + '"' + (y === cipUi.my ? ' selected' : '') + '>' + esc(y) + ' MBOs' + (MBO && MBO.years[y] ? ' ✓' : '') + '</option>').join('');
+  if(!Y){
+    const prev = mboYears().filter(y => y < cipUi.my), from = prev[prev.length - 1];
+    el.innerHTML = '<div class="cipstart"><h2>No MBO list for ' + esc(cipUi.my) + ' yet</h2><p class="hint">' +
+      (from ? 'Copy the ' + esc(from) + ' list as a starting point, then change the titles, values and proof for ' + esc(cipUi.my) + '. The quarters start empty.' : 'Start an empty list and add each MBO for the year.') + '</p>' +
+      (from ? '<button type="button" class="big" data-ystart="copy">Copy the ' + esc(from) + ' MBO list</button><button type="button" class="ghost" data-ystart="blank">Start blank</button>'
+        : '<button type="button" class="big" data-ystart="blank">Start the ' + esc(cipUi.my) + ' list</button>') + '</div>';
+    return;
+  }
+  if(cipUi.medit && !Y.setupLocked){ el.innerHTML = mboEditHTML(Y); return; }
+  const c = mboCalc(Y), q4L = mboLocked(Y, 'Q4');
+  let rows = '', last = null;
+  cipArr(Y.items).forEach(it => {
+    const cat = it.cat || 'Other';
+    if(cat !== last){ rows += '<tr class="cat"><td colspan="6">' + esc(cat) + '</td></tr>'; last = cat; }
+    let yc = 0, yv = 0;
+    const cells = MBO_QS.map(q => {
+      const L = mboLocked(Y, q), log = mboLog(Y, q, it.id), v = mboVal(Y, q, it); yc += log.length; yv += log.length * v;
+      return '<td class="qc' + (L ? ' lk' : '') + '" data-q="' + q + '"><div class="mchips">' + log.map((x, i) => '<button type="button" class="mchip' + (cipFilled(x.date) || (cipFilled(x.ref) && !/^(Imported|Copied)/.test(x.ref)) ? ' has' : '') + '" data-mchip="' + esc(it.id) + '|' + q + '|' + i + '">' + esc(x.site || '(unnamed)') + '</button>').join('') +
+        (L ? '' : '<button type="button" class="madd" data-madd="' + esc(it.id) + '|' + q + '" aria-label="Add a completion to ' + esc(it.title) + ', ' + q + '">+</button>') + '</div>' +
+        (log.length ? '<div class="camt">' + log.length + ' × ' + cipMoney(v) + ' = <b>' + cipMoney(log.length * v) + '</b></div>' : '') + '</td>';
+    }).join('');
+    rows += '<tr><td class="mc"><button type="button" class="mtitle" data-minfo="' + esc(it.id) + '">' + esc(it.title || 'Untitled MBO') + ' <span class="minfo" aria-hidden="true">i</span></button><span class="mv">' + cipMoney(it.value) + ' each</span></td>' + cells +
+      '<td class="yc">' + (yc ? yc + ' done<br><b>' + cipMoney(yv) + '</b>' : '—') + '</td></tr>';
+  });
+  const fr = (label, f, tot, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + label + '</th>' + MBO_QS.map(q => '<td data-q="' + q + '">' + f(c[q], q) + '</td>').join('') + '<td class="yc">' + (tot || '') + '</td></tr>';
+  let foot = fr('Earned', d => cipMoney(d.earned), cipMoney(MBO_QS.reduce((a, q) => a + c[q].earned, 0))) +
+    fr('Carried in', d => d.cin ? cipMoney(d.cin) : '—') +
+    fr('Paid', d => cipMoney(d.paid), cipMoney(MBO_QS.reduce((a, q) => a + c[q].paid, 0)), 'paid') +
+    fr('Carried out', (d, q) => q === 'Q4' ? (d.lost ? '<span class="carry">' + cipMoney(d.lost) + ' not paid</span>' : 'Ends at Q4') : (d.cout ? '<span class="carry">' + cipMoney(d.cout) + '</span>' : '—'));
+  cipArr(Y.mega).forEach((m, i) => { const val = mboCap(Y, 'Q4') * (+m.pct || 0) / 100;
+    foot += '<tr class="mega"><th><button type="button" class="mtitle" data-minfo="mega.' + i + '">Mega MBO <span class="minfo" aria-hidden="true">i</span></button><span class="mv">' + esc(m.title) + '</span></th>' +
+      '<td data-q="Q1"></td><td data-q="Q2"></td><td data-q="Q3"></td><td data-q="Q4"><div class="seg mseg">' +
+      '<button type="button" data-mega="' + i + '" data-v="no"' + (m.met !== 'yes' ? ' class="on"' : '') + (q4L ? ' disabled' : '') + '>Not met</button>' +
+      '<button type="button" data-mega="' + i + '" data-v="yes"' + (m.met === 'yes' ? ' class="on"' : '') + (q4L ? ' disabled' : '') + '>Met</button></div><span class="mv">' + cipMoney(val) + '</span></td>' +
+      '<td class="yc">' + (m.met === 'yes' ? cipMoney(val) : '—') + '</td></tr>'; });
+  foot += '<tr class="ytot"><th>' + esc(cipUi.my) + ' total paid</th><td colspan="4" class="qall"></td><td class="yc"><b>' + cipMoney(c.total) + '</b></td></tr>';
+  el.innerHTML = '<p class="mbocap">Annual cap <b>' + cipMoney(Y.cap) + '</b>, up to <b>' + cipMoney((+Y.cap || 0) / 4) + '</b> paid a quarter · ' + (Y.setupLocked ? 'list agreed and locked' : 'list unlocked') + '</p>' +
+    '<div class="seg mboq" id="mboQ">' + MBO_QS.map(q => '<button type="button" data-v="' + q + '"' + (q === cipUi.mq ? ' class="on"' : '') + '>' + q + (mboLocked(Y, q) ? ' ' + icon('lock') : '') + '</button>').join('') + '</div>' +
+    '<div class="mgridwrap"><table class="mgrid sq-' + cipUi.mq + '"><thead><tr><th>MBO</th>' + MBO_QS.map(q => { const L = mboLocked(Y, q);
+      return '<th data-q="' + q + '"' + (L ? ' class="lk"' : '') + '><span class="qn">' + q + '</span><button type="button" class="btn qlock" data-qlock="' + q + '">' + (L ? 'Locked' : 'Lock') + '</button></th>'; }).join('') + '<th class="yc">Year</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody><tfoot>' + foot + '</tfoot></table></div>' +
+    (!cipArr(Y.items).length ? '<p class="empty">This year\'s list is empty. ' + (Y.setupLocked ? 'Unlock the list from &#8943;, then edit it.' : 'Edit the list from &#8943; to add MBOs.') + '</p>' : '');
+}
+function mboEditHTML(Y){
+  const f = (path, label, o) => { o = o || {}; const v = cipGetP(Y, path);
+    return '<div' + (o.cls ? ' class="' + o.cls + '"' : '') + '><label class="l">' + esc(label) + (o.hint ? ' <span class="cipmute">' + esc(o.hint) + '</span>' : '') + '</label>' +
+      (o.ta ? '<textarea rows="' + o.ta + '" data-mp="' + path + '">' + esc(v == null ? '' : v) + '</textarea>'
+        : '<input type="' + (o.num ? 'number' : 'text') + '"' + (o.num ? ' inputmode="numeric" min="0" data-num="1"' : '') + (o.list ? ' list="' + o.list + '"' : '') + ' value="' + esc(v == null ? '' : v) + '" data-mp="' + path + '">') + '</div>'; };
+  const bu = cipOptions('bu', '');
+  return '<button type="button" class="big" id="mboEditDone">Done editing</button>' +
+    '<p class="note" style="margin:10px 0">Changes apply to every open quarter. A locked quarter keeps the values it was locked at.</p>' +
+    '<div class="cipgrid">' + f('cap', 'Annual cap ($)', {num: 1}) + '</div>' +
+    cipArr(Y.items).map((it, i) => { const used = MBO_QS.reduce((a, q) => a + mboLog(Y, q, it.id).length, 0);
+      return '<div class="cipblk"><div class="cipbh"><h3>' + esc(it.title || 'MBO ' + (i + 1)) + '</h3>' +
+        '<button type="button" class="btn" data-mmove="' + i + '|-1" aria-label="Move up">&#8593;</button><button type="button" class="btn" data-mmove="' + i + '|1" aria-label="Move down">&#8595;</button>' +
+        '<button type="button" class="opx" data-mdel="items|' + i + '|' + used + '" aria-label="Remove this MBO">' + icon('trash') + '</button></div>' +
+        '<div class="cipgrid">' + f('items.' + i + '.cat', 'Category', {list: 'mboCatList'}) + f('items.' + i + '.title', 'MBO') + f('items.' + i + '.value', '$ each', {num: 1}) +
+        '<div><label class="l">BU goal</label><select data-mp="items.' + i + '.buId"' + (bu ? '' : ' disabled') + '><option value="">None</option>' + cipOptions('bu', it.buId || '') + '</select></div>' +
+        f('items.' + i + '.proof', 'Proof required') + f('items.' + i + '.logLabel', 'Entry label', {hint: 'blank means Customer / site'}) + '</div>' +
+        '<label class="chk"><input type="checkbox" data-mbooks="' + i + '"' + (it.books ? ' checked' : '') + '> Suggest books from the booklist</label>' +
+        f('items.' + i + '.def', 'Full definition', {ta: 4}) + '</div>'; }).join('') +
+    '<button type="button" class="btn act2 cipaddb" data-madditem="1">Add MBO</button>' +
+    '<h2>Mega MBO</h2>' + cipArr(Y.mega).map((m, i) => '<div class="cipblk"><div class="cipbh"><h3>' + esc(m.title || 'Mega MBO ' + (i + 1)) + '</h3>' +
+      '<button type="button" class="opx" data-mdel="mega|' + i + '|0" aria-label="Remove this Mega MBO">' + icon('trash') + '</button></div>' +
+      '<div class="cipgrid">' + f('mega.' + i + '.title', 'Mega MBO') + f('mega.' + i + '.pct', '% of the annual cap', {num: 1}) + '</div>' + f('mega.' + i + '.def', 'Conditions and exclusions', {ta: 3}) + '</div>').join('') +
+    '<button type="button" class="btn act2 cipaddb" data-maddmega="1">Add Mega MBO</button>' +
+    '<datalist id="mboCatList">' + mboCats(Y).map(c => '<option value="' + esc(c) + '">').join('') + '</datalist>';
+}
+$('mboYear').addEventListener('change', e => { cipUi.my = e.target.value; cipUi.medit = false; cipUiSave(); renderMbo(); window.scrollTo(0, 0); });
+$('mboBody').addEventListener('input', e => {
+  const t = e.target, Y = mboYear();
+  if(!Y || !t.dataset.mp || t.tagName === 'SELECT') return;
+  cipSetP(Y, t.dataset.mp, t.dataset.num ? (t.value === '' ? '' : Math.max(0, +t.value || 0)) : t.value);
+  cipSaveSoon('mbo');
+});
+$('mboBody').addEventListener('change', e => {
+  const t = e.target, Y = mboYear(); if(!Y) return;
+  if(t.tagName === 'SELECT' && t.dataset.mp){ cipSetP(Y, t.dataset.mp, t.value); cipSaveSoon('mbo'); return; }
+  if(t.dataset.mbooks != null){ Y.items[+t.dataset.mbooks].books = t.checked; cipSaveSoon('mbo'); return; }
+  if(t.dataset.mp && /\.cat$/.test(t.dataset.mp)){ const y = window.scrollY; renderMbo(); window.scrollTo(0, y); }
+});
+$('mboBody').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || b.disabled) return;
+  const Y = mboYear();
+  const redraw = () => { const y = window.scrollY; cipSaveSoon('mbo'); renderMbo(); window.scrollTo(0, y); };
+  if(b.dataset.ystart){
+    const M = mboRec(), prev = mboYears().filter(y => y < cipUi.my), from = M.years[prev[prev.length - 1]];
+    const ny = {cap: from ? from.cap : 15000, setupLocked: false, items: [], mega: [], quarters: {}};
+    if(b.dataset.ystart === 'copy' && from){ ny.items = cipClone(cipArr(from.items)); ny.mega = cipClone(cipArr(from.mega)).map(m => Object.assign(m, {met: 'no'})); }
+    M.years[cipUi.my] = ny; cipUi.medit = true; cipUiSave(); redraw(); return;
+  }
+  if(!Y) return;
+  if(b.closest('#mboQ')){ cipUi.mq = b.dataset.v; cipUiSave(); $('mboQ').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    const g = $('mboBody').querySelector('.mgrid'); g.className = 'mgrid sq-' + cipUi.mq; return; }
+  if(b.id === 'mboEditDone'){ cipUi.medit = false; cipUiSave(); redraw(); return; }
+  if(b.dataset.qlock){
+    const q = b.dataset.qlock, Q = mboQ(Y, q);
+    if(!Q.locked){
+      if(!confirm('Lock ' + q + ' as submitted? Its dollar values are kept even if the MBO list changes later.')) return;
+      Q.locked = true; Q.snap = {cap: +Y.cap || 0, values: Object.fromEntries(cipArr(Y.items).map(i => [i.id, +i.value || 0]))};
+    } else {
+      if(!confirm('Unlock ' + q + '? Its dollar values will follow the current MBO list until you lock it again.')) return;
+      Q.locked = false; delete Q.snap;
+    }
+    redraw(); return;
+  }
+  if(b.dataset.mega != null){ Y.mega[+b.dataset.mega].met = b.dataset.v; redraw(); return; }
+  if(b.dataset.madd){ const [id, q] = b.dataset.madd.split('|'); return mboEntOpen(id, q, -1); }
+  if(b.dataset.mchip){ const [id, q, i] = b.dataset.mchip.split('|'); return mboEntOpen(id, q, +i); }
+  if(b.dataset.minfo) return mboInfo(b.dataset.minfo);
+  if(b.dataset.madditem){ const lastCat = Y.items.length ? Y.items[Y.items.length - 1].cat : '';
+    Y.items.push({id: newId('m'), cat: lastCat || '', title: '', value: 0, proof: '', def: '', buId: '', logLabel: '', books: false}); redraw(); return; }
+  if(b.dataset.maddmega){ Y.mega = cipArr(Y.mega); Y.mega.push({id: newId('g'), title: '', pct: 10, met: 'no', def: ''}); redraw(); return; }
+  if(b.dataset.mmove){ const [i, d] = b.dataset.mmove.split('|').map(Number), j = i + d;
+    if(j < 0 || j >= Y.items.length) return; [Y.items[i], Y.items[j]] = [Y.items[j], Y.items[i]]; redraw(); return; }
+  if(b.dataset.mdel){
+    const [k, i, used] = b.dataset.mdel.split('|'), x = Y[k][+i]; if(!x) return;
+    const name = x.title || (k === 'mega' ? 'this Mega MBO' : 'this MBO');
+    if(!confirm('Remove ' + name + ' from the ' + cipUi.my + ' list?' + (+used ? '\n\nIts ' + used + ' logged completion' + (+used === 1 ? '' : 's') + ' this year go with it.' : '') + ' This cannot be undone.')) return;
+    const gone = Y[k].splice(+i, 1)[0];
+    if(k === 'items' && gone) MBO_QS.forEach(q => { if(Y.quarters && Y.quarters[q] && Y.quarters[q].log) delete Y.quarters[q].log[gone.id]; });
+    redraw();
+  }
+});
+function mboInfo(key){
+  const Y = mboYear(); let t, body;
+  if(key.startsWith('mega.')){
+    const m = Y.mega[+key.split('.')[1]]; if(!m) return;
+    t = m.title || 'Mega MBO';
+    body = '<p><b>Worth:</b> ' + esc(m.pct) + '% of the annual cap, paid with Q4 above the cap.</p>' + (cipFilled(m.def) ? '<div class="cipdef">' + esc(m.def) + '</div>' : '');
+  } else {
+    const it = cipArr(Y.items).find(i => i.id === key); if(!it) return;
+    const bu = it.buId && CIPREF && cipFind(CIPREF.bu, 'bu', it.buId);
+    t = it.title || 'MBO';
+    body = '<p><b>Proof required:</b> ' + (cipFilled(it.proof) ? esc(it.proof) : '<i>not given in the plan</i>') + '</p>' + (bu ? '<p><b>Supports BU goal:</b> ' + esc(bu.i.t) + '</p>' : '') +
+      (cipFilled(it.def) ? '<div class="cipdef">' + esc(it.def) + '</div>' : '');
+  }
+  $('miHead').textContent = t; $('miBody').innerHTML = body;
+  cipDlgOpen('mboinfodlg');
+}
+$('miClose').addEventListener('click', () => cipDlgShut('mboinfodlg'));
+
+/* a completion: Done keeps it, nothing typed in a new one drops it */
+let mboEnt = null;
+function mboEntOpen(id, q, i){
+  const Y = mboYear(), it = cipArr(Y.items).find(x => x.id === id); if(!it) return;
+  const L = mboLocked(Y, q), e = i >= 0 ? mboLog(Y, q, id)[i] : {site: '', date: '', ref: ''};
+  if(!e) return;
+  mboEnt = {id, q, i, L};
+  $('meHead').textContent = i >= 0 ? 'Completion' : 'New completion';
+  $('meSub').textContent = it.title + ', ' + cipUi.my + ' ' + q + (L ? ' (locked)' : '');
+  $('meSiteL').textContent = mboEntryLabel(it);
+  $('meSite').value = e.site || ''; $('meDate').value = e.date || ''; $('meRef').value = e.ref || '';
+  ['meSite', 'meDate', 'meRef'].forEach(x => { $(x).readOnly = L; });
+  $('meSite').setAttribute('list', it.books ? 'mboBooks' : '');
+  $('mboBooks').innerHTML = it.books && CIPREF ? cipArr(CIPREF.books).map(b => '<option value="' + esc(b) + '">').join('') : '';
+  $('meDel').hidden = L || i < 0;
+  cipDlgOpen('mboentdlg');
+  if(i < 0) setTimeout(() => { try { $('meSite').focus(); } catch(_){} }, 50);
+}
+function mboEntFinish(){
+  const s = mboEnt; if(!s) return;
+  mboEnt = null;
+  if(s.L) return;
+  const Y = mboYear(); if(!Y) return;
+  const v = {site: $('meSite').value.trim(), date: $('meDate').value, ref: $('meRef').value.trim()};
+  const Q = mboQ(Y, s.q); Q.log[s.id] = cipArr(Q.log[s.id]);
+  if(s.i < 0){
+    if(!v.site && !v.date && !v.ref) return;
+    Q.log[s.id].push(v);
+  } else {
+    const e = Q.log[s.id][s.i]; if(!e || (e.site === v.site && (e.date || '') === v.date && (e.ref || '') === v.ref)) return;
+    Object.assign(e, v);
+  }
+  cipSaveSoon('mbo');
+  if(screen === 'mbo'){ const y = window.scrollY; renderMbo(); window.scrollTo(0, y); }
+}
+$('meOk').addEventListener('click', () => { mboEntFinish(); cipDlgShut('mboentdlg'); });
+$('meDel').addEventListener('click', () => {
+  const s = mboEnt; if(!s || s.i < 0) return;
+  const Y = mboYear(), log = mboLog(Y, s.q, s.id), e = log[s.i], it = Y.items.find(x => x.id === s.id);
+  if(!confirm('Remove ' + (e.site || 'this completion') + ' from ' + (it ? it.title : 'this MBO') + ', ' + s.q + '?\n\nIts date and proof reference go with it. This cannot be undone.')) return;
+  log.splice(s.i, 1); mboEnt = null;
+  cipSaveSoon('mbo'); cipDlgShut('mboentdlg'); renderMbo();
+});
+$('mboentdlg').addEventListener('cancel', e => { e.preventDefault(); mboEntFinish(); cipDlgShut('mboentdlg'); });
+$('mboentdlg').addEventListener('close', () => mboEntFinish());
+
+/* ---------- the ⋯ menu, on both screens ---------- */
+function cipMenu(){
+  const onMbo = screen === 'mbo', P = CIP && CIP.periods[cipUi.cur], Y = mboYear();
+  $('cmHead').textContent = onMbo ? 'MBOs' : 'CIP';
+  $('cmLock').hidden = onMbo || cipUi.tab !== 'plan' || !P;
+  if(P) $('cmLock').textContent = P.locked ? 'Unlock ' + cipLabel(cipUi.cur) : 'Lock ' + cipLabel(cipUi.cur);
+  $('cmEdit').hidden = !onMbo || !Y || Y.setupLocked;
+  $('cmEdit').textContent = cipUi.medit ? 'Stop editing the MBO list' : 'Edit the MBO list';
+  $('cmListLock').hidden = !onMbo || !Y;
+  if(Y) $('cmListLock').textContent = Y.setupLocked ? 'Unlock the ' + cipUi.my + ' MBO list' : 'Lock the ' + cipUi.my + ' MBO list';
+  $('cmNote').textContent = 'Your CIP and MBOs are yours alone. They sync to your own devices, not to your team.' + (CIPREF ? '' : ' There is no reference on this device yet.');
+  cipDlgOpen('cipmenu');
+}
+$('cipMore').addEventListener('click', cipMenu);
+$('mboMore').addEventListener('click', cipMenu);
+$('cmClose').addEventListener('click', () => cipDlgShut('cipmenu'));
+$('cmLock').addEventListener('click', () => {
+  const P = CIP && CIP.periods[cipUi.cur]; if(!P) return;
+  P.locked = !P.locked; cipSaveSoon('me'); cipDlgShut('cipmenu'); renderCip();
+  toast(cipLabel(cipUi.cur) + (P.locked ? ' locked' : ' unlocked'));
+});
+$('cmEdit').addEventListener('click', () => { cipUi.medit = !cipUi.medit; cipUiSave(); cipDlgShut('cipmenu'); renderMbo(); window.scrollTo(0, 0); });
+$('cmListLock').addEventListener('click', () => {
+  const Y = mboYear(); if(!Y) return;
+  Y.setupLocked = !Y.setupLocked; if(Y.setupLocked) cipUi.medit = false;
+  cipUiSave(); cipSaveSoon('mbo'); cipDlgShut('cipmenu'); renderMbo();
+});
+$('cmImport').addEventListener('click', () => $('cmFile').click());
+$('cmFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  cipDlgShut('cipmenu');
+  try { await cipImport(f); } catch(err){ console.error(err); toast('Import failed: ' + err.message); }
+});
+
+/* The CIP and MBO page's own "Save to file" holds the plan, the MBOs and the
+   pillars; a 'fieldcrm-cip' file can hold the reference as well, or only it. */
+async function cipImport(file){
+  let d;
+  try { d = JSON.parse(await file.text()); } catch(e){ throw new Error('that file is not readable'); }
+  let rec = null, ref = null;
+  if(d && d.employee && d.periods) rec = d;
+  else if(d && d.format === 'fieldcrm-cip'){ rec = d.record && d.record.periods ? d.record : null; ref = d.reference && typeof d.reference === 'object' ? d.reference : null; }
+  if(!rec && !ref) throw new Error('that is not a CIP and MBO file');
+  const lose = [], np = CIP ? cipStored().length : 0, ny = mboYears().length;
+  if(rec && np) lose.push('your CIP (' + np + (np === 1 ? ' period' : ' periods') + ')');
+  if(rec && rec.mbo && rec.mbo.years && ny) lose.push('your MBOs (' + ny + (ny === 1 ? ' year' : ' years') + ')');
+  if(ref && CIPREF) lose.push('the reference');
+  if(lose.length && !confirm('Replace ' + lose.join(', ') + ' with what is in ' + file.name + '?\n\nWhat is there now is replaced on this device, and on your other devices when they next sync.')) return;
+  const got = [];
+  if(rec){
+    const blank = cipBlankRec();
+    CIP = {id: 'me', employee: Object.assign(blank.employee, rec.employee || {}), periods: rec.periods && typeof rec.periods === 'object' ? rec.periods : {},
+      pillars: cipPillarFix(rec.pillars), updated: 0};
+    cipDirty.add('me');
+    got.push(cipStored().length + ' CIP periods');
+    if(rec.mbo && rec.mbo.years && typeof rec.mbo.years === 'object'){
+      MBO = {id: 'mbo', years: rec.mbo.years, updated: 0}; cipDirty.add('mbo');
+      got.push(mboYears().length + ' MBO years');
+    }
+  }
+  if(ref){
+    CIPREF = {id: 'ref', ind: cipArr(ref.ind), lci: cipArr(ref.lci), buYear: String(ref.buYear || ''), bu: cipArr(ref.bu),
+      books: cipArr(ref.books).map(String), extra: cipArr(ref.extra), imported: Date.now(), updated: 0};
+    cipDirty.add('ref');
+    got.push('the reference');
+  }
+  await cipSaveNow();
+  cipUi = null; cipUiLoad(); cipUi.cur = ''; cipUi.cmp = null; cipUi.my = ''; cipUiLoad(); cipUiSave();
+  await logLoad(file.name, 'cip', 'Brought in ' + got.join(', '));
+  if(screen === 'cip') renderCip(); else if(screen === 'mbo') renderMbo();
+  toast('Brought in ' + got.join(', '));
+}
+
+/* ---------- Create and share ---------- */
+let cipOutFor = '';
+function cipShareStart(which){
+  if(which === 'cip' && cipUi.tab === 'pillars') return cipDeliver(cipPillarsHTML(), 'four_pillars', 'Four pillars');
+  if(which === 'cip' && cipUi.tab === 'ref'){
+    if(!CIPREF){ toast('No reference on this device'); return; }
+    return cipDeliver(cipDocHTML('CIP reference', '', cipRefHTML()), 'CIP_reference', 'CIP reference');
+  }
+  if(which === 'cip' && !(CIP && CIP.periods[cipUi.cur])){ toast('Start ' + cipLabel(cipUi.cur) + ' first'); return; }
+  if(which === 'mbo' && !mboYear()){ toast('Set up the ' + cipUi.my + ' MBO list first'); return; }
+  cipOutFor = which;
+  $('coQWrap').hidden = which !== 'mbo';
+  $('coRefWrap').hidden = which !== 'cip' || !CIPREF;
+  if(which === 'mbo'){
+    const Y = mboYear(), withEntries = MBO_QS.filter(q => cipArr(Y.items).some(it => mboLog(Y, q, it.id).length));
+    const def = withEntries[withEntries.length - 1] || 'Q1';
+    chipRow($('coQ'), MBO_QS, def);
+    $('coNote').textContent = 'The year\'s grid with lines to sign, then the proof for the quarter.';
+  } else {
+    const c = cipCmpIds();
+    $('coNote').textContent = cipLabel(cipUi.cur) + ' ' + cipKind(cipUi.cur) + (c.length ? ', compared with ' + c.map(cipLabel).join(', ') + '.' : ', with nothing to compare.');
+  }
+  cipDlgOpen('cipoutdlg');
+}
+$('coQ').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; $('coQ').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+$('coCancel').addEventListener('click', () => cipDlgShut('cipoutdlg'));
+$('coGo').addEventListener('click', async () => {
+  const which = cipOutFor; cipDlgShut('cipoutdlg');
+  if(cipTimer) await cipSaveNow();
+  if(which === 'mbo'){ const q = chipVal($('coQ')) || 'Q1'; await cipDeliver(mboClaimHTML(q), 'MBO_claim_' + cipUi.my + '_' + q, 'MBO claim ' + cipUi.my + ' ' + q); }
+  else await cipDeliver(cipPlanHTML($('coRef').checked), 'CIP_' + cipUi.cur, 'CIP ' + cipLabel(cipUi.cur));
+});
+$('cipShare').addEventListener('click', () => cipShareStart('cip'));
+$('mboShare').addEventListener('click', () => cipShareStart('mbo'));
+async function cipDeliver(html, base, title){
+  const who = CIP && CIP.employee.name ? CIP.employee.name.trim().replace(/\s+/g, '_').replace(/[^\w-]/g, '') + '_' : '';
+  await deliverDoc(html, who + base + '_' + todayISOdate() + '.html', title);
+}
+function cipDocHTML(title, sub, body){
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS +
+    'mark{background:#FFF3C4}td.area{background:#F2F7FA;font-weight:bold}td.res{font-weight:bold}</style></head><body>' +
+    '<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg"><p class="eyebrow">Intralox</p><h1>' + esc(title) + '</h1>' +
+    (sub ? '<p class="sub">' + sub + '</p>' : '') + body + '<p class="sub" style="margin-top:24px">Made with Field CRM.</p></div></body></html>';
+}
+const cipCell = x => cipFilled(x) ? esc(String(x).trim()).replace(/\n/g, '<br>') : '—';
+function cipDate(iso){ return iso && /^\d{4}-\d\d-\d\d$/.test(iso) ? ddmmyyyy(iso) : (iso || ''); }
+function cipPlanHTML(appendix){
+  const cur = cipUi.cur, P = CIP.periods[cur], e = CIP.employee, kind = cipKind(cur), cmp = cipCmpIds();
+  // the answer now, then what was written in each period compared with, in grey
+  const q = (label, path) => '<tr><td class="l">' + esc(label) + '</td><td class="v">' + cipCell(cipGetP(P, path)) +
+    cmp.map(id => { const v = cipGetP(CIP.periods[id], path); return cipFilled(v) ? '<div style="color:#77787A;margin-top:6px"><b>' + esc(cipLabel(id)) + ':</b> ' + cipCell(v) + '</div>' : ''; }).join('') + '</td></tr>';
+  const h = [];
+  h.push('<table>' + [['Name', e.name], ['Job title', e.title], ['Hire date', cipDate(e.hireDate)], ['Current supervisor', e.supervisor], ['Reviewer', P.reviewer], ['Review date', cipDate(P.reviewDate)]]
+    .map(([l, v]) => '<tr><td class="l">' + l + '</td><td class="v">' + cipCell(v) + '</td></tr>').join('') + '</table>');
+  h.push('<h2>1 Self-evaluation (' + kind + ')</h2><table>' + CIP_SELF.map(([k, l]) => q(l, 'self.' + k)).join('') + '</table>');
+  h.push('<h2>2 Vital few for focus</h2>' + cipArr(P.goals).map((g, i) => '<h3>Goal ' + (i + 1) + '</h3><table>' + q('Goal', 'goals.' + i + '.goal') + q('Job indicant', 'goals.' + i + '.indicant') +
+    q('LCI principle', 'goals.' + i + '.lci') + (cipFilled(g.mbo) ? q('Related MBO', 'goals.' + i + '.mbo') : '') + q('How I\'ll know it\'s working', 'goals.' + i + '.measure') + q('Progress update', 'goals.' + i + '.progress') + '</table>').join(''));
+  const pair = (key, label, planLabel) => cipArr(P[key]).map((s, i) => '<h3>' + label + ' ' + (i + 1) + '</h3><table>' + q(label, key + '.' + i + '.text') +
+    (cipFilled(s.link) ? q('Linked indicant or principle', key + '.' + i + '.link') : '') + q(planLabel, key + '.' + i + '.plan') + '</table>').join('');
+  h.push('<h2>3 Personal development plan</h2>' + pair('strengths', 'Strength', 'Plan to leverage it') + pair('gaps', 'Gap', 'Plan to improve'));
+  const r = P.manager && P.manager.rating;
+  h.push('<h2>4 Manager bottom line (' + kind + ')</h2><p>' + Object.entries(CIP_RATING).map(([k, t]) => (r === k ? '&#9746; ' : '&#9744; ') + esc(t)).join('<br>') + '</p>' +
+    '<table>' + q('Comments', 'manager.comments') + '</table>');
+  if(appendix && CIPREF) h.push('<div style="page-break-before:always"></div>' + cipRefHTML());
+  return cipDocHTML('Continuous Improvement Plan', esc(cipLabel(cur) + ' ' + kind + ' review') + (cmp.length ? ' · compared with ' + esc(cmp.map(cipLabel).join(', ')) : ''), h.join(''));
+}
+function cipPillarsHTML(){
+  const B = cipRec().pillars.boxes;
+  return cipDocHTML('The four pillars of my role', esc([CIP && CIP.employee.name, 'as at ' + new Date().toLocaleDateString()].filter(Boolean).join(' · ')),
+    '<table><tr><th>Pillar</th><th>Now</th><th>Target</th></tr>' + B.map(b => '<tr><td>' + cipCell(b.title) + '</td><td>' + esc(b.pct || 0) + '%</td><td>' + (b.target == null || b.target === '' ? '—' : esc(b.target) + '%') + '</td></tr>').join('') + '</table>' +
+    B.map(b => '<h2>' + cipCell(b.title) + '</h2>' + (b.items.length ? '<ul>' + b.items.map(it => '<li><b>' + esc(it.t) + '</b>' + (it.note ? '<br>' + cipCell(it.note) : '') + '</li>').join('') + '</ul>' : '<p>—</p>')).join(''));
+}
+function mboClaimHTML(q){
+  const Y = mboYear(), c = mboCalc(Y), e = (CIP && CIP.employee) || {}, d = c[q], QL = mboLocked(Y, q);
+  const sel = x => x === q ? ' style="background:#E5F4FA"' : '';
+  let rows = '', last = null;
+  cipArr(Y.items).forEach(it => {
+    const cat = it.cat || 'Other';
+    if(cat !== last){ rows += '<tr><td colspan="6" style="background:#F2F7FA;font-weight:bold">' + esc(cat) + '</td></tr>'; last = cat; }
+    let yc = 0, yv = 0;
+    const cells = MBO_QS.map(x => { const log = mboLog(Y, x, it.id), v = mboVal(Y, x, it); yc += log.length; yv += log.length * v;
+      return '<td' + sel(x) + '>' + (log.length ? log.map(z => esc(z.site || '(unnamed)')).join('<br>') + '<div style="color:#77787A;font-size:9pt">' + log.length + ' × ' + cipMoney(v) + ' = ' + cipMoney(log.length * v) + '</div>' : '—') + '</td>'; }).join('');
+    rows += '<tr><td><b>' + esc(it.title) + '</b><br><span style="color:#77787A">' + cipMoney(it.value) + ' each</span></td>' + cells + '<td>' + (yc ? yc + '<br><b>' + cipMoney(yv) + '</b>' : '—') + '</td></tr>';
+  });
+  const fr = (label, f, tot) => '<tr><th>' + label + '</th>' + MBO_QS.map(x => '<td' + sel(x) + '>' + f(c[x], x) + '</td>').join('') + '<td>' + (tot || '—') + '</td></tr>';
+  const foot = fr('Earned', r => cipMoney(r.earned), cipMoney(MBO_QS.reduce((a, x) => a + c[x].earned, 0))) + fr('Carried in', r => r.cin ? cipMoney(r.cin) : '—') +
+    fr('Paid', r => cipMoney(r.paid), cipMoney(MBO_QS.reduce((a, x) => a + c[x].paid, 0))) +
+    fr('Carried out', (r, x) => x === 'Q4' ? (r.lost ? cipMoney(r.lost) + ' not paid' : '—') : (r.cout ? cipMoney(r.cout) : '—')) +
+    cipArr(Y.mega).map(m => { const val = mboCap(Y, 'Q4') * (+m.pct || 0) / 100;
+      return '<tr><th>Mega MBO: ' + esc(m.title) + '</th><td></td><td></td><td></td><td' + sel('Q4') + '>' + (m.met === 'yes' ? '&#9746; Met' : '&#9744; Met') + '</td><td>' + (m.met === 'yes' ? cipMoney(val) : '—') + '</td></tr>'; }).join('') +
+    '<tr><th colspan="5" style="text-align:right">' + esc(cipUi.my) + ' total paid</th><td><b>' + cipMoney(c.total) + '</b></td></tr>';
+  const det = cipArr(Y.items).filter(it => mboLog(Y, q, it.id).length);
+  const body = '<table>' + [['Name', e.name], ['Job title', e.title], ['Supervisor', e.supervisor],
+      ['Claiming', q + ', ' + cipMoney(d.paid) + ' paid' + (d.cin ? ' (includes ' + cipMoney(d.cin) + ' carried in)' : '')], ['Annual cap', cipMoney(Y.cap)], ['Quarterly cap', cipMoney((+Y.cap || 0) / 4)]]
+      .map(([l, v]) => '<tr><td class="l">' + l + '</td><td class="v">' + cipCell(v) + '</td></tr>').join('') + '</table>' +
+    '<h2>' + esc(cipUi.my) + ' MBOs</h2><table style="font-size:9.5pt"><tr><th>MBO</th>' + MBO_QS.map(x => '<th' + sel(x) + '>' + x + (mboLocked(Y, x) ? ' (locked)' : '') + '</th>').join('') + '<th>Year</th></tr>' + rows + foot + '</table>' +
+    '<table style="margin-top:18px"><tr><td style="width:40%">Submitted by: ' + esc(e.name || '') + '</td><td style="width:35%">Signature</td><td>Date</td></tr>' +
+    '<tr><td>ITL approval: name</td><td>Signature</td><td>Date</td></tr></table>' +
+    '<div style="page-break-before:always"></div><h2>' + esc(cipUi.my + ' ' + q) + ' proof of completion</h2>' +
+    (det.length ? det.map(it => { const log = mboLog(Y, q, it.id), v = mboVal(Y, q, it);
+      return '<h3>' + esc(it.title) + ': ' + log.length + ' × ' + cipMoney(v) + ' = ' + cipMoney(log.length * v) + '</h3>' + (cipFilled(it.proof) ? '<p style="color:#77787A">Proof required: ' + esc(it.proof) + '</p>' : '') +
+        '<table><tr><th style="width:40%">' + esc(mboEntryLabel(it)) + '</th><th style="width:15%">Date</th><th>Proof reference</th></tr>' +
+        log.map(z => '<tr><td>' + cipCell(z.site) + '</td><td>' + cipCell(cipDate(z.date)) + '</td><td>' + cipCell(z.ref) + '</td></tr>').join('') + '</table>'; }).join('')
+      : '<p>No completions logged for ' + q + '.</p>');
+  return cipDocHTML('MBO claim', esc(cipUi.my + ' ' + q + ' claim') + (QL ? '' : ' · draft, the quarter is not locked'), body);
+}
+
 // who and what the account is
 function accountText(name){
   const a = ACC_BY_NAME.get(name);
@@ -13297,6 +14158,7 @@ async function buildBackup(withPhotos){
     products: PRODS,
     plans: PLANS,
     opps: OPPS,
+    cip: [CIP, MBO, CIPREF].filter(Boolean),     // v121: private, but it is your own backup
     weeks: WEEKS,
     mgrOf: MGR_OF,
     calls: withPhotos ? await Promise.all(calls.map(inlinePhotos)) : calls.map(stripPhotos)
@@ -13648,6 +14510,7 @@ async function doRestore(file){
   for(const r of (Array.isArray(data.products) ? data.products : [])) if(r && r.id) await productsPut(r);
   for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
   for(const r of (Array.isArray(data.opps) ? data.opps : [])) if(r && r.id) await oppsPut(r);      // v115
+  for(const r of (Array.isArray(data.cip) ? data.cip : [])) if(r && /^(me|mbo|ref)$/.test(r.id)) await cipPut(r);   // v121
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
