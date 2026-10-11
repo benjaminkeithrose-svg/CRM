@@ -171,13 +171,16 @@ Every free-text box on a call has a microphone beside **Tidy**: the note, a proj
 
 1. Tap the microphone.
 2. The first time, allow the microphone when the phone asks.
-3. Talk. Your words appear in the box as you speak. Stop to think whenever you like; it keeps listening.
-4. Tap **Finish** when you've finished.
-5. Wait a few seconds. Claude's version shows above yours.
-6. Change anything you want in it.
-7. Tap **Use this** to put it in the box, or **Keep mine** to keep what you said as it is.
+3. Talk. Your words appear in the box as you speak.
+4. If you stop to think, it pauses and keeps your words. Tap **Continue** to carry on.
+5. Tap **Finish** when you've finished.
+6. Wait a few seconds. Claude's version shows above yours.
+7. Change anything you want in it.
+8. Tap **Use this** to put it in the box, or **Keep mine** to keep what you said as it is.
 
-Or hold the microphone while you talk, and let go when you've finished. If nothing is heard for two minutes, it finishes by itself.
+Or hold the microphone while you talk, and let go when you've finished. While you hold it, it keeps listening through pauses.
+
+Chrome sounds an alert each time the microphone starts listening. Pausing doesn't start it again; only **Continue** does.
 
 Say how you want it laid out as you go: "make that a bullet list", "scratch that", "delete the last sentence", "new paragraph". Claude does it and leaves those words out.
 
