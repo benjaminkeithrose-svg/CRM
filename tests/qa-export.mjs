@@ -2,7 +2,8 @@
 // Project: grouped by account, the period and accounts chosen, test calls and
 // photos never in it, contact names swapped for roles on request, the
 // per-contact document tick respected, Mine or the whole team, condensed,
-// split into parts when large. The share sheet is stubbed.
+// split into parts when large. v119: opportunities and large account
+// plans. The share sheet is stubbed.
 import { JSDOM } from 'jsdom';
 import fs from 'fs';
 import 'fake-indexeddb/auto';
@@ -124,6 +125,43 @@ ok(r.calls === 3 && /### .* · Site call · Jo · done/.test(r.files[1].text) &&
 ok(/the whole team \(ANZ field sales\)/.test(r.files[0].text) && /who wrote it/.test(r.files[0].text), 'and the read-me says so');
 r = await run({ who: 'mine' });
 ok(r.calls === 2 && !/Bakery visit/.test(r.files[1].text), 'Mine leaves out Jo\'s call');
+
+// ---- v119: opportunities and large account plans
+await g(`(async () => {
+  await oppsPut({id: 'op1', acct: '${A}', name: 'Line 3 upgrade', obj: '12 S800 belts by March', value: 'AUD 180k', close: '2027-03', pos: 2, comp: 'Cheaper acetal belt', ox: 460, oy: 60,
+    people: [{id: 'a', side: 'cust', n: 'Sam Lee', title: 'Maintenance Manager', role: 'On our side', mode: 'Growth', rate: 4, win: 'Fewer call-outs', x: 0, y: 0},
+      {id: 'b', side: 'cust', n: 'Tom Ward', title: 'Operations Manager', role: 'Signs the order', rate: 1, x: 0, y: 0},
+      {id: 'e', side: 'us', n: 'Ben', x: 800, y: 0}],
+    links: [{id: 'l1', a: 'e', b: 'a', kind: 'Our coverage', str: 'Strong'}], flags: [{id: 'f', t: 'Budget not confirmed', pin: ''}], strengths: [],
+    actions: [{id: 'x', t: 'Meet Tom with Sam', best: true}], coaching: {text: 'Where this stands\\n• Tom is barely covered.\\n\\nSheet changes\\n• None', at: 1}, updated: 1});
+  await oppsPut({id: 'op2', acct: '${C}', name: 'Dairy retrofit', value: 'AUD 60k', ox: 460, oy: 60, people: [], links: [], flags: [], strengths: [], updated: 1});
+  await plansPut({id: 'la1', kind: 'large', acct: '', name: 'Example Meats', sites: ['${A}'], business: 'Two meat plants', ladder: 'Product supplier', spendUs: 'AUD 250k', spendAll: 'AUD 1m',
+    vision: 'The standard on every line', objectives: [{t: 'Win both retrofits', measure: 'AUD 270k', by: '2027-06'}], strategies: [{t: 'Lead with hygiene'}], strengths: [], flags: [],
+    actions: [{t: 'Meet Tom at Bendigo', owner: 'Ben', due: '2026-11-05', done: false}], updated: 1});
+  OPPS = await oppsAll(); PLANS = await plansAll();
+  OWNERS['opps/op2'] = 'jo';
+})()`);
+r = await run({ who: 'team' });
+let dt = r.files[1].text;
+ok(r.opps === 2 && r.laps === 1 && /2 opportunities, 1 large account plan/.test(r.files[0].text), 'opportunities and large account plans are counted: ' + (r.files[0].text.match(/\d+ accounts with activity[^.]*/) || [''])[0]);
+ok(dt.indexOf('## Large account: Example Meats') >= 0 && dt.indexOf('## Large account: Example Meats') < dt.indexOf('## ' + A), 'the large account plan comes first');
+ok(/Spend: ours AUD 250k, their belting AUD 1m \(about 25% of their belting spend\)/.test(dt) && /Objectives: Win both retrofits \(AUD 270k, by Jun 2027\)/.test(dt) && /Actions: Meet Tom at Bendigo \(Ben, due 2026-11-05, open\)/.test(dt), 'with its spend, objectives and actions');
+const aBlock = dt.slice(dt.indexOf('## ' + A), dt.indexOf('\n## ', dt.indexOf('## ' + A) + 4));
+ok(/### Opportunity: Line 3 upgrade · AUD 180k · close Mar 2027 · position \+2/.test(aBlock) && aBlock.indexOf('### Opportunity') < aBlock.indexOf('Site call'), 'the opportunity sits on its account, before the calls');
+ok(/- Tom Ward \(customer, Operations Manager\); part: Signs the order;.*covered by: nobody/.test(aBlock) && /covered by: Ben \(strong\); personal win: Fewer call-outs/.test(aBlock), 'with its people, coverage and wins, as the coach reads them');
+ok(/Red flags:\n- Budget not confirmed/.test(aBlock) && /Meet Tom with Sam \(best action\)/.test(aBlock) && /Coaching on it: Where this stands/.test(aBlock) && !/Sheet changes/.test(aBlock), 'its red flags, best action and the coaching, without the suggestions');
+ok(/## Quiet Dairy - Shepparton\n/.test(dt) && /### Opportunity: Dairy retrofit/.test(dt), 'an account with an opportunity but no calls still has its block');
+ok(/### Opportunity/.test(r.files[0].text) && /Signs the order = Economic Buyer/.test(r.files[0].text) && /buying influences nobody of ours covers/.test(r.files[0].text), 'the read-me explains opportunities and asks about them');
+r = await run({ who: 'team', hide: true });
+dt = r.files[1].text;
+ok(!/Sam Lee|Tom Ward \(|Fewer call-outs/.test(dt.split('### Opportunity: Line 3')[1].split('###')[0]) && /- Maintenance Manager \(customer, Maintenance Manager\)/.test(dt) && /Ben \(ours/.test(dt), 'hidden names: their people by title, ours by name, no personal wins');
+r = await run({ who: 'team', detail: 'condensed' });
+ok(/### Opportunity: Line 3 upgrade[^\n]*\nObjective: 12 S800 belts by March\n2 buying influences; not covered: Tom Ward\nRed flags: Budget not confirmed\nBest action: Meet Tom with Sam/.test(r.files[1].text), 'condensed: one short block per opportunity');
+r = await run({ who: 'mine' });
+ok(r.opps === 1 && !/Dairy retrofit/.test(r.files[1].text), 'Mine leaves out Jo\'s opportunity');
+r = await run({ who: 'team', narrow: 'f:Medium' });
+ok(r.opps === 0 && r.laps === 0, 'narrowed to other accounts, they stay out');
+await g(`(async () => { await oppsDel('op1'); await oppsDel('op2'); await plansDel('la1'); OPPS = await oppsAll(); PLANS = await plansAll(); })()`);
 
 // ---- large: split into parts, never through an account
 const many = [];

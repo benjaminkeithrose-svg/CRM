@@ -611,7 +611,7 @@ Only test calls go, here and on your other devices. Real calls are never touched
 9. On claude.ai, make a Project and add every file to it.
 10. Start a chat in the Project and ask a question. The read-me file suggests where to start.
 
-The files are text: each account's details and plan, then its calls, oldest first. Photos and test calls are never included. A big export comes in several parts; add them all.
+The files are text: any large account plans first, then each account's details and plan, its opportunities with their Blue Sheets, and its calls, oldest first. Opportunities are included whatever the period, because they are live now. Photos and test calls are never included. A big export comes in several parts; add them all.
 
 The files hold customer details. Send them only where the company allows.
 
