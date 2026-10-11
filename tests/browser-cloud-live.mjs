@@ -50,10 +50,14 @@ async function device(name) {
   return { name, ctx, page, errs };
 }
 const ev = (d, f, a) => d.page.evaluate(f, a);
-const stat = async d => (await d.page.locator('#sbStat').innerText()).replace(/\n/g, ' | ');
+// Settings folds into sections (v98): keep Cloud sync open, or its text reads as empty and its buttons as hidden
+const openCloud = d => d.page.evaluate(() => { if (typeof showScreen === 'function' && screen !== 'settings') showScreen('settings'); const x = document.getElementById('sxCloud'); if (x) x.open = true; }).catch(() => {});
+const stat = async d => { await openCloud(d); return (await d.page.locator('#sbStat').innerText()).replace(/\n/g, ' | '); };
 const toast = d => d.page.locator('#toast').innerText();
 async function signIn(d) {
   await ev(d, () => showScreen('settings'));
+  // Settings folds into sections (v98); open Cloud sync so its fields can be filled
+  await ev(d, () => { const x = document.getElementById('sxCloud'); if (x) x.open = true; });
   await d.page.fill('#sbUrl', PROJ); await d.page.locator('#sbUrl').dispatchEvent('change');
   await d.page.fill('#sbKey', KEY); await d.page.locator('#sbKey').dispatchEvent('change');
   await tick(200);
@@ -78,7 +82,7 @@ const seedCrm = (d, when, name) => ev(d, async ([when, name]) => {
   const meta = {imported: when, source: 'test-export.xlsx', rows: 1, counts: {accounts: 1, contacts: 1}, managers: ['Test Manager'], reps: []};
   await kvSet('meta', meta); META = meta; indexAccounts(list); renderDbStat();
 }, [when, name]);
-const syncNow = async d => { await d.page.click('#sbSync'); await until(async () => !(await d.page.locator('#sbSync').isDisabled()) && !/syncing/.test(await stat(d))); await tick(300); };
+const syncNow = async d => { await openCloud(d); await d.page.click('#sbSync'); await until(async () => !(await d.page.locator('#sbSync').isDisabled()) && !/syncing/.test(await stat(d))); await tick(300); };
 
 // ---------------------------------------------------------------- PC
 console.log('PC: real sign-in and passphrase');
@@ -107,6 +111,7 @@ ok(await until(async () => { const r = await cloudRows(pc); return Array.isArray
   'CRM accounts and reassignment sent automatically to the real project');
 const rows = await cloudRows(pc);
 ok(Array.isArray(rows) && rows.every(x => !/Test Account|Test Contact|test\.invalid/.test(Buffer.from(x.body, 'base64').toString('latin1'))), 'what the real database holds is unreadable');
+await until(async () => !/syncing|waiting to send/.test(await stat(pc)), 30000);
 ok(!/waiting to send/.test(await stat(pc)), 'PC in step: ' + await stat(pc));
 
 // ---------------------------------------------------------------- phone
@@ -172,20 +177,20 @@ const made = await ev(ph, async (callId) => {
   return sizes;
 }, callId);
 await syncNow(ph);
-const listed = await ev(ph, async (id) => (await cloudPhotoList(id)).size, callId);
+const listed = await ev(ph, async (id) => (await cloudPhotoList(null, id)).size, callId);
 ok(listed === 3, 'three photos stored in the real bucket: ' + listed);
 await syncNow(pc);
 const got = await ev(pc, async (id) => { const c = await recGet('calls', id); if (!c) return null;
   return [...c.entries[0].photos, ...c.loose].map(b => b.size); }, callId);
 ok(JSON.stringify(got) === JSON.stringify(made), 'PC has the call with every photo at full size: ' + JSON.stringify(got) + ' vs ' + JSON.stringify(made));
-const raw = await ev(pc, async (id) => { const r = await sbClient.storage.from('photos').download(cloudPhotoDir(id) + '/' + [...await cloudPhotoList(id)][0]);
+const raw = await ev(pc, async (id) => { const r = await sbClient.storage.from('photos').download(cloudPhotoDir(null, id) + '/' + [...await cloudPhotoList(null, id)][0]);
   const b = new Uint8Array(await r.data.arrayBuffer()); return [b[0], b[1]]; }, callId);
 ok(!(raw[0] === 0xFF && raw[1] === 0xD8), 'the stored file is not a readable JPEG');
 const other = await ev(pc, async () => { const r = await sbClient.storage.from('photos').list('00000000-0000-0000-0000-000000000000', {limit: 10}); return r.error ? 'error' : r.data.length; });
 ok(other === 0 || other === 'error', 'another user\'s photo folder shows nothing');
 await ev(ph, async (id) => { await callsDel(id); }, callId);
 await syncNow(ph);
-ok(await ev(ph, async (id) => (await cloudPhotoList(id)).size, callId) === 0, 'deleting the call removes its photos from the bucket');
+ok(await ev(ph, async (id) => (await cloudPhotoList(null, id)).size, callId) === 0, 'deleting the call removes its photos from the bucket');
 await syncNow(pc);
 ok(!(await ev(pc, (id) => recGet('calls', id), callId)), 'and the call is gone from the PC');
 

@@ -16,6 +16,11 @@
 -- account can sit in a test team and never see the real data.
 -- Members are added by the admin (Supabase dashboard, or SQL); there is no
 -- sign-up and no self-join. This file holds no data and no secrets.
+--
+-- Nothing is dropped: the "own records", "own vault" and "own photos" rules of
+-- migration 0001 stay, and the team rules below sit beside them. Postgres
+-- allows a row if any one rule allows it, so the effect is the same as
+-- replacing them, and the change needed no destructive step to apply.
 
 create table public.teams (
   id          uuid primary key default gen_random_uuid(),
@@ -72,8 +77,6 @@ create policy "my team's members" on public.team_members
 -- ---------------------------------------------------------------------------
 -- records: who can read and write what.
 -- ---------------------------------------------------------------------------
-drop policy "own records" on public.records;
-
 create policy "records: read" on public.records
   for select to authenticated
   using (
@@ -145,11 +148,6 @@ create policy "team vault: read" on public.vaults
 -- photos: a teammate's call carries its photos in its author's folder, so the
 -- team reads and writes each other's folders. Users with no team: own folder only.
 -- ---------------------------------------------------------------------------
-drop policy "own photos: read"    on storage.objects;
-drop policy "own photos: add"     on storage.objects;
-drop policy "own photos: replace" on storage.objects;
-drop policy "own photos: delete"  on storage.objects;
-
 create policy "team photos: read" on storage.objects
   for select to authenticated
   using (bucket_id = 'photos' and ((storage.foldername(name))[1] = (select auth.uid())::text
