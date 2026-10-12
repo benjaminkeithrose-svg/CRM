@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v130">
+<meta name="build" content="v131">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -46,7 +46,7 @@
   --warn:#B2232F;           /* $error-color                          */
   --act:#00287B;            /* primary action - brand colours never  */
   /* v124: the layered map. The opportunity bright; each kind of party its own colour. */
-  --c-opp:#FFA400; --c-corp:#3E64B0; --c-end:#00287B; --c-head:#00708D; --c-oem:#4D4D4F; --c-ilx:#ED1C24;
+  --c-opp:#FFA400; --c-corp:#3E64B0; --c-grp:#52679F; --c-end:#00287B; --c-head:#00708D; --c-oem:#4D4D4F; --c-ilx:#ED1C24;
   --act-dk:#001A52;         /* carry action meaning, so not red      */
 
   /* Account focus. High reads in Intralox red; the rest step down through
@@ -2390,6 +2390,8 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tick <b>Large account: several sites under one plan</b>.</li>
         <li>Tap <b>Done</b>. The large account opens on its own map. Each site has its own box, with the people from its opportunities under it.</li>
         <li>If a head office or group account drives the sites, tap the circle-plus next to <b>Corporate</b> in the list beside the map, then type its name or pick it from your customer list.</li>
+        <li>If the head office is at one of the sites, tap that site on the map instead, then tick <b>Head office here</b>.</li>
+        <li>For a group function such as group engineering, tap the circle-plus next to <b>Group functions</b> and type its name. Tap it, then under <b>Covers</b> tap the sites it looks after, or leave <b>All sites</b>.</li>
         <li>Tap the table icon next to a site or the corporate account to add its people. Link people across sites with <b>Link to&hellip;</b>.</li>
         <li>Tap a site to open its account plan or one of its opportunities.</li>
         <li>Tap <b>Plan</b> at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.</li>
@@ -2406,7 +2408,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>To send the plan, tap <b>Create and share</b>.</li>
       </ol>
       <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
-      <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. Corporate boxes are drawn above the sites, driving each one. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
+      <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, the group functions under it, the sites in rows below, and Intralox at the bottom. A site a group function covers hangs from that function. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
       <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
     </div>
   </details>

@@ -445,24 +445,26 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 3. Tick **Large account: several sites under one plan**.
 4. Tap **Done**. The large account opens on its own map. Each site has its own box, with the people from its opportunities under it.
 5. If a head office or group account drives the sites, tap the circle-plus next to **Corporate** in the list beside the map, then type its name or pick it from your customer list.
-6. Tap the table icon next to a site or the corporate account to add its people. Link people across sites with **Link to…**.
-7. Tap a site to open its account plan or one of its opportunities.
-8. Tap **Plan** at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.
-9. On **Key info**, fill in the plan revenue, the year and the SharePoint link, then the description: the Intralox vision, the account overview, their business goals, the key insights and the Intralox position.
-10. On **Objectives**, tap **Add an objective**. Type its name, description, revenue, period and owner.
-11. Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap **Make a task**.
-12. **Activities** lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.
-13. On **Accounts**, check the sites. Tap **×** to take one out, or type a name and tap **Add**.
-14. On **SWOT**, add strengths, weaknesses, opportunities and threats.
-15. On **Success factors**, type up to six critical success factors.
-16. **Team** shows our people on the map. Tap **Add or change on the map** to change them.
-17. After a review, tap **Reviewed today** on Key info.
-18. To put it into Dynamics, tap **Copy for Dynamics** on the PC. Tap **Copy** beside each field, then paste it into the same field in Dynamics.
-19. To send the plan, tap **Create and share**.
+6. If the head office is at one of the sites, tap that site on the map instead, then tick **Head office here**.
+7. For a group function such as group engineering, tap the circle-plus next to **Group functions** and type its name. Tap it, then under **Covers** tap the sites it looks after, or leave **All sites**.
+8. Tap the table icon next to a site or the corporate account to add its people. Link people across sites with **Link to…**.
+9. Tap a site to open its account plan or one of its opportunities.
+10. Tap **Plan** at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.
+11. On **Key info**, fill in the plan revenue, the year and the SharePoint link, then the description: the Intralox vision, the account overview, their business goals, the key insights and the Intralox position.
+12. On **Objectives**, tap **Add an objective**. Type its name, description, revenue, period and owner.
+13. Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap **Make a task**.
+14. **Activities** lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.
+15. On **Accounts**, check the sites. Tap **×** to take one out, or type a name and tap **Add**.
+16. On **SWOT**, add strengths, weaknesses, opportunities and threats.
+17. On **Success factors**, type up to six critical success factors.
+18. **Team** shows our people on the map. Tap **Add or change on the map** to change them.
+19. After a review, tap **Reviewed today** on Key info.
+20. To put it into Dynamics, tap **Copy for Dynamics** on the PC. Tap **Copy** beside each field, then paste it into the same field in Dynamics.
+21. To send the plan, tap **Create and share**.
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
 
-The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. Corporate boxes are drawn above the sites, driving each one. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
+The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, the group functions under it, the sites in rows below, and Intralox at the bottom. A site a group function covers hangs from that function. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
 
 To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
 

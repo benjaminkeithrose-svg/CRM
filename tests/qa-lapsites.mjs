@@ -53,7 +53,7 @@ ok(g(`OPP.parties.map(q => q.kind + ':' + (q.site ? 'site:' : '') + q.name).join
   'the group box is now Corporate; each site has its own box');
 ok(g(`OPP.people.find(p => p.id === 'g1').party`) === 'pe' && g(`OPP.people.find(p => p.id === 'g1').side`) === 'cust', 'the person under it stayed with it');
 const links = g(`JSON.stringify(opPartyLinks(OPP))`);
-ok(/"a":"pe","b":"ps[^"]+","t":"Drives"/.test(links) && (links.match(/"t":"Drives"/g) || []).length === 2 && /"a":"OPP","b":"pe"/.test(links), 'Corporate drives each site, and joins the large account');
+ok((links.match(/"a":"pe","b":"ps[^"]+"/g) || []).length === 2 && !/OPP/.test(links), 'Corporate drives each site; nothing hangs off a box for the account itself (v131)');
 ok($('opMap').querySelectorAll('.op-party').length === 4, 'drawn: four boxes');
 ok(g(`opPartySuggest(OPP.parties.find(q => q.id === 'pe')).map(x => x.n).join()`) === 'Kim Site', 'Corporate\'s people are offered from the sites\' contacts, not the OEMs\'');
 ok([...$('opMap').querySelectorAll('.op-pname')].map(t => t.textContent).includes('Tamworth') && /Site · 1 opportunity/.test($('opMap').textContent), 'a site is named by its place, with how many opportunities it has');
@@ -77,6 +77,29 @@ ok(g(`OPP.parties.some(q => q.acct === '${S[1]}' && !q.site)`) && g(`OPP.people.
 const corp = 'pe';
 g(`opSelect({t: 'party', id: '${corp}'})`); await tick();
 ok($('opPanel').querySelector('[data-opchips="qkind"] [data-v="Corporate"].on') && $('opQrm'), 'Corporate is one of What they are, and it can be removed');
+
+// ---- v131: a site can be the head office; a group function covers some sites
+await g(`(async () => { const L = PLANS.find(p => p.id === 'L1'); L.sites = ['${S[0]}', '${S[1]}', '${S[2]}']; })()`);
+g(`openLap('L1')`); await tick(200);
+ok(!$('opMap').querySelector('.op-node'), 'no box for the large account itself: its name is the title');
+const s2 = g(`OPP.parties.find(q => q.acct === '${S[2]}').id`);
+g(`opSelect({t: 'party', id: '${s2}'})`); await tick();
+$('opQhq').checked = true; $('opQhq').dispatchEvent(new w.Event('change')); await tick(100);
+ok(g(`OPP.parties.find(q => q.id === '${s2}').hq`) === true && /Head office/.test($('opMap').textContent), 'a site ticked Head office here says so');
+const lk = () => g(`JSON.stringify(opPartyLinks(OPP))`);
+ok(lk().includes('"a":"' + s2 + '","b":"' + g(`OPP.parties.find(q => q.acct === '${S[0]}').id`) + '"') && g(`opTops(OPP).map(q => q.id).join()`) === 'pe,' + s2, 'it joins corporate at the top and drives the other sites');
+ok(g(`opLayout()['${s2}'].y`) < g(`opLayout()[OPP.parties.find(q => q.acct === '${S[0]}').id].y`), 'drawn above them');
+g(`opAddParty('grp', 'Group Engineering')`); await tick();
+const gid = g(`OPP.parties.find(q => q.kind === 'grp').id`);
+ok(/Group function/.test($('opPanel').textContent) && $('opQcov').querySelector('[data-v=""].on'), 'a group function covers all sites to start');
+$('opQcov').querySelector('[data-v="' + g(`OPP.parties.find(q => q.acct === '${S[0]}').id`) + '"]').click(); await tick(100);
+const covered = g(`OPP.parties.find(q => q.id === '${gid}').covers.join()`);
+ok(covered === g(`OPP.parties.find(q => q.acct === '${S[0]}').id`), 'tick a site and it covers just that one');
+const L2 = lk(), t0 = g(`OPP.parties.find(q => q.acct === '${S[0]}').id`);
+ok(L2.includes('"a":"' + gid + '","b":"' + t0 + '"') && !L2.includes('"a":"pe","b":"' + t0 + '"') && L2.includes('"a":"pe","b":"' + gid + '"'), 'the covered site hangs from the group function, which hangs from the top');
+ok(/Group functions/.test(d.querySelector('#opBar').textContent), 'the list has Group functions on a large account');
+g(`openOpp('o1')`); await tick(150);
+ok(!/Group functions/.test(d.querySelector('#opBar').textContent), 'but not on an ordinary opportunity');
 
 // ---- a new map: people from the sites' opportunities go under their site
 g(`openLap('L2')`); await tick(200);

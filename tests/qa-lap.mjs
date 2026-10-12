@@ -125,7 +125,7 @@ ok(map.people.map(p => p.n).sort().join() === 'Ana Silva,Ben,Tom Ward' && map.li
 ok(!$('lapMap') && !/Relationship map/.test(body()), 'the plan no longer carries a map at its foot: the map is the Map view (v123)');
 // ---- the large account's own map: built on it, saved with the plan
 $('lapView').querySelector('[data-v="map"]').click(); await tick(150);
-ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && $('opMap').querySelectorAll('g.op-card').length === 3 && /2 sites/.test($('opMap').querySelector('.op-node').textContent), 'Map shows the account\'s own map, with the account at the centre');
+ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && $('opMap').querySelectorAll('g.op-card').length === 3 && !$('opMap').querySelector('.op-node') && $('subtitle').textContent === '2 sites', 'Map shows the account\'s own map; no box for the account itself, its name is the title (v131)');
 // v129 (deliberate): the group's box is its corporate account; each site is its own box, and the sites' people sit under their site
 ok(g(`OPP.parties[0].kind`) === 'corp' && g(`OPP.parties[0].name`) === 'Example Meats' && g(`OPP.parties.filter(q => q.kind === 'end' && q.site).map(q => q.acct).sort().join('|')`) === g(`LAP.sites.slice().sort().join('|')`) &&
   g(`OPP.people.filter(p => p.side === 'cust').every(p => OPP.parties.find(q => q.id === p.party).site)`), 'the group is the corporate account, each site its own box, its people under it (v129)');
