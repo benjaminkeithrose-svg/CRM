@@ -67,7 +67,7 @@ $('opCoach').click(); await tick(300);
 ok(sent.length === 1 && sent[0].name === 'ai-tidy' && sent[0].body.kind === 'opp', 'Coach asks the coach, as an opportunity');
 const a = sent[0].body.a, b = sent[0].body.b;
 ok(/Opportunity: Line 3 upgrade at Example Meats - Dandenong/.test(a) && /Objective: 12 S800 belts by March/.test(a) && /Our position, -5 panic to \+5 euphoria: \+2 - Sam backs us/.test(a) && /Competition: A cheaper acetal belt/.test(a), 'it is sent the objective, position and competition');
-ok(/- Tom Ward \(customer, Operations Manager\); part: Signs the order; influence: High; sees it as: Steady; base covered \+1; covered by: Ben \(weak\); personal win: His uptime bonus/.test(a), 'each person with their part, view, rating, coverage and win');
+ok(/- Tom Ward \(customer, Operations Manager(, Example Meats - Dandenong)?\); part: Signs the order; influence: High; sees it as: Steady; base covered \+1; covered by: Ben \(weak\); personal win: His uptime bonus/.test(a), 'each person with their part, view, rating, coverage and win');
 ok(/- Priya Nair .*covered by: nobody/.test(a) && /- Greg Holt \(OEM or integrator, Northfield Conveyors\)/.test(a) && /- Ben \(ours, Account Manager\)/.test(a), 'the uncovered, the OEM\'s and ours');
 ok(/Greg Holt influences Priya Nair \(strong\): draws the layout/.test(a) && !/Ben our coverage/.test(a), 'the links, coverage already said per person');
 ok(/Red flags:\n- FY27 budget not confirmed/.test(a) && /Run a trial belt \(best action\)/.test(a), 'the red flags and actions');

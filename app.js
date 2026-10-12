@@ -976,7 +976,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v123';
+const APP_BUILD = 'v124';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1006,7 +1006,10 @@ const ICONS = {
   gear:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   help:   '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   lock:   '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  plusc:  '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>'
+  plusc:  '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  eye:    '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff: '<path d="M17.9 17.9A10 10 0 0 1 12 19C5 19 1 12 1 12a18 18 0 0 1 5.1-5.9M9.9 5.2A9 9 0 0 1 12 5c7 0 11 7 11 7a18 18 0 0 1-2.2 3.2M1 1l22 22"/>',
+  table:  '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>'
 };
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -1357,7 +1360,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -8384,11 +8387,13 @@ async function deleteTestCalls(){
   // your own: a colleague's test calls are theirs to clear
   await ownersLoad();
   const tests = (await recordsAll()).filter(c => c.test && isMine('calls', c.id));
-  if(!tests.length){ toast('There are no test calls on this device'); return; }
+  const tops = OPPS.filter(o => o.test && isMine('opps', o.id));          // v124: test projects too
+  if(!tests.length && !tops.length){ toast('There are no tests on this device'); return; }
   const ph = tests.reduce((n, c) => n + (c.loose || []).length + (c.entries || []).reduce((m, e) => m + (e.photos || []).length, 0), 0);
-  if(!confirm('Delete ' + tests.length + (tests.length === 1 ? ' test call' : ' test calls') +
-      ' and ' + ph + (ph === 1 ? ' photo' : ' photos') + '?\n\nOnly calls started with Test call go. They are erased from this device' +
+  if(!confirm('Delete ' + tests.length + (tests.length === 1 ? ' test call' : ' test calls') + ' with ' + ph + (ph === 1 ? ' photo' : ' photos') +
+      ', and ' + tops.length + (tops.length === 1 ? ' test project' : ' test projects') + '?\n\nOnly what was started with Test call or Start a test project goes. It is erased from this device' +
       (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return;
+  for(const o of tops){ await oppsDel(o.id); OPPS = OPPS.filter(x => x.id !== o.id); if(OPP && OPP.id === o.id){ OPP = null; if(screen === 'opp') go('home'); } }
   for(const c of tests){
     (c.entries || []).forEach(e => (e.photos || []).forEach(releasePhoto));
     (c.loose || []).forEach(releasePhoto);
@@ -8396,7 +8401,7 @@ async function deleteTestCalls(){
   }
   if(call && call.test){ call = null; if(CALL_SCREENS.includes(screen)) go('home'); }
   indexCalls(await callsAll());
-  toast(tests.length === 1 ? 'Test call deleted' : tests.length + ' test calls deleted');
+  toast([tests.length && tests.length + (tests.length === 1 ? ' test call' : ' test calls'), tops.length && tops.length + (tops.length === 1 ? ' test project' : ' test projects')].filter(Boolean).join(' and ') + ' deleted');
 }
 $('delTests').addEventListener('click', () => deleteTestCalls().catch(reportErr));
 
@@ -10947,7 +10952,7 @@ function openOppDetails(o){
   if(!name) return;
   odIsNew = !o;
   odEdit = o ? JSON.parse(JSON.stringify(o))
-    : {id: newId('op'), acct: name, name: '', obj: '', value: '', close: '', people: [], links: [], flags: [], strengths: [], ox: 460, oy: 60, created: Date.now()};
+    : {id: newId('op'), acct: name, name: '', obj: '', value: '', close: '', people: [], links: [], flags: [], strengths: [], created: Date.now()};
   $('odHead').textContent = odIsNew ? 'New opportunity' : 'Opportunity';
   $('odSub').textContent = name;
   $('odName').value = odEdit.name || ''; $('odObj').value = odEdit.obj || '';
@@ -11031,7 +11036,6 @@ async function oppSaveNow(){
 function oppSaveSoon(){ clearTimeout(opSaveTimer); opSaveTimer = setTimeout(() => oppSaveNow().catch(reportErr), 700); }
 // v123: people are added, linked and removed on the phone too; only dragging stays on the PC
 const opDragOk = () => isPhone() === false;
-let opAddAt = null;             // where a tap on an empty lane asked for someone
 const opPerson = id => OPP && (OPP.people || []).find(p => p.id === id);
 function opRateColor(r){
   const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -11042,16 +11046,152 @@ function opStrStyle(s){
   return s === 'Strong' ? {c: c('--act'), w: 3, d: ''} : s === 'Weak' ? {c: c('--ink-3'), w: 1.6, d: '5 5'}
     : s === 'Hostile' ? {c: c('--warn'), w: 2.4, d: '7 4'} : {c: c('--ink-3'), w: 1.6, d: ''};
 }
-function opBox(id){
-  if(id === 'OPP') return {x: OPP.ox, y: OPP.oy, w: OP_OW, h: OP_OH};
-  const p = opPerson(id);
-  return p ? {x: p.x, y: p.y, w: OP_CW, h: OP_CH} : null;
+/* ---------- the layered map (v124) ----------
+   Ben, 2026-10-12: the opportunity in the middle; around it the parties - the
+   end user, the head contractors bidding or appointed, the OEMs and
+   integrators, and Intralox - each in its own colour; each party's people
+   hang under it as an organisation chart (who reports to whom). Built from
+   the list down the side: a party needs only its name, its people go in as
+   rows of a table, and the detail goes on later, a tap at a time. Tapping
+   someone shows their relationships and fades the rest, the way a Blue Sheet
+   review looks at one person. Each party carries whether it has specified
+   Intralox, so the ones that have not stand out.
+   Old maps (three lanes) are turned into parties the first time they open:
+   the account's people under the end user, OEM people under their company,
+   ours under Intralox. People keep 'side' (cust, head, oem, us), set from
+   their party, so the Blue Sheet, the coach and the export read them as before. */
+const OP_PKINDS = [
+  {k: 'end', t: 'End user', one: 'end user', col: '--c-end', side: 'cust'},
+  {k: 'head', t: 'Head contractors', one: 'head contractor', col: '--c-head', side: 'head'},
+  {k: 'oem', t: 'OEMs and integrators', one: 'OEM or integrator', col: '--c-oem', side: 'oem'},
+  {k: 'ilx', t: 'Intralox', one: 'Intralox', col: '--c-ilx', side: 'us'}
+];
+const opKind = k => OP_PKINDS.find(x => x.k === k) || OP_PKINDS[0];
+const OP_STANCE = {helps: 'Helping us', neutral: 'Neutral', hinders: 'Hindering us', unknown: 'Not known'};
+const OP_SPEC = {yes: 'Specced Intralox', unsure: 'Unsure', no: 'Not specced', '': 'Spec not known'};
+const OP_SPEC_NEXT = {'': 'yes', yes: 'unsure', unsure: 'no', no: ''};
+const BELT_DEFAULTS = ['Intralox', 'Habasit', 'Uni-chains', 'Ammeraal Beltech', 'Safari', 'Forbo', 'Scanbelt', 'Hongsbelt'];
+const OPW = 1100, OPPW = 210, OPPH = 46, OPCW = 196, OPCH = 34, OPCG = 6, OPIND = 18, OPOW = 230, OPOH = 62;
+const lsFlag = (k, d) => { try { const v = localStorage.getItem(LS(k)); return v == null ? d : v === '1'; } catch(e){ return d; } };
+let opPeopleOn = lsFlag('opPeople', true), opLinksOn = lsFlag('opLinks', true), opPos = {};
+const opParty = id => OPP && (OPP.parties || []).find(q => q.id === id);
+const opPeopleOf = q => (OPP.people || []).filter(p => p.party === q.id);
+const opShows = q => opPeopleOn && q.show !== false;
+// every supplier anyone has put on an OEM, after the usual ones
+function opBelts(){
+  const s = new Set(BELT_DEFAULTS);
+  OPPS.concat(PLANS).forEach(o => (o.parties || []).forEach(q => (q.belts || []).forEach(b => s.add(b))));
+  return [...s];
 }
+function opEnsure(o){
+  if(!o) return;
+  if(!Array.isArray(o.parties)){
+    const lap = o.kind === 'large';
+    const end = {id: 'pe', kind: 'end', name: lap ? (o.name || 'The customer') : (o.acct || 'The customer'), acct: lap ? '' : o.acct || ''}, ilx = {id: 'pi', kind: 'ilx', name: 'Intralox'};
+    const others = new Map();
+    for(const p of o.people || []){
+      if(p.side === 'us'){ p.party = ilx.id; continue; }
+      if(p.side === 'oem' || p.side === 'head'){
+        const nm = String(p.org || '').trim() || (p.side === 'head' ? 'Head contractor' : 'OEM');
+        let q = others.get(nm.toLowerCase());
+        if(!q){ q = {id: 'po' + (others.size + 1), kind: p.side === 'head' ? 'head' : 'oem', name: nm}; if(q.kind === 'oem') q.belts = ['Intralox']; others.set(nm.toLowerCase(), q); }
+        p.party = q.id; continue;
+      }
+      p.party = end.id;
+    }
+    o.parties = [end, ...others.values(), ilx];
+    o.ox = OPW / 2 - OPOW / 2; o.oy = 330;
+    delete o.laneH;
+  }
+  if(!o.parties.some(q => q.kind === 'ilx')) o.parties.push({id: 'pi', kind: 'ilx', name: 'Intralox'});
+  const ilx = o.parties.find(q => q.kind === 'ilx'), first = o.parties.find(q => q.kind === 'end') || o.parties[0];
+  for(const p of o.people || []){
+    let q = o.parties.find(x => x.id === p.party);
+    if(!q){ q = p.side === 'us' ? ilx : first; p.party = q.id; }
+    p.side = opKind(q.kind).side;
+    if(q.kind === 'head' || q.kind === 'oem') p.org = q.name;
+    if(p.boss && !(o.people || []).some(x => x.id === p.boss && x.party === p.party)) p.boss = '';
+  }
+}
+// how the parties hang together: drawn from what each party is, never kept twice
+function opPartyLinks(o){
+  const out = [], firstEnd = o.parties.find(q => q.kind === 'end');
+  for(const q of o.parties){
+    if(q.kind === 'end') out.push({a: 'OPP', b: q.id, t: o.kind === 'large' ? '' : 'Owns it'});
+    else if(q.kind === 'ilx') out.push({a: 'OPP', b: q.id, t: ''});
+    else if(q.kind === 'head') out.push({a: firstEnd ? firstEnd.id : 'OPP', b: q.id, t: q.status === 'Appointed' ? 'Engaged' : q.status === 'Out of it' ? 'Out' : 'Bidding', out: q.status === 'Out of it'});
+    else { const via = q.via && o.parties.find(x => x.id === q.via); out.push({a: via ? via.id : firstEnd ? firstEnd.id : 'OPP', b: q.id, t: via ? 'Subcontracts' : 'Direct'}); }
+  }
+  return out;
+}
+// a party's people in organisation chart order: each person, then whoever reports to them
+function opTreeOrder(q){
+  const ps = opPeopleOf(q), out = [], seen = new Set();
+  const walk = (p, d) => { if(seen.has(p.id)) return; seen.add(p.id); out.push({p, d}); ps.filter(x => x.boss === p.id).forEach(x => walk(x, d + 1)); };
+  ps.filter(p => !p.boss || !ps.some(x => x.id === p.boss)).forEach(p => walk(p, 0));
+  ps.forEach(p => walk(p, 0));
+  return out;
+}
+const opUnder = (x, p) => { for(let b = x.boss, n = 0; b && n < 50; n++){ if(b === p.id) return true; const m = opPerson(b); b = m && m.boss; } return false; };
+function opLayout(){
+  const o = OPP, pos = {OPP: {x: o.ox, y: o.oy, w: OPOW, h: OPOH}};
+  const blockH = q => OPPH + (opShows(q) && q.kind !== 'ilx' ? opPeopleOf(q).length * (OPCH + OPCG) + 8 : 0);
+  const stack = (qs, x, y0) => {
+    let y = y0;
+    for(const q of qs){
+      const b = {x: q.x != null ? q.x : x, y: q.y != null ? q.y : y, w: OPPW, h: OPPH};
+      pos[q.id] = b;
+      if(q.y == null) y += blockH(q) + 22;
+    }
+  };
+  stack(o.parties.filter(q => q.kind === 'end'), 24, 140);
+  stack(o.parties.filter(q => q.kind === 'oem'), OPW - OPPW - 24, 24);
+  const heads = o.parties.filter(q => q.kind === 'head');
+  heads.forEach((q, i) => { pos[q.id] = {x: q.x != null ? q.x : OPW / 2 - (heads.length * (OPPW + 30) - 30) / 2 + i * (OPPW + 30), y: q.y != null ? q.y : 24, w: OPPW, h: OPPH}; });
+  o.parties.filter(q => q.kind === 'ilx').forEach((q, i) => { pos[q.id] = {x: q.x != null ? q.x : OPW / 2 - OPPW / 2 + i * 240, y: q.y != null ? q.y : o.oy + OPOH + 170, w: OPPW, h: OPPH + 10}; });
+  for(const q of o.parties){
+    if(!opShows(q)) continue;
+    const b = pos[q.id];
+    if(q.kind === 'ilx') opPeopleOf(q).forEach((p, i, a) => { pos[p.id] = {x: b.x + b.w / 2 - (a.length * (OPCW + 16) - 16) / 2 + i * (OPCW + 16), y: b.y + b.h + 34, w: OPCW, h: OPCH, d: 0}; });
+    else opTreeOrder(q).forEach(({p, d}, i) => { pos[p.id] = {x: b.x + 14 + d * OPIND, y: b.y + OPPH + 8 + i * (OPCH + OPCG), w: OPCW, h: OPCH, d}; });
+  }
+  return pos;
+}
+// the whole map's extent, for fitting it and for its picture
+function opBounds(o){
+  const keep = OPP; if(o) OPP = o;
+  try {
+    opEnsure(OPP);
+    const bs = Object.values(opLayout());
+    const x0 = Math.min(...bs.map(b => b.x)) - 20, y0 = Math.min(...bs.map(b => b.y)) - 24;
+    return {x: x0, y: y0, w: Math.max(...bs.map(b => b.x + b.w)) + 20 - x0, h: Math.max(...bs.map(b => b.y + b.h)) + 20 - y0};
+  } finally { OPP = keep; }
+}
+function opBox(id){ return opPos[id] || (id === 'OPP' && OPP ? {x: OPP.ox, y: OPP.oy, w: OPOW, h: OPOH} : null); }
 function opExit(b, tx, ty){
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = tx - cx, dy = ty - cy;
   if(!dx && !dy) return {x: cx, y: cy};
   const s = Math.min(Math.abs((b.w / 2 + 4) / (dx || 1e-9)), Math.abs((b.h / 2 + 4) / (dy || 1e-9)));
   return {x: cx + dx * s, y: cy + dy * s};
+}
+// what stays bright while someone, or a party, is chosen
+function opRelated(){
+  if(!opSel) return null;
+  const on = new Set(['OPP']);
+  if(opSel.t === 'p'){
+    const p = opPerson(opSel.id); if(!p) return null;
+    on.add(p.id); on.add(p.party); if(p.boss) on.add(p.boss);
+    (OPP.people || []).filter(x => x.boss === p.id).forEach(x => on.add(x.id));
+    (OPP.links || []).forEach(l => { if(l.a === p.id || l.b === p.id){ const o = l.a === p.id ? l.b : l.a; on.add(o); const op = opPerson(o); if(op) on.add(op.party); } });
+    return on;
+  }
+  if(opSel.t === 'party'){
+    on.add(opSel.id);
+    opPartyLinks(OPP).forEach(l => { if(l.a === opSel.id) on.add(l.b); if(l.b === opSel.id) on.add(l.a); });
+    (OPP.people || []).filter(x => x.party === opSel.id).forEach(x => on.add(x.id));
+    return on;
+  }
+  return null;
 }
 const opPinned = key => (OPP.flags || []).some(f => f.pin === key);
 const opName = id => id === 'OPP' ? (OPP && OPP.kind === 'large' ? 'the account' : 'the opportunity') : (opPerson(id) || {}).n || 'someone';
@@ -11068,88 +11208,147 @@ function opFlag(parent, x, y){
   opEl('circle', {cx: 8, cy: 8, r: 9, fill: c('--warn')}, g);
   opEl('path', {d: 'M5,13 V3 M5,3 H12 L10,5.5 L12,8 H5', stroke: '#fff', 'stroke-width': 1.6, fill: 'none', 'stroke-linejoin': 'round'}, g);
 }
-// with a target and data: someone else's map, drawn for looking only (the large account's, v117)
+// with a target and data: someone else's map, drawn for looking only (a picture for a document)
 function drawOpp(target, data){
-  if(target){ const keep = OPP; OPP = data; try { drawOppIn(target, false); } finally { OPP = keep; } return; }
+  if(target){ const keep = OPP, keepSel = opSel; OPP = data; opSel = null; try { drawOppIn(target, false); } finally { OPP = keep; opSel = keepSel; } return; }
   drawOppIn($('opMap'), true);
+  renderOpBar();
 }
 function drawOppIn(svg, live){
   if(!svg || !OPP) return;
+  opEnsure(OPP);
   const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  if(live) svg.setAttribute('viewBox', opView.x + ' ' + opView.y + ' ' + opView.w + ' ' + opView.h);
+  const pos = opLayout();
+  if(live){ opPos = pos; svg.setAttribute('viewBox', opView.x + ' ' + opView.y + ' ' + opView.w + ' ' + opView.h); }
   svg.innerHTML = '';
   const defs = opEl('defs', {}, svg);
   [['act', '--act'], ['ink', '--ink-3'], ['warn', '--warn']].forEach(([k, v]) => {
     const m = opEl('marker', {id: 'opar-' + k, viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse'}, defs);
     opEl('path', {d: 'M0,0 L10,5 L0,10 z', fill: c(v)}, m);
   });
-  OP_LANES.forEach((L, i) => {
-    opEl('rect', {x: L.x, y: 0, width: OP_LW, height: OPP.laneH || OP_H, rx: 12, fill: c(i % 2 ? '--sunk' : '--surface'), stroke: c('--line-2')}, svg);
-    opText(svg, {x: L.x + 16, y: 26, class: 'op-lane'}, L.t);
-  });
-  const seen = {};
-  (OPP.people || []).filter(p => p.side === 'oem' && p.org).forEach(p => {
-    if(seen[p.org]) return; seen[p.org] = 1;
-    opText(svg, {x: p.x, y: p.y - 8, class: 'op-org'}, p.org);
-  });
-  (OPP.links || []).forEach(l => {
-    const A = opBox(l.a), B = opBox(l.b);
-    if(!A || !B) return;
+  const rel = live ? opRelated() : null;
+  const faded = k => rel && !rel.has(k);
+  // the parties' links
+  for(const l of opPartyLinks(OPP)){
+    const A = pos[l.a], B = pos[l.b]; if(!A || !B) continue;
     const p1 = opExit(A, B.x + B.w / 2, B.y + B.h / 2), p2 = opExit(B, A.x + A.w / 2, A.y + A.h / 2);
+    const g = opEl('g', {class: 'op-plink' + (l.out ? ' out' : '') + (rel && !(rel.has(l.a) && rel.has(l.b)) ? ' op-faded' : '')}, svg);
+    opEl('line', {x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y}, g);
+    if(l.t) opText(g, {x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 - 5, 'text-anchor': 'middle', class: 'op-elbl'}, l.t);
+  }
+  // each party's people, as an organisation chart under it
+  for(const q of OPP.parties){
+    if(!opShows(q)) continue;
+    const b = pos[q.id], col = c(opKind(q.kind).col);
+    opPeopleOf(q).forEach(p => {
+      const pb = pos[p.id]; if(!pb) return;
+      const boss = p.boss && pos[p.boss];
+      const d = q.kind === 'ilx' ? 'M' + (b.x + b.w / 2) + ',' + (b.y + b.h) + ' L' + (pb.x + pb.w / 2) + ',' + pb.y
+        : boss ? 'M' + (boss.x + 8) + ',' + (boss.y + boss.h) + ' V' + (pb.y + pb.h / 2) + ' H' + pb.x
+        : 'M' + (b.x + 6) + ',' + (b.y + b.h) + ' V' + (pb.y + pb.h / 2) + ' H' + pb.x;
+      opEl('path', {d, class: 'op-tree' + (faded(p.id) ? ' op-faded' : ''), stroke: col}, svg);
+    });
+  }
+  // relationships between people: faint unless they are what you are looking at
+  const selP = live && opSel && opSel.t === 'p' ? opSel.id : null;
+  (OPP.links || []).forEach(l => {
+    const A = pos[l.a], B = pos[l.b]; if(!A || !B) return;
+    const mine = selP && (l.a === selP || l.b === selP), chosen = live && opSel && opSel.t === 'l' && opSel.id === l.id;
+    if(!opLinksOn && !mine && !chosen) return;
+    const bright = mine || chosen || !live;
+    const p1 = opExit(A, B.x + B.w / 2, B.y + B.h / 2), p2 = opExit(B, A.x + A.w / 2, A.y + A.h / 2);
+    const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1;
+    const cx = mx - dy / len * 28, cy = my + dx / len * 28;
     const st = opStrStyle(l.str);
-    const g = opEl('g', {class: 'op-edge' + (opSel && opSel.t === 'l' && opSel.id === l.id ? ' sel' : ''), tabindex: '0', role: 'button',
+    const g = opEl('g', {class: 'op-edge' + (chosen ? ' sel' : '') + (bright ? '' : selP ? ' op-ghost' : ' op-faint'), tabindex: '0', role: 'button',
       'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + String(l.str).toLowerCase()}, svg);
-    const d = 'M' + p1.x + ',' + p1.y + ' L' + p2.x + ',' + p2.y;
+    const d = 'M' + p1.x + ',' + p1.y + ' Q' + cx + ',' + cy + ' ' + p2.x + ',' + p2.y;
     opEl('path', {d, class: 'hit'}, g);
     const v = opEl('path', {d, class: 'vis', fill: 'none', stroke: st.c, 'stroke-width': st.w, 'stroke-dasharray': st.d, 'stroke-linecap': 'round'}, g);
     if(l.kind !== 'Our coverage') v.setAttribute('marker-end', 'url(#opar-' + (l.str === 'Hostile' ? 'warn' : l.str === 'Strong' ? 'act' : 'ink') + ')');
-    const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
-    opText(g, {x: mx, y: my - 5, 'text-anchor': 'middle', class: 'op-elbl'}, l.kind);
-    if(opPinned('l:' + l.id)) opFlag(g, mx - 8, my + 2);
-    if(live) g.addEventListener('pointerdown', e => e.stopPropagation());
-    if(live) g.addEventListener('click', e => { e.stopPropagation(); opSelect({t: 'l', id: l.id}); });
-    if(live) g.addEventListener('keydown', e => { if(e.key === 'Enter') opSelect({t: 'l', id: l.id}); });
-  });
-  const og = opEl('g', {class: 'op-node', tabindex: '0', role: 'button', 'aria-label': 'The opportunity: ' + (OPP.name || '')}, svg);
-  opEl('rect', {x: OPP.ox, y: OPP.oy, width: OP_OW, height: OP_OH, rx: 10, fill: c('--act')}, og);
-  opText(og, {x: OPP.ox + 14, y: OPP.oy + 24, fill: '#fff', 'font-size': 14, 'font-weight': 700}, opCut(OPP.name || 'Untitled', 26));
-  const nsites = (OPP.sites || []).length;
-  opText(og, {x: OPP.ox + 14, y: OPP.oy + 44, fill: '#fff', 'font-size': 11.5}, OPP.nodeSub || (OPP.kind === 'large' ? nsites + (nsites === 1 ? ' site' : ' sites')
-    : [OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ') || 'No value or close date yet'));
-  opText(og, {x: OPP.ox + 14, y: OPP.oy + 61, fill: '#fff', 'font-size': 11, opacity: .85}, OPP.nodeLabel || (OPP.kind === 'large' ? 'The large account' : opCut([OPP.vsComp, OPP.funnel, OPP.timing].filter(Boolean).join(' · '), 32) || 'The opportunity'));
-  if(live) og.addEventListener('pointerdown', e => {
-    e.stopPropagation();
-    if(opDragOk() && !opLinkFrom){ const m = opToMap(e); opGesture = {kind: 'node', dx: m.x - OPP.ox, dy: m.y - OPP.oy, sx: e.clientX, sy: e.clientY, moved: false}; svg.setPointerCapture(e.pointerId); }
-  });
-  if(live) og.addEventListener('click', e => { e.stopPropagation(); if(opLinkFrom) opMakeLink('OPP'); });
-  (OPP.people || []).forEach(p => {
-    const isSel = opSel && opSel.t === 'p' && opSel.id === p.id, ours = p.side === 'us';
-    const role = bsRoleCode(p);
-    const g = opEl('g', {class: 'op-card' + (isSel ? ' sel' : '') + (opLinkFrom === p.id ? ' src' : ''), transform: 'translate(' + p.x + ',' + p.y + ')', tabindex: '0', role: 'button',
-      'aria-label': [p.n, p.title, bsRoles(p).join(' and '), p.mode, ours ? '' : 'covered ' + (p.rate || 0)].filter(Boolean).join(', ')}, svg);
-    opEl('rect', {class: 'bg', x: 0, y: 0, width: OP_CW, height: OP_CH, rx: 8}, g);
-    opEl('rect', {x: 0, y: 0, width: 5, height: OP_CH, rx: 2, fill: ours ? c('--act') : opRateColor(p.rate || 0)}, g);
-    opText(g, {x: 14, y: 22, class: 'op-name'}, opCut(p.n || 'Someone', role ? 18 : 22));
-    opText(g, {x: 14, y: 38, class: 'op-title'}, opCut(p.title || '', 28));
-    if(ours) opText(g, {x: 14, y: 58, class: 'op-mode'}, 'Our team');
-    else {
-      if(p.mode) opText(g, {x: 14, y: 58, class: 'op-mode'}, p.mode);
-      opText(g, {x: OP_CW - 12, y: 58, 'text-anchor': 'end', class: 'op-rate', fill: opRateColor(p.rate || 0)}, (p.rate > 0 ? '+' : '') + (p.rate || 0));
-      if(role){
-        const w = role.length > 1 ? 34 : 22, r0 = role[0];
-        opEl('rect', {x: OP_CW - 7 - w, y: 9, width: w, height: 22, rx: 11, fill: r0 === 'E' ? c('--act') : r0 === 'C' ? c('--ok') : c('--cyan-dk')}, g);
-        opText(g, {x: OP_CW - 7 - w / 2, y: 24, 'text-anchor': 'middle', class: 'op-badge'}, role);
-      }
+    if(bright) opText(g, {x: (mx + cx) / 2, y: (my + cy) / 2 - 4, 'text-anchor': 'middle', class: 'op-elbl'}, l.kind);
+    if(bright && opPinned('l:' + l.id)) opFlag(g, (mx + cx) / 2 - 8, (my + cy) / 2 + 2);
+    if(live){
+      g.addEventListener('pointerdown', e => e.stopPropagation());
+      g.addEventListener('click', e => { e.stopPropagation(); opSelect({t: 'l', id: l.id}); });
+      g.addEventListener('keydown', e => { if(e.key === 'Enter') opSelect({t: 'l', id: l.id}); });
     }
-    if(opPinned('p:' + p.id)) opFlag(g, -6, -8);
-    if(live) g.addEventListener('pointerdown', e => {
-      e.stopPropagation();
-      const m = opToMap(e);
-      opGesture = {kind: opDragOk() && !opLinkFrom ? 'card' : 'tap', p, dx: m.x - p.x, dy: m.y - p.y, sx: e.clientX, sy: e.clientY, vx: opView.x, vy: opView.y, moved: false};
-      svg.setPointerCapture(e.pointerId);
-    });
-    if(live) g.addEventListener('keydown', e => { if(e.key === 'Enter') opCardTap(p); });
   });
+  // the opportunity, in the middle
+  const lap = OPP.kind === 'large', nsites = (OPP.sites || []).length;
+  const og = opEl('g', {class: 'op-node' + (faded('OPP') ? ' op-faded' : ''), tabindex: '0', role: 'button', 'aria-label': (lap ? 'The large account: ' : 'The opportunity: ') + (OPP.name || '')}, svg);
+  opEl('rect', {x: OPP.ox, y: OPP.oy, width: OPOW, height: OPOH, rx: 31, fill: c('--c-opp')}, og);
+  opText(og, {x: OPP.ox + OPOW / 2, y: OPP.oy + 24, 'text-anchor': 'middle', fill: '#1E1E1E', 'font-size': 14.5, 'font-weight': 700}, opCut(OPP.name || 'Untitled', 28));
+  opText(og, {x: OPP.ox + OPOW / 2, y: OPP.oy + 41, 'text-anchor': 'middle', fill: '#1E1E1E', 'font-size': 11.5},
+    OPP.nodeSub || (lap ? nsites + (nsites === 1 ? ' site' : ' sites') : [OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ') || 'No value or close date yet'));
+  opText(og, {x: OPP.ox + OPOW / 2, y: OPP.oy + 55, 'text-anchor': 'middle', fill: '#1E1E1E', 'font-size': 10.5, opacity: .8},
+    OPP.nodeLabel || (lap ? 'The large account' : opCut([OPP.vsComp, OPP.funnel, OPP.timing].filter(Boolean).join(' · '), 34) || 'The opportunity'));
+  if(live){
+    og.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      if(opDragOk() && !opLinkFrom){ const m = opToMap(e); opGesture = {kind: 'node', dx: m.x - OPP.ox, dy: m.y - OPP.oy, sx: e.clientX, sy: e.clientY, moved: false}; svg.setPointerCapture(e.pointerId); }
+    });
+    og.addEventListener('click', e => { e.stopPropagation(); if(opLinkFrom) opMakeLink('OPP'); else opSelect(null); });
+  }
+  // the parties
+  for(const q of OPP.parties){
+    const b = pos[q.id], K = opKind(q.kind), sel = live && opSel && opSel.t === 'party' && opSel.id === q.id;
+    const g = opEl('g', {class: 'op-party' + (sel ? ' sel' : '') + (faded(q.id) ? ' op-faded' : '') + (q.kind !== 'ilx' && q.spec !== 'yes' ? ' spec-' + (q.spec || 'none') : ''), tabindex: '0', role: 'button',
+      'aria-label': K.one + ': ' + q.name + (q.kind !== 'ilx' ? ', ' + OP_SPEC[q.spec || ''] : '')}, svg);
+    opEl('rect', {class: 'bg', x: b.x, y: b.y, width: b.w, height: b.h, rx: 8, fill: c(K.col)}, g);
+    if(q.kind === 'ilx') opEl('image', {href: NOTES_LOGO, x: b.x + 50, y: b.y + 9, width: 110, height: 110 * 132 / 321}, g);
+    else {
+      const ppl = opPeopleOf(q).length;
+      opText(g, {x: b.x + 12, y: b.y + 20, class: 'op-pname'}, opCut(q.name, 24));
+      opText(g, {x: b.x + 12, y: b.y + 37, class: 'op-psub'}, opCut(q.kind === 'oem' ? ((q.belts || []).length ? 'Belts: ' + q.belts.join(', ') : 'Belts not known') : q.kind === 'head' ? (q.status || 'Bidding') : 'End user', 30) +
+        (!opShows(q) && ppl ? ' · ' + ppl + (ppl === 1 ? ' person' : ' people') : ''));
+      // the Intralox spec, on every party but our own
+      const sp = q.spec || '', tick = {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp];
+      opEl('circle', {cx: b.x + b.w - 15, cy: b.y + 15, r: 10, class: 'op-spec ' + (sp || 'none')}, g);
+      opText(g, {x: b.x + b.w - 15, y: b.y + 19, 'text-anchor': 'middle', class: 'op-spect'}, tick);
+    }
+    if(live){
+      g.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        const m = opToMap(e);
+        opGesture = {kind: opDragOk() && !opLinkFrom ? 'party' : 'ptap', q, dx: m.x - b.x, dy: m.y - b.y, sx: e.clientX, sy: e.clientY, vx: opView.x, vy: opView.y, moved: false};
+        svg.setPointerCapture(e.pointerId);
+      });
+      g.addEventListener('keydown', e => { if(e.key === 'Enter') opSelect({t: 'party', id: q.id}); });
+    }
+  }
+  // the people
+  for(const q of OPP.parties){
+    if(!opShows(q)) continue;
+    const col = c(opKind(q.kind).col);
+    opPeopleOf(q).forEach(p => {
+      const pb = pos[p.id]; if(!pb) return;
+      const isSel = live && opSel && opSel.t === 'p' && opSel.id === p.id, ours = q.kind === 'ilx', code = ours ? '' : bsRoleCode(p);
+      const g = opEl('g', {class: 'op-card' + (isSel ? ' sel' : '') + (live && opLinkFrom === p.id ? ' src' : '') + (faded(p.id) ? ' op-faded' : ''), transform: 'translate(' + pb.x + ',' + pb.y + ')', tabindex: '0', role: 'button',
+        'aria-label': [p.n, p.title, bsRoles(p).join(' and '), ours ? '' : OP_STANCE[p.stance || 'unknown']].filter(Boolean).join(', ')}, svg);
+      opEl('rect', {class: 'bg', x: 0, y: 0, width: OPCW, height: OPCH, rx: 6}, g);
+      opEl('rect', {x: 0, y: 0, width: 4, height: OPCH, rx: 2, fill: col}, g);
+      const st = p.stance === 'helps' ? c('--ok') : p.stance === 'hinders' ? c('--orange-dk') : p.stance === 'neutral' ? c('--ink-3') : '';
+      if(!ours) opEl('circle', st ? {cx: 14, cy: OPCH / 2, r: 4.5, fill: st} : {cx: 14, cy: OPCH / 2, r: 4, fill: 'none', stroke: c('--ink-3')}, g);
+      opText(g, {x: ours ? 12 : 25, y: 15, class: 'op-name'}, opCut(p.n || 'Someone', code ? 17 : 21));
+      opText(g, {x: ours ? 12 : 25, y: 28, class: 'op-title'}, opCut(p.title || '', 26));
+      if(code){
+        const w = code.length > 1 ? 34 : 22, r0 = code[0];
+        opEl('rect', {x: OPCW - 7 - w, y: 8, width: w, height: 18, rx: 9, fill: r0 === 'E' ? c('--act') : r0 === 'C' ? c('--ok') : c('--cyan-dk')}, g);
+        opText(g, {x: OPCW - 7 - w / 2, y: 21, 'text-anchor': 'middle', class: 'op-badge'}, code);
+      }
+      if(opPinned('p:' + p.id)) opFlag(g, -8, -8);
+      if(live){
+        g.addEventListener('pointerdown', e => {
+          e.stopPropagation();
+          const m = opToMap(e);
+          opGesture = {kind: 'tap', p, dx: m.x - pb.x, dy: m.y - pb.y, sx: e.clientX, sy: e.clientY, vx: opView.x, vy: opView.y, moved: false};
+          svg.setPointerCapture(e.pointerId);
+        });
+        g.addEventListener('keydown', e => { if(e.key === 'Enter') opCardTap(p); });
+      }
+    });
+  }
 }
 const opCut = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
 function opToMap(e){
@@ -11185,15 +11384,15 @@ $('opMap').addEventListener('pointermove', e => {
   if(Math.abs(e.clientX - g.sx) + Math.abs(e.clientY - g.sy) > 5) g.moved = true;
   if(!g.moved) return;
   const svg = $('opMap');
-  if(g.kind === 'card'){
+  if(g.kind === 'party'){
     const m = opToMap(e);
-    g.p.x = Math.round(m.x - g.dx); g.p.y = Math.round(m.y - g.dy);
-    drawOpp(); return;
+    g.q.x = Math.round(m.x - g.dx); g.q.y = Math.round(m.y - g.dy);
+    drawOppIn($('opMap'), true); return;
   }
   if(g.kind === 'node'){
     const m = opToMap(e);
     OPP.ox = Math.round(m.x - g.dx); OPP.oy = Math.round(m.y - g.dy);
-    drawOpp(); return;
+    drawOppIn($('opMap'), true); return;
   }
   // a pan, or a tap on the phone that turned into one
   svg.classList.add('panning');
@@ -11209,17 +11408,10 @@ function opEndGesture(e){
   opGesture = null;
   $('opMap').classList.remove('panning');
   if(!g) return;
-  if(g.moved){ if(g.kind === 'card' || g.kind === 'node') oppSaveNow().catch(reportErr); return; }
-  if(g.kind === 'card' || g.kind === 'tap') opCardTap(g.p);
-  else if(g.kind === 'pan' && !opLinkFrom){
-    // a tap on an empty part of a lane, with nothing chosen: add someone just there (v123)
-    if(!opSel && e && e.clientX != null){
-      const m = opToMap(e), lane = OP_LANES.find(L => m.x >= L.x && m.x <= L.x + OP_LW && m.y >= 0 && m.y <= (OPP.laneH || OP_H));
-      const onNode = m.x >= OPP.ox && m.x <= OPP.ox + OP_OW && m.y >= OPP.oy && m.y <= OPP.oy + OP_OH;
-      if(lane && !onNode){ opAddSide = lane.k; opAddAt = {side: lane.k, x: m.x - OP_CW / 2, y: m.y - OP_CH / 2}; opLinkFrom = null; opSelect({t: 'add'}); return; }
-    }
-    opSelect(null);
-  }
+  if(g.moved){ if(g.kind === 'party' || g.kind === 'node') oppSaveNow().catch(reportErr); return; }
+  if(g.kind === 'tap') opCardTap(g.p);
+  else if(g.kind === 'party' || g.kind === 'ptap'){ if(!opLinkFrom) opSelect({t: 'party', id: g.q.id}); }
+  else if(g.kind === 'pan' && !opLinkFrom) opSelect(null);
 }
 $('opMap').addEventListener('pointerup', opEndGesture);
 $('opMap').addEventListener('pointercancel', e => { opPointers.delete(e.pointerId); opGesture = null; $('opMap').classList.remove('panning'); });
@@ -11232,20 +11424,15 @@ function opZoomTo(nw, at){
   opView.w = nw; opView.h *= k;
   drawOpp();
 }
-// everything in view: the three lanes, and anyone dragged outside them
+// everything in view (v124: the parties and their people)
 function opFit(){
   const svg = $('opMap');
   if(!svg || !OPP) return;
-  // the PC shows the three lanes whole; the phone's small screen fits the people
-  const some = isPhone() && (OPP.people || []).length;
-  const xs = some ? [] : [0, 3 * OP_LW + 40], ys = some ? [0] : [0, OP_H];
-  (OPP.people || []).forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y, p.y + OP_CH); });
-  xs.push(OPP.ox, OPP.ox + OP_OW); ys.push(OPP.oy, OPP.oy + OP_OH);
-  const x0 = Math.min(...xs) - 20, x1 = Math.max(...xs) + 20, y0 = Math.min(...ys) - 10, y1 = Math.max(...ys) + 10;
+  const bb = opBounds();
   const r = svg.getBoundingClientRect(), asp = r.width && r.height ? r.width / r.height : 1.5;
-  let w = x1 - x0, h = y1 - y0;
+  let w = bb.w, h = bb.h;
   if(w / h > asp) h = w / asp; else w = h * asp;
-  opView = {x: x0 - (w - (x1 - x0)) / 2, y: y0 - (h - (y1 - y0)) / 2, w, h};
+  opView = {x: bb.x - (w - bb.w) / 2, y: bb.y - (h - bb.h) / 2, w, h};
   drawOpp();
 }
 $('opIn').addEventListener('click', () => opZoomTo(opView.w / 1.25));
@@ -11299,7 +11486,7 @@ function opPanel(){
   if(!P || !OPP) return;
   if(opSel && opSel.t === 'p' && opPerson(opSel.id)) return opPersonPanel(opPerson(opSel.id));
   if(opSel && opSel.t === 'l'){ const l = (OPP.links || []).find(x => x.id === opSel.id); if(l) return opLinkPanel(l); }
-  if(opSel && opSel.t === 'add') return opAddPanel();
+  if(opSel && opSel.t === 'party' && opParty(opSel.id)) return opPartyPanel(opParty(opSel.id));
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   P.innerHTML = (lap
     ? '<h2>Large account</h2><div class="opsum"><b>' + esc(OPP.name || 'Large account') + '</b><div class="meta">' + esc(ns + (ns === 1 ? ' site: ' : ' sites: ') + (OPP.sites || []).join(', ')) + '</div>' +
@@ -11317,11 +11504,14 @@ function opPanel(){
     '<h2>Strengths</h2>' + opList('strengths', true) +
     '<div class="opadd"><input type="text" id="opNs" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="opNsGo">Add</button></div>' +
     '<label class="l" for="opNsPin">Pin it to</label><select id="opNsPin">' + opPinOptions() + '</select>' +
-    '<h2>Reading the map</h2><div class="oplegend">' + OP_STRS.map(opLegendLine).join('') +
+    '<h2>Reading the map</h2><div class="oplegend">' +
+      OP_PKINDS.map(K => '<b style="text-align:center;color:var(' + K.col + ')">■</b><span>' + esc(K.t) + '</span>').join('') +
+      '<b style="text-align:center"><span class="opspec yes sm">✓</span> <span class="opspec no sm">✗</span></b><span>Specified Intralox, or not: tap it in the list to change it</span>' +
+      '<b style="text-align:center"><span style="color:var(--ok)">●</span> <span style="color:var(--orange-dk)">●</span></b><span>Helping us, or hindering us</span>' +
       '<b style="text-align:center;color:var(--act)">E U T C</b><span>Signs the order, uses it, checks the spec, on our side</span>' +
-      '<b style="text-align:center"><span style="color:var(--warn)">−5</span> <span style="color:var(--ok)">+5</span></b><span>How well our base is covered with them: the stripe down the card</span></div>' +
-    '<p class="hint">' + (!(OPP.people || []).length ? 'Tap a lane to put someone in it, or tap Add person.' : 'Tap an empty part of a lane to add someone there.') +
-      (opDragOk() ? ' Drag people and the ' + (lap ? 'account' : 'opportunity') + ' to arrange them.' : ' Move people around on the PC.') + '</p>';
+      OP_STRS.map(opLegendLine).join('') + '</div>' +
+    '<p class="hint">Build it from the list: the circle-plus adds a party with just its name, and the table icon adds its people. Tap someone to see their relationships on their own.' +
+      (opDragOk() ? ' Drag a party, or the ' + (lap ? 'account' : 'opportunity') + ', to move it.' : '') + '</p>';
   const add = (key, inp, pin) => {
     const t = $(inp).value.trim();
     if(!t) return;
@@ -11357,52 +11547,57 @@ function opWireChips(name, set, keepOne){
   }));
 }
 function opPersonPanel(p){
-  const P = $('opPanel'), ours = p.side === 'us', edit = true;
+  const P = $('opPanel'), q = opParty(p.party) || {kind: 'end', name: ''}, ours = q.kind === 'ilx';
   const nLinks = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
-  P.innerHTML = '<h2>' + esc(ours ? 'Our team' : p.side === 'oem' ? (p.org || 'OEM or integrator') : OPP.acct || 'Customer') + '</h2>' +
+  const mates = opPeopleOf(q).filter(x => x.id !== p.id && !opUnder(x, p));
+  const stanceLbl = OP_STANCE[p.stance || 'unknown'];
+  const rels = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).map(l => l.a === p.id ? l.kind + ' → ' + opName(l.b) : opName(l.a) + ' → ' + l.kind.toLowerCase() + ' → them');
+  P.innerHTML = '<h2>' + esc(q.name || 'Person') + '</h2>' +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
     '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
-    (p.side === 'oem' ? '<label class="l" for="opPo">Company</label><input type="text" id="opPo" value="' + esc(p.org || '') + '">' : '') +
+    (mates.length ? '<label class="l" for="opPboss">Reports to</label><select id="opPboss"><option value="">Nobody at ' + esc(q.name) + '</option>' +
+      mates.map(x => '<option value="' + esc(x.id) + '"' + (p.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select>' : '') +
     (ours ? '' :
       '<label class="l">Their part in the decision</label>' + opChips('role', OP_ROLES, p.role || '') +
       (p.role ? '<label class="l">A second part, if they have one</label>' + opChips('role2', OP_ROLES.filter(r => r !== p.role), p.role2 || '') : '') +
+      '<label class="l">Are they helping us?</label>' + opChips('stance', Object.values(OP_STANCE), stanceLbl)) +
+    '<h2>Their relationships</h2><ul class="opitems good">' + (rels.length ? rels.map(t => '<li><span>' + esc(t) + '</span></li>').join('') : '<li class="none"><span class="pin">None yet. Tap Link to…, then the other person.</span></li>') + '</ul>' +
+    (ours ? '' : '<details class="opmore"' + (opMoreOpen ? ' open' : '') + '><summary>More detail</summary>' +
       '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
-      '<label class="l" for="opPr">How well our base is covered with them</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>') +
+      '<label class="l" for="opPr">How well our base is covered with them</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>' +
+      '<label class="l" for="opPw">Their personal win</label><input type="text" id="opPw" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
+      '<label class="l" for="opPres">The business result they want</label><input type="text" id="opPres" value="' + esc(p.result || '') + '" placeholder="e.g. a hygienic line that passes audit">' +
+      '<label class="l" for="opPe">Evidence for the rating</label><input type="text" id="opPe" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
+      '</details>') +
     '<label class="l" for="opPnote">Notes</label><textarea id="opPnote" rows="3">' + esc(p.note || '') + '</textarea>' +
-    '<div class="orow">' + (edit ? '<button type="button" class="btn go" id="opLink">Link to…</button>' : '') +
-      '<button type="button" class="btn" id="opDone">Done</button>' + (edit ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button>' : '') + '</div>' +
-    (opConfirm ? '<div class="opconfirm">Remove ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole opportunity.' +
+    '<div class="orow"><button type="button" class="btn go" id="opLink">Link to…</button><button type="button" class="btn" id="opDone">Done</button>' +
+      '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button></div>' +
+    (opConfirm ? '<div class="opconfirm">Remove ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
       '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Remove</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
-  const typed = (id, key) => $(id).addEventListener('input', e => { p[key] = e.target.value; drawOpp(); oppSaveSoon(); });
-  typed('opPn', 'n'); typed('opPt', 'title'); if(p.side === 'oem') typed('opPo', 'org');
-  $('opPnote').addEventListener('input', e => { p.note = e.target.value; oppSaveSoon(); });
+  const typed = (id, key, redraw) => $(id) && $(id).addEventListener('input', e => { p[key] = e.target.value; if(redraw) drawOpp(); oppSaveSoon(); });
+  typed('opPn', 'n', true); typed('opPt', 'title', true); typed('opPw', 'win'); typed('opPres', 'result'); typed('opPe', 'evid'); typed('opPnote', 'note');
+  if($('opPboss')) $('opPboss').addEventListener('change', e => { p.boss = e.target.value; oppSaveNow().catch(reportErr); drawOpp(); });
   if(!ours){
     opWireChips('role', v => { p.role = v; if(!v || p.role2 === v) p.role2 = ''; });
     if(p.role) opWireChips('role2', v => { p.role2 = v; });
+    opWireChips('stance', v => { p.stance = Object.keys(OP_STANCE).find(k => OP_STANCE[k] === v) || 'unknown'; });
     opWireChips('mode', v => { p.mode = v; });
-    $('opPr').addEventListener('input', e => { p.rate = +e.target.value; $('opPrv').textContent = (p.rate > 0 ? '+' : '') + p.rate; drawOpp(); oppSaveSoon(); });
+    $('opPr').addEventListener('input', e => { p.rate = +e.target.value; $('opPrv').textContent = (p.rate > 0 ? '+' : '') + p.rate; oppSaveSoon(); });
+    P.querySelector('details.opmore').addEventListener('toggle', e => { opMoreOpen = e.target.open; });
   }
   $('opDone').addEventListener('click', () => opSelect(null));
-  if(edit){
-    $('opLink').addEventListener('click', () => {
-      opLinkFrom = p.id; $('opHint').hidden = false;
-      $('opHintT').textContent = 'Tap the person to link ' + (p.n || 'them') + ' to, or the opportunity.';
-      drawOpp();
-    });
-    $('opRm').addEventListener('click', () => { opConfirm = true; opPersonPanel(p); });
-    if(opConfirm){
-      $('opRmY').addEventListener('click', () => {
-        const gone = new Set((OPP.links || []).filter(l => l.a === p.id || l.b === p.id).map(l => 'l:' + l.id).concat(['p:' + p.id]));
-        OPP.people = OPP.people.filter(x => x !== p);
-        OPP.links = (OPP.links || []).filter(l => l.a !== p.id && l.b !== p.id);
-        ['flags', 'strengths'].forEach(k => (OPP[k] || []).forEach(f => { if(gone.has(f.pin)) f.pin = ''; }));
-        oppSaveNow().catch(reportErr);
-        opSelect(null);
-      });
-      $('opRmN').addEventListener('click', () => { opConfirm = false; opPersonPanel(p); });
-    }
+  $('opLink').addEventListener('click', () => {
+    opLinkFrom = p.id; $('opHint').hidden = false;
+    $('opHintT').textContent = 'Tap the person to link ' + (p.n || 'them') + ' to, or the ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.';
+    drawOpp();
+  });
+  $('opRm').addEventListener('click', () => { opConfirm = true; opPersonPanel(p); });
+  if(opConfirm){
+    $('opRmY').addEventListener('click', () => { opDropPeople([p.id]); oppSaveNow().catch(reportErr); opSelect(null); });
+    $('opRmN').addEventListener('click', () => { opConfirm = false; opPersonPanel(p); });
   }
 }
+let opMoreOpen = false;
 function opLinkPanel(l){
   const P = $('opPanel'), edit = true;
   P.innerHTML = '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b></div>' +
@@ -11441,47 +11636,302 @@ function opSuggest(side){
   OPPS.forEach(o => (o.people || []).filter(p => p.side === 'oem' && p.n).forEach(p => { if(!seen.has(p.n)) seen.set(p.n, {n: p.n, title: p.title || '', org: p.org || ''}); }));
   return [...seen.values()];
 }
-let opAddSide = 'cust';
-function opAddPanel(){
-  const P = $('opPanel'), sug = opSuggest(opAddSide);
-  P.innerHTML = '<h2>Add a person</h2>' +
-    '<div class="seg" id="opSide">' + [['cust', 'Customer'], ['oem', 'OEM'], ['us', 'Our team']].map(([k, t]) => '<button type="button" data-v="' + k + '"' + (k === opAddSide ? ' class="on"' : '') + '>' + t + '</button>').join('') + '</div>' +
-    '<label class="l" for="opAn">Name</label><input type="text" id="opAn" list="opAnList" autocomplete="off" placeholder="' +
-      (opAddSide === 'cust' ? 'Pick from the CRM contacts, or type' : opAddSide === 'us' ? 'Pick from the team, or type' : 'Type, or pick someone used before') + '">' +
-    '<datalist id="opAnList">' + sug.map(x => '<option value="' + esc(x.n) + '">' + esc([x.title, x.org].filter(Boolean).join(', ')) + '</option>').join('') + '</datalist>' +
-    '<label class="l" for="opAt">Title</label><input type="text" id="opAt" autocomplete="off">' +
-    (opAddSide === 'oem' ? '<label class="l" for="opAo">Company</label><input type="text" id="opAo" autocomplete="off" placeholder="The OEM or integrator">' : '') +
-    '<div class="orow"><button type="button" class="btn go" id="opAGo">Add to the map</button><button type="button" class="btn" id="opAX">Cancel</button></div>';
-  $('opSide').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { opAddSide = b.dataset.v; opAddPanel(); }));
-  // a name picked from the list brings its title and company with it
-  $('opAn').addEventListener('change', () => {
-    const x = sug.find(s => s.n === $('opAn').value.trim());
-    if(!x) return;
-    if(!$('opAt').value) $('opAt').value = x.title || '';
-    if($('opAo') && !$('opAo').value) $('opAo').value = x.org || '';
-  });
-  $('opAX').addEventListener('click', () => { opAddAt = null; opSelect(null); });
-  $('opAGo').addEventListener('click', () => {
-    const n = $('opAn').value.trim();
-    if(!n){ toast('Type their name first'); return; }
-    const lane = OP_LANES.find(L => L.k === opAddSide);
-    const inLane = (OPP.people || []).filter(p => p.side === opAddSide);
-    const y = inLane.length ? Math.min((OPP.laneH || OP_H) - OP_CH - 10, Math.max(...inLane.map(p => p.y)) + 100) : 60;
-    const x = sug.find(s => s.n === n);
-    const at = opAddAt && opAddAt.side === opAddSide ? opAddAt : null;
-    const p = {id: newId('pp'), side: opAddSide, n, title: $('opAt').value.trim(), org: $('opAo') ? $('opAo').value.trim() : '',
-      role: '', mode: '', rate: 0, note: '',
-      x: at ? Math.round(Math.max(lane.x + 4, Math.min(lane.x + OP_LW - OP_CW - 4, at.x))) : lane.x + 40 + (inLane.length % 2) * 110,
-      y: at ? Math.round(Math.max(36, Math.min((OPP.laneH || OP_H) - OP_CH - 4, at.y))) : opAddSide === 'oem' && !inLane.length ? 200 : y};
-    opAddAt = null;
-    if(x && x.cid) p.cid = x.cid;
-    OPP.people = (OPP.people || []).concat([p]);
-    oppSaveNow().catch(reportErr);
-    opSelect({t: 'p', id: p.id});
-  });
-  setTimeout(() => { try { $('opAn').focus(); } catch(_){} }, 50);
+/* ---- the list down the side (v124): build from it, find things in it ---- */
+let opBarAdding = '', opBarOpen = false;
+function renderOpBar(){
+  const el = $('opBar');
+  if(!el || !OPP || screen !== 'opp') return;
+  const o = OPP, n = (o.people || []).length;
+  $('opBarT').textContent = 'Parties and people (' + o.parties.length + ' · ' + n + ')';
+  $('opBar').classList.toggle('open', opBarOpen);
+  const lap = o.kind === 'large';
+  const h = ['<div class="opbar-tg"><button type="button" class="btn' + (opPeopleOn ? ' on' : '') + '" data-tg="people" aria-pressed="' + opPeopleOn + '">People ' + (opPeopleOn ? 'shown' : 'hidden') + '</button>' +
+    '<button type="button" class="btn' + (opLinksOn ? ' on' : '') + '" data-tg="links" aria-pressed="' + opLinksOn + '">Links ' + (opLinksOn ? 'on' : 'off') + '</button></div>',
+    '<button type="button" class="opbar-opp" data-pick="OPP"><span class="sw" style="background:var(--c-opp)"></span><b>' + esc(o.name || (lap ? 'Large account' : 'Untitled')) + '</b></button>'];
+  for(const K of OP_PKINDS){
+    const qs = o.parties.filter(q => q.kind === K.k);
+    h.push('<div class="opbar-grp"><div class="opbar-gh"><span class="sw" style="background:var(' + K.col + ')"></span>' + esc(K.t) + '<span class="spacer"></span>' +
+      (K.k === 'ilx' ? '' : '<button type="button" class="ib" data-addparty="' + K.k + '" aria-label="Add a ' + esc(K.one) + '" title="Add a ' + esc(K.one) + '">' + icon('plusc') + '</button>') + '</div>');
+    if(opBarAdding === K.k) h.push('<div class="opadd"><input type="text" id="opNewParty" list="opAcctList" placeholder="Name, or pick a customer" aria-label="Name of the ' + esc(K.one) + '" autocomplete="off"><button type="button" class="btn act2" id="opNewPartyGo">Add</button></div>' + opAcctList());
+    for(const q of qs){
+      const sp = q.spec || '';
+      h.push('<div class="opbar-party">' +
+        (q.kind === 'ilx' ? '' : '<button type="button" class="opspec ' + (sp || 'none') + '" data-spec="' + esc(q.id) + '" aria-label="' + esc(q.name) + ': ' + esc(OP_SPEC[sp]) + '. Tap to change." title="' + esc(OP_SPEC[sp]) + ' (tap to change)">' + {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp] + '</button>') +
+        '<button type="button" class="nm" data-pick="party:' + esc(q.id) + '">' + esc(q.name) + ' <small>' + opPeopleOf(q).length + '</small></button>' +
+        '<button type="button" class="ib mute" data-eye="' + esc(q.id) + '" aria-label="' + (q.show === false ? 'Show' : 'Hide') + ' the people at ' + esc(q.name) + '" title="' + (q.show === false ? 'Show' : 'Hide') + ' people">' + icon(q.show === false ? 'eyeoff' : 'eye') + '</button>' +
+        '<button type="button" class="ib" data-tbl="' + esc(q.id) + '" aria-label="People at ' + esc(q.name) + '" title="Add or change people">' + icon('table') + '</button></div>');
+      const tree = opTreeOrder(q);
+      if(tree.length) h.push('<ul class="opbar-ppl">' + tree.map(({p, d}) => '<li style="padding-left:' + d * 12 + 'px"><button type="button" data-pick="p:' + esc(p.id) + '"' + (opSel && opSel.t === 'p' && opSel.id === p.id ? ' class="on"' : '') + '>' +
+        (q.kind === 'ilx' ? '' : '<span class="st ' + (p.stance || 'unknown') + '"></span>') + esc(p.n || 'Someone') + '<em>' + esc(q.kind === 'ilx' ? p.title || '' : bsRoleCode(p)) + '</em></button></li>').join('') + '</ul>');
+    }
+    h.push('</div>');
+  }
+  el.querySelector('.opbar-body').innerHTML = h.join('');
+  const inp = $('opNewParty');
+  if(inp){
+    setTimeout(() => { try { inp.focus(); } catch(_){} }, 0);
+    const go = () => { const v = inp.value.trim(); const k = opBarAdding; opBarAdding = ''; if(v) opAddParty(k, v); else renderOpBar(); };
+    $('opNewPartyGo').addEventListener('click', go);
+    inp.addEventListener('keydown', e => { if(e.key === 'Enter') go(); if(e.key === 'Escape'){ opBarAdding = ''; renderOpBar(); } });
+  }
 }
-$('opAdd').addEventListener('click', () => { if(OPP){ opLinkFrom = null; opAddAt = null; $('opHint').hidden = true; opSelect({t: 'add'}); } });
+function opAddParty(kind, name){
+  const q = {id: newId('pa'), kind, name};
+  if(ACC_BY_NAME.has(name)) q.acct = name;       // one of our customers: its contacts are offered for its people
+  if(kind === 'oem'){
+    q.belts = ['Intralox'];
+    const appointed = OPP.parties.find(x => x.kind === 'head' && x.status === 'Appointed') || OPP.parties.find(x => x.kind === 'head');
+    q.via = appointed ? appointed.id : '';
+  }
+  if(kind === 'head') q.status = 'Bidding';
+  OPP.parties.splice(OPP.parties.findIndex(x => x.kind === 'ilx'), 0, q);
+  oppSaveNow().catch(reportErr);
+  opSelect({t: 'party', id: q.id});
+}
+$('opBar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || !OPP) return;
+  if(b.id === 'opBarT' || b.closest('#opBarTg')){ opBarOpen = !opBarOpen; renderOpBar(); return; }
+  if(b.dataset.tg === 'people'){ opPeopleOn = !opPeopleOn; try { localStorage.setItem(LS('opPeople'), opPeopleOn ? '1' : '0'); } catch(_){} drawOpp(); return; }
+  if(b.dataset.tg === 'links'){ opLinksOn = !opLinksOn; try { localStorage.setItem(LS('opLinks'), opLinksOn ? '1' : '0'); } catch(_){} drawOpp(); return; }
+  if(b.dataset.addparty){ opBarAdding = opBarAdding === b.dataset.addparty ? '' : b.dataset.addparty; renderOpBar(); return; }
+  if(b.dataset.spec){ const q = opParty(b.dataset.spec); if(q){ q.spec = OP_SPEC_NEXT[q.spec || '']; oppSaveNow().catch(reportErr); drawOpp(); if(opSel && opSel.t === 'party' && opSel.id === q.id) opPanel(); } return; }
+  if(b.dataset.eye){ const q = opParty(b.dataset.eye); if(q){ q.show = q.show === false; oppSaveNow().catch(reportErr); drawOpp(); } return; }
+  if(b.dataset.tbl) return opTableOpen(b.dataset.tbl);
+  if(b.dataset.pick){
+    const v = b.dataset.pick;
+    if(v === 'OPP'){ opSelect(null); return; }
+    const [t, i] = v.split(':');
+    if(t === 'p'){ const p = opPerson(i), q = p && opParty(p.party); if(q && q.show === false) q.show = true; if(!opPeopleOn){ opPeopleOn = true; } if(opLinkFrom){ opCardTap(p); return; } }
+    opSelect({t, id: i});
+  }
+});
+
+/* ---- a party: what it is, where it stands, its people ---- */
+function opPartyPanel(q){
+  const P = $('opPanel'), K = opKind(q.kind), ppl = opTreeOrder(q), heads = OPP.parties.filter(x => x.kind === 'head');
+  const nLinks = (OPP.links || []).filter(l => ppl.some(({p}) => l.a === p.id || l.b === p.id)).length;
+  const belts = opBelts();
+  P.innerHTML = '<h2>' + esc(K.one.charAt(0).toUpperCase() + K.one.slice(1)) + '</h2>' +
+    '<label class="l" for="opQn">Name</label><input type="text" id="opQn" list="opAcctList" value="' + esc(q.name) + '"' + (q.kind === 'ilx' ? ' readonly' : '') + '>' + opAcctList() +
+    (q.acct ? '<p class="hint">From the customer list: its contacts are offered for its people.</p>' : '') +
+    (q.kind === 'ilx' ? '' :
+      '<label class="l">Have they specified Intralox?</label><div class="seg opspecseg" id="opQspec">' + ['yes', 'unsure', 'no'].map(v => '<button type="button" data-v="' + v + '"' + ((q.spec || '') === v ? ' class="on"' : '') + '>' + {yes: 'Specced', unsure: 'Unsure', no: 'Not specced'}[v] + '</button>').join('') + '</div>' +
+      '<label class="l">What they are</label>' + opChips('qkind', ['End user', 'Head contractor', 'OEM or integrator'], {end: 'End user', head: 'Head contractor', oem: 'OEM or integrator'}[q.kind], true)) +
+    (q.kind === 'head' ? '<label class="l">Where they stand on the project</label>' + opChips('qstatus', ['Bidding', 'Appointed', 'Out of it'], q.status || 'Bidding', true) : '') +
+    (q.kind === 'oem' ? '<label class="l" for="opQvia">Who they work for</label><select id="opQvia"><option value="">The end user, directly</option>' +
+        heads.map(x => '<option value="' + esc(x.id) + '"' + (q.via === x.id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select>' +
+      '<label class="l">Belting they prefer</label><div class="chips" id="opQbelts">' + belts.map(v => '<button type="button" data-v="' + esc(v) + '"' + ((q.belts || []).includes(v) ? ' class="on"' : '') + ' aria-pressed="' + (q.belts || []).includes(v) + '">' + esc(v) + '</button>').join('') + '</div>' +
+      '<div class="opadd"><input type="text" id="opQbeltN" placeholder="Another supplier" aria-label="Another belting supplier"><button type="button" class="btn act2" id="opQbeltGo">Add</button></div>' : '') +
+    '<label class="l">People</label><ul class="opitems good">' + (ppl.length ? ppl.map(({p, d}) => '<li style="margin-left:' + d * 14 + 'px"><span><button type="button" class="lnkbtn" data-qp="' + esc(p.id) + '">' + esc(p.n) + '</button>' +
+      '<span class="pin">' + esc([p.title, q.kind === 'ilx' ? '' : bsRoleCode(p)].filter(Boolean).join(' · ')) + '</span></span></li>').join('') : '<li class="none"><span class="pin">Nobody yet.</span></li>') + '</ul>' +
+    '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Show people' : 'Hide people') + '</button>' +
+      '<button type="button" class="btn" id="opDone">Done</button>' + (q.kind !== 'ilx' ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQrm">Remove</button>' : '') + '</div>' +
+    (opConfirm ? '<div class="opconfirm">Remove ' + esc(q.name) + ', its ' + ppl.length + (ppl.length === 1 ? ' person' : ' people') + ' and their ' + nLinks + (nLinks === 1 ? ' link' : ' links') +
+      ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
+      '<div class="orow"><button type="button" class="btn warnb" id="opQrmY">Remove</button><button type="button" class="btn" id="opQrmN">Cancel</button></div></div>' : '');
+  const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); };
+  $('opQn').addEventListener('input', e => { if(q.kind === 'ilx') return; q.name = e.target.value; q.acct = ACC_BY_NAME.has(q.name.trim()) ? q.name.trim() : ''; drawOpp(); oppSaveSoon(); });
+  if($('opQspec')) $('opQspec').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q.spec = q.spec === b.dataset.v ? '' : b.dataset.v; redraw(); }));
+  P.querySelectorAll('[data-opchips="qkind"] button').forEach(b => b.addEventListener('click', () => {
+    const k = {'End user': 'end', 'Head contractor': 'head', 'OEM or integrator': 'oem'}[b.dataset.v];
+    if(!k || k === q.kind) return;
+    q.kind = k; delete q.x; delete q.y;
+    if(k === 'oem' && !q.belts) q.belts = ['Intralox'];
+    if(k === 'head' && !q.status) q.status = 'Bidding';
+    OPP.parties.forEach(x => { if(x.via === q.id && k !== 'head') x.via = ''; });
+    redraw();
+  }));
+  P.querySelectorAll('[data-opchips="qstatus"] button').forEach(b => b.addEventListener('click', () => { q.status = b.dataset.v; redraw(); }));
+  if($('opQvia')) $('opQvia').addEventListener('change', e => { q.via = e.target.value; redraw(); });
+  if($('opQbelts')) $('opQbelts').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.v; q.belts = (q.belts || []).includes(v) ? q.belts.filter(x => x !== v) : (q.belts || []).concat([v]); redraw();
+  }));
+  if($('opQbeltGo')){
+    const add = () => { const v = $('opQbeltN').value.trim(); if(!v) return; q.belts = [...new Set((q.belts || []).concat([v]))]; redraw(); };
+    $('opQbeltGo').addEventListener('click', add);
+    $('opQbeltN').addEventListener('keydown', e => { if(e.key === 'Enter') add(); });
+  }
+  P.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => opSelect({t: 'p', id: b.dataset.qp})));
+  $('opQtbl').addEventListener('click', () => opTableOpen(q.id));
+  $('opQeye').addEventListener('click', () => { q.show = q.show === false; redraw(); });
+  $('opDone').addEventListener('click', () => opSelect(null));
+  if($('opQrm')) $('opQrm').addEventListener('click', () => { opConfirm = true; opPartyPanel(q); });
+  if(opConfirm){
+    $('opQrmY').addEventListener('click', () => {
+      opDropPeople(opPeopleOf(q).map(p => p.id));
+      OPP.parties = OPP.parties.filter(x => x !== q);
+      OPP.parties.forEach(x => { if(x.via === q.id) x.via = ''; });
+      oppSaveNow().catch(reportErr);
+      opSelect(null);
+    });
+    $('opQrmN').addEventListener('click', () => { opConfirm = false; opPartyPanel(q); });
+  }
+}
+// people leave the map with their links; flags pinned to them move to the whole opportunity; whoever reported to them moves up
+function opDropPeople(ids){
+  const gone = new Set(ids), pins = new Set(ids.map(id => 'p:' + id));
+  (OPP.links || []).filter(l => gone.has(l.a) || gone.has(l.b)).forEach(l => pins.add('l:' + l.id));
+  for(const p of OPP.people || []) if(!gone.has(p.id) && gone.has(p.boss)){ const b = opPerson(p.boss); p.boss = b && b.boss && !gone.has(b.boss) ? b.boss : ''; }
+  OPP.people = (OPP.people || []).filter(p => !gone.has(p.id));
+  OPP.links = (OPP.links || []).filter(l => !gone.has(l.a) && !gone.has(l.b));
+  ['flags', 'strengths'].forEach(k => (OPP[k] || []).forEach(f => { if(pins.has(f.pin)) f.pin = ''; }));
+}
+
+/* ---- people, as a table: one row each, only the name needed ---- */
+const OP_CODES = ['', 'E', 'U', 'T', 'C', 'E/T', 'E/U', 'U/T', 'T/C', 'E/C', 'U/C'];
+const OP_CODE_ROLE = {E: 'Signs the order', U: 'Uses it', T: 'Checks the spec', C: 'On our side'};
+let opTbl = null;
+function opTableOpen(qid){
+  const q = opParty(qid); if(!q) return;
+  opTbl = {q, rows: opTreeOrder(q).map(({p}) => ({id: p.id, n: p.n || '', title: p.title || '', boss: p.boss || '', code: bsRoleCode(p), stance: p.stance || 'unknown', old: true}))};
+  opTbl.rows.push(opTblBlank());
+  $('otHead').textContent = 'People at ' + q.name;
+  opTblDraw();
+  const d = $('optbl');
+  if(!d.hasAttribute('open')){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('optbl'); }
+  setTimeout(() => { const i = $('optbl').querySelector('tr:last-child input[data-k="n"]'); if(i) try { i.focus(); } catch(_){} }, 50);
+}
+const opTblBlank = () => ({id: newId('pp'), n: '', title: '', boss: '', code: '', stance: 'unknown'});
+// a party picked from the customer list brings its CRM contacts; OEM people used before are offered too
+function opPartySuggest(q){
+  if(q.kind === 'ilx') return opSuggest('us');
+  const accts = q.acct ? [q.acct] : q.kind === 'end' ? (OPP.kind === 'large' ? OPP.sites || [] : [OPP.acct]) : [];
+  const out = [];
+  accts.forEach(n => { const a = ACC_BY_NAME.get(n); (a ? a.c || [] : []).filter(c => c.n).forEach(c => out.push({n: c.n, title: c.t || c.r || '', cid: c.id || ''})); });
+  if(q.kind !== 'end') opSuggest('oem').forEach(x => { if(!out.some(y => y.n === x.n)) out.push(x); });
+  return out;
+}
+const opAcctList = () => '<datalist id="opAcctList">' + ACCOUNTS.map(a => '<option value="' + esc(a.a) + '">').join('') + '</datalist>';
+function opTblDraw(){
+  const T = opTbl; if(!T) return;
+  const ours = T.q.kind === 'ilx', named = T.rows.filter(r => r.n.trim());
+  const sug = opPartySuggest(T.q);
+  $('otBody').innerHTML = '<table class="optable"><thead><tr><th>Name</th><th>Title</th>' + (ours ? '' : '<th>Reports to</th><th>Part</th><th>Helping us?</th>') + '<th></th></tr></thead><tbody>' +
+    T.rows.map((r, i) => {
+      const last = i === T.rows.length - 1 && !r.n.trim();
+      return '<tr><td><input type="text" data-r="' + i + '" data-k="n" value="' + esc(r.n) + '" list="otNames" aria-label="Name"' + (last ? ' placeholder="Add a person"' : '') + '></td>' +
+        '<td><input type="text" data-r="' + i + '" data-k="title" value="' + esc(r.title) + '" aria-label="Title"></td>' +
+        (ours ? '' : '<td><select data-r="' + i + '" data-k="boss" aria-label="Reports to"><option value="">—</option>' +
+          named.filter(x => x !== r && x.boss !== r.id).map(x => '<option value="' + esc(x.id) + '"' + (r.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select></td>' +
+          '<td><select data-r="' + i + '" data-k="code" aria-label="Part in the decision">' + OP_CODES.map(v => '<option value="' + v + '"' + (r.code === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td>' +
+          '<td><select data-r="' + i + '" data-k="stance" aria-label="Helping us?">' + Object.entries(OP_STANCE).map(([k, t]) => '<option value="' + k + '"' + (r.stance === k ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>') +
+        '<td>' + (last ? '' : '<button type="button" class="opx" data-rm="' + i + '" aria-label="Remove ' + esc(r.n || 'this row') + '">' + icon('trash') + '</button>') + '</td></tr>';
+    }).join('') + '</tbody></table>' +
+    '<datalist id="otNames">' + sug.map(x => '<option value="' + esc(x.n) + '">' + esc(x.title || '') + '</option>').join('') + '</datalist>' +
+    '<p class="hint">Part: E signs the order, U uses it, T checks the spec, C is on our side. Leave anything you do not know; it can be filled in later by tapping the person.</p>';
+  $('otBody').querySelectorAll('[data-r]').forEach(x => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
+    const r = T.rows[+x.dataset.r]; if(!r) return;
+    r[x.dataset.k] = x.value;
+    if(x.dataset.k === 'n'){
+      const s = sug.find(v => v.n === x.value.trim());
+      if(s && !r.title){ r.title = s.title || ''; const t = x.closest('tr').querySelector('[data-k="title"]'); if(t) t.value = r.title; }
+      // typing in the last row makes a new empty one under it
+      if(r === T.rows[T.rows.length - 1] && r.n.trim()){
+        T.rows.push(opTblBlank());
+        const at = +x.dataset.r, pos = x.selectionStart;
+        opTblDraw();
+        const back = $('otBody').querySelector('[data-r="' + at + '"][data-k="n"]');
+        if(back){ back.focus(); try { back.setSelectionRange(pos, pos); } catch(_){} }
+      }
+    }
+  }));
+  // a name changed: the Reports to lists follow it
+  $('otBody').querySelectorAll('input[data-k="n"]').forEach(x => x.addEventListener('change', () => opTblDraw()));
+  $('otBody').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    const r = T.rows[+b.dataset.rm]; if(!r) return;
+    const nl = (OPP.links || []).filter(l => l.a === r.id || l.b === r.id).length;
+    if(r.old && !confirm('Remove ' + (r.n || 'this person') + ' from ' + T.q.name + '?' + (nl ? '\n\nTheir ' + nl + (nl === 1 ? ' link goes' : ' links go') + ' with them.' : '') + ' It happens when you tap Done.')) return;
+    T.rows.forEach(x => { if(x.boss === r.id) x.boss = r.boss || ''; });
+    T.rows.splice(+b.dataset.rm, 1);
+    opTblDraw();
+  }));
+}
+function opTblFinish(){
+  const T = opTbl; if(!T) return;
+  opTbl = null;
+  if(!OPP || !opParty(T.q.id)) return;
+  const keep = T.rows.filter(r => r.n.trim()), keepIds = new Set(keep.map(r => r.id)), side = opKind(T.q.kind).side;
+  const dropped = opPeopleOf(T.q).filter(p => !keepIds.has(p.id)).map(p => p.id);
+  let changed = dropped.length > 0;
+  if(dropped.length) opDropPeople(dropped);
+  for(const r of keep){
+    const [r1, r2] = r.code ? r.code.split('/') : [];
+    const vals = {n: r.n.trim(), title: r.title.trim(), boss: keepIds.has(r.boss) ? r.boss : '', role: OP_CODE_ROLE[r1] || '', role2: OP_CODE_ROLE[r2] || '', stance: r.stance || 'unknown'};
+    let p = opPerson(r.id);
+    if(!p){
+      p = Object.assign({id: r.id, side, party: T.q.id, mode: '', rate: 0, note: '', win: '', result: '', evid: ''}, vals);
+      const c = opPartySuggest(T.q).find(s => s.n === p.n);
+      if(c && c.cid) p.cid = c.cid;
+      OPP.people = (OPP.people || []).concat([p]);
+      changed = true;
+    } else if(Object.keys(vals).some(k => (p[k] || '') !== (vals[k] || ''))){ Object.assign(p, vals); changed = true; }
+  }
+  // the table's order is the order on the map
+  const order = keep.map(r => r.id);
+  OPP.people = (OPP.people || []).filter(p => p.party !== T.q.id).concat(order.map(id => opPerson(id)).filter(Boolean));
+  T.q.show = true;
+  if(changed) oppSaveNow().catch(reportErr);
+  drawOpp(); opPanel();
+}
+$('otDone').addEventListener('click', () => {
+  opTblFinish();
+  const d = $('optbl');
+  if(history.state && history.state.dialog === 'optbl'){ history.back(); return; }
+  if(d.close) d.close(); else d.removeAttribute('open');
+});
+$('optbl').addEventListener('cancel', e => { e.preventDefault(); $('otDone').click(); });
+$('optbl').addEventListener('close', () => opTblFinish());
+
+/* ---------- Test project (v124) ----------
+   Like Test call: one tap, a made-up project to try the map on - one
+   opportunity, the end user with an engineering manager and the engineers
+   under him, one head contractor, three OEMs with four people each, and our
+   team. Marked test:true, on the made-up Test customer; Settings > Delete
+   tests removes it with the test calls. Nothing in it is real. */
+async function startTestProject(){
+  const P = (n, title, code, stance, extra) => {
+    const [a, b] = (code || '').split('/');
+    return Object.assign({id: newId('pp'), n, title, role: OP_CODE_ROLE[a] || '', role2: OP_CODE_ROLE[b] || '', stance: stance || 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: '', boss: ''}, extra || {});
+  };
+  const end = {id: newId('pa'), kind: 'end', name: TEST_CUSTOMER, spec: 'unsure'};
+  const head = {id: newId('pa'), kind: 'head', name: 'Northgate Design & Construct (test)', status: 'Appointed', spec: 'no'};
+  const oems = [
+    {id: newId('pa'), kind: 'oem', name: 'Apex Conveyors (test)', belts: ['Intralox', 'Habasit'], via: head.id, spec: 'yes'},
+    {id: newId('pa'), kind: 'oem', name: 'Riverbend Automation (test)', belts: ['Uni-chains'], via: head.id, spec: 'no'},
+    {id: newId('pa'), kind: 'oem', name: 'Southern Stainless (test)', belts: ['Intralox'], via: head.id, spec: 'unsure'}];
+  const ilx = {id: newId('pa'), kind: 'ilx', name: 'Intralox'};
+  const pat = P('Pat Lead', 'Group Engineering Manager', 'E', 'neutral');
+  const people = [pat, P('Kim Ops', 'Site Engineer', 'T/C', 'helps', {boss: pat.id}), P('Jordan Flow', 'Process Engineer', 'T', 'unknown', {boss: pat.id}), P('Sam Floor', 'Production Manager', 'U', 'hinders')];
+  people.forEach(p => { p.party = end.id; p.side = 'cust'; });
+  const hp = [P('Alex Design', 'Lead Design Engineer', 'E/T', 'neutral'), P('Jo Buyer', 'Procurement Manager', 'E', 'unknown'), P('Mel Hygiene', 'Hygienic Design Lead', 'T', 'helps'), P('Ray Site', 'Site Manager', 'U', 'neutral')];
+  hp.forEach(p => { p.party = head.id; p.side = 'head'; p.org = head.name; });
+  const op = [
+    [P('Lee Build', 'Design Engineer', 'T/C', 'helps'), P('Dana Quote', 'Estimator', 'E', 'neutral'), P('Chris Weld', 'Workshop Manager', 'U', 'neutral'), P('Bo Sales', 'Sales Manager', '', 'helps')],
+    [P('Ash Control', 'Controls Lead', 'T', 'hinders'), P('Robin Price', 'Purchasing', 'E', 'unknown'), P('Taylor Line', 'Project Engineer', 'T', 'neutral'), P('Jamie Owner', 'Director', 'E', 'neutral')],
+    [P('Morgan Fab', 'Engineering Manager', 'T', 'helps'), P('Casey Buy', 'Buyer', 'E', 'neutral'), P('Drew Install', 'Install Supervisor', 'U', 'unknown'), P('Quinn Bid', 'Tender Manager', 'E', 'hinders')]];
+  op.forEach((ps, i) => ps.forEach(p => { p.party = oems[i].id; p.side = 'oem'; p.org = oems[i].name; }));
+  op[0][1].boss = op[0][0].id; op[1][2].boss = op[1][0].id;
+  const me = localStorage.getItem(LS('mgr')) || 'You';
+  const us = [P(me, 'Account Manager (test)'), P('Sasha (test)', 'Application Engineer'), P('Nico (test)', 'P2P Solution Seller')];
+  us.forEach(p => { p.party = ilx.id; p.side = 'us'; });
+  const all = people.concat(hp, ...op, us), by = n => all.find(p => p.n === n).id;
+  const L = (a, b, kind, str) => ({id: newId('lk'), a: by(a), b: b === 'OPP' ? 'OPP' : by(b), kind, str: str || 'Neutral', note: ''});
+  const year = new Date().getFullYear() + 1;
+  const o = {id: newId('op'), test: true, acct: TEST_CUSTOMER, name: 'Test project: boning room upgrade', obj: 'Intralox specified for the boning room conveyors and ordered through the OEMs, by July (test)',
+    value: 'AUD 1.2m', close: year + '-07', created: Date.now(), parties: [end, head, ...oems, ilx], people: all,
+    links: [L(me, 'Kim Ops', 'Our coverage', 'Strong'), L(me, 'Pat Lead', 'Our coverage', 'Weak'), L('Sasha (test)', 'Alex Design', 'Our coverage', 'Neutral'), L('Sasha (test)', 'Lee Build', 'Our coverage', 'Strong'),
+      L('Nico (test)', 'Mel Hygiene', 'Our coverage', 'Neutral'), L('Alex Design', 'Pat Lead', 'Influences', 'Strong'), L('Mel Hygiene', 'Alex Design', 'Influences'), L('Kim Ops', 'Mel Hygiene', 'Influences'),
+      L('Quinn Bid', 'Jo Buyer', 'Influences', 'Hostile'), L('Lee Build', 'Alex Design', 'Influences', 'Strong')],
+    flags: [{id: newId('fl'), t: 'Nobody covers Jo Buyer at the head contractor (test)', pin: 'p:' + by('Jo Buyer')}, {id: newId('fl'), t: 'Riverbend prefers another supplier (test)', pin: ''}],
+    strengths: [{id: newId('fl'), t: 'Apex already designs with Intralox (test)', pin: ''}], actions: [], vsComp: 'Shared', funnel: 'In', timing: 'Active',
+    ox: OPW / 2 - OPOW / 2, oy: 330, updated: Date.now()};
+  await oppsPut(JSON.parse(JSON.stringify(o)));
+  OPPS = OPPS.concat([o]);
+  if(screen === 'strategy') stOpened = 'opp';
+  openOpp(o.id);
+  toast('Test project started - delete it from Settings when you are done');
+}
+
 function renderOpp(){
   if(!OPP){ go('acct', true); return; }
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
@@ -11491,7 +11941,6 @@ function renderOpp(){
   $('opEdit').hidden = lap;
   const sheet = !lap && opMode === 'sheet';
   $('opView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === (sheet ? 'sheet' : 'map')));
-  $('opAdd').hidden = sheet;
   $('opShare').hidden = !sheet;
   $('opCoach').hidden = !sheet;
   ['opOut', 'opFit', 'opIn'].forEach(id => { $(id).hidden = sheet; });
@@ -11725,10 +12174,8 @@ async function oppMapPng(){
   if(!live || !OPP || !canvasOk()) return '';
   const keepSel = opSel, keepFrom = opLinkFrom;
   opSel = null; opLinkFrom = null; drawOpp();
-  const xs = [0, 3 * OP_LW + 40, OPP.ox, OPP.ox + OP_OW], ys = [0, OP_H, OPP.oy, OPP.oy + OP_OH];
-  (OPP.people || []).forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y - 14, p.y + OP_CH); });
-  const x0 = Math.min(...xs) - 10, y0 = Math.min(...ys) - 10;
-  const png = svgToPng(live, x0, y0, Math.max(...xs) + 10 - x0, Math.max(...ys) + 10 - y0);
+  const bb = opBounds();
+  const png = svgToPng(live, bb.x, bb.y, bb.w, bb.h);
   opSel = keepSel; opLinkFrom = keepFrom; drawOpp();
   return png;
 }
@@ -11790,12 +12237,19 @@ function oppText(o){
     if(v(o.comp)) L.push('Competition: ' + o.comp);
     if((o.criteria || []).length) L.push('Ideal customer criteria, each -5 to +5 (total ' + opPosLabel(bsCritTotal(o)) + '):\n' +
       o.criteria.map(c => '- ' + c.t + ': ' + (typeof c.r === 'number' ? opPosLabel(c.r) : 'not rated')).join('\n'));
-    const side = {cust: 'customer', oem: 'OEM or integrator', us: 'ours'};
+    const side = {cust: 'customer', head: 'head contractor', oem: 'OEM or integrator', us: 'ours'};
+    const pq = id => (o.parties || []).find(q => q.id === id);
+    const parties = (o.parties || []).filter(q => q.kind !== 'ilx');
+    if(parties.length) L.push('Parties:\n' + parties.map(q => '- ' + q.name + ' (' + {end: 'end user', head: 'head contractor', oem: 'OEM or integrator'}[q.kind] +
+      (q.kind === 'head' ? ', ' + (q.status || 'Bidding').toLowerCase() : '') +
+      (q.kind === 'oem' ? (q.via && pq(q.via) ? ', works for ' + pq(q.via).name : ', direct to the end user') + ((q.belts || []).length ? ', prefers ' + q.belts.join(', ') : '') : '') +
+      '); Intralox spec: ' + OP_SPEC[q.spec || ''].toLowerCase()).join('\n'));
     L.push('People:');
     (o.people || []).forEach(p => {
       if(p.side === 'us'){ L.push('- ' + p.n + ' (ours' + (v(p.title) ? ', ' + p.title : '') + ')'); return; }
-      const cov = opCoverage(p);
-      L.push('- ' + [p.n + ' (' + side[p.side] + (v(p.title) ? ', ' + p.title : '') + (p.side === 'oem' && v(p.org) ? ', ' + p.org : '') + ')',
+      const cov = opCoverage(p), boss = p.boss && (o.people || []).find(x => x.id === p.boss);
+      L.push('- ' + [p.n + ' (' + side[p.side] + (v(p.title) ? ', ' + p.title : '') + (pq(p.party) ? ', ' + pq(p.party).name : p.side === 'oem' && v(p.org) ? ', ' + p.org : '') + ')',
+        boss && 'reports to ' + boss.n, p.stance && p.stance !== 'unknown' && OP_STANCE[p.stance].toLowerCase(),
         'part: ' + (bsRoles(p).join(' and ') || 'unknown'), p.infl && 'influence: ' + p.infl, 'sees it as: ' + (p.mode || 'unknown'), 'base covered ' + opPosLabel(p.rate || 0),
         'covered by: ' + (cov.length ? cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ') : 'nobody'),
         v(p.win) && 'personal win: ' + p.win, v(p.result) && 'business result: ' + p.result, v(p.evid) && 'evidence: ' + p.evid, v(p.note) && 'note: ' + p.note].filter(Boolean).join('; '));
@@ -11901,7 +12355,7 @@ $('opCoach').addEventListener('click', () => coachOpp(false).catch(reportErr));
 const bsDate = t => t ? new Date(t).toLocaleDateString() : '';
 const bsMode = p => MH_MODE[p.mode] || '';
 function bsPeople(o){ return (o.people || []).filter(p => p.side !== 'us'); }
-function bsNameLine(p){ return [p.n, p.title, p.side === 'oem' ? p.org : ''].filter(x => x && String(x).trim()).join(', '); }
+function bsNameLine(p){ return [p.n, p.title, p.side === 'oem' || p.side === 'head' ? p.org : ''].filter(x => x && String(x).trim()).join(', '); }
 function bsWinLine(p){ return [p.win, p.result].filter(x => x && String(x).trim()).join(' / '); }
 function buildBlueSheetHTML(o, png){
   const prev = OPP; OPP = o;                      // coverage reads the map's links
@@ -12368,7 +12822,7 @@ function openLap(id, replace){
   if(!L){ toast('That plan could not be found'); return; }
   LAP = L;
   lapMapSeed(L);
-  OPP = L; opSel = null; opLinkFrom = null; opConfirm = false; opAddAt = null; opSheetOpen.clear();
+  OPP = L; opSel = null; opLinkFrom = null; opConfirm = false; opSheetOpen.clear();
   opFitPending = true;
   go('opp', replace);
 }
@@ -12587,10 +13041,8 @@ $('lapShare').addEventListener('click', async () => {
   if((LAP.people || []).length && canvasOk()){
     const pic = $('lapMapPic');
     drawOpp(pic, LAP);
-    const xs = [0, 3 * OP_LW + 40, LAP.ox, LAP.ox + OP_OW], ys = [0, LAP.laneH || OP_H, LAP.oy, LAP.oy + OP_OH];
-    LAP.people.forEach(p => { xs.push(p.x, p.x + OP_CW); ys.push(p.y - 14, p.y + OP_CH); });
-    const x0 = Math.min(...xs) - 10, y0 = Math.min(...ys) - 10;
-    png = await svgToPng(pic, x0, y0, Math.max(...xs) + 10 - x0, Math.max(...ys) + 10 - y0);
+    const bb = opBounds(LAP);
+    png = await svgToPng(pic, bb.x, bb.y, bb.w, bb.h);
   }
   const safe = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').slice(0, 60);
   await deliverDoc(buildLapHTML(LAP, png), safe(LAP.name) + '_large_account_plan_' + todayISOdate() + '.html', 'Large account plan ' + (LAP.name || ''));
@@ -12631,7 +13083,7 @@ function stRow(tab, x){
     const flags = (x.flags || []).length, n = (x.people || []).filter(p => p.side !== 'us').length;
     return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.close ? 'close ' + oppMonth(x.close) : 'no close date') + '</span>' +
       '<span class="st-pos">' + (x.pos == null ? '' : 'position ' + esc(opPosLabel(x.pos))) + '</span></div>' +
-      '<div class="rn">' + esc(x.name || 'Untitled') + '</div>' +
+      '<div class="rn">' + esc(x.name || 'Untitled') + (x.test ? ' <span class="tag test">TEST</span>' : '') + '</div>' +
       '<div class="rm">' + esc([by, x.acct, x.value, n + (n === 1 ? ' buying influence' : ' buying influences')].filter(Boolean).join(' · ')) +
       (flags ? ' · <span class="st-flag">' + flags + (flags === 1 ? ' red flag' : ' red flags') + '</span>' : '') + '</div></button>';
   }
@@ -12683,7 +13135,14 @@ $('stTabs').querySelectorAll('[data-new]').forEach(b => { b.innerHTML = icon('pl
     placeholder: tab === 'laps' ? 'One of the customer\'s sites' : 'Which account?',
     render(q, el, hint){
       const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-      if(!terms.length){ el.innerHTML = ''; hint.textContent = 'Type the account\'s name.'; return; }
+      if(!terms.length){
+        hint.textContent = 'Type the account\'s name.';
+        // v124: a made-up project to try the map on, gone with Delete tests
+        el.innerHTML = tab === 'opps' ? '<button type="button" class="rpt" data-sttest="1"><div class="rn">Start a test project</div><div class="rm">Made up, to try the map on. Settings > Delete tests removes it.</div></button>' : '';
+        const t = el.querySelector('[data-sttest]');
+        if(t) t.addEventListener('click', () => { closeSearch(); startTestProject().catch(reportErr); });
+        return;
+      }
       const hits = ACCOUNTS.filter(a => terms.every(t => (a.a + ' ' + (a.sub || '')).toLowerCase().includes(t))).sort((a, b) => a.a.localeCompare(b.a));
       hint.textContent = hits.length ? (hits.length > 40 ? 'The first 40 of ' + hits.length : hits.length + ' found') : 'No account matches that.';
       el.innerHTML = hits.slice(0, 40).map(a => {
@@ -14969,7 +15428,7 @@ async function buildClaudeExport(o){
   calls.forEach(c => acct(c.customer || 'Unnamed').calls.push(c));
   quotes.forEach(q => acct(q.customer || 'Unnamed').quotes.push(q));
   // v119: opportunities are what is live now, so the period does not narrow them; an account with one is in the export
-  const opps = OPPS.filter(x => cxInScope(x.acct, o.narrow) && (o.who === 'team' || isMine('opps', x.id)));
+  const opps = OPPS.filter(x => !x.test && cxInScope(x.acct, o.narrow) && (o.who === 'team' || isMine('opps', x.id)));
   opps.forEach(x => acct(x.acct).opps.push(x));
   appts.forEach(a => {
     if(!byAcct.has(a.acct)) return;            // visits are context for accounts with calls, not a list of their own
