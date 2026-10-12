@@ -62,29 +62,34 @@ const saved = await g(`oppsAll()`);
 ok(saved.length === 1 && saved[0].acct === A && saved[0].name === 'Line 3 upgrade' && saved[0].close === '2027-03', 'Done saves it on the account');
 ok(g(`screen`) === 'opp' && $('title').textContent === 'Line 3 upgrade' && $('subtitle').textContent === A, 'and opens its map');
 ok(g(`Object.keys(cloudDirty).some(k => k.startsWith('opps/'))`), 'marked to sync');
-ok(/Line 3 upgrade/.test(panel()) && /AUD 180k · close Mar 2027/.test(panel()) && /Tap a lane to put someone in it, or tap Add person/.test(panel()), 'the panel shows its summary and how to start');
-ok($('opMap').querySelector('g.op-node') && [...$('opMap').querySelectorAll('.op-lane')].map(t => t.textContent).join('|') === 'Customer|OEMs and integrators|Our team', 'the map has its three lanes and the opportunity');
+ok(/Line 3 upgrade/.test(panel()) && /AUD 180k · close Mar 2027/.test(panel()) && /Build it from the list/.test(panel()), 'the panel shows its summary and how to start');
+ok($('opMap').querySelector('g.op-node') && g(`OPP.parties.map(q => q.kind + ':' + q.name).join('|')`) === 'end:' + A + '|ilx:Intralox', 'a new map starts with the end user, named for the account, and Intralox (v124)');
+ok(!$('opAdd') && d.querySelector('#opBar [data-addparty="oem"]') && d.querySelector('#opBar [data-addparty="head"]'), 'parties are added from the list down the side');
 
-// ---- adding people (the PC)
-const add = async (side, name, title, org) => {
-  $('opAdd').click(); await tick();
-  $('opSide').querySelector('[data-v="' + side + '"]').click(); await tick();
-  $('opAn').value = name; $('opAn').dispatchEvent(new w.Event('change'));
-  if (title != null) $('opAt').value = title;
-  if (org != null) $('opAo').value = org;
-  $('opAGo').click(); await tick(100);
+// ---- people, as rows of a table (v124)
+const party = k => g(`OPP.parties.find(q => q.kind === '${k}').id`);
+const fill = async (pid, rows) => {
+  d.querySelector('#opBar [data-tbl="' + pid + '"]').click(); await tick();
+  for (const r of rows) {
+    const n = [...$('otBody').querySelectorAll('input[data-k="n"]')].pop();
+    n.value = r[0]; n.dispatchEvent(new w.Event('input')); n.dispatchEvent(new w.Event('change')); await tick();
+    const row = [...$('otBody').querySelectorAll('tbody tr')].find(x => x.querySelector('[data-k="n"]').value === r[0]);
+    if (r[1] != null) { const t = row.querySelector('[data-k="title"]'); t.value = r[1]; t.dispatchEvent(new w.Event('input')); }
+  }
+  $('otDone').click(); await tick(200);
 };
-ok(!$('opAdd').hidden, 'Add person is on the PC');
-$('opAdd').click(); await tick();
-ok([...$('opAnList').options].map(o => o.value).join() === 'Tom Ward,Sam Lee', 'customer names come from the CRM contacts');
-$('opAX').click(); await tick();
-await add('cust', 'Tom Ward');
+d.querySelector('#opBar [data-tbl="' + party('end') + '"]').click(); await tick();
+ok($('optbl').hasAttribute('open') && /People at Example Meats/.test($('otHead').textContent) && [...$('otNames').options].map(o => o.value).join() === 'Tom Ward,Sam Lee', 'the table offers the account\'s CRM contacts');
+$('otDone').click(); await tick(100);
+ok(!$('optbl').hasAttribute('open') && g(`OPP.people.length`) === 0, 'an empty table keeps nothing');
+await fill(party('end'), [['Tom Ward'], ['Sam Lee']]);
 ok(g(`OPP.people[0].title`) === 'Operations Manager' && g(`OPP.people[0].side`) === 'cust', 'a CRM contact brings their title');
-await add('cust', 'Sam Lee');
-await add('oem', 'Greg Holt', 'Project Engineer', 'Northfield Conveyors');
-await add('us', 'Ben', 'Account Manager');
-ok(cards().length === 4 && [...$('opMap').querySelectorAll('.op-org')].map(t => t.textContent).join() === 'Northfield Conveyors', 'four people on the map, the OEM under its company');
-ok(g(`OPP.people.map(p => p.x < 360 ? 'c' : p.x < 740 ? 'o' : 'u').join('')`) === 'ccou', 'each in their own lane');
+d.querySelector('#opBar [data-addparty="oem"]').click(); await tick();
+$('opNewParty').value = 'Northfield Conveyors'; $('opNewPartyGo').click(); await tick(100);
+ok(/OEM or integrator/.test(panel()) && g(`OPP.parties.find(q => q.kind === 'oem').belts.join()`) === 'Intralox', 'a new OEM opens on its own, Intralox ticked as its belting');
+await fill(party('oem'), [['Greg Holt', 'Project Engineer']]);
+await fill(party('ilx'), [['Ben', 'Account Manager']]);
+ok(cards().length === 4 && g(`OPP.people.find(p => p.n === 'Greg Holt').org`) === 'Northfield Conveyors' && g(`OPP.people.map(p => p.side).join()`) === 'cust,cust,oem,us', 'four people, each under their party');
 
 // ---- a person's details
 tapCard(0); await tick();
@@ -94,7 +99,7 @@ $('opPanel').querySelector('[data-opchips="mode"] [data-v="Steady"]').click(); a
 $('opPr').value = '-3'; $('opPr').dispatchEvent(new w.Event('input')); await tick(800);
 const tom = (await g(`oppsAll()`))[0].people[0];
 ok(tom.role === 'Signs the order' && tom.mode === 'Steady' && tom.rate === -3, 'role, view and rating saved: ' + [tom.role, tom.mode, tom.rate]);
-ok(cards()[0].querySelector('.op-badge').textContent === 'E' && /Steady/.test(cards()[0].textContent) && /-3/.test(cards()[0].textContent), 'and shown on the card');
+ok(cards()[0].querySelector('.op-badge').textContent === 'E', 'and the role shown on the card');
 $('opPanel').querySelector('[data-opchips="role"] [data-v="Signs the order"]').click(); await tick();
 ok(g(`OPP.people[0].role`) === '', 'tapping the chip again clears it');
 $('opPanel').querySelector('[data-opchips="role"] [data-v="Signs the order"]').click(); await tick();
@@ -123,7 +128,7 @@ $('opDone').click(); await tick();
 $('opNf').value = 'Tom not met since March'; $('opNfPin').value = 'p:' + g(`OPP.people[0].id`); $('opNfGo').click(); await tick();
 $('opNs').value = 'Sam is a strong coach'; $('opNsGo').click(); await tick();
 ok(g(`OPP.flags.length`) === 1 && g(`OPP.strengths.length`) === 1 && /On Tom Ward Jr/.test(panel()) && /The whole opportunity/.test(panel()), 'a red flag pinned to a person, a strength on the whole opportunity');
-ok([...cards()[0].querySelectorAll('circle')].length === 1 && cards()[0].querySelector('.op-badge'), 'the flagged person carries a marker, beside the role badge');
+ok([...cards()[0].querySelectorAll('circle')].length === 2 && cards()[0].querySelector('.op-badge'), 'the flagged person carries a marker, beside their stance and role');
 confirms = [];
 $('opPanel').querySelector('[data-oprm="strengths:0"]').click(); await tick();
 ok(g(`OPP.strengths.length`) === 0 && /Remove this strength/.test(confirms[0]), 'removing one asks first');
@@ -144,24 +149,17 @@ ok(g(`screen`) === 'opp' && cards().length === 3, 'tapping it opens the map agai
 // ---- the phone: look and tap
 phone = true;
 g(`renderOpp()`); await tick();
-ok(!$('opAdd').hidden, 'Add person on the phone too (v123)');
+ok($('opBar') && !$('opBar').classList.contains('open'), 'on the phone the list is folded above the map');
+$('opBarT').click(); await tick();
+ok($('opBar').classList.contains('open') && d.querySelector('#opBar .opbar-party'), 'and opens with a tap');
+$('opBarT').click(); await tick();
 tapCard(0); await tick();
 ok(/Their part in the decision/.test(panel()) && $('opLink') && $('opRm'), 'a person opens with Link to and Remove, on the phone too');
 $('opDone').click(); await tick();
 $('opMap').querySelector('.op-edge').dispatchEvent(new w.MouseEvent('click', { bubbles: true })); await tick();
 ok(/Strength/.test(panel()) && $('opRmL'), 'a link can be removed on the phone too');
 $('opDone').click(); await tick();
-ok(/Move people around on the PC/.test(panel()), 'and the panel says moving is done on the PC');
-// a tap on an empty part of a lane opens Add person for that lane, placed where tapped
-$('opMap').getBoundingClientRect = () => ({left: 0, top: 0, width: g('opView.w'), height: g('opView.h')});
-const vx = g('opView.x'), vy = g('opView.y');
-const at = (x, y) => ({clientX: x - vx, clientY: y - vy, bubbles: true});
-$('opMap').dispatchEvent(new w.MouseEvent('pointerdown', at(950, 600))); $('opMap').dispatchEvent(new w.MouseEvent('pointerup', at(950, 600))); await tick();
-ok(/Add a person/.test(panel()) && $('opSide').querySelector('.on').dataset.v === 'us', 'tapping our lane opens Add person for our team');
-$('opAn').value = 'Kim Tech'; $('opAGo').click(); await tick(100);
-const kimP = g(`OPP.people.find(p => p.n === 'Kim Tech')`);
-ok(kimP && kimP.side === 'us' && Math.abs(kimP.x - (950 - 92)) < 2 && Math.abs(kimP.y - (600 - 35)) < 2, 'and the person lands where the lane was tapped');
-g(`(async () => { OPP.people = OPP.people.filter(p => p.n !== 'Kim Tech'); await oppSaveNow(); })()`); await tick(100);
+ok(!/Drag a party/.test(panel()), 'and no talk of dragging on the phone');
 g(`opSelect(null)`); await tick();
 phone = false;
 
@@ -172,7 +170,7 @@ await g(`(async () => {
   await oppSaveNow(); renderOpp();
 })()`);
 $('opView').querySelector('[data-v="sheet"]').click(); await tick(100);
-ok(!$('opSheet').hidden && d.querySelector('#s-opp .oppmain').hidden && !$('opShare').hidden && $('opAdd').hidden && $('opFit').hidden, 'Blue Sheet swaps the map for the sheet, with Create and share at the top');
+ok(!$('opSheet').hidden && d.querySelector('#s-opp .oppmain').hidden && !$('opShare').hidden && $('opFit').hidden, 'Blue Sheet swaps the map for the sheet, with Create and share at the top');
 const sheet = () => $('opSheet').textContent;
 ok(/Single sales objective/.test(sheet()) && /Line 3 upgrade/.test(sheet()) && /Where we stand/.test(sheet()) && /Buying influences/.test(sheet()) && /Possible actions/.test(sheet()), 'the sheet has the Blue Sheet\'s sections');
 ok($('opSheet').querySelectorAll('details.bsp').length === 3, 'one entry for each of their people, none for ours');

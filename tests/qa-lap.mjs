@@ -113,8 +113,10 @@ ok(!$('lapMap') && !/Relationship map/.test(body()), 'the plan no longer carries
 // ---- the large account's own map: built on it, saved with the plan
 $('lapView').querySelector('[data-v="map"]').click(); await tick(150);
 ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && $('opMap').querySelectorAll('g.op-card').length === 3 && /2 sites/.test($('opMap').querySelector('.op-node').textContent), 'Map shows the account\'s own map, with the account at the centre');
-$('opAdd').click(); await tick();
-$('opAn').value = 'Lee Group'; $('opAt').value = 'Group Engineering Manager'; $('opAGo').click(); await tick(200);
+ok(g(`OPP.parties.find(q => q.kind === 'end').name`) === 'Example Meats' && g(`OPP.people.filter(p => p.side === 'cust').every(p => p.party === OPP.parties[0].id)`), 'the customer\'s people sit under the large account as the end user (v124)');
+d.querySelector('#opBar [data-tbl="' + g(`OPP.parties[0].id`) + '"]').click(); await tick();
+{ const n = [...$('otBody').querySelectorAll('input[data-k="n"]')].pop(); n.value = 'Lee Group'; n.dispatchEvent(new w.Event('input')); }
+$('otDone').click(); await tick(200);
 ok(g(`LAP.people.some(p => p.n === 'Lee Group')`) && (await g(`plansAll()`)).find(p => p.kind === 'large').people.some(p => p.n === 'Lee Group'), 'someone added on the account\'s map is saved with the plan');
 ok(g(`OPPS.every(o => !(o.people || []).some(p => p.n === 'Lee Group'))`), 'and stays off the sites\' opportunities');
 g(`opSelect(null)`); await tick();

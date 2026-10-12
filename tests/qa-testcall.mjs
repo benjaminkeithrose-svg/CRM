@@ -71,7 +71,7 @@ ok(g('call.id') !== testId, 'a second test call is its own call');
 let asked = '';
 w.confirm = m => { asked = m; return false; };
 $('delTests').click(); await tick(150);
-ok(/Delete 2 test calls and 1 photo\?/.test(asked) && /Only calls started with Test call go/.test(asked) && /cannot be undone/.test(asked), 'the confirm counts them: ' + asked.split('\n')[0]);
+ok(/Delete 2 test calls with 1 photo, and 0 test projects\?/.test(asked) && /Only what was started with Test call or Start a test project goes/.test(asked) && /cannot be undone/.test(asked), 'the confirm counts them: ' + asked.split('\n')[0]);
 ok((await g(`recordsAll()`)).filter(c => c.test).length === 2, 'Cancel deletes nothing');
 // OK removes only the tests, and leaves the screen
 g(`(() => { sbUser = {id: 'u1'}; })()`);
@@ -84,10 +84,10 @@ ok(g('call') === null && g('screen') === 'home', 'the open test call is closed a
 ok(g(`cloudDirty['calls/${testId}'] && cloudDirty['calls/${testId}'].del`), 'the deletion is queued for the other devices');
 // nothing left
 $('delTests').click(); await tick();
-ok(/no test calls/.test($('toast').textContent), 'none left: says so');
+ok(/no tests/.test($('toast').textContent), 'none left: says so');
 
 // ---- Help
-ok(/Try things out with a test call/.test($('s-help').textContent) && /Delete test calls/.test($('s-help').textContent), 'Help covers it');
+ok(/Try things out with a test call/.test($('s-help').textContent) && /Delete tests/.test($('s-help').textContent), 'Help covers it');
 ok(!/then <b>App version<\/b>/.test($('s-help').innerHTML), 'Help no longer sends you to an App version section');
 
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));

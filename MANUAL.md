@@ -323,21 +323,27 @@ Tap an MBO's name to see the proof it needs. To change the list, tap **⋯**, th
 
 1. Open the account: tap **Directory** on Home, then the account.
 2. On the **Opportunities** card, tap **New opportunity**.
-3. Type its name.
-4. Tap **Done**. The map opens.
-5. Tap an empty part of a lane: **Customer**, **OEMs and integrators** or **Our team**.
-6. Type or pick the name, then tap **Add to the map**. They go where you tapped.
-7. Tap a person to set their part in the decision, how they see it, and how well our base is covered with them, from −5 to +5.
-8. To link two people, tap one, tap **Link to…**, then tap the other, or the opportunity.
-9. Set the link's kind and strength in the panel.
-10. On the PC, drag people where they make sense.
+3. Type its name, then tap **Done**. The map opens with the end user (the account) and Intralox already on it.
+4. In the list beside the map, tap the circle-plus next to **Head contractors** or **OEMs and integrators**.
+5. Type the company's name, or pick it from your customer list, then tap **Add**.
+6. Tap the table icon next to a party to add its people.
+7. Type one person per row. Only the name is needed. Add their title, who they report to, their part (E, U, T or C) and whether they are helping us if you know them.
+8. Tap **Done**.
+9. Tap the circle next to each party to say whether it has specified Intralox: once for **Specced**, again for **Unsure**, again for **Not specced**.
+10. To link two people, tap one, tap **Link to…**, then tap the other, or the opportunity.
 11. Add red flags and strengths in the panel, and pin each to a person or a link.
 
-Customer names come from the account's CRM contacts. OEM people you have used on any opportunity are offered again as you type.
+Each party has its own colour: the end user dark blue, head contractors dark cyan, OEMs and integrators grey, and Intralox red, around the opportunity in orange. People hang under their party as an organisation chart, each under who they report to. A party that has not specified Intralox, or is unsure, has a dashed orange edge, so it stands out.
 
-The phone does all of this too except dragging: drag the background to move around, and use − and + to zoom. **Add person** at the top works as well as tapping a lane.
+Tap a party to say where a head contractor stands (Bidding, Appointed or Out of it), who an OEM works for, and which belting an OEM prefers. Intralox is ticked to start; tap a supplier to add or take it off, or type another and tap **Add**.
 
-Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap **Details**.
+Tap a person to see their relationships on their own: everything else fades. Their role, view, rating, win and evidence are under **More detail**. Tap the opportunity to see everyone again.
+
+At the top of the list, **People shown** hides everyone's people, and **Links on** hides the relationships between people. The eye next to a party hides just its people.
+
+On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap **Parties and people** to open it. Drag the background to move around, and use − and + to zoom.
+
+Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap **Details**. A map made before this change is sorted into parties the first time it opens.
 
 ### Fill in the Blue Sheet
 
@@ -675,11 +681,19 @@ Your calls, accounts and photos aren't touched.
 
 The call opens for a made-up customer, Test customer, with one belt already logged. Try dictating, Tidy, Write summary, Coach me or Create and share on it. It's marked **TEST**, stays off the calendar, and syncs to your other devices like any call.
 
+To try the opportunity map on a made-up project:
+
+1. Tap **Strategy** on Home.
+2. Tap the circle-plus on the **Opportunities** tab.
+3. Tap **Start a test project**.
+
+It has one head contractor and three OEMs with four people each, and an engineering manager with engineers under him at the end user. It's marked **TEST**.
+
 To clear them all away:
 
 1. Tap **⋯** on Home, then **Settings**.
-2. Tap **Delete test calls**.
-3. Check how many calls and photos it names, then tap **OK**.
+2. Tap **Delete tests**.
+3. Check how many calls, photos and test projects it names, then tap **OK**.
 
 Only test calls go, here and on your other devices. Real calls are never touched.
 

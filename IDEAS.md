@@ -781,6 +781,20 @@ for now. Reviewed a clickable mock first.*
   someone there. A large account opens on its own relationship map, seeded
   once from its sites' opportunities and kept with the plan; the plan sits
   behind a Map / Plan switch.
+- **Built (v124): the layered opportunity map.** Parties around the
+  opportunity in their own colours (end user, head contractors with
+  Bidding/Appointed/Out, OEMs with who they work for and their belting
+  preference, Intralox with the logo); people under each party as an
+  organisation chart; built from a list down the side and a table of people;
+  the Intralox spec on every party (Specced / Unsure / Not specced, the last
+  two standing out); tap a person and the rest fades; links faint by
+  default and switchable; parties picked from the customer list bring their
+  contacts; Start a test project, cleared by Delete tests. Old lane maps are
+  sorted into parties when they open.
+- **Next (asked 2026-10-12, to propose):** people met on Blue Sheets written
+  back to the contact list, and their Blue Sheet history kept with them so
+  the next sheet starts from it and Claude can draw conclusions across
+  projects.
 - **Later:** the coach reading the large account plan; the group column's
   real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
