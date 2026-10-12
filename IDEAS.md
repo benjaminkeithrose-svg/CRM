@@ -758,10 +758,22 @@ for now. Reviewed a clickable mock first.*
   phone. Create and share for the CIP, the pillars, the reference and the
   MBO claim. Private store `cip`; the record and the reference come in from
   a file, never the repo.
-- **Next (agreed 2026-10-11): the Blue Sheet against the real Miller Heiman
-  form.** The visual map stays the working view; the output is the
-  traditional Blue Sheet for people outside MPS, as an A4 document and as an
-  .xls, the map added when asked; and an .xls import of existing sheets.
+- **Built (v122): the Blue Sheet against the real Miller Heiman form.** The
+  map stays the working view, now showing where we stand and two roles per
+  person (E/T). The sheet gains the salesperson, volumes, the position in a
+  word, position against the competition, place in the funnel, timing, ideal
+  customer criteria with a total, a second role, information needed and from
+  whom on red flags, who and when on actions, a best action plan of several,
+  and communication notes. Create and share makes the traditional form as an
+  A4 document or an .xlsx in the template's own cells, the map only when
+  ticked. Import a Blue Sheet reads the template (.xls or .xlsx) by its
+  labels into a new opportunity, people laid out in their lanes.
+- **Built (v122): + New on Strategy.** Start an opportunity, a large account
+  plan or an account plan from Strategy: pick the account, it opens where it
+  lives, back returns to Strategy. The empty lists no longer nudge.
+- **Built (v122): the CIP and MBO page's Save HTML copy imports.** The plan
+  comes from the JSON the page carries; the reference from the page's own
+  lists, read as plain values and never run.
 - **Later:** the coach reading the large account plan; the group column's
   real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics

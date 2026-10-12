@@ -271,12 +271,21 @@ Opportunities are listed by close date, nearest first, with their position and r
 
 In a team, **Mine** shows your own and **Team** your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.
 
+To start a new one from here:
+
+1. Tap the tab: **Opportunities**, **Large accounts** or **Account plans**.
+2. Tap **+ New** at the top.
+3. Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.
+4. Fill it in, then tap **Done**. Back comes to Strategy.
+
+If the account already has an account plan, or the site is already in a large account, the list says so and tapping it opens that one.
+
 ### Bring in your CIP and MBOs
 
 1. Tap **CIP** on Home.
 2. Tap **⋯** at the top right.
 3. Tap **Import a CIP and MBO file**.
-4. Pick the file. It is either the one the CIP and MBO page saved with **Save to file**, or one that also holds the reference.
+4. Pick the file the CIP and MBO page saved with **Save HTML copy**. It brings everything: your plan, your MBOs, the four pillars and the reference. A file saved with **Save to file** works too, but holds no reference.
 5. If the app asks whether to replace what is there, tap **OK**.
 
 Do this on one device. Cloud sync takes it to your others. Your CIP and MBOs are yours alone: they never go to your team, the admin included. They are not in the app itself either, so each person brings in their own.
@@ -334,18 +343,22 @@ Everything saves as you go, and the team shares it. To change the name or value,
 
 1. Open the opportunity from its account.
 2. Tap **Blue Sheet** at the top.
-3. Under **Where we stand**, set our position from −5 (panic) to +5 (euphoria). Say why, and who the competition is.
-4. Under **Buying influences**, tap a person to open them. Set their part in the decision, how much they sway it, how they see it and how they rate us.
-5. Type their personal win, the business result they want, and the evidence for the rating.
-6. Under **Gaps**, tap **Add as a red flag** for any gap that matters.
-7. Under **Possible actions**, type each action and tap **Add**.
-8. Tap the star next to the best action.
-9. To put an action in your calendar, tap **Make a task** next to it.
-10. To send the sheet, tap **Create and share**.
+3. Fill in the salesperson, the current volume and the total potential volume.
+4. Under **Where we stand**, set the adequacy of our position from −5 (panic) to +5 (euphoria), and type it in a word, for example Concern.
+5. Tap one chip in each row: our position against the competition, the place in their funnel, and the timing for priorities.
+6. Under **Ideal customer criteria**, type each criterion and tap **Add**. Pick how well they match, from −5 to +5. The total adds itself up.
+7. Under **Buying influences**, tap a person to open them. Set their part in the decision, and a second part if they have one. Set how much they sway it and how they see it.
+8. Set how well our base is covered with them, from −5 to +5, and type the evidence for it.
+9. Type their personal win and the business result they want.
+10. Under **Gaps**, tap **Add as a red flag** for any gap that matters. Under each red flag, type the information needed and who it is from.
+11. Under **Possible actions**, type each action and tap **Add**. Type who does it and when.
+12. Tap the star on each action in the best action plan.
+13. To put an action in your calendar, tap **Make a task** next to it.
+14. Under **Communication notes**, pick the date, type who you spoke to and what about, then tap **Add**.
 
 Who covers each person comes from the map: link one of ours to them with **Our coverage**. The Gaps list shows what is missing: nobody who signs the order, no coach, someone not covered, or a part not known.
 
-Create and share makes an A4 document with the map as a picture. On the PC it opens in a new tab, ready to print or save as a PDF; on the phone it goes to the share sheet.
+On the map, the opportunity shows where we stand, a card shows both parts (E/T), and the stripe down a card shows how well our base is covered with that person. With nothing selected on the map, the panel beside it has the same three rows of chips.
 
 The Blue Sheet works the same on the phone and the PC. Tap **Map** to go back to the map.
 
@@ -357,6 +370,25 @@ To get coaching on it:
 4. Tap **Add ticked to the Blue Sheet**.
 
 The coaching is kept with the opportunity, so **Coach** shows it again with no signal. After the sheet changes, tap **Write it again**. The coaching is never in the Blue Sheet document.
+
+### Send a Blue Sheet
+
+1. Open the opportunity, then tap **Blue Sheet** at the top.
+2. Tap **Create and share**.
+3. Tap **Document** or **Excel**.
+4. For a document, tick the box if the relationship map should go too.
+5. Tap **Create and share**.
+
+Both follow Miller Heiman's own Blue Sheet, in its order and with its letters, so anyone who knows the form can read it. The document is A4: on the PC it opens in a new tab, and on the phone it goes to the share sheet. The Excel copy is laid out in the template's own cells, so it opens in Excel and can be imported back. Excel can't carry the map. The map is left out unless you tick it, because it is your planning view.
+
+### Import a Blue Sheet
+
+1. Open the account: tap **Directory** on Home, then the account.
+2. On the **Opportunities** card, tap **Import a Blue Sheet**.
+3. Pick the Blue Sheet file, either .xls or .xlsx.
+4. The map opens with everyone from the sheet in their lanes. On the PC, drag them where you want them and link them.
+
+It brings in the objective, the position and its ticked boxes, the ideal customer criteria, the buying influences with their roles, influence, mode, rating and evidence, the strengths, the red flags, the possible actions, the best action plan, and the communication notes. Anyone the sheet names as an OEM or consultant goes in the OEM lane. The opportunity goes on the account you are on, whatever account the sheet names.
 
 ### Plan a large account
 

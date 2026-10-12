@@ -250,6 +250,27 @@ ok(!g(`CIP`) && !g(`MBO`), 'gone');
 await g(`doRestore(new File([${JSON.stringify(JSON.stringify(bk))}], 'b.json'))`); await tick(200);
 ok(g(`CIP && CIP.employee.name`) === 'Sam Sample' && g(`MBO.years['2025'].items.length`) === 3 && g(`CIPREF.books.length`) === 1, 'a restore brings them back');
 
+// ---- the CIP and MBO page's "Save HTML copy": the plan as JSON, the lists as code that is read, never run
+let ran = 0; w.alert = () => { ran++; };
+const recH = {employee: {name: 'Jo Html', title: 'AM', hireDate: '', supervisor: 'Pat'}, periods: {'2026-H1': {locked: false, reviewer: 'Pat', reviewDate: '',
+  self: {accomplishments: 'Shipped </b> and <!-- this', notMet: '', learned: '', support: '', comments: ''}, goals: [], strengths: [], gaps: [], manager: {rating: '', comments: ''}}},
+  mbo: {years: {'2027': {cap: 8000, setupLocked: false, items: [], mega: [], quarters: {}}}}, pillars: {boxes: [{id: 'p1', title: 'Only', pct: 100, items: ['One']}]}};
+const htmlCopy = '<!DOCTYPE html><html><body><script>/* lists */\nconst IND = [\n {area:"Area A", result:"Result A", items:[\n  {id:"i1", b:"Do the thing, well", s:"Often ⟦enough?⟧"}]}\n];\n' +
+  'const LCI = [{group:"Group", items:[{id:"l1", t:\'Works "well"\'}]}];\nconst BU_YEAR = "2027";\nconst BU = [{csf:"CSF 1 – Grow", items:[{id:"b1", t:"Grow it", subs:["One","Two",]}]}];\n' +
+  'const BOOKS = ["Book – Author",\n "Another"];\nconst REF=[{id:"r-fy26",title:"Team summary"}];\nconst FY26={fc:"Forecast up", goals:[["1","Grow"]], h1:["Done"], acc:[["Acme","X","Y","fine"]], g2:[["Area","ok"]]};\n' +
+  'alert("never run");</script><script>window.__INIT_REC__=' + JSON.stringify({stamp: '9', rec: recH}).replace(/<\//g, '<\\/').replace(/<!--/g, '<\\!--') + ';</script></body></html>';
+confirms = [];
+await g(`cipImport`)(new w.File([htmlCopy], 'CIP_Form_2026-10-11.html', {type: 'text/html'})); await tick(200);
+ok(/Replace your CIP/.test(confirms[0] || '') && /the reference/.test(confirms[0] || ''), 'the HTML copy replaces the plan, the MBOs and the reference, after asking');
+ok(g(`CIP.employee.name`) === 'Jo Html' && g(`CIP.periods['2026-H1'].self.accomplishments`) === 'Shipped </b> and <!-- this' && g(`mboYears().join()`) === '2027' && g(`CIP.pillars.boxes[0].items[0].t`) === 'One', 'the plan comes out of the page whole, its escaping undone');
+ok(g(`CIPREF.ind[0].items[0].b`) === 'Do the thing, well' && g(`CIPREF.ind[0].items[0].s`) === 'Often ⟦enough?⟧' && g(`CIPREF.lci[0].items[0].t`) === 'Works "well"' && g(`CIPREF.buYear`) === '2027' &&
+  g(`CIPREF.bu[0].items[0].subs.join()`) === 'One,Two' && g(`CIPREF.books.length`) === 2 && g(`CIPREF.extra[0].title`) === 'Team summary' && g(`CIPREF.extra[0].blocks.length`) === 5, 'and the page\'s lists become the reference');
+ok(ran === 0, 'nothing in the page is run');
+let notPage = '';
+try { await g(`cipImport`)(new w.File(['<html><body>hello</body></html>'], 'x.html')); } catch(e){ notPage = e.message; }
+ok(/not the CIP and MBO page/.test(notPage), 'any other page is refused');
+w.alert = () => {};
+
 // ---- not a CIP file
 let msg = '';
 try { await g(`cipImport`)(file({hello: 1}, 'x.json')); } catch(e){ msg = e.message; }
