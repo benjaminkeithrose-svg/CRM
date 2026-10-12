@@ -827,6 +827,11 @@ for now. Reviewed a clickable mock first.*
   Done, an Emails filter, tick, bin and tap to open; the microphone with Tidy
   on saved notes, products, the account plan, the visit agenda and the CIP
   (new Tidy wording for his own development notes). Not yet: MBO entries.
+- **Later (parked 2026-10-12):** Outlook from tasks. Today an email task opens
+  in Outlook (subject = its Subject box, else its title) and visits go as a
+  calendar file (subject "Type: Account"); other tasks have no Outlook export.
+  Options raised: a different subject format (account first), and an Add to
+  Outlook button making a task a 30-minute calendar entry.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's

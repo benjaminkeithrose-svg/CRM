@@ -33,7 +33,8 @@ work from a copy of a file anywhere other than this checkout.
 | `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. `0008_team_people.sql` (v125) shares contacts added on Blue Sheet maps. Not served by the app |
 | `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes, coaching on an opportunity's Blue Sheet (v118), and setting a Blue Sheet up from a description (`oppsetup`, v127); Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
-| `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
+| `tools/` | Maintenance scripts (`help-to-manual.py`, `docs-to-print.py`). Not served by the app |
+| `docs/` | The documentation package: overview, database architecture, sync and security, AI, data in and out, running it, developer guide, a page for colleagues, glossary, and the printable `field-crm-documentation.html` made from them. Not part of the app |
 
 ## Intralox's mission drives decisions
 
@@ -139,6 +140,15 @@ button name or screen changes, update the matching Help section in the same
 pull request, then run `python3 tools/help-to-manual.py` to regenerate
 `MANUAL.md` from it. Help steps are
 numbered, plain English, one action per step.
+
+**The documentation in `docs/` is kept current** (Ben, 2026-10-12). A pull
+request that changes a store or its fields, the cloud schema or its rules,
+what syncs or who sees it, an AI feature, an import or an output updates the
+matching page in `docs/` in the same pull request, then runs
+`python3 tools/docs-to-print.py` to make the printable copy again. The
+version named at the top of `docs/README.md` moves with it. No customer data,
+belt catalogue or CIP/MBO wording goes in the docs either; examples use made-up
+names.
 
 **No output format that has already been rejected.** EML was tried and dropped:
 on Android, Outlook opens it in a browser rather than as a draft. PDF was dropped
