@@ -55,13 +55,14 @@ ok($('oppdlg').hasAttribute('open') && $('odHead').textContent === 'New opportun
 $('odOk').click(); await tick(200);
 ok(!$('oppdlg').hasAttribute('open') && g('OPPS.length') === 0 && g('screen') === 'acct', 'Done with nothing typed keeps nothing');
 $('avOppNew').click(); await tick();
+ok(!$('odName').closest('.f').hidden && $('odObj').closest('.f').hidden && $('odValue').closest('.f').hidden && $('odClose').closest('.f').hidden, 'a new one asks only for its name (v123)');
 $('odName').value = 'Line 3 upgrade'; $('odObj').value = '12 S800 belts on Line 3, ordered by March'; $('odValue').value = 'AUD 180k'; $('odClose').value = '2027-03';
 $('odOk').click(); await tick(300);
 const saved = await g(`oppsAll()`);
 ok(saved.length === 1 && saved[0].acct === A && saved[0].name === 'Line 3 upgrade' && saved[0].close === '2027-03', 'Done saves it on the account');
 ok(g(`screen`) === 'opp' && $('title').textContent === 'Line 3 upgrade' && $('subtitle').textContent === A, 'and opens its map');
 ok(g(`Object.keys(cloudDirty).some(k => k.startsWith('opps/'))`), 'marked to sync');
-ok(/Line 3 upgrade/.test(panel()) && /AUD 180k · close Mar 2027/.test(panel()) && /Tap Add person to start/.test(panel()), 'the panel shows its summary and how to start');
+ok(/Line 3 upgrade/.test(panel()) && /AUD 180k · close Mar 2027/.test(panel()) && /Tap a lane to put someone in it, or tap Add person/.test(panel()), 'the panel shows its summary and how to start');
 ok($('opMap').querySelector('g.op-node') && [...$('opMap').querySelectorAll('.op-lane')].map(t => t.textContent).join('|') === 'Customer|OEMs and integrators|Our team', 'the map has its three lanes and the opportunity');
 
 // ---- adding people (the PC)
@@ -143,14 +144,25 @@ ok(g(`screen`) === 'opp' && cards().length === 3, 'tapping it opens the map agai
 // ---- the phone: look and tap
 phone = true;
 g(`renderOpp()`); await tick();
-ok($('opAdd').hidden, 'no Add person on the phone');
+ok(!$('opAdd').hidden, 'Add person on the phone too (v123)');
 tapCard(0); await tick();
-ok(/Their part in the decision/.test(panel()) && !$('opLink') && !$('opRm'), 'a person opens to edit, without Link to or Remove');
+ok(/Their part in the decision/.test(panel()) && $('opLink') && $('opRm'), 'a person opens with Link to and Remove, on the phone too');
 $('opDone').click(); await tick();
 $('opMap').querySelector('.op-edge').dispatchEvent(new w.MouseEvent('click', { bubbles: true })); await tick();
-ok(/Strength/.test(panel()) && !$('opRmL'), 'a link opens to edit, without Remove');
+ok(/Strength/.test(panel()) && $('opRmL'), 'a link can be removed on the phone too');
 $('opDone').click(); await tick();
-ok(/looking and tapping/.test(panel()), 'and the panel says the map is built on the PC');
+ok(/Move people around on the PC/.test(panel()), 'and the panel says moving is done on the PC');
+// a tap on an empty part of a lane opens Add person for that lane, placed where tapped
+$('opMap').getBoundingClientRect = () => ({left: 0, top: 0, width: g('opView.w'), height: g('opView.h')});
+const vx = g('opView.x'), vy = g('opView.y');
+const at = (x, y) => ({clientX: x - vx, clientY: y - vy, bubbles: true});
+$('opMap').dispatchEvent(new w.MouseEvent('pointerdown', at(950, 600))); $('opMap').dispatchEvent(new w.MouseEvent('pointerup', at(950, 600))); await tick();
+ok(/Add a person/.test(panel()) && $('opSide').querySelector('.on').dataset.v === 'us', 'tapping our lane opens Add person for our team');
+$('opAn').value = 'Kim Tech'; $('opAGo').click(); await tick(100);
+const kimP = g(`OPP.people.find(p => p.n === 'Kim Tech')`);
+ok(kimP && kimP.side === 'us' && Math.abs(kimP.x - (950 - 92)) < 2 && Math.abs(kimP.y - (600 - 35)) < 2, 'and the person lands where the lane was tapped');
+g(`(async () => { OPP.people = OPP.people.filter(p => p.n !== 'Kim Tech'); await oppSaveNow(); })()`); await tick(100);
+g(`opSelect(null)`); await tick();
 phone = false;
 
 // ---- the Blue Sheet (v116)

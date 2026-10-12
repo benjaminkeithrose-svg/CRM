@@ -71,8 +71,12 @@ ok($('avLap').hidden, 'a site in no large account shows no card');
 $('avPlan').click(); await tick();
 ok(!$('plLarge').checked, 'the plan\'s Large account tick starts off');
 $('plLarge').checked = true; $('plOk').click(); await tick(400);
-ok(g(`screen`) === 'lap' && g(`LAP && LAP.sites.join('|')`) === B + '|' + A && g(`LAP.name`) === 'Example Meats', 'ticking it starts a plan across the customer\'s sites, and opens it');
+ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && g(`LAP && LAP.sites.join('|')`) === B + '|' + A && g(`LAP.name`) === 'Example Meats', 'ticking it starts a plan across the customer\'s sites, and opens on its map (v123)');
 ok($('title').textContent === 'Example Meats' && $('subtitle').textContent === '2 sites', 'named for the customer');
+ok(g(`OPP.people.map(p => p.n).sort().join('|')`) === 'Ana Silva|Ben|Tom Ward' && g(`OPP.links.length`) === 2, 'the map starts with everyone from the sites\' opportunities, once each, and their links');
+ok($('opView').querySelector('[data-v="sheet"]').textContent === 'Plan' && $('opEdit').hidden && $('opShare').hidden && $('opCoach').hidden && /Large account/.test($('opPanel').textContent) && /Vulnerabilities/.test($('opPanel').textContent), 'Map / Plan, a large account\'s panel, no Blue Sheet tools');
+$('opView').querySelector('[data-v="sheet"]').click(); await tick(150);
+ok(g(`screen`) === 'lap' && $('lapView').querySelector('.on').dataset.v === 'plan', 'Plan opens the plan behind the map');
 ok(g(`PLANS.filter(p => p.kind === 'large').length`) === 1 && g(`planFor('${A}')`) === null, 'it is not taken for the site\'s own plan');
 ok(g(`Object.keys(cloudDirty).some(k => k.startsWith('plans/la'))`), 'marked to sync');
 ok(/Line 3 upgrade/.test(body()) && /Spiral freezer belts/.test(body()) && !/Elsewhere/.test(body()), 'open opportunities come from both sites, no others');
@@ -105,7 +109,17 @@ g(`closeDialogsNow()`); await tick();
 // ---- the relationship map: everyone on the sites' opportunities, once each
 const map = g(`lapMapData(LAP)`);
 ok(map.people.map(p => p.n).sort().join() === 'Ana Silva,Ben,Tom Ward' && map.links.length === 2, 'Tom Ward is on both opportunities and appears once; their links come with them');
-ok($('lapMap') && $('lapMap').querySelectorAll('g.op-card').length === 3 && $('lapMap').querySelector('.op-node').textContent.includes('2 opportunities'), 'and it is drawn, for looking');
+ok(!$('lapMap') && !/Relationship map/.test(body()), 'the plan no longer carries a map at its foot: the map is the Map view (v123)');
+// ---- the large account's own map: built on it, saved with the plan
+$('lapView').querySelector('[data-v="map"]').click(); await tick(150);
+ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && $('opMap').querySelectorAll('g.op-card').length === 3 && /2 sites/.test($('opMap').querySelector('.op-node').textContent), 'Map shows the account\'s own map, with the account at the centre');
+$('opAdd').click(); await tick();
+$('opAn').value = 'Lee Group'; $('opAt').value = 'Group Engineering Manager'; $('opAGo').click(); await tick(200);
+ok(g(`LAP.people.some(p => p.n === 'Lee Group')`) && (await g(`plansAll()`)).find(p => p.kind === 'large').people.some(p => p.n === 'Lee Group'), 'someone added on the account\'s map is saved with the plan');
+ok(g(`OPPS.every(o => !(o.people || []).some(p => p.n === 'Lee Group'))`), 'and stays off the sites\' opportunities');
+g(`opSelect(null)`); await tick();
+$('opPanel').querySelector('#opToPlan').click(); await tick(150);
+ok(g(`screen`) === 'lap', 'Open the plan goes back to the plan');
 
 // ---- sites: add from the suggestions or by name, take one out
 ok(!$('lapBody').querySelector('[data-lapadd]'), 'no more sites to suggest when the group is all in');

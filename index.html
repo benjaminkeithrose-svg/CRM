@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v122">
+<meta name="build" content="v123">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -217,7 +217,15 @@ label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
 .taitem.fail{opacity:.7}
 /* Lists (v97): the add button on top, then the count and the search icon */
 #s-lists .big{width:100%;margin:0 0 10px}
-#s-strategy #stNew{margin:0 0 10px}
+/* v123: tabs with their own circle-plus */
+.ptabs .ptab{flex:1;display:flex;min-width:0;border-left:1px solid var(--line-2)}
+.ptabs .ptab:first-child{border-left:0}
+.ptabs .ptab button{border-left:0}
+.ptabs .ptab button[data-v],.ptabs .ptab button[data-pane]{flex:1;min-width:0;padding-right:2px}
+.ptabs .tplus{flex:none;width:38px;padding:0;display:flex;align-items:center;justify-content:center;color:var(--act)}
+.ptabs .tplus .ic{width:22px;height:22px}
+.ptabs .ptab.on{background:var(--ink-2)}
+.ptabs .ptab.on button{color:#fff}
 .lsrow{margin-bottom:8px}
 .stat{font-size:12.5px;color:var(--ink-2);line-height:1.6}
 .stat b{color:var(--ink);font-weight:700}
@@ -2036,8 +2044,7 @@ details.bsx > .msg{margin:8px 12px}
       <p>In a team, <b>Mine</b> shows your own and <b>Team</b> your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.</p>
       <p>To start a new one from here:</p>
       <ol>
-        <li>Tap the tab: <b>Opportunities</b>, <b>Large accounts</b> or <b>Account plans</b>.</li>
-        <li>Tap <b>+ New</b> at the top.</li>
+        <li>On <b>Opportunities</b>, <b>Large accounts</b> or <b>Account plans</b>, tap the circle-plus on the tab.</li>
         <li>Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.</li>
         <li>Fill it in, then tap <b>Done</b>. Back comes to Strategy.</li>
       </ol>
@@ -2097,18 +2104,19 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Open the account: tap <b>Directory</b> on Home, then the account.</li>
         <li>On the <b>Opportunities</b> card, tap <b>New opportunity</b>.</li>
-        <li>Type its name and the objective. Add the value and the expected close if you know them.</li>
+        <li>Type its name.</li>
         <li>Tap <b>Done</b>. The map opens.</li>
-        <li>On the PC, tap <b>Add person</b>. Pick <b>Customer</b>, <b>OEM</b> or <b>Our team</b>, type or pick the name, then tap <b>Add to the map</b>.</li>
-        <li>Tap a person to set their part in the decision, how they see it, and how they rate us from &minus;5 to +5.</li>
+        <li>Tap an empty part of a lane: <b>Customer</b>, <b>OEMs and integrators</b> or <b>Our team</b>.</li>
+        <li>Type or pick the name, then tap <b>Add to the map</b>. They go where you tapped.</li>
+        <li>Tap a person to set their part in the decision, how they see it, and how well our base is covered with them, from &minus;5 to +5.</li>
         <li>To link two people, tap one, tap <b>Link to&hellip;</b>, then tap the other, or the opportunity.</li>
         <li>Set the link's kind and strength in the panel.</li>
-        <li>Drag people where they make sense.</li>
+        <li>On the PC, drag people where they make sense.</li>
         <li>Add red flags and strengths in the panel, and pin each to a person or a link.</li>
       </ol>
       <p>Customer names come from the account's CRM contacts. OEM people you have used on any opportunity are offered again as you type.</p>
-      <p>On the phone, the map is for looking: drag the background to move around, use &minus; and + to zoom, and tap a person or a link to change its details. Add people, link them and move them on the PC.</p>
-      <p>Everything saves as you go, and the team shares it. To change the name or value, or delete the opportunity, tap <b>Details</b>.</p>
+      <p>The phone does all of this too except dragging: drag the background to move around, and use &minus; and + to zoom. <b>Add person</b> at the top works as well as tapping a lane.</p>
+      <p>Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap <b>Details</b>.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2175,7 +2183,9 @@ details.bsx > .msg{margin:8px 12px}
         <li>Open one of the customer's sites: tap <b>Directory</b> on Home, then the site.</li>
         <li>Tap the <b>Account plan</b> card.</li>
         <li>Tick <b>Large account: several sites under one plan</b>.</li>
-        <li>Tap <b>Done</b>. The large account plan opens, with the customer's other sites already in it.</li>
+        <li>Tap <b>Done</b>. The large account opens on its own map, with everyone from its sites' opportunities already on it.</li>
+        <li>Add people to it the same way as an opportunity's map: tap an empty part of a lane, or tap <b>Add person</b>. Link them with <b>Link to&hellip;</b>.</li>
+        <li>Tap <b>Plan</b> at the top to open the plan behind the map.</li>
         <li>Check the sites. Tap <b>&times;</b> to take one out, or type a name and tap <b>Add</b> to add one.</li>
         <li>Under <b>Where we are</b>, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.</li>
         <li>Under <b>Where we want to get to</b>, write the vision and add the objectives, each with a measure and a date.</li>
@@ -2185,7 +2195,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>To send the plan, tap <b>Create and share</b>.</li>
       </ol>
       <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
-      <p>Open opportunities and the relationship map come from the sites' opportunities: a person on several opportunities shows once. Change people on each opportunity's own map.</p>
+      <p>The large account's map is its own, kept with the plan. The first time it opens it starts with everyone from the sites' opportunities, once each; after that, people added to it stay on it and not on the opportunities. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
       <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
     </div>
   </details>
@@ -2307,7 +2317,7 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Tap <b>Lists</b> on Home.</li>
         <li>Tap <b>Saved notes</b> at the top.</li>
-        <li>Tap <b>+ Saved note</b>.</li>
+        <li>Tap the circle-plus on the <b>Saved notes</b> tab.</li>
         <li>Give it a label, tap its reason, and type or dictate the text.</li>
         <li>Tap <b>Done</b>.</li>
       </ol>
@@ -2321,7 +2331,7 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Tap <b>Lists</b> on Home.</li>
         <li>Tap <b>Products</b> at the top.</li>
-        <li>Tap <b>+ Product</b>.</li>
+        <li>Tap the circle-plus on the <b>Products</b> tab.</li>
         <li>Fill in the product, part number, status and account.</li>
         <li>Tap <b>Done</b>.</li>
       </ol>
@@ -2750,11 +2760,17 @@ details.bsx > .msg{margin:8px 12px}
 <!-- LARGE ACCOUNT (v117): one plan across a customer's sites. Where we are, where we want to get to, how. -->
 <section class="scr" id="s-lap">
   <div class="opptools">
+    <!-- v123: the large account's own map, and this plan behind it -->
+    <div class="seg opview" id="lapView" role="group" aria-label="Show">
+      <button type="button" data-v="map">Map</button>
+      <button type="button" data-v="plan" class="on">Plan</button>
+    </div>
     <button type="button" class="btn go" id="lapShare">Create and share</button>
     <span class="spacer"></span>
     <button type="button" class="tkdel" id="lapDel" aria-label="Delete this large account plan" title="Delete this large account plan"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
   </div>
   <div class="oppsheet" id="lapBody"></div>
+  <svg id="lapMapPic" aria-hidden="true" style="position:absolute;left:-10000px;top:0;width:10px;height:10px"></svg>
 </section>
 
 <!-- PLAN -->
@@ -3710,11 +3726,11 @@ details.bsx > .msg{margin:8px 12px}
 </section>
 
 <section class="scr" id="s-strategy">
-  <button class="big" id="stNew" type="button">+ New opportunity</button>
-  <div class="seg tabs" id="stTabs">
-    <button type="button" data-v="opps" class="on">Opportunities</button>
-    <button type="button" data-v="laps">Large accounts</button>
-    <button type="button" data-v="plans">Account plans</button>
+  <!-- v123: each tab has its own circle-plus to start a new one -->
+  <div class="seg tabs ptabs" id="stTabs">
+    <span class="ptab on"><button type="button" data-v="opps" class="on">Opportunities</button><button type="button" class="tplus" data-new="opps" aria-label="New opportunity" title="New opportunity"></button></span>
+    <span class="ptab"><button type="button" data-v="laps">Large accounts</button><button type="button" class="tplus" data-new="laps" aria-label="New large account plan" title="New large account plan"></button></span>
+    <span class="ptab"><button type="button" data-v="plans">Account plans</button><button type="button" class="tplus" data-new="plans" aria-label="New account plan" title="New account plan"></button></span>
   </div>
   <div class="seg" id="stWho" hidden>
     <button type="button" data-v="mine" class="on">Mine</button>
@@ -3728,12 +3744,11 @@ details.bsx > .msg{margin:8px 12px}
 </section>
 
 <section class="scr" id="s-lists">
-  <div class="seg tabs" id="lsTabs">
-    <button type="button" data-pane="notes" class="on">Saved notes</button>
-    <button type="button" data-pane="prods">Products</button>
+  <div class="seg tabs ptabs" id="lsTabs">
+    <span class="ptab on"><button type="button" data-pane="notes" class="on">Saved notes</button><button type="button" class="tplus" id="snNew" aria-label="New saved note" title="New saved note"></button></span>
+    <span class="ptab"><button type="button" data-pane="prods">Products</button><button type="button" class="tplus" id="prNew" aria-label="New product" title="New product"></button></span>
   </div>
   <div class="pane" id="paneNotes">
-    <button class="big" id="snNew" type="button">+ Saved note</button>
     <div class="rptop lsrow">
       <p class="hint" id="snHint"></p>
       <button type="button" class="tvi" id="snSearch" aria-label="Search saved notes" title="Search saved notes"></button>
@@ -3741,7 +3756,6 @@ details.bsx > .msg{margin:8px 12px}
     <div id="snRes"></div>
   </div>
   <div class="pane" id="paneProds" hidden>
-    <button class="big" id="prNew" type="button">+ Product</button>
     <div class="rptop lsrow">
       <p class="hint" id="prHint"></p>
       <button type="button" class="tvi" id="prSearch" aria-label="Search products" title="Search products"></button>
