@@ -791,10 +791,16 @@ for now. Reviewed a clickable mock first.*
   default and switchable; parties picked from the customer list bring their
   contacts; Start a test project, cleared by Delete tests. Old lane maps are
   sorted into parties when they open.
-- **Next (asked 2026-10-12, to propose):** people met on Blue Sheets written
-  back to the contact list, and their Blue Sheet history kept with them so
-  the next sheet starts from it and Claude can draw conclusions across
-  projects.
+- **Built (v125): people met on Blue Sheets.** A new name under one of our
+  customers joins its contacts, marked Not in Dynamics yet (store `people`,
+  shared with the team, migration 0008), kept through CRM imports until the
+  export has them; Settings shares the list as a spreadsheet for Dynamics.
+  Their history is read from the other opportunities (same name, same
+  company): it fills a new table row's part and stance as estimates, shows
+  on the person, and goes to the coach with each person. Each opportunity
+  has an outcome (Open, Won, Lost, On hold).
+- **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
+  common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
   real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
