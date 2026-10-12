@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v126';
+const APP_BUILD = 'v127';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1375,7 +1375,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -10979,6 +10979,8 @@ function openOppDetails(o){
   $('odOutF').hidden = odIsNew;
   // a new one asks only for its name, then the map opens (v123); the rest is in Details later
   ['odObj', 'odValue', 'odClose'].forEach(id => { $(id).closest('.f').hidden = odIsNew; });
+  // or describe it, and Claude sets the map up (v127)
+  $('odDescF').hidden = !odIsNew; $('odDesc').value = '';
   const d = $('oppdlg');
   if(!d.open){
     if(d.showModal) d.showModal(); else d.setAttribute('open', '');
@@ -11014,17 +11016,24 @@ async function odFinish(){
 $('odOk').addEventListener('click', () => odFinish().catch(reportErr));
 chipTap($('odOut'));
 $('oppdlg').addEventListener('cancel', e => { e.preventDefault(); odFinish().catch(console.error); });
-$('oppdlg').addEventListener('close', () => { if(odEdit) odFinish().catch(console.error); });
-$('odDel').addEventListener('click', async () => {
-  const r = odEdit;
-  if(!r) return;
+$('oppdlg').addEventListener('close', () => { micAbort(); if(odEdit) odFinish().catch(console.error); });
+/* v127: one delete for an opportunity, from Details and from the bin on the
+   map's toolbar (Ben could not find the one in Details). It names what goes. */
+async function oppDeleteAsk(r){
+  if(!r) return false;
   const n = (r.people || []).length, l = (r.links || []).length, f = (r.flags || []).length + (r.strengths || []).length, a = (r.actions || []).length;
   if(!confirm('Delete the opportunity ' + (r.name || 'Untitled') + ' at ' + r.acct + '?\n\nIts map of ' + n + (n === 1 ? ' person' : ' people') + ' and ' + l + (l === 1 ? ' link' : ' links') +
       ', ' + f + (f === 1 ? ' red flag or strength' : ' red flags and strengths') + ' and ' + a + (a === 1 ? ' possible action' : ' possible actions') + ', and its Blue Sheet, are gone from this device' +
-      (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return;
-  odEdit = null;
+      (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return false;
+  if(OPP && OPP.id === r.id){ clearTimeout(opSaveTimer); opSaveTimer = null; }   // a change still to be saved must not bring it back
   await oppsDel(r.id);
   OPPS = OPPS.filter(x => x.id !== r.id);
+  return true;
+}
+$('odDel').addEventListener('click', async () => {
+  const r = odEdit;
+  if(!r || !await oppDeleteAsk(r)) return;
+  odEdit = null;
   const d = $('oppdlg');
   if(d.close) d.close(); else d.removeAttribute('open');
   toast('Opportunity deleted');
@@ -11460,6 +11469,14 @@ $('opIn').addEventListener('click', () => opZoomTo(opView.w / 1.25));
 $('opOut').addEventListener('click', () => opZoomTo(opView.w * 1.25));
 $('opFit').addEventListener('click', opFit);
 $('opEdit').addEventListener('click', () => { if(OPP) openOppDetails(OPP); });
+$('opDelBtn').addEventListener('click', async () => {
+  if(!OPP || OPP.kind === 'large') return;
+  const r = OPP;
+  if(!await oppDeleteAsk(r)) return;
+  toast('Opportunity deleted');
+  OPP = null; go('acct');
+  renderOppsCard();
+});
 $('opHintX').addEventListener('click', () => { opLinkFrom = null; $('opHint').hidden = true; drawOpp(); });
 
 function opSelect(s){
@@ -11520,10 +11537,10 @@ function opPanel(){
       '<label class="l">Place in their funnel</label>' + opChips('funnel', BS_FUNNEL, OPP.funnel || '') +
       '<label class="l">Timing for priorities</label>' + opChips('timing', BS_TIMING, OPP.timing || '')) +
     '<h2>' + (lap ? 'Vulnerabilities' : 'Red flags') + '</h2>' + opList('flags') +
-    '<div class="opadd"><input type="text" id="opNf" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="opNfGo">Add</button></div>' +
+    '<div class="opadd"><input type="text" id="opNf" data-talk="line" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="opNfGo">Add</button></div>' +
     '<label class="l" for="opNfPin">Pin it to</label><select id="opNfPin">' + opPinOptions() + '</select>' +
     '<h2>Strengths</h2>' + opList('strengths', true) +
-    '<div class="opadd"><input type="text" id="opNs" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="opNsGo">Add</button></div>' +
+    '<div class="opadd"><input type="text" id="opNs" data-talk="line" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="opNsGo">Add</button></div>' +
     '<label class="l" for="opNsPin">Pin it to</label><select id="opNsPin">' + opPinOptions() + '</select>' +
     '<h2>Reading the map</h2><div class="oplegend">' +
       OP_PKINDS.map(K => '<b style="text-align:center;color:var(' + K.col + ')">■</b><span>' + esc(K.t) + '</span>').join('') +
@@ -11589,11 +11606,11 @@ function opPersonPanel(p){
     (ours ? '' : '<details class="opmore"' + (opMoreOpen ? ' open' : '') + '><summary>More detail</summary>' +
       '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
       '<label class="l" for="opPr">How well our base is covered with them</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>' +
-      '<label class="l" for="opPw">Their personal win</label><input type="text" id="opPw" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
-      '<label class="l" for="opPres">The business result they want</label><input type="text" id="opPres" value="' + esc(p.result || '') + '" placeholder="e.g. a hygienic line that passes audit">' +
-      '<label class="l" for="opPe">Evidence for the rating</label><input type="text" id="opPe" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
+      '<label class="l" for="opPw">Their personal win</label><input type="text" id="opPw" data-talk="line" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
+      '<label class="l" for="opPres">The business result they want</label><input type="text" id="opPres" data-talk="line" value="' + esc(p.result || '') + '" placeholder="e.g. a hygienic line that passes audit">' +
+      '<label class="l" for="opPe">Evidence for the rating</label><input type="text" id="opPe" data-talk="line" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
       '</details>') +
-    '<label class="l" for="opPnote">Notes</label><textarea id="opPnote" rows="3">' + esc(p.note || '') + '</textarea>' +
+    '<label class="l" for="opPnote">Notes</label><textarea id="opPnote" data-talk="sales" rows="3">' + esc(p.note || '') + '</textarea>' +
     '<div class="orow"><button type="button" class="btn go" id="opLink">Link to…</button><button type="button" class="btn" id="opDone">Done</button>' +
       '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button></div>' +
     (opConfirm ? '<div class="opconfirm">Remove ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
@@ -11627,7 +11644,7 @@ function opLinkPanel(l){
   P.innerHTML = '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b></div>' +
     '<label class="l">Kind</label>' + opChips('kind', OP_KINDS, l.kind) +
     '<label class="l">Strength</label><div class="seg" id="opSg">' + OP_STRS.map(s => '<button type="button" data-v="' + s + '"' + (l.str === s ? ' class="on"' : '') + '>' + s + '</button>').join('') + '</div>' +
-    '<label class="l" for="opLnote">Note</label><textarea id="opLnote" rows="3">' + esc(l.note || '') + '</textarea>' +
+    '<label class="l" for="opLnote">Note</label><textarea id="opLnote" data-talk="sales" rows="3">' + esc(l.note || '') + '</textarea>' +
     '<div class="orow"><button type="button" class="btn" id="opDone">Done</button>' + (edit ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRmL">Remove link</button>' : '') + '</div>';
   opWireChips('kind', v => { l.kind = v; }, true);
   $('opSg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { l.str = b.dataset.v; oppSaveNow().catch(reportErr); drawOpp(); opPanel(); }));
@@ -11671,6 +11688,7 @@ function renderOpBar(){
   const lap = o.kind === 'large';
   const h = ['<div class="opbar-tg"><button type="button" class="btn' + (opPeopleOn ? ' on' : '') + '" data-tg="people" aria-pressed="' + opPeopleOn + '">People ' + (opPeopleOn ? 'shown' : 'hidden') + '</button>' +
     '<button type="button" class="btn' + (opLinksOn ? ' on' : '') + '" data-tg="links" aria-pressed="' + opLinksOn + '">Links ' + (opLinksOn ? 'on' : 'off') + '</button></div>',
+    (lap ? '' : '<button type="button" class="btn act2 opbar-desc" data-desc="1">Add from a description</button>') +
     '<button type="button" class="opbar-opp" data-pick="OPP"><span class="sw" style="background:var(--c-opp)"></span><b>' + esc(o.name || (lap ? 'Large account' : 'Untitled')) + '</b></button>'];
   for(const K of OP_PKINDS){
     const qs = o.parties.filter(q => q.kind === K.k);
@@ -11717,6 +11735,7 @@ $('opBar').addEventListener('click', e => {
   if(b.id === 'opBarT' || b.closest('#opBarTg')){ opBarOpen = !opBarOpen; renderOpBar(); return; }
   if(b.dataset.tg === 'people'){ opPeopleOn = !opPeopleOn; try { localStorage.setItem(LS('opPeople'), opPeopleOn ? '1' : '0'); } catch(_){} drawOpp(); return; }
   if(b.dataset.tg === 'links'){ opLinksOn = !opLinksOn; try { localStorage.setItem(LS('opLinks'), opLinksOn ? '1' : '0'); } catch(_){} drawOpp(); return; }
+  if(b.dataset.desc){ osOpen('map', OPP.acct, '', ''); return; }
   if(b.dataset.addparty){ opBarAdding = opBarAdding === b.dataset.addparty ? '' : b.dataset.addparty; renderOpBar(); return; }
   if(b.dataset.spec){ const q = opParty(b.dataset.spec); if(q){ q.spec = OP_SPEC_NEXT[q.spec || '']; oppSaveNow().catch(reportErr); drawOpp(); if(opSel && opSel.t === 'party' && opSel.id === q.id) opPanel(); } return; }
   if(b.dataset.eye){ const q = opParty(b.dataset.eye); if(q){ q.show = q.show === false; oppSaveNow().catch(reportErr); drawOpp(); } return; }
@@ -12033,6 +12052,240 @@ $('pplShare').addEventListener('click', async () => {
     'contacts_not_in_dynamics_' + todayISOdate() + '.xlsx', 'Contacts not in Dynamics');
 });
 
+/* ---------- Set up from a description (v127) ----------
+   Ben, 2026-10-12: describe the project in one go - who it is for, the head
+   contractor, the OEMs - and have the Blue Sheet start with them. Claude
+   reads the description (ai-tidy, kind 'oppsetup'); the parties and people
+   it found come back as a list to tick, matched to the customer list here on
+   the device (the list itself never leaves it); what is ticked goes on the
+   map. From New opportunity, or the list beside an existing map. */
+let OS = null;                   // {mode: 'new'|'map', acct, name, res, items}
+const OS_STOP = new Set(['pty', 'ltd', 'limited', 'group', 'the', 'and', 'inc', 'company', 'australia', 'aust', 'new', 'zealand', 'nz', 'holdings']);
+const osWords = s => pKey(s).replace(/[^a-z0-9 ]+/g, ' ').split(' ').filter(w => w.length > 2 && !OS_STOP.has(w));
+function osLev(a, b){
+  if(Math.abs(a.length - b.length) > 1) return 2;
+  const d = Array.from({length: a.length + 1}, (_, i) => [i]);
+  for(let j = 1; j <= b.length; j++) d[0][j] = j;
+  for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++){
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if(i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);   // two letters swapped
+  }
+  return d[a.length][b.length];
+}
+/* A company named in the description, found in the customer list: every word
+   of its name in the account's name (one letter out allowed in a long word,
+   for voice typing), and the site breaking a tie. Only one best match counts;
+   a company with several sites and no site said stays a plain name. */
+function acctFind(name, site){
+  if(!name) return '';
+  if(ACC_BY_NAME.has(name)) return name;
+  const q = osWords(name), s = osWords(site);
+  if(!q.length) return '';
+  let best = [], top = 0;
+  for(const a of ACCOUNTS){
+    const aw = osWords(a.a + ' ' + (a.sub || ''));
+    if(!q.every(w => aw.some(x => x === w || (w.length >= 5 && osLev(x, w) <= 1)))) continue;
+    const sc = 1 + s.filter(w => aw.includes(w)).length;
+    if(sc > top){ top = sc; best = [a.a]; } else if(sc === top) best.push(a.a);
+  }
+  return best.length === 1 ? best[0] : '';
+}
+function osOpen(mode, acct, name, text){
+  OS = {mode, acct, name: name || '', res: null, items: null};
+  $('osHead').textContent = mode === 'new' ? 'New opportunity' : 'Add from a description';
+  $('osSub').textContent = mode === 'new' ? acct + '. Say who it is for, what it is, the head contractor and the OEMs, with anyone you know there.'
+    : 'Say which head contractors, OEMs and people to add. Anyone already on the map is kept.';
+  $('osText').value = text || '';
+  $('osAsk').hidden = false; $('osList').hidden = true; $('osList').innerHTML = '';
+  $('osGo').textContent = 'Read it'; $('osGo').disabled = false;
+  showMsg($('osMsg'), '', '');
+  const d = $('osdlg');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('osdlg');
+  }
+  if(text) osRead().catch(reportErr);
+}
+async function osRead(){
+  if(!OS) return;
+  const text = $('osText').value.trim();
+  if(!text){ toast('Type or dictate the description first'); return; }
+  const why = aiBlocked();
+  if(why){ showMsg($('osMsg'), 'warn', esc(why)); return; }
+  const mine = OS;
+  $('osGo').disabled = true;
+  showMsg($('osMsg'), 'info', 'Reading' + String.fromCharCode(8230) + ' usually a few seconds.');
+  let r;
+  try { r = await aiAsk({kind: 'oppsetup', text, account: OS.acct, today: todayISO()}); }
+  catch(e){ if(OS === mine){ $('osGo').disabled = false; showMsg($('osMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e)) + '. Nothing was changed.'); } return; }
+  if(OS !== mine || !$('osdlg').open) return;
+  $('osGo').disabled = false;
+  osBuild(r.setup || {});
+}
+// what came back, as ticks: parties already on the map are said so, and the end user is never a party twice
+function osBuild(res){
+  const o = OS.mode === 'map' ? OPP : null;
+  const onMap = q => o && (o.parties || []).find(x => x.kind !== 'ilx' && ((q.acct && x.acct === q.acct) || pKey(x.name) === pKey(q.name)));
+  const party = (kind, c) => {
+    const acct = acctFind(c.name, '');
+    const q = {kind, name: acct || c.name, said: c.name, acct, status: c.status || '', on: true, people: (c.people || []).map(p => ({n: p.n, title: p.title || '', on: true}))};
+    q.exists = onMap(q);
+    return q;
+  };
+  const parties = [...(res.heads || []).map(c => party('head', c)), ...(res.oems || []).map(c => party('oem', c))]
+    .filter(q => q.acct !== OS.acct && pKey(q.name) !== pKey(OS.acct));
+  OS.items = {name: res.name || '', obj: res.objective || '', value: res.value || '', close: res.close || '', comp: res.competition || '', compOn: !!res.competition,
+    end: (res.endPeople || []).map(p => ({n: p.n, title: p.title || '', on: true})), parties};
+  if(!OS.items.end.length && !parties.length && !(OS.mode === 'new' && (OS.items.name || OS.items.obj))){
+    showMsg($('osMsg'), 'warn', 'Nothing to set up was found in that. Add the companies and people, then tap Read it again.');
+    return;
+  }
+  showMsg($('osMsg'), '', '');
+  $('osAsk').hidden = true; $('osList').hidden = false;
+  $('osGo').textContent = OS.mode === 'new' ? 'Make the map' : 'Add to the map';
+  osDraw();
+}
+function osDraw(){
+  const I = OS.items, h = [];
+  const tick = (key, on, label, meta, off) => '<label class="oschk' + (off ? ' off' : '') + '"><input type="checkbox" data-os="' + key + '"' + (on ? ' checked' : '') + (off ? ' disabled' : '') + '><span><b>' + esc(label) + '</b>' + (meta ? '<small>' + esc(meta) + '</small>' : '') + '</span></label>';
+  const ppl = (list, pre, off) => list.map((p, i) => '<div class="osppl">' + tick(pre + i, p.on, p.n, p.title, off) + '</div>').join('');
+  if(OS.mode === 'new'){
+    h.push('<div class="f"><label for="osName">Name</label><input type="text" id="osName" value="' + esc(I.name || OS.name) + '" placeholder="e.g. Line 3 upgrade"></div>' +
+      '<div class="f"><label for="osObj">Objective</label><textarea id="osObj" rows="2" placeholder="What, how much and by when">' + esc(I.obj) + '</textarea></div>' +
+      '<div class="row"><div class="f"><label for="osValue">Value</label><input type="text" id="osValue" value="' + esc(I.value) + '"></div>' +
+      '<div class="f"><label for="osClose">Expected close</label><input type="month" id="osClose" value="' + esc(I.close) + '"></div></div>');
+  }
+  h.push('<p class="hint">Untick anything that is wrong. Names can be changed on the map afterwards.</p>');
+  h.push('<h3 class="osh"><span class="sw" style="background:var(--c-end)"></span>' + esc(OS.mode === 'new' ? OS.acct : 'End user') + '</h3>' +
+    (I.end.length ? ppl(I.end, 'e:') : '<p class="hint">Nobody named.</p>'));
+  [['head', 'Head contractors', '--c-head'], ['oem', 'OEMs and integrators', '--c-oem']].forEach(([k, t, col]) => {
+    const qs = I.parties.map((q, i) => ({q, i})).filter(x => x.q.kind === k);
+    h.push('<h3 class="osh"><span class="sw" style="background:var(' + col + ')"></span>' + t + '</h3>');
+    if(!qs.length){ h.push('<p class="hint">None named.</p>'); return; }
+    qs.forEach(({q, i}) => {
+      const meta = [q.exists ? 'Already on the map: its people are added to it' : q.acct ? (q.acct !== q.said ? 'Your customer ' + q.acct : 'In your customer list') : 'Not in your customer list',
+        k === 'head' && q.status].filter(Boolean).join(' · ');
+      h.push('<div class="osparty">' + tick('q:' + i, q.on, q.name, meta) + ppl(q.people, 'p:' + i + ':', !q.on) + '</div>');
+    });
+  });
+  if(I.comp) h.push('<h3 class="osh">Competition</h3>' + tick('comp', I.compOn, I.comp, ''));
+  $('osList').innerHTML = h.join('');
+  $('osList').querySelectorAll('[data-os]').forEach(x => x.addEventListener('change', () => {
+    const [t, a, b] = x.dataset.os.split(':');
+    if(t === 'e') I.end[+a].on = x.checked;
+    else if(t === 'q'){ I.parties[+a].on = x.checked; osKeep(); osDraw(); }
+    else if(t === 'p') I.parties[+a].people[+b].on = x.checked;
+    else if(t === 'comp') I.compOn = x.checked;
+  }));
+}
+// the boxes at the top survive a redraw
+function osKeep(){
+  if(!OS || !OS.items || OS.mode !== 'new' || !$('osName')) return;
+  Object.assign(OS.items, {name: $('osName').value.trim(), obj: $('osObj').value.trim(), value: $('osValue').value.trim(), close: $('osClose').value});
+}
+// a new person on the map: their contact record if the CRM has one, and what another Blue Sheet knew, as estimates
+function opNewPerson(q, n, title){
+  const p = {id: newId('pp'), party: q.id, side: opKind(q.kind).side, n, title: title || '', role: '', role2: '', stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: '', boss: ''};
+  if(q.kind === 'head' || q.kind === 'oem') p.org = q.name;
+  const c = opPartySuggest(q).find(s => pKey(s.n) === pKey(n));
+  if(c){ if(!p.title) p.title = c.title || ''; if(c.cid) p.cid = c.cid; }
+  const h = q.kind === 'ilx' ? null : opHistory(n, opCompany(OPP, q), OPP.id)[0];
+  if(h){
+    p.role = h.p.role || ''; p.role2 = h.p.role2 || ''; p.stance = h.p.stance || 'unknown';
+    if(!p.title) p.title = h.p.title || '';
+    const est = [p.role && 'role', p.stance !== 'unknown' && 'stance'].filter(Boolean);
+    if(est.length){ p.est = est; p.estFrom = h.o.name; }
+  }
+  return p;
+}
+// what was ticked, onto the open map
+function opApplySetup(I){
+  opEnsure(OPP);
+  const end = OPP.parties.find(q => q.kind === 'end'), added = new Map(), have = q => opPeopleOf(q).map(p => pKey(p.n));
+  const addPeople = (q, list) => {
+    for(const x of list) if(x.on && pKey(x.n) && !have(q).includes(pKey(x.n))){
+      const p = opNewPerson(q, x.n, x.title);
+      OPP.people = (OPP.people || []).concat([p]);
+      if(!added.has(q)) added.set(q, []);
+      added.get(q).push(p);
+    }
+  };
+  if(end) addPeople(end, I.end);
+  let nParties = 0;
+  const live = I.parties.filter(x => x.on);
+  for(const kind of ['head', 'oem']) for(const x of live.filter(y => y.kind === kind)){
+    let q = OPP.parties.find(y => y.kind !== 'ilx' && ((x.acct && y.acct === x.acct) || pKey(y.name) === pKey(x.name)));
+    if(!q){
+      q = {id: newId('pa'), kind, name: x.name, spec: ''};
+      if(x.acct) q.acct = x.acct;
+      if(kind === 'head') q.status = x.status === 'Appointed' ? 'Appointed' : 'Bidding';
+      else {
+        q.belts = ['Intralox'];
+        const via = OPP.parties.find(y => y.kind === 'head' && y.status === 'Appointed') || OPP.parties.find(y => y.kind === 'head');
+        q.via = via ? via.id : '';
+      }
+      OPP.parties.splice(OPP.parties.findIndex(y => y.kind === 'ilx'), 0, q);
+      nParties++;
+    }
+    q.show = true;
+    addPeople(q, x.people);
+  }
+  if(I.compOn && I.comp) OPP.comp = OPP.comp ? OPP.comp + '\n' + I.comp : I.comp;
+  oppSaveNow().catch(reportErr);
+  renderOpp();
+  const nPeople = [...added.values()].reduce((t, l) => t + l.length, 0);
+  toast(nParties + (nParties === 1 ? ' party' : ' parties') + ' and ' + nPeople + (nPeople === 1 ? ' person' : ' people') + ' added');
+  // new names under one of our customers join its contacts, as from the table (v125)
+  if(!OPP.test) (async () => {
+    let n = 0;
+    for(const [q, list] of added){ const acct = opPartyAcct(OPP, q); if(acct) for(const p of list) if(await peopleAdd(acct, p.n, p.title, OPP.name)) n++; }
+    if(n) setTimeout(() => toast(n + (n === 1 ? ' person' : ' people') + ' added to the customer list, marked Not in Dynamics yet'), 2400);
+  })().catch(reportErr);
+}
+function osShut(){
+  const d = $('osdlg');
+  if(!d.hasAttribute('open')) return;
+  if(history.state && history.state.dialog === 'osdlg'){ history.back(); return; }
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+$('osCancel').addEventListener('click', () => { OS = null; osShut(); });
+$('osdlg').addEventListener('close', () => { OS = null; micAbort(); });
+$('osGo').addEventListener('click', async () => {
+  if(!OS) return;
+  if(!OS.items) return osRead().catch(reportErr);
+  osKeep();
+  const S = OS, I = S.items;
+  OS = null;
+  // a new one: closed here, not by going back, and the map takes this entry over;
+  // on a map, back off the entry, or it is left behind under the next one
+  const d = $('osdlg');
+  if(S.mode === 'map') osShut();
+  else if(d.close) d.close(); else d.removeAttribute('open');
+  try {
+    if(S.mode === 'new'){
+      const o = {id: newId('op'), acct: S.acct, name: I.name || S.name || 'Untitled opportunity', obj: I.obj, value: I.value, close: I.close,
+        people: [], links: [], flags: [], strengths: [], created: Date.now(), updated: Date.now()};
+      await oppsPut(JSON.parse(JSON.stringify(o)));
+      OPPS = OPPS.concat([o]);
+      if(screen === 'strategy') stOpened = 'opp';
+      openOpp(o.id);
+    }
+    if(!OPP) return;
+    opApplySetup(I);
+  } catch(e){ reportErr(e); }
+});
+// from New opportunity: the description goes with whatever name was typed
+function odSetup(){
+  if(!odEdit || !odIsNew) return;
+  const acct = odEdit.acct, name = $('odName').value.trim(), text = $('odDesc').value.trim();
+  if(!text){ toast('Type or dictate the description first'); return; }
+  odEdit = null;
+  const d = $('oppdlg');
+  if(d.close) d.close(); else d.removeAttribute('open');
+  osOpen('new', acct, name, text);
+}
+$('odDescGo').addEventListener('click', odSetup);
+
 /* ---------- Test project (v124) ----------
    Like Test call: one tap, a made-up project to try the map on - one
    opportunity, the end user with an engineering manager and the engineers
@@ -12089,7 +12342,7 @@ function renderOpp(){
   $('title').textContent = OPP.name || (lap ? 'Large account' : 'Opportunity');
   $('subtitle').textContent = lap ? ns + (ns === 1 ? ' site' : ' sites') : OPP.acct;
   $('opView').querySelector('[data-v="sheet"]').textContent = lap ? 'Plan' : 'Blue Sheet';
-  $('opEdit').hidden = lap;
+  $('opEdit').hidden = lap; $('opDelBtn').hidden = lap;
   const sheet = !lap && opMode === 'sheet';
   $('opView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === (sheet ? 'sheet' : 'map')));
   $('opShare').hidden = !sheet;
@@ -12165,16 +12418,16 @@ function renderSheet(){
       '<label class="l" for="bsPos">Adequacy of our position</label><div class="oprate"><input type="range" id="bsPos" min="-5" max="5" step="1" value="' + (o.pos == null ? 0 : o.pos) + '"><output id="bsPosV">' + esc(opPosLabel(o.pos)) + '</output></div>' +
       '<div class="poslbl"><span>−5 panic</span><span>+5 euphoria</span></div>' +
       '<label class="l" for="bsWord">In a word</label>' + inp('id="bsWord"', o.posWord, 'e.g. Concern', 'Adequacy of our position, in a word') +
-      '<label class="l" for="bsWhy">Why we stand there</label><textarea id="bsWhy" rows="2">' + esc(o.posWhy || '') + '</textarea>' +
+      '<label class="l" for="bsWhy">Why we stand there</label><textarea id="bsWhy" data-talk="sales" rows="2">' + esc(o.posWhy || '') + '</textarea>' +
       '<label class="l">Our position against the competition</label>' + bsChips('vsComp', BS_COMP, o.vsComp) +
       '<label class="l">Place in their funnel</label>' + bsChips('funnel', BS_FUNNEL, o.funnel) +
       '<label class="l">Timing for priorities</label>' + bsChips('timing', BS_TIMING, o.timing) +
-      '<label class="l" for="bsComp">Competition</label><textarea id="bsComp" rows="2" placeholder="Who else, and what they are offering">' + esc(o.comp || '') + '</textarea>' +
+      '<label class="l" for="bsComp">Competition</label><textarea id="bsComp" data-talk="sales" rows="2" placeholder="Who else, and what they are offering">' + esc(o.comp || '') + '</textarea>' +
     '<h2>Ideal customer criteria</h2><p class="hint">How well they match your ideal customer, each from −5 to +5. Total <b id="bsCritTot">' + esc(opPosLabel(bsCritTotal(o))) + '</b>.</p>' +
       '<ul class="opitems good bscrit">' + (crit.length ? crit.map((c, i) => '<li><span>' + esc(c.t) + '</span>' +
         '<select data-bscrit="' + i + '" aria-label="How well they match: ' + esc(c.t) + '">' + rateOpts(typeof c.r === 'number' ? c.r : null) + '</select>' +
         '<button type="button" class="opx" data-bscrm="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
-      (crit.length < 10 ? '<div class="opadd"><input type="text" id="bsNc" placeholder="A criterion of your ideal customer" aria-label="A criterion of your ideal customer"><button type="button" class="btn act2" id="bsNcGo">Add</button></div>' : '') +
+      (crit.length < 10 ? '<div class="opadd"><input type="text" id="bsNc" data-talk="line" placeholder="A criterion of your ideal customer" aria-label="A criterion of your ideal customer"><button type="button" class="btn act2" id="bsNcGo">Add</button></div>' : '') +
     '<h2>Buying influences</h2>' +
       (opTheirs().length ? opTheirs().map(p => {
         const cov = opCoverage(p), code = bsRoleCode(p);
@@ -12186,19 +12439,19 @@ function renderSheet(){
             '<label class="l">How much they sway it</label><div class="seg" data-bsinfl="' + esc(p.id) + '">' + OP_INFL.map(v => '<button type="button" data-v="' + v + '"' + (p.infl === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</div>' +
             '<label class="l">How they see it</label>' + opChips('mode:' + p.id, OP_MODES, p.mode || '') +
             '<label class="l" for="bsR' + esc(p.id) + '">How well our base is covered with them</label><div class="oprate"><input type="range" id="bsR' + esc(p.id) + '" data-bsrate="' + esc(p.id) + '" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output>' + opPosLabel(p.rate || 0) + '</output></div>' +
-            '<label class="l" for="bsE' + esc(p.id) + '">Evidence for that rating</label><input type="text" data-bsf="evid:' + esc(p.id) + '" id="bsE' + esc(p.id) + '" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
+            '<label class="l" for="bsE' + esc(p.id) + '">Evidence for that rating</label><input type="text" data-talk="line" data-bsf="evid:' + esc(p.id) + '" id="bsE' + esc(p.id) + '" value="' + esc(p.evid || '') + '" placeholder="What they said or did">' +
             '<div class="cov' + (cov.length ? '' : ' none') + '">' + (cov.length ? 'Covered by ' + esc(cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ')) : 'Not covered by anyone on our team: link one of ours to them on the map') + '</div>' +
-            '<label class="l" for="bsW' + esc(p.id) + '">Their personal win</label><input type="text" data-bsf="win:' + esc(p.id) + '" id="bsW' + esc(p.id) + '" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
-            '<label class="l" for="bsB' + esc(p.id) + '">The business result they want</label><input type="text" data-bsf="result:' + esc(p.id) + '" id="bsB' + esc(p.id) + '" value="' + esc(p.result || '') + '" placeholder="e.g. less downtime on Line 3">' +
+            '<label class="l" for="bsW' + esc(p.id) + '">Their personal win</label><input type="text" data-talk="line" data-bsf="win:' + esc(p.id) + '" id="bsW' + esc(p.id) + '" value="' + esc(p.win || '') + '" placeholder="What they get out of it themselves">' +
+            '<label class="l" for="bsB' + esc(p.id) + '">The business result they want</label><input type="text" data-talk="line" data-bsf="result:' + esc(p.id) + '" id="bsB' + esc(p.id) + '" value="' + esc(p.result || '') + '" placeholder="e.g. less downtime on Line 3">' +
           '</div></details>';
       }).join('') : '<p class="hint">Nobody yet. Add the customer\'s and the OEMs\' people on the map, on the PC.</p>') +
     (gaps.length ? '<h2>Gaps</h2><ul class="bsgaps">' + gaps.map((g, i) => '<li><span>' + esc(g.t) + '</span><button type="button" class="btn act2" data-bsgap="' + i + '">Add as a red flag</button></li>').join('') + '</ul>' : '') +
     '<h2>Red flags</h2><ul class="opitems bsflags">' + ((o.flags || []).length ? o.flags.map((f, i) => '<li><span>' + esc(f.t) + '<span class="pin">' + esc(opPinLabel(f.pin)) + '</span>' +
         '<span class="bsfx">' + inp('data-bsfl="need:' + i + '"', f.need, 'Information needed') + inp('data-bsfl="who:' + i + '"', f.who, 'From whom') + '</span></span>' +
         '<button type="button" class="opx" data-oprm="flags:' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
-    '<div class="opadd"><input type="text" id="bsNf" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="bsNfGo">Add</button></div>' +
+    '<div class="opadd"><input type="text" id="bsNf" data-talk="line" placeholder="A new red flag" aria-label="A new red flag"><button type="button" class="btn act2" id="bsNfGo">Add</button></div>' +
     '<h2>Strengths</h2>' + opList('strengths', true) +
-    '<div class="opadd"><input type="text" id="bsNs" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="bsNsGo">Add</button></div>' +
+    '<div class="opadd"><input type="text" id="bsNs" data-talk="line" placeholder="A new strength" aria-label="A new strength"><button type="button" class="btn act2" id="bsNsGo">Add</button></div>' +
     '<h2>Possible actions</h2>' +
     (bests.length ? '<p class="hint">Best action plan: <b>' + bests.map(a => esc(a.t)).join('; ') + '</b></p>' : acts.length ? '<p class="hint">Star the actions that make the best action plan.</p>' : '') +
     '<ul class="opitems bsacts">' + (acts.length ? acts.map((a, i) => '<li class="' + (a.best ? 'best' : '') + '">' +
@@ -12206,11 +12459,11 @@ function renderSheet(){
       '<span>' + esc(a.t) + '<span class="bsfx">' + inp('data-bsac="who:' + i + '"', a.who, 'Who') + inp('data-bsac="when:' + i + '"', a.when, 'When') + '</span></span>' +
       '<button type="button" class="btn act2" data-bstask="' + i + '">Make a task</button>' +
       '<button type="button" class="opx" data-bsact="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
-    '<div class="opadd"><input type="text" id="bsNa" placeholder="A possible action" aria-label="A possible action"><button type="button" class="btn act2" id="bsNaGo">Add</button></div>' +
+    '<div class="opadd"><input type="text" id="bsNa" data-talk="line" placeholder="A possible action" aria-label="A possible action"><button type="button" class="btn act2" id="bsNaGo">Add</button></div>' +
     '<h2>Communication notes</h2>' +
     '<ul class="opitems good bsnotes">' + (notes.length ? notes.map(({n, i}) => '<li><span><b>' + esc(n.d ? dayLabel(n.d) : 'No date') + '</b> ' + esc(n.t) + '</span>' +
       '<button type="button" class="opx" data-bsnrm="' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
-    '<div class="bsnadd"><input type="date" id="bsNd" value="' + todayISO() + '" aria-label="Date"><input type="text" id="bsNn" placeholder="Who you spoke to, and what about" aria-label="A note"><button type="button" class="btn act2" id="bsNnGo">Add</button></div>';
+    '<div class="bsnadd"><input type="date" id="bsNd" value="' + todayISO() + '" aria-label="Date"><input type="text" id="bsNn" data-talk="line" placeholder="Who you spoke to, and what about" aria-label="A note"><button type="button" class="btn act2" id="bsNnGo">Add</button></div>';
 
   const redraw = () => { oppSaveNow().catch(reportErr); renderSheet(); };
   $('bsDetails').addEventListener('click', () => openOppDetails(OPP));
@@ -12663,9 +12916,41 @@ async function deliverFile(blob, name, title){
   setTimeout(() => URL.revokeObjectURL(url), 4000);
   toast('Saved ' + name);
 }
+/* v127: PDF, on the phone and the PC, with no PDF library. Ben, 2026-10-12:
+   "it'd be PDF or Excel". The A4 document is laid into this page, in a shadow
+   root so its styles and the app's keep apart, and only it prints; the
+   browser's own print screen offers Save as PDF. Printing the top page, not a
+   frame or a new tab, is what works the same in the installed app on
+   Android. The page title becomes the PDF's suggested file name. */
+async function printDoc(html, name){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const css = [...doc.querySelectorAll('style')].map(s => s.textContent).join('\n')
+    .replace(/@page\{[^}]*\}/g, '')                           // only the page's own @page counts
+    .replace(/(^|[}{,;\s])html(?=\s*[{,])/g, '$1:host')
+    .replace(/(^|[}{,;\s])body(?=[\s.{,])/g, '$1.docbody');
+  let host = $('printHost');
+  if(!host){
+    host = document.createElement('div'); host.id = 'printHost';
+    host.attachShadow({mode: 'open'});
+    document.body.appendChild(host);
+  }
+  host.shadowRoot.innerHTML = '<style>' + css + '</style><div class="docbody ' + esc(doc.body.className || '') + '">' + doc.body.innerHTML + '</div>';
+  await Promise.all([...host.shadowRoot.querySelectorAll('img')].map(i => i.decode ? i.decode().catch(() => {}) : null));
+  const title = document.title;
+  document.title = String(name || 'document').replace(/\.[a-z]+$/i, '');
+  document.body.classList.add('printing');
+  /* Android lays the pages out after print() has returned, and again if the
+     paper is changed, so the document stays the one that prints until you are
+     back in the app and touch something. */
+  const done = () => { document.body.classList.remove('printing'); document.title = title; };
+  const back = () => { window.removeEventListener('afterprint', back); document.addEventListener('pointerdown', done, {once: true}); document.addEventListener('keydown', done, {once: true}); };
+  window.addEventListener('afterprint', back);
+  try { window.print(); }
+  catch(e){ done(); throw e; }
+}
 function shareBlueSheet(){
   if(!OPP) return;
-  chipRow($('boFmt'), ['Document', 'Excel'], 'Document');
+  chipRow($('boFmt'), ['PDF', 'Excel'], 'PDF');
   $('boMap').checked = false;
   bsOutPaint();
   if($('bsoutdlg').showModal) $('bsoutdlg').showModal(); else $('bsoutdlg').setAttribute('open', '');
@@ -12675,7 +12960,7 @@ function bsOutPaint(){
   const xl = chipVal($('boFmt')) === 'Excel';
   $('boMapWrap').hidden = xl;
   $('boNote').textContent = xl ? 'In the Miller Heiman template\'s own layout, so it opens in Excel and imports back. Excel can\'t carry the map.'
-    : 'Miller Heiman\'s sections in its own order, for anyone outside MPS. The map is for your own planning; add it only if they should see it.';
+    : 'Miller Heiman\'s sections in its own order, on A4, for anyone outside MPS. The print screen opens: choose Save as PDF. The map is for your own planning; add it only if they should see it.';
 }
 function bsOutShut(){
   const d = $('bsoutdlg');
@@ -12683,7 +12968,7 @@ function bsOutShut(){
   if(history.state && history.state.dialog === 'bsoutdlg'){ history.back(); return; }
   if(d.close) d.close(); else d.removeAttribute('open');
 }
-$('boFmt').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; chipRow($('boFmt'), ['Document', 'Excel'], b.dataset.v); bsOutPaint(); });
+$('boFmt').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; chipRow($('boFmt'), ['PDF', 'Excel'], b.dataset.v); bsOutPaint(); });
 $('boCancel').addEventListener('click', bsOutShut);
 $('boGo').addEventListener('click', async () => {
   const xl = chipVal($('boFmt')) === 'Excel', withMap = $('boMap').checked;
@@ -12700,7 +12985,7 @@ $('boGo').addEventListener('click', async () => {
     }
     toast('Building' + String.fromCharCode(8230));
     const png = withMap ? await oppMapPng() : '';
-    await deliverDoc(buildBlueSheetHTML(OPP, png), base + '.html', 'Blue Sheet ' + (OPP.name || ''));
+    await printDoc(buildBlueSheetHTML(OPP, png), base);
   } catch(e){ reportErr(e); }
 });
 $('opShare').addEventListener('click', shareBlueSheet);
@@ -14770,7 +15055,10 @@ function micStart(btn){
   const base = box.value.replace(/\s+$/, '');
   micSession = {btn, box, base, sep: base ? (box.tagName === 'INPUT' ? ' ' : '\n') : '',
     kept: '', run: '', heard: false, failed: '', ending: false, paused: false, pressing: false, quick: 0, lastHeard: Date.now(),
-    after: btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr) : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr)};
+    after: btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr)
+      : btn.dataset.after === 'setup' ? () => osRead().catch(reportErr)          // v127: a description sets the map up
+      : btn.dataset.after === 'setupnew' ? () => odSetup()
+      : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr)};
   micRun(micSession);
   if(micSession && !micSession.paused) toast('Listening. Tap Finish when you are done');
 }
@@ -14818,9 +15106,33 @@ function micButton(id, field, after){
   micWire(b);
   return b;
 }
+/* v127: the Blue Sheet's free-text boxes, on the map's panel, the Blue
+   Sheet itself and Details. They are drawn in code, so the containers are
+   watched: every box marked data-talk gets a microphone beside it, and
+   finishing opens Tidy, as on a call (field 'sales' or 'line'). */
+function micAuto(root){
+  if(!SPEECH || !root) return;
+  root.querySelectorAll('[data-talk]').forEach(box => {
+    if(!box.id || box.dataset.talkOn) return;
+    box.dataset.talkOn = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'talk' + (box.tagName === 'TEXTAREA' ? ' tall' : '');
+    box.replaceWith(wrap);
+    wrap.append(box, micButton(box.id, box.dataset.talk));
+  });
+}
+if(SPEECH){
+  ['opPanel', 'opSheet', 'oppdlg'].forEach(id => {
+    const el = $(id); if(!el) return;
+    micAuto(el);
+    new MutationObserver(() => micAuto(el)).observe(el, {childList: true, subtree: true});
+  });
+}
 if(SPEECH){
   document.querySelectorAll('[data-ai]').forEach(t => t.parentNode.insertBefore(micButton(t.dataset.ai, t.dataset.field), t));
   $('tkNotesActs').appendChild(micButton('tkNotes', 'note'));
+  $('osActs').appendChild(micButton('osText', 'note', 'setup'));
+  $('odDescActs').insertBefore(micButton('odDesc', 'note', 'setupnew'), $('odDescGo'));
   $('tkDraft').parentNode.insertBefore(micButton('tkBody', 'note', 'draft'), $('tkDraft'));
 }
 $('taskdlg').addEventListener('close', micAbort);
