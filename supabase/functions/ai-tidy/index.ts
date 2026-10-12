@@ -40,9 +40,11 @@ const FIELD: Record<string, string> = {
   health: "This is a comment from a conveyor health check. It prints on a report the customer reads, so keep it factual and professional.",
   fault: "This is the fault or observation from a conveyor health check, on a report the customer reads. Keep it factual and professional; one or two sentences, or short bullets if there are several faults.",
   short: "This goes in a one-line field (a recommended action or a next action). Reply with one short line: no bullets and no line breaks.",
-  // v127: the Blue Sheet's boxes - kept for the salesperson, not the customer
-  sales: "These are the salesperson's own notes on a sales opportunity's Blue Sheet: where we stand, the competition, a relationship, the objective. They are for the sales team, not the customer.",
-  line: "This goes in a one-line field on a sales opportunity's Blue Sheet: a red flag, a strength, a possible action, an ideal-customer criterion, someone's personal win or business result, or the evidence for a rating. Keep its meaning and its kind - never turn a red flag or a strength into an action. Reply with one short line: no bullets and no line breaks.",
+  // v127: the Blue Sheet's boxes - kept for the salesperson, not the customer (v132: and the account plans)
+  sales: "These are the salesperson's own notes on a sales plan - an opportunity's Blue Sheet, an account plan or a large account plan: where we stand, the competition, a relationship, the objective, red flags or strengths. They are for the sales team, not the customer.",
+  line: "This goes in a one-line field on a sales plan or Blue Sheet: a goal, a red flag, a strength, a possible action, a strategy, an ideal-customer criterion, someone's personal win or business result, or the evidence for a rating. Keep its meaning and its kind - never turn a red flag or a strength into an action. Reply with one short line: no bullets and no line breaks.",
+  // v132: his own development plan
+  self: "These are the engineer's own notes for his personal development plan (CIP) or his MBOs: goals, strengths, gaps, plans and evidence. They are for him and his manager, not a customer. Keep it in his voice (first person where he used it).",
 };
 
 const TIDY = `You tidy notes that an Intralox conveyor belt sales engineer in Australia or New Zealand dictated on site with a phone keyboard's voice typing.

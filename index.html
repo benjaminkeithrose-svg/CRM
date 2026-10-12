@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v131">
+<meta name="build" content="v132">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -350,6 +350,17 @@ ul.rep li{margin-bottom:2px}
   cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 .cbin .ic{width:18px;height:18px}
 .cbin:active{background:#FBEFEF}
+/* v132: the Tasks list */
+.tkrow .tktick{flex:none;width:44px;background:transparent;border:0;border-right:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.tkrow .tktick::before{content:'';width:20px;height:20px;border:2px solid var(--ink-3);border-radius:4px;box-sizing:border-box}
+.tkrow .tktick .ic{position:absolute;width:16px;height:16px;color:var(--ok)}
+.tkrow .tktick{position:relative}
+.tkrow.done .tktick::before{border-color:var(--ok)}
+.tkrow.done .rn{text-decoration:line-through;color:var(--ink-3)}
+.tkrow.late{border-left-color:var(--orange)}
+h2.tkh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:14px 0 6px}
+h2.tkh.late{color:var(--orange-dk)}
+#tkKinds{margin-left:auto}
 /* v128 QA: touch targets of at least 40px, icons centred */
 .oppcard .hd .x,.oppcard .x.bsimp{min-height:40px;display:inline-flex;align-items:center;padding:0 4px}
 .opitems .opx{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center}
@@ -1643,7 +1654,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="cip"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>CIP</b></button><button data-go="mbo"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M8.2 13.4 7 22l5-3 5 3-1.2-8.6"/></svg></span><b>MBO</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="tasks"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><b>Tasks</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="cip"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>CIP</b></button><button data-go="mbo"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M8.2 13.4 7 22l5-3 5 3-1.2-8.6"/></svg></span><b>MBO</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- The tiles no longer carry a count line. These keep the existing render
@@ -2137,7 +2148,7 @@ details.bsx > .msg{margin:8px 12px}
   <details class="sx hx">
     <summary><b>Talk into a box, or tidy a note</b><span class="sxs">The microphone and Tidy</span></summary>
     <div class="fld help">
-      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet.</p>
+      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, saved notes, products, a visit's agenda and your CIP.</p>
       <ol>
         <li>Tap the microphone.</li>
         <li>The first time, allow the microphone when the phone asks.</li>
@@ -2493,6 +2504,21 @@ details.bsx > .msg{margin:8px 12px}
         <li>To delete it, tap the bin on the right of its card.</li>
       </ol>
       <p>A copy opens without being saved. Change what's different and tap Done. Photos aren't copied.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>See all your tasks</b><span class="sxs">The Tasks tile</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Tasks</b> on Home.</li>
+        <li><b>Open</b> lists what is still to do: anything overdue from an earlier day first, then today, then what is coming up.</li>
+        <li>Tap the box on a task to tick it done. It moves to <b>Done</b>.</li>
+        <li>Tap a task to open and change it.</li>
+        <li>Tap <b>Emails</b> to see only the emails still to write.</li>
+        <li>Tap the circle-plus next to <b>Open</b> to add a task. On <b>Emails</b>, it starts an email.</li>
+        <li>To delete one, tap the bin on the right of its card.</li>
+      </ol>
+      <p>A task still shows on its day in the calendar as well. An overdue one stays on Tasks until you tick it done or change its date.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3115,7 +3141,7 @@ details.bsx > .msg{margin:8px 12px}
     <div class="f"><label for="snLabel">Label</label><input type="text" id="snLabel" autocomplete="off" placeholder="What it's for, e.g. Close: went with another supplier"></div>
     <div class="f"><label>Reason</label><div class="chips" id="snReason"></div>
       <input type="text" id="snOther" autocomplete="off" placeholder="Type the reason" hidden></div>
-    <div class="f"><label for="snText">Text</label><textarea id="snText" rows="8" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
+    <div class="f"><label for="snText">Text</label><textarea id="snText" data-talk="note" rows="8" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
   </div>
 </dialog>
 
@@ -3131,7 +3157,7 @@ details.bsx > .msg{margin:8px 12px}
     <div class="f"><label for="prPart">Part number</label><input type="text" id="prPart" autocomplete="off"></div>
     <div class="f"><label>Status</label><div class="chips" id="prStatus"></div></div>
     <div class="f"><label for="prAcct">Account</label><input type="text" id="prAcct" list="prAcctList" autocomplete="off" placeholder="Start typing an account"><datalist id="prAcctList"></datalist></div>
-    <div class="f"><label for="prNotes">Notes</label><textarea id="prNotes" rows="4"></textarea></div>
+    <div class="f"><label for="prNotes">Notes</label><textarea id="prNotes" data-talk="note" rows="4"></textarea></div>
     <label class="ct"><input type="checkbox" id="prStocked"><div><div class="cn">Now stocked</div><div class="cr" id="prStockedAt">Tick it when it's on the shelf. It moves to the Stocked tab.</div></div></label>
   </div>
 </dialog>
@@ -3212,7 +3238,7 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   <div class="dlg-b">
     <div class="f"><label for="cbT">Item</label><input type="text" id="cbT" autocomplete="off"></div>
-    <div class="f"><label for="cbNote">Plan and notes</label><textarea id="cbNote" rows="7" placeholder="How will I do this? Actions, timing, and how I'll know it is working."></textarea></div>
+    <div class="f"><label for="cbNote">Plan and notes</label><textarea id="cbNote" data-talk="self" rows="7" placeholder="How will I do this? Actions, timing, and how I'll know it is working."></textarea></div>
     <div class="f"><label for="cbBox">Pillar</label><select id="cbBox"></select></div>
   </div>
 </dialog>
@@ -3336,12 +3362,12 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint" id="plSub"></p>
     <!-- v117: a multi-site customer gets one large account plan across its sites -->
     <label class="chk"><input type="checkbox" id="plLarge"> Large account: several sites under one plan</label>
-    <div class="f"><label for="plGoal">Goal for this account</label><input type="text" id="plGoal" autocomplete="off" placeholder="e.g. Replace the Line 2 belt and sprockets before the December shutdown"></div>
+    <div class="f"><label for="plGoal">Goal for this account</label><input type="text" id="plGoal" data-talk="line" autocomplete="off" placeholder="e.g. Replace the Line 2 belt and sprockets before the December shutdown"></div>
     <div class="f"><label>People</label><div id="plPeople"></div>
       <button type="button" class="btn act2" id="plAdd">Add a person</button></div>
     <datalist id="plNames"></datalist>
-    <div class="f"><label for="plFlags">Red flags</label><textarea id="plFlags" rows="3" placeholder="What is unknown, uncertain or worrying"></textarea></div>
-    <div class="f"><label for="plStrengths">Strengths</label><textarea id="plStrengths" rows="3" placeholder="What we have going for us here"></textarea></div>
+    <div class="f"><label for="plFlags">Red flags</label><textarea id="plFlags" data-talk="sales" rows="3" placeholder="What is unknown, uncertain or worrying"></textarea></div>
+    <div class="f"><label for="plStrengths">Strengths</label><textarea id="plStrengths" data-talk="sales" rows="3" placeholder="What we have going for us here"></textarea></div>
   </div>
 </dialog>
 
@@ -3395,7 +3421,7 @@ details.bsx > .msg{margin:8px 12px}
         <button type="button" data-tmpl="pov">Proof of value</button>
         <button type="button" data-tmpl="survey">Belt survey</button>
       </div>
-      <textarea id="dAgenda" rows="9" placeholder="What this call is for"></textarea>
+      <textarea id="dAgenda" data-talk="note" rows="9" placeholder="What this call is for"></textarea>
       <p class="note" id="dTmplNote">Pick a template to fill this in, then edit it however you like.</p>
     </div>
     <div class="f"><label>Who to see</label><div class="cts" id="dCts"></div></div>
@@ -4029,6 +4055,19 @@ details.bsx > .msg{margin:8px 12px}
     <button type="button" class="tvi" id="stSearch" aria-label="Search" title="Search"></button>
   </div>
   <div id="stRes"></div>
+</section>
+
+<!-- v132: tasks in their own place: Open and Done, overdue first, emails filter -->
+<section class="scr" id="s-tasks">
+  <div class="seg tabs ptabs" id="tkTabs">
+    <span class="ptab on"><button type="button" data-pane="open" class="on">Open</button><button type="button" class="tplus" id="tkNewT" aria-label="New task" title="New task"></button></span>
+    <span class="ptab"><button type="button" data-pane="done">Done</button></span>
+  </div>
+  <div class="rptop lsrow">
+    <p class="hint" id="tkHint"></p>
+    <div class="chips" id="tkKinds"><button type="button" data-v="all" class="on">All</button><button type="button" data-v="email">Emails</button></div>
+  </div>
+  <div id="tkRes"></div>
 </section>
 
 <section class="scr" id="s-lists">

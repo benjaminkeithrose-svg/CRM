@@ -202,7 +202,7 @@ The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Phot
 
 ### Talk into a box, or tidy a note
 
-Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet.
+Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, saved notes, products, a visit's agenda and your CIP.
 
 1. Tap the microphone.
 2. The first time, allow the microphone when the phone asks.
@@ -543,6 +543,18 @@ The bin only shows on what is yours to delete. A deleted record also goes from y
 3. To delete it, tap the bin on the right of its card.
 
 A copy opens without being saved. Change what's different and tap Done. Photos aren't copied.
+
+### See all your tasks
+
+1. Tap **Tasks** on Home.
+2. **Open** lists what is still to do: anything overdue from an earlier day first, then today, then what is coming up.
+3. Tap the box on a task to tick it done. It moves to **Done**.
+4. Tap a task to open and change it.
+5. Tap **Emails** to see only the emails still to write.
+6. Tap the circle-plus next to **Open** to add a task. On **Emails**, it starts an email.
+7. To delete one, tap the bin on the right of its card.
+
+A task still shows on its day in the calendar as well. An overdue one stays on Tasks until you tick it done or change its date.
 
 ### Add a task
 

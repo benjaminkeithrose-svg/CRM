@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v131';
+const APP_BUILD = 'v132';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1360,7 +1360,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['CIP',''], mbo:['MBOs',''],
-  note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity','']
+  note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity',''], tasks:['Tasks','']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1544,7 +1544,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', lists:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home'
+  today:'home', settings:'home', help:'home', lists:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home'
 };
 function parentOf(name){
   if(name === 'opp' && OPP && OPP.kind === 'large') name = 'lap';      // a large account's own map (v123)
@@ -2372,6 +2372,7 @@ function apptEl(ap, pill){
 const binBtn = (attr, id, what) => '<button type="button" class="cbin" ' + attr + '="' + esc(id) + '" aria-label="Delete ' + esc(what) + '" title="Delete">' + icon('trash') + '</button>';
 // after a delete from a card: whatever list it was on, and the search if it is open
 function afterCardDelete(){
+  if(screen === 'tasks') renderTasks();
   if(screen === 'plan') renderPlan();
   if(screen === 'today') renderToday();
   if(screen === 'reports') renderReports().catch(e => console.error('reports', e));
@@ -4791,6 +4792,7 @@ async function taskToggle(t){
   taskRefresh();
 }
 function taskRefresh(){
+  if(screen === 'tasks') renderTasks();          // v132
   if(screen === 'plan') renderPlan();
   if(screen === 'today') renderToday();
   if(screen === 'dash' && call) renderDashTasks();
@@ -7597,6 +7599,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     if(!call){ toast('Open a call first'); return; }
     const first = (call.contacts||[])[0] || {};
     openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
+  } else if(t==='tasks'){
+    showTasks();
   } else if(t==='lists'){
     showLists();
   } else if(t==='strategy'){
@@ -12470,6 +12474,52 @@ function odSetup(){
 }
 $('odDescGo').addEventListener('click', odSetup);
 
+/* ---------- Tasks (v132) ----------
+   Their own place, as Task Slaughterer had: Open and Done, with anything not
+   done from an earlier day first as overdue, a filter for emails, a tick, a
+   bin, and a tap to open. Before this a task only showed on its own day of the
+   calendar, so last week's unfinished one was out of sight. */
+let tkPane = 'open', tkEmails = false;
+const tkIsEmail = t => t.type === 'Write email' || !!(String(t.mailTo || '') + String(t.mailSubject || '') + String(t.mailBody || '')).trim();
+function taskRow(t){
+  const late = !t.done && t.date && t.date < todayISOdate();
+  const meta = [t.date ? dayLabel(t.date) + (t.start ? ' ' + t.start : '') : 'No date', t.type && t.type !== t.title ? t.type : '', t.acct,
+    t.done && t.doneAt ? 'done ' + new Date(t.doneAt).toLocaleDateString() : ''].filter(Boolean).join(' · ');
+  return '<div class="rprow tkrow' + (late ? ' late' : '') + (t.done ? ' done' : '') + '">' +
+    '<button type="button" class="tktick" data-tktick="' + esc(t.id) + '" aria-label="' + (t.done ? 'Mark not completed' : 'Mark completed') + ': ' + esc(taskTitle(t)) + '">' + (t.done ? icon('check') : '') + '</button>' +
+    '<button type="button" class="rpt" data-tkopen="' + esc(t.id) + '"><div class="rn">' + esc(taskTitle(t)) + (tkIsEmail(t) ? ' <span class="tag">Email</span>' : '') + '</div>' +
+    '<div class="rm">' + esc(meta) + '</div></button>' + binBtn('data-tkdel', t.id, 'the task ' + taskTitle(t)) + '</div>';
+}
+function renderTasks(){
+  const el = $('tkRes'); if(!el) return;
+  $('tkTabs').querySelectorAll('button[data-pane]').forEach(b => { b.classList.toggle('on', b.dataset.pane === tkPane); b.parentNode.classList.toggle('on', b.dataset.pane === tkPane); });
+  $('tkKinds').querySelectorAll('button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'email') === tkEmails));
+  const today = todayISOdate();
+  let list = TASKS.filter(t => tkPane === 'done' ? t.done : !t.done);
+  if(tkEmails) list = list.filter(tkIsEmail);
+  if(tkPane === 'done'){
+    list.sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    $('tkHint').textContent = list.length ? list.length + (list.length === 1 ? ' done' : ' done') + (list.length > 100 ? ', the latest 100 shown' : '') : '';
+    el.innerHTML = list.length ? list.slice(0, 100).map(taskRow).join('') : '<p class="empty">Nothing done yet.</p>';
+  } else {
+    list.sort((a, b) => (a.date || '9').localeCompare(b.date || '9') || (a.start || '').localeCompare(b.start || ''));
+    const groups = [['Overdue', list.filter(t => t.date && t.date < today)], ['Today', list.filter(t => t.date === today)],
+      ['Coming up', list.filter(t => t.date && t.date > today)], ['No date', list.filter(t => !t.date)]].filter(([, l]) => l.length);
+    const late = groups.find(([h]) => h === 'Overdue');
+    $('tkHint').textContent = list.length ? list.length + ' open' + (late ? ', ' + late[1].length + ' overdue' : '') : '';
+    el.innerHTML = groups.length ? groups.map(([h, l]) => '<h2 class="tkh' + (h === 'Overdue' ? ' late' : '') + '">' + h + '</h2>' + l.map(taskRow).join('')).join('')
+      : '<p class="empty">' + (tkEmails ? 'No emails to write.' : 'Nothing open.') + '</p>';
+  }
+  el.querySelectorAll('[data-tkopen]').forEach(b => b.addEventListener('click', () => openTask(b.dataset.tkopen)));
+  el.querySelectorAll('[data-tktick]').forEach(b => b.addEventListener('click', () => { const t = TASKS.find(x => x.id === b.dataset.tktick); if(t) taskToggle(t).catch(reportErr); }));
+  el.querySelectorAll('[data-tkdel]').forEach(b => b.addEventListener('click', () => taskDeleteAsk(TASKS.find(x => x.id === b.dataset.tkdel)).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr)));
+}
+function showTasks(){ go('tasks'); renderTasks(); }
+$('tkTabs').querySelectorAll('button[data-pane]').forEach(b => b.addEventListener('click', () => { tkPane = b.dataset.pane; renderTasks(); }));
+$('tkKinds').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { tkEmails = b.dataset.v === 'email'; renderTasks(); }));
+$('tkNewT').innerHTML = icon('plusc');
+$('tkNewT').addEventListener('click', () => openTask(null, tkEmails ? {type: 'Write email'} : {}));
+
 /* ---------- Test project (v124) ----------
    Like Test call: one tap, a made-up project to try the map on - one
    opportunity, the end user with an engineering manager and the engineers
@@ -14139,7 +14189,7 @@ function cipTa(path, label, o){
   o = o || {};
   const id = 'cf' + (++cipUid), v = cipGetP(cipObj(o.scope || 'p'), path);
   return '<label class="l" for="' + id + '">' + esc(label) + (o.hint ? ' <span class="cipmute">' + esc(o.hint) + '</span>' : '') + '</label>' +
-    '<textarea id="' + id + '" rows="' + (o.rows || 3) + '" data-cp="' + path + '" data-cs="' + (o.scope || 'p') + '"' + (o.locked ? ' readonly' : '') + '>' + esc(v == null ? '' : v) + '</textarea>' +
+    '<textarea id="' + id + '" data-talk="self" rows="' + (o.rows || 3) + '" data-cp="' + path + '" data-cs="' + (o.scope || 'p') + '"' + (o.locked ? ' readonly' : '') + '>' + esc(v == null ? '' : v) + '</textarea>' +
     (o.noPast || (o.scope && o.scope !== 'p') ? '' : cipPast(path));
 }
 function cipIn(path, label, o){
@@ -14153,7 +14203,7 @@ function cipPick(path, label, src, locked, hint){
   return '<label class="l" for="' + id + '">' + esc(label) + (hint ? ' <span class="cipmute">' + esc(hint) + '</span>' : '') + '</label>' +
     '<select class="cippick" data-pick="' + src + '" data-target="' + path + '" aria-label="Pick from the list: ' + esc(label) + '"' + (locked || !opts ? ' disabled' : '') + '>' +
     '<option value="">' + (opts ? 'Pick from the list…' : src === 'mbo' ? 'No MBO list for this year' : 'No reference on this device') + '</option>' + opts + '</select>' +
-    '<textarea id="' + id + '" rows="2" data-cp="' + path + '" data-cs="p"' + (locked ? ' readonly' : '') + '>' + esc(cipGetP(P, path) || '') + '</textarea>';
+    '<textarea id="' + id + '" data-talk="self" rows="2" data-cp="' + path + '" data-cs="p"' + (locked ? ' readonly' : '') + '>' + esc(cipGetP(P, path) || '') + '</textarea>';
 }
 function cipGoalPast(i){
   return cipCmpIds().map(id => {
@@ -15436,7 +15486,7 @@ function micButton(id, field, after){
 function micAuto(root){
   if(!SPEECH || !root) return;
   root.querySelectorAll('[data-talk]').forEach(box => {
-    if(!box.id || box.dataset.talkOn) return;
+    if(!box.id || box.dataset.talkOn || box.readOnly) return;
     box.dataset.talkOn = '1';
     const wrap = document.createElement('div');
     wrap.className = 'talk' + (box.tagName === 'TEXTAREA' ? ' tall' : '');
@@ -15445,7 +15495,7 @@ function micAuto(root){
   });
 }
 if(SPEECH){
-  ['opPanel', 'opSheet', 'oppdlg'].forEach(id => {
+  ['opPanel', 'opSheet', 'oppdlg', 'snipdlg', 'proddlg', 'plandlg', 'dlg', 'cipbubdlg', 'cipBody'].forEach(id => {
     const el = $(id); if(!el) return;
     micAuto(el);
     new MutationObserver(() => micAuto(el)).observe(el, {childList: true, subtree: true});

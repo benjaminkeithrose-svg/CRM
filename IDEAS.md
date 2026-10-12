@@ -823,6 +823,10 @@ for now. Reviewed a clickable mock first.*
   corporate or a site marked Head office here at the top, group functions
   (each covering all sites or some) under it, the sites in rows, Intralox
   at the bottom.
+- **Built (v132):** a Tasks tile - Open (overdue first, today, coming up) and
+  Done, an Emails filter, tick, bin and tap to open; the microphone with Tidy
+  on saved notes, products, the account plan, the visit agenda and the CIP
+  (new Tidy wording for his own development notes). Not yet: MBO entries.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
