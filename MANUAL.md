@@ -345,6 +345,27 @@ On the PC, drag a party, or the opportunity, to move it; its people move with it
 
 Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap **Details**. A map made before this change is sorted into parties the first time it opens.
 
+### People met on a Blue Sheet
+
+Anyone you add to a map under one of your customers joins that customer's contacts, marked **Not in Dynamics yet**. The team sees them too. They stay through every CRM import until Dynamics has the same name at that customer, then the mark goes by itself.
+
+To put them into Dynamics:
+
+1. Tap **⋯** on Home, then **Settings**.
+2. Open **CRM and belt data**.
+3. Under **Contacts not in Dynamics yet**, tap **Share the list**.
+4. Open the spreadsheet and enter each person into Dynamics.
+
+When you type a name into a party's table and that person is on another Blue Sheet at the same company, their part and whether they helped us are filled in from the latest one. These boxes are dashed: they are estimates. Change one and it is yours; leave it and it stays marked. On the map, tap the person to see the estimate and their other Blue Sheets. Choosing their part or stance there confirms it.
+
+To record how an opportunity ended:
+
+1. Open the opportunity and tap **Details**.
+2. Under **Outcome**, tap **Won**, **Lost** or **On hold**.
+3. Tap **Done**.
+
+The outcome shows on Strategy, goes with each person's history into the next Blue Sheet, and the coach reads both.
+
 ### Fill in the Blue Sheet
 
 1. Open the opportunity from its account.

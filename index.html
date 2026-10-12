@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v124">
+<meta name="build" content="v125">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1079,6 +1079,12 @@ body.planning{padding-bottom:0}
 #delTests{display:flex;align-items:center;justify-content:center;gap:8px}
 #delTests .ic{color:var(--warn);flex:none}
 .tag.test{background:var(--orange-lt);color:var(--orange-dk);border-color:var(--orange)}
+/* v125: a contact added in the app, waiting to go into Dynamics */
+.tag.nodyn{background:var(--orange-lt);color:var(--orange-dk);border-color:var(--orange)}
+/* v125: filled in from another Blue Sheet - an estimate until confirmed or typed over */
+select.est,input.est{border-style:dashed;border-color:var(--orange);background:var(--orange-lt)}
+.esttag{display:inline-block;font-size:10.5px;font-weight:700;color:var(--orange-dk);background:var(--orange-lt);border:1px dashed var(--orange);border-radius:2px;padding:0 5px;margin-left:6px;text-transform:none;letter-spacing:0}
+
 /* A gutter of hour labels, then the seven days (v94). Saturday and Sunday are
    narrower and shaded, as on the month. */
 .week{display:grid;grid-template-columns:46px repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:8px;align-items:start}
@@ -1670,6 +1676,13 @@ details.bsx > .msg{margin:8px 12px}
     <button class="ghost adminonly" id="importBtn">Import CRM export</button>
     <p class="hint adminonly">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
   </div>
+  <!-- v125: people added on Blue Sheet maps, kept through CRM imports until Dynamics has them -->
+  <div class="fld">
+    <label>Contacts not in Dynamics yet</label>
+    <p class="stat" id="pplStat">Every contact here is in Dynamics.</p>
+    <button class="ghost" id="pplShare" hidden>Share the list</button>
+    <p class="hint">People added to a Blue Sheet under one of your customers join that customer's contacts here. Share the list to enter them into Dynamics; each one drops off by itself once a CRM import brings them in.</p>
+  </div>
   <div class="fld">
     <label>Plant audit register</label>
     <p class="stat" id="assetStat">No register loaded.</p>
@@ -2196,6 +2209,27 @@ details.bsx > .msg{margin:8px 12px}
       <p>At the top of the list, <b>People shown</b> hides everyone's people, and <b>Links on</b> hides the relationships between people. The eye next to a party hides just its people.</p>
       <p>On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap <b>Parties and people</b> to open it. Drag the background to move around, and use &minus; and + to zoom.</p>
       <p>Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap <b>Details</b>. A map made before this change is sorted into parties the first time it opens.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>People met on a Blue Sheet</b><span class="sxs">New contacts, what was known about them, and how it ended</span></summary>
+    <div class="fld help">
+      <p>Anyone you add to a map under one of your customers joins that customer's contacts, marked <b>Not in Dynamics yet</b>. The team sees them too. They stay through every CRM import until Dynamics has the same name at that customer, then the mark goes by itself.</p>
+      <p>To put them into Dynamics:</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
+        <li>Open <b>CRM and belt data</b>.</li>
+        <li>Under <b>Contacts not in Dynamics yet</b>, tap <b>Share the list</b>.</li>
+        <li>Open the spreadsheet and enter each person into Dynamics.</li>
+      </ol>
+      <p>When you type a name into a party's table and that person is on another Blue Sheet at the same company, their part and whether they helped us are filled in from the latest one. These boxes are dashed: they are estimates. Change one and it is yours; leave it and it stays marked. On the map, tap the person to see the estimate and their other Blue Sheets. Choosing their part or stance there confirms it.</p>
+      <p>To record how an opportunity ended:</p>
+      <ol>
+        <li>Open the opportunity and tap <b>Details</b>.</li>
+        <li>Under <b>Outcome</b>, tap <b>Won</b>, <b>Lost</b> or <b>On hold</b>.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>The outcome shows on Strategy, goes with each person's history into the next Blue Sheet, and the coach reads both.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3134,6 +3168,8 @@ details.bsx > .msg{margin:8px 12px}
       <div class="f"><label for="odValue">Value</label><input type="text" id="odValue" autocomplete="off" placeholder="e.g. AUD 180k"></div>
       <div class="f"><label for="odClose">Expected close</label><input type="month" id="odClose"></div>
     </div>
+    <!-- v125: how it ended, so the next Blue Sheet can learn from it -->
+    <div class="f" id="odOutF"><label>Outcome</label><div class="chips" id="odOut"></div></div>
   </div>
 </dialog>
 

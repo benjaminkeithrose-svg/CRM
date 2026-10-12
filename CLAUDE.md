@@ -23,14 +23,14 @@ work from a copy of a file anywhere other than this checkout.
 | File | Purpose |
 |---|---|
 | `index.html` | Every screen as a `<section class="scr">`, every dialog, all CSS |
-| `app.js` | Everything else: storage (IndexedDB v8: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`, `opps`, `cip`), import, navigation, planner, calls, tasks, output, sync |
+| `app.js` | Everything else: storage (IndexedDB v9: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`, `opps`, `cip`, `people`), import, navigation, planner, calls, tasks, output, sync |
 | `sw.js` | Service worker, cache-first, offline |
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
-| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. Not served by the app |
+| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. `0008_team_people.sql` (v125) shares contacts added on Blue Sheet maps. Not served by the app |
 | `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes, and coaching on an opportunity's Blue Sheet (v118); Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
@@ -57,6 +57,13 @@ the reference is Intralox's internal wording, so both are imported on a device
 from a file and sync encrypted. `cip` is private: never add it to the shared
 stores in the team migrations.
 
+**Contacts added in the app live in store `people`, never in `accounts`**
+(v125). A CRM import replaces the account list wholesale, so `peopleMerge()`
+lays them into the accounts' contacts in memory only, marked `added`.
+Anything writing the account list out (backup, the desktop exchange) uses
+`accPlain()`. A record clears itself once the CRM export has the same name
+at that account.
+
 **The belt/sprocket product catalogue is not in this repo either**, for the
 same public-Pages reason, even though it isn't customer data — it's Intralox's
 own part numbers. It is imported on a device and travels between devices
@@ -73,7 +80,7 @@ failure.
 key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
 waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()`/
 `tasksPut()`/`tasksDel()`/`snippetsPut()`/`snippetsDel()`/`productsPut()`/
-`productsDel()`/`plansPut()`/`plansDel()`/`oppsPut()`/`oppsDel()`/`cipPut()`/`cipDel()` mark that record. Bump `call.updated` /
+`productsDel()`/`plansPut()`/`plansDel()`/`oppsPut()`/`oppsDel()`/`cipPut()`/`cipDel()`/`peoplePut()`/`peopleDel()` mark that record. Bump `call.updated` /
 `appointment.touchedAt` / `task.updated` on a real edit, or the change can
 lose to an older copy. Photos stay Blobs in `entry.photos` and
 `call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never

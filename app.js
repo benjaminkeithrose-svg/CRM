@@ -7,7 +7,7 @@
    Database 'fieldcrm', cache prefix 'fieldcrm-', localStorage 'fcrm.'.
    Never the beltcall names - that is the other app's data. */
 
-const DB_NAME = 'fieldcrm', DB_VER = 8;
+const DB_NAME = 'fieldcrm', DB_VER = 9;
 const LS = k => 'fcrm.' + k;
 let db, dbReady = null, REF = null, call = null, screen = 'home', photoTarget = null;
 /* Set while the account and contacts screens are being used to raise a quote
@@ -42,6 +42,8 @@ function openDB(){
       if(!d.objectStoreNames.contains('opps')) d.createObjectStore('opps', {keyPath:'id'});
       // v8 (app v121): the CIP, the MBOs and their reference - private to the person
       if(!d.objectStoreNames.contains('cip')) d.createObjectStore('cip', {keyPath:'id'});
+      // v9 (app v125): people met on Blue Sheets who are not in the CRM export yet - shared with the team
+      if(!d.objectStoreNames.contains('people')) d.createObjectStore('people', {keyPath:'id'});
     };
     r.onsuccess = e => { db = e.target.result; res(db); };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
@@ -976,7 +978,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v124';
+const APP_BUILD = 'v125';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1199,6 +1201,7 @@ function indexAccounts(list){
   ACCOUNTS = list;
   ACC_BY_NAME = new Map(list.map(a => [a.a, a]));
   KEY_TO_ACCT = new Map(list.map(a => [acctKey(a.a), a.a]));
+  try { peopleMerge(); } catch(e){}          // v125: the people added on maps, back on their accounts
 }
 async function loadAccounts(){
   indexAccounts(await accAll());
@@ -1456,7 +1459,7 @@ function showScreen(name){
   if(name==='directory') renderDirPane();
   if(name==='reference') renderRefPane();
   if(name==='ccontacts') renderCallContacts();
-  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers();
+  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); renderPeopleStat();
     if($('setImgMode')) $('setImgMode').value = defaultImgMode();
     renderSettingsSummary(); }
   if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
@@ -4053,7 +4056,7 @@ async function buildPlanFile(withAccounts){
     appts: JSON.parse(JSON.stringify(APPTS.filter(a => a.date >= range.from))),
     weeks: JSON.parse(JSON.stringify(WEEKS)),
     mgrOf: JSON.parse(JSON.stringify(MGR_OF)),
-    accounts: withAccounts ? ACCOUNTS : null,
+    accounts: withAccounts ? accPlain() : null,   // v125: never the contacts added in the app
     meta: withAccounts ? META : null,
     overrides: withAccounts ? OVERRIDES : null
   };
@@ -4998,6 +5001,7 @@ async function loadLists(){
   catch(e){ console.error('lists', e); }
   // not while a change is still to be saved: the copy on screen is the newer one
   try { if(!cipTimer) await cipLoad(); } catch(e){ console.error('cip', e); }
+  try { PEOPLE = await peopleAll(); peopleMerge(); } catch(e){ console.error('people', e); }
 }
 function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
 const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -6303,7 +6307,7 @@ async function cloudWaiting(){
 var cloudDirty = null;           // {'calls/<id>': {v, del, at}}
 var cloudProgress = '';
 var cloudRecTimer = null;
-const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans', 'opps', 'cip'];
+const CLOUD_REC_STORES = ['calls', 'appts', 'tasks', 'snippets', 'products', 'plans', 'opps', 'cip', 'people'];
 
 async function cloudDirtyLoad(){
   if(!cloudDirty){
@@ -6342,7 +6346,7 @@ async function cloudSeed(){
   for(const c of await recordsAll()) if(!cloudDirty['calls/' + c.id]) cloudDirty['calls/' + c.id] = {v: recVer('calls', c) || now, del: false, at: now};
   for(const a of await apptsAll()) if(!cloudDirty['appts/' + a.id]) cloudDirty['appts/' + a.id] = {v: recVer('appts', a) || now, del: false, at: now};
   for(const t of await tasksAll()) if(!cloudDirty['tasks/' + t.id]) cloudDirty['tasks/' + t.id] = {v: recVer('tasks', t) || now, del: false, at: now};
-  for(const st of ['snippets', 'products', 'plans', 'opps', 'cip'])
+  for(const st of ['snippets', 'products', 'plans', 'opps', 'cip', 'people'])
     for(const r of await storeAll(st)) if(!cloudDirty[st + '/' + r.id]) cloudDirty[st + '/' + r.id] = {v: recVer(st, r) || now, del: false, at: now};
   await cloudDirtySave();
   await kvSet('cloudSeeded', true);
@@ -6472,7 +6476,7 @@ async function cloudPushRecs(stats){
       const r = await sbClient.from('records').select('store,id,owner,key_id,iv,body,client_updated,deleted,server_updated')
         .eq('store', x.store).eq('id', x.id).eq('owner', x.owner);
       if(r.error) throw r.error;
-      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
+      for(const row of r.data || []) await cloudApplyRec(row, {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, people: 0, gone: 0, photosDown: 0, missing: 0, waiting: 0});
     }
   };
   let i = 0;
@@ -6548,9 +6552,9 @@ async function cloudApplyRec(row, stats){
   cloudQuiet = true;
   try {
     if(row.deleted){
-      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel, opps: oppsDel, cip: cipDel})[store](id); stats.gone++; }
+      if(local){ await ({calls: callsDel, appts: apptsDel, tasks: tasksDel, snippets: snippetsDel, products: productsDel, plans: plansDel, opps: oppsDel, cip: cipDel, people: peopleDel})[store](id); stats.gone++; }
     } else if(store !== 'calls'){
-      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut, opps: oppsPut, cip: cipPut})[store](await sbOpen(store, id, row));
+      await ({appts: apptsPut, tasks: tasksPut, snippets: snippetsPut, products: productsPut, plans: plansPut, opps: oppsPut, cip: cipPut, people: peoplePut})[store](await sbOpen(store, id, row));
       stats[store]++;
     } else {
       const got = await cloudCallIn(await sbOpen(store, id, row), local, row.owner);
@@ -6598,9 +6602,9 @@ async function cloudPullRecs(stats){
 
 async function cloudSyncRecs(){
   await ownersLoad();
-  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
+  const stats = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, people: 0, gone: 0, photosUp: 0, photosDown: 0, missing: 0, waiting: 0};
   await cloudSeed();
-  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, gone: 0, photosUp: 0};
+  const up = {calls: 0, appts: 0, tasks: 0, snippets: 0, products: 0, plans: 0, opps: 0, cip: 0, people: 0, gone: 0, photosUp: 0};
   try {
     await cloudPushRecs(up);
     const down = stats;
@@ -6608,10 +6612,10 @@ async function cloudSyncRecs(){
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
   const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
-    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'), x.cip && n(x.cip, 'CIP and MBO record'),
+    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'), x.cip && n(x.cip, 'CIP and MBO record'), x.people && n(x.people, 'added contact'),
     x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
-  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.opps + up.cip + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
-  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.opps + stats.cip + stats.gone){
+  if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.opps + up.cip + up.people + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
+  if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.opps + stats.cip + stats.people + stats.gone){
     const got = list(Object.assign({}, stats, {photos: stats.photosDown}));
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
@@ -6691,7 +6695,7 @@ function renderPeople(q, el, hint, before){
       const c = p.c, email = (c.e && c.e[0]) || '';
       P.push('<div class="pcard '+FOC_CLS[p.a.foc]+'">'+
         '<div class="pn">'+esc(c.n)+'</div>'+
-        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+'</div>'+
+        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : '')+'</div>'+
         '<div class="pa">'+esc(p.a.a)+(p.a.sub ? ' \u00b7 '+esc(p.a.sub) : '')+'</div>'+
         '<div class="pl">'+
           (c.p ? '<a href="tel:'+esc(c.p.replace(/\s/g,''))+'">Call '+esc(c.p)+'</a>'
@@ -10958,6 +10962,9 @@ function openOppDetails(o){
   $('odName').value = odEdit.name || ''; $('odObj').value = odEdit.obj || '';
   $('odValue').value = odEdit.value || ''; $('odClose').value = odEdit.close || '';
   $('odDel').hidden = odIsNew;
+  // how it ended (v125): Open until it is Won, Lost or On hold
+  chipRow($('odOut'), OPP_OUTCOME, odEdit.outcome || 'Open');
+  $('odOutF').hidden = odIsNew;
   // a new one asks only for its name, then the map opens (v123); the rest is in Details later
   ['odObj', 'odValue', 'odClose'].forEach(id => { $(id).closest('.f').hidden = odIsNew; });
   const d = $('oppdlg');
@@ -10968,7 +10975,7 @@ function openOppDetails(o){
 }
 function odRead(){
   return Object.assign({}, odEdit, {name: $('odName').value.trim(), obj: $('odObj').value.trim(),
-    value: $('odValue').value.trim(), close: $('odClose').value});
+    value: $('odValue').value.trim(), close: $('odClose').value, outcome: odIsNew ? '' : (chipVal($('odOut')) || 'Open')});
 }
 async function odFinish(){
   if(!odEdit) return;
@@ -10979,10 +10986,11 @@ async function odFinish(){
   if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
   if(wasNew && !r.name && !r.obj) return;                       // nothing typed: nothing kept
   if(!r.name) r.name = 'Untitled opportunity';
-  if(!wasNew && before && ['name', 'obj', 'value', 'close'].every(k => (before[k] || '') === (r[k] || ''))) return;
+  if(!wasNew && before && ['name', 'obj', 'value', 'close'].every(k => (before[k] || '') === (r[k] || '')) && (before.outcome || 'Open') === (r.outcome || 'Open')) return;
   // the map may have moved on while the sheet was open: only these four fields come from it
   const base = !wasNew && before ? before : r;
   ['name', 'obj', 'value', 'close'].forEach(k => { base[k] = r[k]; });
+  if(!wasNew) base.outcome = r.outcome === 'Open' ? '' : r.outcome;
   base.updated = Date.now();
   await oppsPut(JSON.parse(JSON.stringify(base)));
   OPPS = OPPS.filter(x => x.id !== base.id).concat([base]);
@@ -10992,6 +11000,7 @@ async function odFinish(){
   renderOppsCard();
 }
 $('odOk').addEventListener('click', () => odFinish().catch(reportErr));
+chipTap($('odOut'));
 $('oppdlg').addEventListener('cancel', e => { e.preventDefault(); odFinish().catch(console.error); });
 $('oppdlg').addEventListener('close', () => { if(odEdit) odFinish().catch(console.error); });
 $('odDel').addEventListener('click', async () => {
@@ -11551,6 +11560,8 @@ function opPersonPanel(p){
   const nLinks = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
   const mates = opPeopleOf(q).filter(x => x.id !== p.id && !opUnder(x, p));
   const stanceLbl = OP_STANCE[p.stance || 'unknown'];
+  const hist = ours ? [] : opHistory(p.n, opCompany(OPP, q), OPP.id);
+  const confirmed = k => { if(p.est){ p.est = p.est.filter(x => x !== k); if(!p.est.length){ delete p.est; delete p.estFrom; } } };
   const rels = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).map(l => l.a === p.id ? l.kind + ' → ' + opName(l.b) : opName(l.a) + ' → ' + l.kind.toLowerCase() + ' → them');
   P.innerHTML = '<h2>' + esc(q.name || 'Person') + '</h2>' +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
@@ -11558,9 +11569,10 @@ function opPersonPanel(p){
     (mates.length ? '<label class="l" for="opPboss">Reports to</label><select id="opPboss"><option value="">Nobody at ' + esc(q.name) + '</option>' +
       mates.map(x => '<option value="' + esc(x.id) + '"' + (p.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select>' : '') +
     (ours ? '' :
-      '<label class="l">Their part in the decision</label>' + opChips('role', OP_ROLES, p.role || '') +
+      '<label class="l">Their part in the decision' + (p.est && p.est.includes('role') ? ' <span class="esttag">estimate, from ' + esc(p.estFrom || 'another Blue Sheet') + '</span>' : '') + '</label>' + opChips('role', OP_ROLES, p.role || '') +
       (p.role ? '<label class="l">A second part, if they have one</label>' + opChips('role2', OP_ROLES.filter(r => r !== p.role), p.role2 || '') : '') +
-      '<label class="l">Are they helping us?</label>' + opChips('stance', Object.values(OP_STANCE), stanceLbl)) +
+      '<label class="l">Are they helping us?' + (p.est && p.est.includes('stance') ? ' <span class="esttag">estimate, from ' + esc(p.estFrom || 'another Blue Sheet') + '</span>' : '') + '</label>' + opChips('stance', Object.values(OP_STANCE), stanceLbl)) +
+    (hist.length ? '<h2>On other Blue Sheets</h2><ul class="opitems good">' + hist.slice(0, 5).map(h => '<li><span>' + esc(opHistLine(h)) + '</span></li>').join('') + '</ul>' : '') +
     '<h2>Their relationships</h2><ul class="opitems good">' + (rels.length ? rels.map(t => '<li><span>' + esc(t) + '</span></li>').join('') : '<li class="none"><span class="pin">None yet. Tap Link to…, then the other person.</span></li>') + '</ul>' +
     (ours ? '' : '<details class="opmore"' + (opMoreOpen ? ' open' : '') + '><summary>More detail</summary>' +
       '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
@@ -11578,9 +11590,9 @@ function opPersonPanel(p){
   typed('opPn', 'n', true); typed('opPt', 'title', true); typed('opPw', 'win'); typed('opPres', 'result'); typed('opPe', 'evid'); typed('opPnote', 'note');
   if($('opPboss')) $('opPboss').addEventListener('change', e => { p.boss = e.target.value; oppSaveNow().catch(reportErr); drawOpp(); });
   if(!ours){
-    opWireChips('role', v => { p.role = v; if(!v || p.role2 === v) p.role2 = ''; });
-    if(p.role) opWireChips('role2', v => { p.role2 = v; });
-    opWireChips('stance', v => { p.stance = Object.keys(OP_STANCE).find(k => OP_STANCE[k] === v) || 'unknown'; });
+    opWireChips('role', v => { p.role = v; if(!v || p.role2 === v) p.role2 = ''; confirmed('role'); });
+    if(p.role) opWireChips('role2', v => { p.role2 = v; confirmed('role'); });
+    opWireChips('stance', v => { p.stance = Object.keys(OP_STANCE).find(k => OP_STANCE[k] === v) || 'unknown'; confirmed('stance'); });
     opWireChips('mode', v => { p.mode = v; });
     $('opPr').addEventListener('input', e => { p.rate = +e.target.value; $('opPrv').textContent = (p.rate > 0 ? '+' : '') + p.rate; oppSaveSoon(); });
     P.querySelector('details.opmore').addEventListener('toggle', e => { opMoreOpen = e.target.open; });
@@ -11813,15 +11825,17 @@ function opTblDraw(){
         '<td><input type="text" data-r="' + i + '" data-k="title" value="' + esc(r.title) + '" aria-label="Title"></td>' +
         (ours ? '' : '<td><select data-r="' + i + '" data-k="boss" aria-label="Reports to"><option value="">—</option>' +
           named.filter(x => x !== r && x.boss !== r.id).map(x => '<option value="' + esc(x.id) + '"' + (r.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select></td>' +
-          '<td><select data-r="' + i + '" data-k="code" aria-label="Part in the decision">' + OP_CODES.map(v => '<option value="' + v + '"' + (r.code === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td>' +
-          '<td><select data-r="' + i + '" data-k="stance" aria-label="Helping us?">' + Object.entries(OP_STANCE).map(([k, t]) => '<option value="' + k + '"' + (r.stance === k ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>') +
+          '<td><select data-r="' + i + '" data-k="code" aria-label="Part in the decision"' + (r.est && r.est.code ? ' class="est" title="Estimate, from ' + esc(r.est.from) + '"' : '') + '>' + OP_CODES.map(v => '<option value="' + v + '"' + (r.code === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td>' +
+          '<td><select data-r="' + i + '" data-k="stance" aria-label="Helping us?"' + (r.est && r.est.stance ? ' class="est" title="Estimate, from ' + esc(r.est.from) + '"' : '') + '>' + Object.entries(OP_STANCE).map(([k, t]) => '<option value="' + k + '"' + (r.stance === k ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>') +
         '<td>' + (last ? '' : '<button type="button" class="opx" data-rm="' + i + '" aria-label="Remove ' + esc(r.n || 'this row') + '">' + icon('trash') + '</button>') + '</td></tr>';
     }).join('') + '</tbody></table>' +
     '<datalist id="otNames">' + sug.map(x => '<option value="' + esc(x.n) + '">' + esc(x.title || '') + '</option>').join('') + '</datalist>' +
-    '<p class="hint">Part: E signs the order, U uses it, T checks the spec, C is on our side. Leave anything you do not know; it can be filled in later by tapping the person.</p>';
+    '<p class="hint">Part: E signs the order, U uses it, T checks the spec, C is on our side. Leave anything you do not know; it can be filled in later by tapping the person. ' +
+    'A dashed box is an estimate from their last Blue Sheet: change it, or leave it.</p>';
   $('otBody').querySelectorAll('[data-r]').forEach(x => x.addEventListener(x.tagName === 'SELECT' ? 'change' : 'input', () => {
     const r = T.rows[+x.dataset.r]; if(!r) return;
     r[x.dataset.k] = x.value;
+    if(r.est && r.est[x.dataset.k]){ r.est[x.dataset.k] = false; x.classList.remove('est'); x.removeAttribute('title'); }   // typed over: no longer an estimate
     if(x.dataset.k === 'n'){
       const s = sug.find(v => v.n === x.value.trim());
       if(s && !r.title){ r.title = s.title || ''; const t = x.closest('tr').querySelector('[data-k="title"]'); if(t) t.value = r.title; }
@@ -11835,8 +11849,19 @@ function opTblDraw(){
       }
     }
   }));
-  // a name changed: the Reports to lists follow it
-  $('otBody').querySelectorAll('input[data-k="n"]').forEach(x => x.addEventListener('change', () => opTblDraw()));
+  // a name changed: the Reports to lists follow it, and someone met on another Blue Sheet brings what was known (v125)
+  $('otBody').querySelectorAll('input[data-k="n"]').forEach(x => x.addEventListener('change', () => {
+    const r = T.rows[+x.dataset.r];
+    if(r && !r.old && !r.code && (r.stance || 'unknown') === 'unknown'){
+      const h = opHistory(r.n, opCompany(OPP, T.q), OPP.id)[0];
+      if(h){
+        r.code = T.q.kind === 'ilx' ? '' : bsRoleCode(h.p); r.stance = h.p.stance || 'unknown';
+        if(!r.title) r.title = h.p.title || '';
+        r.est = {code: !!r.code, stance: r.stance !== 'unknown', from: h.o.name};
+      }
+    }
+    opTblDraw();
+  }));
   $('otBody').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
     const r = T.rows[+b.dataset.rm]; if(!r) return;
     const nl = (OPP.links || []).filter(l => l.a === r.id || l.b === r.id).length;
@@ -11853,6 +11878,7 @@ function opTblFinish(){
   const keep = T.rows.filter(r => r.n.trim()), keepIds = new Set(keep.map(r => r.id)), side = opKind(T.q.kind).side;
   const dropped = opPeopleOf(T.q).filter(p => !keepIds.has(p.id)).map(p => p.id);
   let changed = dropped.length > 0;
+  const newcomers = [];
   if(dropped.length) opDropPeople(dropped);
   for(const r of keep){
     const [r1, r2] = r.code ? r.code.split('/') : [];
@@ -11860,6 +11886,9 @@ function opTblFinish(){
     let p = opPerson(r.id);
     if(!p){
       p = Object.assign({id: r.id, side, party: T.q.id, mode: '', rate: 0, note: '', win: '', result: '', evid: ''}, vals);
+      const est = r.est ? ['role', 'stance'].filter(k => r.est[k === 'role' ? 'code' : 'stance']) : [];
+      if(est.length){ p.est = est; p.estFrom = r.est.from; }
+      newcomers.push(p);
       const c = opPartySuggest(T.q).find(s => s.n === p.n);
       if(c && c.cid) p.cid = c.cid;
       OPP.people = (OPP.people || []).concat([p]);
@@ -11872,6 +11901,15 @@ function opTblFinish(){
   T.q.show = true;
   if(changed) oppSaveNow().catch(reportErr);
   drawOpp(); opPanel();
+  // new names under one of our customers go on its contact list, marked Not in Dynamics yet (v125)
+  const acct = opPartyAcct(OPP, T.q);
+  if(acct && T.q.kind !== 'ilx' && !OPP.test && newcomers.length){
+    (async () => {
+      let n = 0;
+      for(const p of newcomers) if(await peopleAdd(acct, p.n, p.title, OPP.name)) n++;
+      if(n) toast(n + (n === 1 ? ' person' : ' people') + ' added to ' + acct + '\'s contacts, marked Not in Dynamics yet');
+    })().catch(reportErr);
+  }
 }
 $('otDone').addEventListener('click', () => {
   opTblFinish();
@@ -11881,6 +11919,107 @@ $('otDone').addEventListener('click', () => {
 });
 $('optbl').addEventListener('cancel', e => { e.preventDefault(); $('otDone').click(); });
 $('optbl').addEventListener('close', () => opTblFinish());
+
+/* ================= people found on Blue Sheets (v125) =================
+   Ben, 2026-10-12: the app is detached from Dynamics, so a new name met on a
+   project would otherwise live only on that map. Anyone added to a map under
+   a party that is one of our customers goes into that account's contacts, so
+   the Directory, calls and the next map all offer them. They are kept here,
+   in store 'people' (shared with the team, migration 0008), because a CRM
+   import replaces the account list wholesale; on load they are laid into
+   the accounts' contacts in memory, marked added, and never written into
+   the accounts store or a backup's accounts. Each is marked Not in Dynamics
+   yet until a CRM import brings the same name at the same account, when the
+   record here clears itself. Settings shares the list as a spreadsheet to
+   enter into Dynamics.
+   Their Blue Sheet history is read from the opportunities themselves - never
+   kept twice - and fills a new map's part and stance as estimates. */
+const peopleAll = () => storeAll('people'), peoplePut = r => storePut('people', r), peopleDel = id => storeDel('people', id);
+let PEOPLE = [];
+const pKey = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+// the account list as the CRM gave it: without the contacts added in the app
+const accPlain = () => ACCOUNTS.map(a => (a.c || []).some(c => c.added) ? Object.assign({}, a, {c: a.c.filter(c => !c.added)}) : a);
+// lay the added people into their accounts' contacts, once each
+function peopleMerge(){
+  for(const a of ACCOUNTS) if(a.c && a.c.some(c => c.added)){ a.c = a.c.filter(c => !c.added); delete a._hay; }
+  const gone = [];
+  for(const r of PEOPLE){
+    const a = ACC_BY_NAME.get(r.acct);
+    if(!a) continue;
+    a.c = a.c || [];
+    // the CRM now has them: Dynamics caught up, so the record here is done
+    if(a.c.some(c => pKey(c.n) === pKey(r.n))){ gone.push(r); continue; }
+    a.c.push({n: r.n, t: r.t || '', r: '', p: r.p || '', e: r.e ? [r.e] : [], added: true, pid: r.id});
+    delete a._hay;                                // contact names are searchable
+  }
+  if(gone.length && !peopleMerge.busy){
+    peopleMerge.busy = true;
+    (async () => { for(const r of gone) await peopleDel(r.id); PEOPLE = PEOPLE.filter(x => !gone.includes(x)); })()
+      .catch(e => console.warn('people', e)).finally(() => { peopleMerge.busy = false; });
+  }
+}
+// someone typed onto a map, under one of our customers, who is not on its contact list yet
+async function peopleAdd(acct, n, t, from){
+  const a = ACC_BY_NAME.get(acct);
+  if(!a || !pKey(n) || (a.c || []).some(c => pKey(c.n) === pKey(n))) return false;
+  const r = {id: newId('ct'), acct, n: String(n).trim(), t: String(t || '').trim(), added: Date.now(), by: localStorage.getItem(LS('mgr')) || '', from: from || '', updated: Date.now()};
+  await peoplePut(r);
+  PEOPLE = PEOPLE.concat([r]);
+  peopleMerge();
+  return true;
+}
+// the account a map's party stands for, when it is one of ours
+function opPartyAcct(o, q){
+  if(!q) return '';
+  if(q.acct && ACC_BY_NAME.has(q.acct)) return q.acct;
+  if(q.kind === 'end' && o.kind !== 'large' && ACC_BY_NAME.has(o.acct)) return o.acct;
+  return ACC_BY_NAME.has(q.name) ? q.name : '';
+}
+/* Where else this person has been on a Blue Sheet: by name, at the same
+   company (the party's account, or its name). Newest first. */
+function opHistory(n, company, exceptId){
+  const key = pKey(n), co = pKey(company);
+  if(!key) return [];
+  const out = [];
+  for(const o of OPPS){
+    if(o.id === exceptId || o.test) continue;
+    for(const p of o.people || []){
+      if(pKey(p.n) !== key || p.side === 'us') continue;
+      const q = (o.parties || []).find(x => x.id === p.party);
+      const at = q ? (q.acct || (q.kind === 'end' && o.kind !== 'large' ? o.acct : q.name)) : (p.side === 'cust' ? o.acct : p.org);
+      if(co && at && pKey(at) !== co) continue;
+      out.push({o, p, when: o.updated || o.created || 0});
+    }
+  }
+  return out.sort((a, b) => b.when - a.when);
+}
+const opCompany = (o, q) => q ? (q.acct || (q.kind === 'end' && o.kind !== 'large' ? o.acct : q.name)) : '';
+const OPP_OUTCOME = ['Open', 'Won', 'Lost', 'On hold'];
+function opHistLine(h){
+  return h.o.name + (h.o.outcome && h.o.outcome !== 'Open' ? ' (' + h.o.outcome.toLowerCase() + ')' : '') + ': ' +
+    ([bsRoles(h.p).join(' and ').toLowerCase(), h.p.stance && h.p.stance !== 'unknown' ? OP_STANCE[h.p.stance].toLowerCase() : '', h.p.mode ? 'sees it as ' + h.p.mode.toLowerCase() : ''].filter(Boolean).join(', ') || 'nothing recorded');
+}
+
+/* ---- Settings: the people added here, to enter into Dynamics ---- */
+function renderPeopleStat(){
+  const el = $('pplStat'); if(!el) return;
+  const n = PEOPLE.length;
+  el.textContent = n ? n + (n === 1 ? ' contact was' : ' contacts were') + ' added in the app and ' + (n === 1 ? 'is' : 'are') + ' not in Dynamics yet.' : 'Every contact here is in Dynamics.';
+  $('pplShare').hidden = !n;
+}
+$('pplShare').addEventListener('click', async () => {
+  if(!PEOPLE.length) return;
+  if(!window.XLSX){ toast('The spreadsheet library did not load'); return; }
+  const rows = [['Account', 'Full Name', 'Job Title', 'Added', 'Added by', 'From']].concat(
+    PEOPLE.slice().sort((a, b) => a.acct.localeCompare(b.acct) || a.n.localeCompare(b.n))
+      .map(r => [r.acct, r.n, r.t || '', r.added ? ddmmyyyy(iso(new Date(r.added))) : '', r.by || '', r.from || '']));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch: 34}, {wch: 26}, {wch: 30}, {wch: 12}, {wch: 18}, {wch: 34}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Not in Dynamics');
+  await deliverFile(new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+    'contacts_not_in_dynamics_' + todayISOdate() + '.xlsx', 'Contacts not in Dynamics');
+});
 
 /* ---------- Test project (v124) ----------
    Like Test call: one tap, a made-up project to try the map on - one
@@ -12230,6 +12369,7 @@ function oppText(o){
     const L = ['Opportunity: ' + (o.name || 'Untitled') + ' at ' + o.acct];
     if(v(o.obj)) L.push('Objective: ' + o.obj);
     if(v(o.value) || o.close) L.push('Value and close: ' + [o.value, o.close && oppMonth(o.close)].filter(Boolean).join(', '));
+    if(o.outcome) L.push('Outcome: ' + o.outcome);
     if(v(o.volNow) || v(o.volPot)) L.push('Volume: current ' + (v(o.volNow) || 'unknown') + ', total potential ' + (v(o.volPot) || 'unknown'));
     L.push('Our position, -5 panic to +5 euphoria: ' + (o.pos == null ? 'not rated' : opPosLabel(o.pos)) + (v(o.posWord) ? ' (' + o.posWord + ')' : '') + (v(o.posWhy) ? ' - ' + o.posWhy : ''));
     const where = [o.vsComp && 'against the competition: ' + o.vsComp, o.funnel && 'place in the funnel: ' + o.funnel, o.timing && 'timing: ' + o.timing].filter(Boolean);
@@ -12250,6 +12390,7 @@ function oppText(o){
       const cov = opCoverage(p), boss = p.boss && (o.people || []).find(x => x.id === p.boss);
       L.push('- ' + [p.n + ' (' + side[p.side] + (v(p.title) ? ', ' + p.title : '') + (pq(p.party) ? ', ' + pq(p.party).name : p.side === 'oem' && v(p.org) ? ', ' + p.org : '') + ')',
         boss && 'reports to ' + boss.n, p.stance && p.stance !== 'unknown' && OP_STANCE[p.stance].toLowerCase(),
+        (() => { const h = opHistory(p.n, opCompany(o, pq(p.party)), o.id).slice(0, 3); return h.length ? 'on other Blue Sheets: ' + h.map(opHistLine).join(' / ') : ''; })(),
         'part: ' + (bsRoles(p).join(' and ') || 'unknown'), p.infl && 'influence: ' + p.infl, 'sees it as: ' + (p.mode || 'unknown'), 'base covered ' + opPosLabel(p.rate || 0),
         'covered by: ' + (cov.length ? cov.map(c => c.n + ' (' + c.str.toLowerCase() + ')').join(', ') : 'nobody'),
         v(p.win) && 'personal win: ' + p.win, v(p.result) && 'business result: ' + p.result, v(p.evid) && 'evidence: ' + p.evid, v(p.note) && 'note: ' + p.note].filter(Boolean).join('; '));
@@ -13083,7 +13224,7 @@ function stRow(tab, x){
     const flags = (x.flags || []).length, n = (x.people || []).filter(p => p.side !== 'us').length;
     return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.close ? 'close ' + oppMonth(x.close) : 'no close date') + '</span>' +
       '<span class="st-pos">' + (x.pos == null ? '' : 'position ' + esc(opPosLabel(x.pos))) + '</span></div>' +
-      '<div class="rn">' + esc(x.name || 'Untitled') + (x.test ? ' <span class="tag test">TEST</span>' : '') + '</div>' +
+      '<div class="rn">' + esc(x.name || 'Untitled') + (x.test ? ' <span class="tag test">TEST</span>' : '') + (x.outcome ? ' <span class="tag">' + esc(x.outcome) + '</span>' : '') + '</div>' +
       '<div class="rm">' + esc([by, x.acct, x.value, n + (n === 1 ? ' buying influence' : ' buying influences')].filter(Boolean).join(' · ')) +
       (flags ? ' · <span class="st-flag">' + flags + (flags === 1 ? ' red flag' : ' red flags') + '</span>' : '') + '</div></button>';
   }
@@ -15263,7 +15404,8 @@ async function buildBackup(withPhotos){
     meta: META,
     overrides: OVERRIDES,
     prefs: {mgr: localStorage.getItem(LS('mgr')) || ''},
-    accounts: ACCOUNTS,
+    accounts: accPlain(),                        // v125: the added contacts travel as people, below
+    people: PEOPLE,                              // v125
     appts: APPTS,
     tasks: TASKS,
     snippets: SNIPS,
@@ -15626,6 +15768,7 @@ async function doRestore(file){
   for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
   for(const r of (Array.isArray(data.opps) ? data.opps : [])) if(r && r.id) await oppsPut(r);      // v115
   for(const r of (Array.isArray(data.cip) ? data.cip : [])) if(r && /^(me|mbo|ref)$/.test(r.id)) await cipPut(r);   // v121
+  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && r.acct && r.n) await peoplePut(r);   // v125
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
