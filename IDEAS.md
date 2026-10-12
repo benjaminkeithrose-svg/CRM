@@ -819,6 +819,10 @@ for now. Reviewed a clickable mock first.*
   Activities from the app's visits and calls, Accounts, SWOT, six critical
   success factors, Team from the map), Copy for Dynamics field by field, and
   the coach drawing on Ben's five sales books.
+- **Built (v131):** a large account's map as a top-down tree (no centre box):
+  corporate or a site marked Head office here at the top, group functions
+  (each covering all sites or some) under it, the sites in rows, Intralox
+  at the bottom.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
