@@ -810,6 +810,10 @@ for now. Reviewed a clickable mock first.*
   of 40px, centred icons, Start a call at the top of an account); Intralox's
   mission, commitment and business philosophy under Reference, and in the
   coach's methods.
+- **Built (v129):** a large account's map shows each site as its own box
+  (named by its place, kept in step with the plan's sites, opening its plan and
+  opportunities), and a Corporate kind of box that drives the sites; an old
+  map's group box became its corporate account.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's

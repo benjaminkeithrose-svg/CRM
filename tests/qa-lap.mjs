@@ -113,7 +113,9 @@ ok(!$('lapMap') && !/Relationship map/.test(body()), 'the plan no longer carries
 // ---- the large account's own map: built on it, saved with the plan
 $('lapView').querySelector('[data-v="map"]').click(); await tick(150);
 ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && $('opMap').querySelectorAll('g.op-card').length === 3 && /2 sites/.test($('opMap').querySelector('.op-node').textContent), 'Map shows the account\'s own map, with the account at the centre');
-ok(g(`OPP.parties.find(q => q.kind === 'end').name`) === 'Example Meats' && g(`OPP.people.filter(p => p.side === 'cust').every(p => p.party === OPP.parties[0].id)`), 'the customer\'s people sit under the large account as the end user (v124)');
+// v129 (deliberate): the group's box is its corporate account; each site is its own box, and the sites' people sit under their site
+ok(g(`OPP.parties[0].kind`) === 'corp' && g(`OPP.parties[0].name`) === 'Example Meats' && g(`OPP.parties.filter(q => q.kind === 'end' && q.site).map(q => q.acct).sort().join('|')`) === g(`LAP.sites.slice().sort().join('|')`) &&
+  g(`OPP.people.filter(p => p.side === 'cust').every(p => OPP.parties.find(q => q.id === p.party).site)`), 'the group is the corporate account, each site its own box, its people under it (v129)');
 d.querySelector('#opBar [data-tbl="' + g(`OPP.parties[0].id`) + '"]').click(); await tick();
 { const n = [...$('otBody').querySelectorAll('input[data-k="n"]')].pop(); n.value = 'Lee Group'; n.dispatchEvent(new w.Event('input')); }
 $('otDone').click(); await tick(200);

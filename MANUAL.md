@@ -443,20 +443,22 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 1. Open one of the customer's sites: tap **Directory** on Home, then the site.
 2. Tap the **Account plan** card.
 3. Tick **Large account: several sites under one plan**.
-4. Tap **Done**. The large account opens on its own map, with everyone from its sites' opportunities already on it.
-5. Add people to it the same way as an opportunity's map: tap an empty part of a lane, or tap **Add person**. Link them with **Link to…**.
-6. Tap **Plan** at the top to open the plan behind the map.
-7. Check the sites. Tap **×** to take one out, or type a name and tap **Add** to add one.
-8. Under **Where we are**, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.
-9. Under **Where we want to get to**, write the vision and add the objectives, each with a measure and a date.
-10. Under **How we get there**, add the strategies, the investment and the actions. Give each action an owner and a due date.
-11. Tick an action when it is done. Tap **Make a task** to put one in your calendar.
-12. After a review, tap **Reviewed today**.
-13. To send the plan, tap **Create and share**.
+4. Tap **Done**. The large account opens on its own map. Each site has its own box, with the people from its opportunities under it.
+5. If a head office or group account drives the sites, tap the circle-plus next to **Corporate** in the list beside the map, then type its name or pick it from your customer list.
+6. Tap the table icon next to a site or the corporate account to add its people. Link people across sites with **Link to…**.
+7. Tap a site to open its account plan or one of its opportunities.
+8. Tap **Plan** at the top to open the plan behind the map.
+9. Check the sites. Tap **×** to take one out, or type a name and tap **Add** to add one.
+10. Under **Where we are**, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.
+11. Under **Where we want to get to**, write the vision and add the objectives, each with a measure and a date.
+12. Under **How we get there**, add the strategies, the investment and the actions. Give each action an owner and a due date.
+13. Tick an action when it is done. Tap **Make a task** to put one in your calendar.
+14. After a review, tap **Reviewed today**.
+15. To send the plan, tap **Create and share**.
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
 
-The large account's map is its own, kept with the plan. The first time it opens it starts with everyone from the sites' opportunities, once each; after that, people added to it stay on it and not on the opportunities. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
+The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. Corporate boxes are drawn above the sites, driving each one. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
 
 To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
 
