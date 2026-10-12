@@ -202,7 +202,7 @@ The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Phot
 
 ### Talk into a box, or tidy a note
 
-Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes.
+Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet.
 
 1. Tap the microphone.
 2. The first time, allow the microphone when the phone asks.
@@ -347,7 +347,7 @@ Everything saves as you go, and the team shares it. To add the objective, value 
 
 Every text box on the map and the Blue Sheet has a microphone beside it. Tap it, talk, then tap **Finish**: Claude tidies what you said, and you check it before it goes in.
 
-To delete the opportunity, tap the bin at the right-hand end of the bar above the map. It says what will be lost and asks first.
+To delete the opportunity, tap the bin at the right-hand end of the bar above the map, or the bin on its card on Strategy or on the account. It says what will be lost and asks first.
 
 ### Set up an opportunity by describing it
 
@@ -520,10 +520,19 @@ The coach follows SPIN Selling and Strategic Selling, with Value First, Then Pri
 
 Photos with nothing logged yet go in **Loose photos** and come out at the end of the notes. Tap a photo to look at it. The × on it deletes it.
 
+### Delete something
+
+1. Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a saved note or product in Lists, or an entry in a call.
+2. Tap the red bin on the right of the card.
+3. Read what will be lost, then tap **OK**. Tap **Cancel** to keep it.
+
+The bin only shows on what is yours to delete. A deleted record also goes from your other devices, and a shared one from the team's, when they next sync.
+
 ### Change, copy or delete an entry
 
 1. Tap the entry's card to change it.
-2. Or tap **⋯** on the card, then **Duplicate** to start a copy, or **Delete**.
+2. Or tap **⋯** on the card, then **Duplicate** to start a copy.
+3. To delete it, tap the bin on the right of its card.
 
 A copy opens without being saved. Change what's different and tap Done. Photos aren't copied.
 
@@ -583,7 +592,7 @@ Tap a saved note to change it. **Duplicate** on the **⋯** opens a copy to chan
 
 When it's stocked, tap **⋯** on it and tap **Mark stocked**. It moves to the **Stocked** tab with the date.
 
-Tap a product to change it. Delete is the bin at the top left of the product.
+Tap a product to change it. To delete one, tap the bin on the right of its card.
 
 ### Request a quote
 
@@ -704,8 +713,9 @@ When signed in to cloud sync, the app checks the Intralox website once a week fo
 
 1. Tap **Reference** on Home for the manuals and the fault library.
 2. Tap **Intralox website** there for Belt Finder, the how-to videos and the resource pages. These need signal.
-3. Tap **Directory** on Home for accounts and contacts.
-4. To find one, tap the search icon at the top of Accounts or Contacts and type.
+3. Tap **Mission** there for Intralox's mission, commitment and business philosophy.
+4. Tap **Directory** on Home for accounts and contacts.
+5. To find one, tap the search icon at the top of Accounts or Contacts and type.
 
 In a call, the book icon at the top opens the manuals without leaving the call.
 

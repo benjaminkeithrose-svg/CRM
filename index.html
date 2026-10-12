@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v127">
+<meta name="build" content="v128">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -345,6 +345,32 @@ ul.rep li{margin-bottom:2px}
 .rpmore{flex:none;width:44px;background:transparent;border:0;border-left:1px solid var(--line-2);
   color:var(--ink-3);font-size:19px;line-height:1;cursor:pointer;padding:0}
 .rpmore:active{background:var(--sunk)}
+/* v128: a bin on the card, always last, in the warning colour, the icon centred */
+.cbin{flex:none;width:44px;min-height:44px;background:transparent;border:0;border-left:1px solid var(--line-2);color:var(--warn);
+  cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+.cbin .ic{width:18px;height:18px}
+.cbin:active{background:#FBEFEF}
+/* v128 QA: touch targets of at least 40px, icons centred */
+.oppcard .hd .x,.oppcard .x.bsimp{min-height:40px;display:inline-flex;align-items:center;padding:0 4px}
+.opitems .opx{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center}
+#bsDetails{min-height:40px}
+#avStart{margin:0 0 12px}
+.card.entry .cbin{border-left:1px solid var(--line-2)}
+@media (max-width:480px){
+  .ptabs .ptab button[data-v],.ptabs .ptab button[data-pane]{font-size:12.5px;padding-left:4px;letter-spacing:-.01em}
+}
+.mission h3{font-size:17px;margin:4px 0 8px;color:var(--ink)}
+.mission h3 + p,.mission p{margin:0 0 8px;line-height:1.45}
+.mission ol{margin:0 0 10px;padding-left:20px}
+.mission ol > li{margin:0 0 8px}
+.mission ul{margin:4px 0 0;padding-left:18px;color:var(--ink-2)}
+.mission ul li{margin:2px 0}
+.mission h3:not(:first-child){margin-top:18px}
+.mission h4{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin:12px 0 4px}
+.mission .misin{padding-left:12px;border-left:2px solid var(--line-2);margin:4px 0 6px}
+.mission h5{font-size:13px;font-weight:700;margin:8px 0 2px;color:var(--ink)}
+.oppcard .opprw{display:flex;align-items:stretch;gap:0;margin-top:6px;background:var(--sunk);border-radius:var(--r-sm);overflow:hidden}
+.oppcard .opprw .opprow{margin-top:0;flex:1;min-width:0;border-radius:0}
 button.rpt{display:block;width:100%;text-align:left;background:var(--surface);box-shadow:var(--lift);
   border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 var(--r) var(--r) 0;
   padding:12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
@@ -695,6 +721,8 @@ body.planning #s-opp{padding:0}
 .opptools .spacer{flex:1}
 .opptools .opz{width:40px;padding:0;font-size:18px;color:var(--act)}
 .opptools .opbin{color:var(--warn);border-color:#E4C4C6;margin-left:10px}
+/* v128: an icon on its own in a button sits in the middle (it is display:block) */
+.opptools .opz .ic{margin:0 auto}
 /* v127: set up from a description */
 .opbar-desc{width:100%;margin:0 0 8px;min-height:40px}
 .osh{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin:16px 0 6px}
@@ -2236,7 +2264,7 @@ details.bsx > .msg{margin:8px 12px}
       <p>On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap <b>Parties and people</b> to open it. Drag the background to move around, and use &minus; and + to zoom.</p>
       <p>Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or record how it ended, tap <b>Details</b>. A map made before this change is sorted into parties the first time it opens.</p>
       <p>Every text box on the map and the Blue Sheet has a microphone beside it. Tap it, talk, then tap <b>Finish</b>: Claude tidies what you said, and you check it before it goes in.</p>
-      <p>To delete the opportunity, tap the bin at the right-hand end of the bar above the map. It says what will be lost and asks first.</p>
+      <p>To delete the opportunity, tap the bin at the right-hand end of the bar above the map, or the bin on its card on Strategy or on the account. It says what will be lost and asks first.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2420,11 +2448,23 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Delete something</b><span class="sxs">The bin on its card</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a saved note or product in Lists, or an entry in a call.</li>
+        <li>Tap the red bin on the right of the card.</li>
+        <li>Read what will be lost, then tap <b>OK</b>. Tap <b>Cancel</b> to keep it.</li>
+      </ol>
+      <p>The bin only shows on what is yours to delete. A deleted record also goes from your other devices, and a shared one from the team's, when they next sync.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Change, copy or delete an entry</b><span class="sxs">Belt, note, project, health check</span></summary>
     <div class="fld help">
       <ol>
         <li>Tap the entry's card to change it.</li>
-        <li>Or tap <b>&#8943;</b> on the card, then <b>Duplicate</b> to start a copy, or <b>Delete</b>.</li>
+        <li>Or tap <b>&#8943;</b> on the card, then <b>Duplicate</b> to start a copy.</li>
+        <li>To delete it, tap the bin on the right of its card.</li>
       </ol>
       <p>A copy opens without being saved. Change what's different and tap Done. Photos aren't copied.</p>
     </div>
@@ -2495,7 +2535,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Done</b>.</li>
       </ol>
       <p>When it's stocked, tap <b>&#8943;</b> on it and tap <b>Mark stocked</b>. It moves to the <b>Stocked</b> tab with the date.</p>
-      <p>Tap a product to change it. Delete is the bin at the top left of the product.</p>
+      <p>Tap a product to change it. To delete one, tap the bin on the right of its card.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2634,6 +2674,7 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Tap <b>Reference</b> on Home for the manuals and the fault library.</li>
         <li>Tap <b>Intralox website</b> there for Belt Finder, the how-to videos and the resource pages. These need signal.</li>
+        <li>Tap <b>Mission</b> there for Intralox's mission, commitment and business philosophy.</li>
         <li>Tap <b>Directory</b> on Home for accounts and contacts.</li>
         <li>To find one, tap the search icon at the top of Accounts or Contacts and type.</li>
       </ol>
@@ -2879,6 +2920,8 @@ details.bsx > .msg{margin:8px 12px}
 <!-- ACCOUNT VIEW -->
 <section class="scr" id="s-acct">
   <div class="fld" id="avHead"></div>
+  <!-- v128: the main action at the top, not after the contacts and history (QA) -->
+  <button class="big" id="avStart">Start a call here</button>
   <!-- v106: the sales coach's account plan; tap to open it -->
   <div class="card plancard" id="avPlan" role="button" tabindex="0"></div>
   <!-- v115: opportunities, each with its relationship map -->
@@ -2892,7 +2935,7 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld" id="avContacts"></div>
   <h2>Visit history</h2>
   <div id="avHistory"></div>
-  <button class="big" id="avStart">Start a call here</button>
+
 </section>
 
 <!-- OPPORTUNITY (v115): the relationship map. Full editing on the PC; on the phone, look and tap. -->
@@ -3981,6 +4024,7 @@ details.bsx > .msg{margin:8px 12px}
     <button type="button" data-pane="man" class="on">Manuals</button>
     <button type="button" data-pane="flt">Fault library</button>
     <button type="button" data-pane="web">Intralox website</button>
+    <button type="button" data-pane="mis">Mission</button>
   </div>
   <div class="pane" id="paneMan">
   <div class="fld">
@@ -4001,6 +4045,47 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   <div id="mBody"></div>
 </div>
+  <!-- v128: Intralox's mission, commitment and business philosophy, as published on intralox.com (Corporate, Mission and Philosophy). Public, so it ships with the app. -->
+  <div class="pane" id="paneMis" hidden>
+    <div class="fld mission">
+      <h3>Our Mission</h3>
+      <p>To be the world leader in modular plastic conveyor belt products and related services and solutions.</p>
+      <p>To create significant economic value for our customers by optimizing their conveying systems.</p>
+      <h3>Our Commitment</h3>
+      <ol>
+        <li><b>Improve customer efficiencies.</b>
+          <ul><li>Listen objectively. Think creatively. Deliver results.</li>
+            <li>Develop mutually beneficial customer partnerships based on shared values and common objectives.</li></ul></li>
+        <li><b>Minimize customer downtime.</b>
+          <ul><li>Provide extraordinary customer service: superior quality, technical expertise and industry specialization.</li>
+            <li>Deliver reliable, on-time and zero-defect products and services.</li>
+            <li>Offer industry-leading guarantees.</li></ul></li>
+        <li><b>Rigorously implement our culture of continuous improvement.</b>
+          <ul><li>Invest in self-managed people who apply the values of our business philosophy.</li>
+            <li>Introduce innovative products and services which anticipate customer needs.</li>
+            <li>Review our internal processes to continuously improve productivity and eliminate waste.</li></ul></li>
+      </ol>
+      <h3>Business Philosophy</h3>
+      <p>In order to serve our individual interests, the shareholders and employees agree to combine our resources to make them more productive than they would be apart. This Philosophy is consistent with our individual values. We agree to practice these principles for our mutual benefit.</p>
+      <h4>Customers/Profits</h4>
+      <p>We provide our customers the most competitive values while generating the profits needed to continuously improve our products and services.</p>
+      <h4>Productivity</h4>
+      <p>We define productivity as increasing customer value or reducing Company costs. We continuously improve Company productivity with ideas, teamwork, and effort.</p>
+      <div class="misin">
+        <h5>Ideas</h5>
+        <p>We listen to each other. We challenge ourselves and each other to think objectively and continuously improve our business through better ideas.</p>
+        <h5>Teamwork</h5>
+        <p>We work as a team. We benefit from each other's success. We treat customers, suppliers, and each other as we expect to be treated: with respect, honesty, and fairness.</p>
+        <h5>Effort</h5>
+        <p>We work hard to be the best we can be. We serve as positive examples for each other. We take pride in and show enthusiasm for our work. We have fun at work. When necessary, we make short-term personal sacrifices to benefit our long-term interests.</p>
+      </div>
+      <h4>Self-Management/Credibility</h4>
+      <p>We are each self-managed. We are responsible for our own credibility. Mutual trust is the foundation for our continued success. Self-managed people are our greatest resource.</p>
+      <h4>Compensation</h4>
+      <p>We agree to be compensated based on individual and Company performance. We will not ask for more, or be asked to accept less, than we have earned. We share in our success based on the value of our individual contributions.</p>
+      <p class="hint">&copy; Laitram, L.L.C. As published on <a href="https://www.intralox.com/corporate/mission-and-philosophy" target="_blank" rel="noopener">intralox.com: Mission and Philosophy</a> (the link needs signal).</p>
+    </div>
+  </div>
   <div class="pane" id="paneWeb" hidden>
     <p class="hint">These open on the Intralox website and need signal.</p>
     <div id="webList"></div>

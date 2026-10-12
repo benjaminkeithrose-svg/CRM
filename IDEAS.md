@@ -804,6 +804,12 @@ for now. Reviewed a clickable mock first.*
   opportunity up from a spoken description (Claude finds the parties and
   people, matched to the customer list on the device, ticked before they go
   on the map), on New opportunity and from the map; a bin on the map's bar.
+- **Built (v128):** a bin on every card (Strategy's three tabs, an account's
+  opportunities, Reports, the calendar's visits and tasks, Lists, a call's
+  entries), each asking first; a QA pass at phone and PC width (touch targets
+  of 40px, centred icons, Start a call at the top of an account); Intralox's
+  mission, commitment and business philosophy under Reference, and in the
+  coach's methods.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's

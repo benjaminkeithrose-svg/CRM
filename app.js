@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v127';
+const APP_BUILD = 'v128';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2366,6 +2366,31 @@ function apptEl(ap, pill){
   el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.stopPropagation(); openDialog(ap.id); } });
   return el;
 }
+/* v128: a bin on the card itself (Ben, 2026-10-12: "until I'm through testing
+   I'm going to be deleting a lot of things"). Always the last thing on the
+   row, in the warning colour, and every one asks first, naming what goes. */
+const binBtn = (attr, id, what) => '<button type="button" class="cbin" ' + attr + '="' + esc(id) + '" aria-label="Delete ' + esc(what) + '" title="Delete">' + icon('trash') + '</button>';
+// after a delete from a card: whatever list it was on, and the search if it is open
+function afterCardDelete(){
+  if(screen === 'plan') renderPlan();
+  if(screen === 'today') renderToday();
+  if(screen === 'reports') renderReports().catch(e => console.error('reports', e));
+  if(screen === 'lists') renderLists();
+  if(screen === 'strategy') renderStrategy().catch(e => console.error('strategy', e));
+  if(screen === 'acct'){ renderOppsCard(); renderPlanCard(); }
+  renderHomeCounts();
+  if($('srchdlg').hasAttribute('open')) runSearch().catch(e => console.error('search', e));
+}
+async function apptDeleteAsk(ap){
+  if(!ap) return false;
+  if(!confirm('Delete the visit to ' + ap.acct + ' on ' + dayLabel(ap.date) + (ap.start ? ' ' + ap.start : '') + '?' +
+      (ap.callId ? '\n\nIts call stays in Reports.' : '') + '\n\nIt is gone from this device' +
+      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return false;
+  await apptsDel(ap.id);
+  APPTS = APPTS.filter(x => x.id !== ap.id);
+  toast('Visit deleted');
+  return true;
+}
 async function deleteApptQuick(ap){
   if(!confirm('Delete '+apptTitle(ap)+' on '+ap.date+'?')) return;
   await apptsDel(ap.id);
@@ -3427,6 +3452,7 @@ function visitCard(ap, opts){
       (ap.agenda && ap.agenda.trim() ? '<div class="ag">'+esc(ap.agenda.trim())+'</div>' : '')+
     '</button>'+
     '<button class="vmore" data-vmenu="'+tapId+'" aria-label="More for '+esc(ap.acct)+'">&#8943;</button>'+
+    binBtn('data-vdel', ap.id, 'the visit to ' + ap.acct)+
   '</div>';
 }
 /* DAYNM runs Monday first, for the planner's grid; this one is in getDay()
@@ -3489,7 +3515,7 @@ function taskCard(t){
     '<button class="vopen" data-topen="' + esc(t.id) + '">' +
       '<div class="vtop"><span class="when">' + esc(t.start || '') + '</span><span class="who">' + esc(taskTitle(t)) + '</span></div>' +
       '<div class="vsub">' + ['Task', t.type && t.type !== t.title ? t.type : '', t.acct].filter(Boolean).map(esc).join(' &middot; ') + '</div>' +
-    '</button></div>';
+    '</button>' + binBtn('data-tdel', t.id, 'the task ' + taskTitle(t)) + '</div>';
 }
 // visits and tasks for one day, in time order
 function dayItems(k){
@@ -3682,6 +3708,8 @@ function wireVisitCards(el){
   on('data-qopen',    id => openQuote(id).catch(reportErr));
   on('data-tvis',     id => openTeamVisit(id).catch(reportErr));
   on('data-ttick',    id => { const t = TASKS.find(x => x.id === id); if(t) taskToggle(t).catch(reportErr); });
+  on('data-vdel',     id => apptDeleteAsk(APPTS.find(x => x.id === id)).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr));
+  on('data-tdel',     id => taskDeleteAsk(TASKS.find(x => x.id === id)).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr));
   on('data-closeout', id => closeOutVisit(id).catch(reportErr));
   on('data-move',     id => openMoveDialog(id));
   on('data-missed',   id => setVisitStatus(id, 'missed').catch(reportErr));
@@ -4950,6 +4978,15 @@ async function taskFinish(){
     : taskIsNew ? 'Task on the calendar: ' + when : 'Task saved');
   taskRefresh();
 }
+async function taskDeleteAsk(t){
+  if(!t) return false;
+  if(!confirm('Delete the task "' + taskTitle(t) + '" on ' + ddmmyyyy(t.date) + '?\n\nIt is gone from this device' +
+      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return false;
+  await tasksDel(t.id);
+  TASKS = TASKS.filter(x => x.id !== t.id);
+  toast('Task deleted');
+  return true;
+}
 async function taskDelete(){
   const t = taskEdit;
   if(!t) return;
@@ -5029,7 +5066,7 @@ function snRow(r){
     '<button class="rpt" data-snopen="' + esc(r.id) + '">' +
     '<div class="rn">' + esc(snTitle(r)) + '</div>' +
     '<div class="rm">' + esc(meta || 'No text yet') + '</div></button>' +
-    '<button class="rpmore" data-snmenu="' + esc(r.id) + '" aria-label="More for ' + esc(snTitle(r)) + '">&#8943;</button></div>';
+    '<button class="rpmore" data-snmenu="' + esc(r.id) + '" aria-label="More for ' + esc(snTitle(r)) + '">&#8943;</button>' + binBtn('data-sndel', r.id, snTitle(r)) + '</div>';
 }
 function prRow(r){
   const meta = [r.part, r.acct, r.stocked && r.stockedAt ? 'stocked ' + new Date(r.stockedAt).toLocaleDateString() : ''].filter(Boolean).join(' · ');
@@ -5038,13 +5075,15 @@ function prRow(r){
     (r.status ? '<div class="rt"><span class="rd"></span><span class="st ' + (r.stocked ? 'done' : 'open') + '">' + esc(r.stocked ? 'stocked' : r.status) + '</span></div>' : '') +
     '<div class="rn">' + esc(prTitle(r)) + '</div>' +
     '<div class="rm">' + esc(meta || 'No details yet') + '</div></button>' +
-    '<button class="rpmore" data-prmenu="' + esc(r.id) + '" aria-label="More for ' + esc(prTitle(r)) + '">&#8943;</button></div>';
+    '<button class="rpmore" data-prmenu="' + esc(r.id) + '" aria-label="More for ' + esc(prTitle(r)) + '">&#8943;</button>' + binBtn('data-prdel', r.id, prTitle(r)) + '</div>';
 }
 function wireListRows(el, before){
   el.querySelectorAll('[data-snopen]').forEach(b => b.addEventListener('click', () => { if(before) before(); openSnip(b.dataset.snopen); }));
   el.querySelectorAll('[data-snmenu]').forEach(b => b.addEventListener('click', () => snMenu(b.dataset.snmenu)));
   el.querySelectorAll('[data-propen]').forEach(b => b.addEventListener('click', () => { if(before) before(); openProd(b.dataset.propen); }));
   el.querySelectorAll('[data-prmenu]').forEach(b => b.addEventListener('click', () => prMenu(b.dataset.prmenu)));
+  el.querySelectorAll('[data-sndel]').forEach(b => b.addEventListener('click', () => { const r = SNIPS.find(x => x.id === b.dataset.sndel); if(r) snDelete(r).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr); }));
+  el.querySelectorAll('[data-prdel]').forEach(b => b.addEventListener('click', () => { const r = PRODS.find(x => x.id === b.dataset.prdel); if(r) prDelete(r).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr); }));
 }
 function renderLists(){
   const notes = listsPane === 'notes';
@@ -6825,6 +6864,7 @@ function reportRow(c){
     '<div class="rn">'+esc(c.customer)+(c.test ? ' <span class="tag test">TEST</span>' : '')+'</div>'+
     '<div class="rm">'+(callAuthor(c) ? '<b>'+esc(callAuthor(c))+'</b> \u00b7 ' : '')+esc(reportLine(c))+'</div></button>'+
     '<button class="rpmore" data-rpmenu="'+esc(c.id)+'" aria-label="More for '+esc(c.customer)+'">&#8943;</button>'+
+    (isMine('calls', c.id) || iAmAdmin() ? binBtn('data-rpdel', c.id, c.customer + ' on ' + c.date) : '')+
     '</div>';
 }
 // before is run first when a row is opened - the search closes itself there
@@ -6838,6 +6878,11 @@ function wireReportRows(el, list, before){
   el.querySelectorAll('[data-rpmenu]').forEach(b => b.addEventListener('click', ()=>{
     const c = list.find(x => x.id === b.dataset.rpmenu);
     if(c) openReportMenu(c);
+  }));
+  el.querySelectorAll('[data-rpdel]').forEach(b => b.addEventListener('click', async ()=>{
+    const found = (await callsAll()).find(c => c.id === b.dataset.rpdel);
+    if(!found){ toast('That call could not be found'); return; }
+    if(await deleteCallRecord(found)) afterCardDelete();
   }));
 }
 function openReportMenu(c){
@@ -7966,11 +8011,13 @@ function renderDash(){
       '<button type="button" class="eopen" data-edit="'+i+'"><span class="t">'+esc(head)+'</span>'+
         '<span class="meta">'+[body, phn].filter(Boolean).join(' &middot; ')+'</span></button>'+
       '<button type="button" class="emore" data-emenu="'+i+'" aria-label="More for '+esc(head)+'">&#8943;</button>'+
+      binBtn('data-edel', i, head)+
       '</div>'+ gone +
       (th?'<div class="thumbs">'+th+'</div>':'')+
       '</div>';
   }).join('');
   el.querySelectorAll('[data-emenu]').forEach(b=>b.addEventListener('click', ()=>openEntryMenu(+b.dataset.emenu)));
+  el.querySelectorAll('[data-edel]').forEach(b=>b.addEventListener('click', ()=>deleteEntry(+b.dataset.edel).catch(reportErr)));
   el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openLogged(+b.dataset.edit)));
   el.querySelectorAll('[data-view]').forEach(img=>img.addEventListener('click', ()=>{
     const p = img.dataset.view.split(':').map(Number);
@@ -10881,16 +10928,29 @@ $('plAdd').addEventListener('click', () => {
   try { names[names.length - 1].focus(); } catch(_){}
 });
 $('plOk').addEventListener('click', () => plFinish().catch(e => { console.error(e); toast('Could not save the plan: ' + e.message); }));
-$('plDel').addEventListener('click', async () => {
-  const r = plEdit;
-  if(!r) return;
-  const n = (r.people || []).length;
-  if(!confirm('Delete the account plan for ' + r.acct + '?\n\nIts goal, ' + n + (n === 1 ? ' person' : ' people') +
-      ', red flags and strengths are gone from this device' + (sbUser ? ' and from your other devices when they next sync' : '') +
-      '. This cannot be undone.')) return;
-  plEdit = null;                                  // the close handler must not save it back
+// an account plan or a large account plan (v128: from the card too)
+async function planDeleteAsk(r){
+  if(!r) return false;
+  if(r.kind === 'large'){
+    const n = (r.sites || []).length, o = (r.objectives || []).length, a = (r.actions || []).length;
+    if(!confirm('Delete the large account plan ' + (r.name || '') + '?\n\nIt covers ' + n + (n === 1 ? ' site' : ' sites') + ', with ' + o + (o === 1 ? ' objective' : ' objectives') +
+        ' and ' + a + (a === 1 ? ' action' : ' actions') + '. The sites, their own plans and their opportunities stay. It is gone from this device' +
+        (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return false;
+    if(LAP && LAP.id === r.id){ clearTimeout(lapSaveTimer); lapSaveTimer = null; }
+  } else {
+    const n = (r.people || []).length;
+    if(!confirm('Delete the account plan for ' + r.acct + '?\n\nIts goal, ' + n + (n === 1 ? ' person' : ' people') +
+        ', red flags and strengths are gone from this device' + (sbUser ? ' and from your other devices when they next sync' : '') +
+        '. This cannot be undone.')) return false;
+  }
   await plansDel(r.id);
   PLANS = PLANS.filter(x => x.id !== r.id);
+  return true;
+}
+$('plDel').addEventListener('click', async () => {
+  const r = plEdit;
+  if(!r || !await planDeleteAsk(r)) return;
+  plEdit = null;                                  // the close handler must not save it back
   const d = $('plandlg');
   if(history.state && history.state.dialog === 'plandlg') history.back();
   else if(d.close) d.close(); else d.removeAttribute('open');
@@ -10946,13 +11006,19 @@ function renderOppsCard(){
   if(!a || !el) return;
   const list = oppsFor(a.a);
   el.innerHTML = '<div class="hd"><span class="t">Opportunities</span><button type="button" class="x" id="avOppNew">New opportunity</button></div>' +
-    (list.length ? list.map(o => '<button type="button" class="opprow" data-opp="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled') + '</b>' +
-      '<span class="meta">' + esc([o.value, o.close && 'close ' + oppMonth(o.close), (o.people || []).length + ((o.people || []).length === 1 ? ' person' : ' people')].filter(Boolean).join(' · ')) + '</span></button>').join('')
+    (list.length ? list.map(o => '<div class="opprw"><button type="button" class="opprow" data-opp="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled') + '</b>' +
+      '<span class="meta">' + esc([o.value, o.close && 'close ' + oppMonth(o.close), (o.people || []).length + ((o.people || []).length === 1 ? ' person' : ' people')].filter(Boolean).join(' · ')) + '</span></button>' +
+      (isMine('opps', o.id) || iAmAdmin() ? binBtn('data-oppdel', o.id, 'the opportunity ' + (o.name || 'Untitled')) : '') + '</div>').join('')
       : '<p class="meta">None yet. Start one for a large project or pursuit.</p>') +
     '<button type="button" class="x bsimp" id="avOppImp">Import a Blue Sheet</button>';
   $('avOppNew').addEventListener('click', () => openOppDetails(null));
   $('avOppImp').addEventListener('click', () => $('bsFile').click());
   el.querySelectorAll('[data-opp]').forEach(b => b.addEventListener('click', () => openOpp(b.dataset.opp)));
+  el.querySelectorAll('[data-oppdel]').forEach(b => b.addEventListener('click', async () => {
+    if(!await oppDeleteAsk(OPPS.find(o => o.id === b.dataset.oppdel))) return;
+    toast('Opportunity deleted');
+    afterCardDelete();
+  }));
 }
 
 $('bsFile').addEventListener('change', async e => {
@@ -13487,13 +13553,7 @@ $('lapShare').addEventListener('click', async () => {
 });
 $('lapDel').addEventListener('click', async () => {
   const L = LAP; if(!L) return;
-  const n = (L.sites || []).length, o = (L.objectives || []).length, a = (L.actions || []).length;
-  if(!confirm('Delete the large account plan ' + (L.name || '') + '?\n\nIt covers ' + n + (n === 1 ? ' site' : ' sites') + ', with ' + o + (o === 1 ? ' objective' : ' objectives') +
-      ' and ' + a + (a === 1 ? ' action' : ' actions') + '. The sites, their own plans and their opportunities stay. It is gone from this device' +
-      (sbUser ? ' and from the team\'s devices when they next sync' : '') + '. This cannot be undone.')) return;
-  clearTimeout(lapSaveTimer); lapSaveTimer = null;
-  await plansDel(L.id);
-  PLANS = PLANS.filter(x => x.id !== L.id);
+  if(!await planDeleteAsk(L)) return;
   LAP = null;
   toast('Large account plan deleted');
   go('acct');
@@ -13516,6 +13576,11 @@ function stItems(tab){
 }
 function stAuthor(store, id){ return isMine(store, id) ? '' : teamName(OWNERS[store + '/' + id]); }
 function stRow(tab, x){
+  const mine = isMine(stStore[tab], x.id) || iAmAdmin();
+  const what = tab === 'opps' ? 'the opportunity ' + (x.name || 'Untitled') : tab === 'laps' ? 'the large account plan ' + (x.name || '') : 'the account plan for ' + (x.acct || '');
+  return '<div class="rprow strow">' + stRowBtn(tab, x) + (mine ? binBtn('data-stdel', x.id, what) : '') + '</div>';
+}
+function stRowBtn(tab, x){
   const by = stAuthor(stStore[tab], x.id);
   if(tab === 'opps'){
     const flags = (x.flags || []).length, n = (x.people || []).filter(p => p.side !== 'us').length;
@@ -13542,6 +13607,13 @@ function stWire(el, tab, before){
   el.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
     if(before) before();
     stOpen(tab, b.dataset.st);
+  }));
+  el.querySelectorAll('[data-stdel]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.stdel;
+    const ok = tab === 'opps' ? await oppDeleteAsk(OPPS.find(o => o.id === id)) : await planDeleteAsk(PLANS.find(p => p.id === id));
+    if(!ok) return;
+    toast(tab === 'opps' ? 'Opportunity deleted' : tab === 'laps' ? 'Large account plan deleted' : 'Account plan deleted');
+    afterCardDelete();
   }));
 }
 function stOpen(tab, id){
@@ -16779,6 +16851,7 @@ function renderRefPane(){
   $('paneMan').hidden = !man;
   $('paneFlt').hidden = refPane !== 'flt';
   $('paneWeb').hidden = refPane !== 'web';
+  $('paneMis').hidden = refPane !== 'mis';
   if(refPane === 'web') renderWebLinks();
   document.querySelectorAll('#refTabs button').forEach(b =>
     b.classList.toggle('on', b.dataset.pane === refPane));

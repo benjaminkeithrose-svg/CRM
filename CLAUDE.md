@@ -35,6 +35,17 @@ work from a copy of a file anywhere other than this checkout.
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
 
+## Intralox's mission drives decisions
+
+Ben, 2026-10-12: Intralox's mission, commitment and business philosophy
+(Reference, Mission tab; published on intralox.com) should drive decisions.
+The mission is to create significant economic value for customers by
+optimising their conveying systems; the commitments are improving customer
+efficiencies, minimising customer downtime and continuous improvement. When
+weighing a feature, favour what helps the salesperson find and prove those
+for a customer, and keep commitments made to them (follow-ups, dates). The
+sales coach's prompt carries the same three commitments (`ai-tidy`, METHOD).
+
 ## Hard rules
 
 **Version strings live in three places and must always agree:**
