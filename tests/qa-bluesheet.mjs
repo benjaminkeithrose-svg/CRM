@@ -32,7 +32,8 @@ await tick(500);
 const $ = id => d.getElementById(id);
 const g = e => w.eval('(' + e + ')');
 const X = w.XLSX;
-w.eval(`deliverDoc = async (html, name) => { window.__doc = {html, name}; }; deliverFile = async (blob, name) => { window.__file = {blob, name}; }`);
+w.print = () => { w.__printed = (w.__printed || 0) + 1; };
+w.eval(`{ const real = printDoc; printDoc = async (html, name) => { window.__doc = {html, name}; return real(html, name); }; } deliverFile = async (blob, name) => { window.__file = {blob, name}; }`);
 
 const A = 'Example Meats - Dandenong';
 await g(`(async () => {
@@ -156,10 +157,18 @@ ok(g(`OPP.notes.length`) === 2 && /Met Kim on site/.test($('opSheet').querySelec
 
 // ---- Create and share: the traditional Blue Sheet
 $('opShare').click(); await tick(50);
-ok($('bsoutdlg').hasAttribute('open') && g(`chipVal($('boFmt'))`) === 'Document' && !$('boMapWrap').hidden && !$('boMap').checked, 'Create and share asks Document or Excel, the map off by default');
+ok($('bsoutdlg').hasAttribute('open') && [...$('boFmt').querySelectorAll('button')].map(b => b.textContent).join() === 'PDF,Excel' && g(`chipVal($('boFmt'))`) === 'PDF' && !$('boMapWrap').hidden && !$('boMap').checked && /Save as PDF/.test($('boNote').textContent),
+  'Create and share asks PDF or Excel (v127), the map off by default');
 $('boGo').click(); await tick(300);
 const doc = (w.__doc || {}).html || '';
 ok(/_blue_sheet_/.test(w.__doc.name) && /@page\{size:A4/.test(doc) && /Strategic analysis/.test(doc), 'an A4 document');
+const host = $('printHost');
+ok(w.__printed === 1 && d.body.classList.contains('printing') && host && host.shadowRoot && /Strategic analysis/.test(host.shadowRoot.innerHTML) && /\.docbody\{/.test(host.shadowRoot.innerHTML) && !/@page/.test(host.shadowRoot.innerHTML),
+  'PDF: the document is laid into the page, apart from the app, and the print screen opens');
+ok(/_blue_sheet_\d{4}-\d{2}-\d{2}$/.test(d.title), 'the page title is the file name the PDF is offered under: ' + d.title);
+d.dispatchEvent(new w.Event('keydown')); ok(d.body.classList.contains('printing'), 'still the document until the print screen has closed');
+w.dispatchEvent(new w.Event('afterprint')); d.dispatchEvent(new w.Event('pointerdown'));
+ok(!d.body.classList.contains('printing') && !/_blue_sheet_/.test(d.title), 'back in the app, it is the app again');
 ok(/<td class="l">Salesperson<\/td><td class="v">Sam Seller/.test(doc) && /Total potential volume<\/td><td class="v">AUD 300k/.test(doc) && /<b>Concern<\/b>/.test(doc), 'the form\'s header and the adequacy of position');
 ok(/&#9746; Front runner/.test(doc) && /&#9744; Only alternative/.test(doc) && /&#9746; In/.test(doc) && /&#9746; Urgent/.test(doc), 'the competition boxes ticked as on the form');
 ok(/<b>Total<\/b><\/td><td><b>\+6<\/b>/.test(doc) && /<td>E\/T<\/td><td>H<\/td><td>OC<\/td>/.test(doc) && /Mode: G growth, T trouble, EK even keel, OC overconfident/.test(doc), 'criteria with the total; influences in the form\'s letters, with the key');

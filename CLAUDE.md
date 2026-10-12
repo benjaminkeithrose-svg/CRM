@@ -31,7 +31,7 @@ work from a copy of a file anywhere other than this checkout.
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
 | `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. `0008_team_people.sql` (v125) shares contacts added on Blue Sheet maps. Not served by the app |
-| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes, and coaching on an opportunity's Blue Sheet (v118); Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
+| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes, coaching on an opportunity's Blue Sheet (v118), and setting a Blue Sheet up from a description (`oppsetup`, v127); Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
 | `tests/` | Headless test suites. Not served by the app |
 | `tools/` | Maintenance scripts (`help-to-manual.py`). Not served by the app |
 
@@ -131,7 +131,10 @@ numbered, plain English, one action per step.
 
 **No output format that has already been rejected.** EML was tried and dropped:
 on Android, Outlook opens it in a browser rather than as a draft. PDF was dropped
-deliberately. Output is self-contained HTML handed to the share sheet.
+deliberately for call notes. Output is self-contained HTML handed to the share sheet.
+The exception is the Blue Sheet (v127, Ben's choice: "it'd be PDF or Excel"):
+`printDoc()` lays its A4 document into the page in a shadow root and opens the
+browser's print screen, where Save as PDF makes the file. No PDF library.
 
 ## Output documents (compiled notes, RFQ)
 

@@ -61,7 +61,9 @@ ok(tidies.every(t => t.previousElementSibling && t.previousElementSibling.classL
   'a microphone just before every Tidy, for the same box');
 ok(mics.some(m => m.dataset.mic === 'tkNotes') && mics.some(m => m.dataset.mic === 'tkBody' && m.dataset.after === 'draft' && m.nextElementSibling === $('tkDraft')),
   'and on a task\'s notes, and beside Draft it on an email body');
-ok(mics.length === tidies.length + 2, 'nowhere else: ' + mics.length);
+// v127: the Blue Sheet's boxes (marked data-talk) and the two description boxes have one too
+const bs = mics.filter(m => ['osText', 'odDesc'].includes(m.dataset.mic) || ($(m.dataset.mic) && $(m.dataset.mic).dataset.talk));
+ok(bs.length === 3 && mics.length === tidies.length + 2 + bs.length, 'nowhere else, beyond the Blue Sheet\'s: ' + mics.length);
 ok(mics.every(m => m.getAttribute('aria-label') === 'Talk into this box' && m.querySelector('svg') && !m.textContent), 'each is an icon with an accessible name');
 
 // ---- the stand-in for supabase.functions.invoke

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v126">
+<meta name="build" content="v127">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -694,6 +694,18 @@ body.planning #s-opp{padding:0}
 .opptools .btn{min-height:40px;font-size:14px}
 .opptools .spacer{flex:1}
 .opptools .opz{width:40px;padding:0;font-size:18px;color:var(--act)}
+.opptools .opbin{color:var(--warn);border-color:#E4C4C6;margin-left:10px}
+/* v127: set up from a description */
+.opbar-desc{width:100%;margin:0 0 8px;min-height:40px}
+.osh{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin:16px 0 6px}
+.osh .sw{display:inline-block;width:10px;height:10px;border-radius:3px}
+.oschk{display:flex;align-items:flex-start;gap:10px;padding:8px 4px;min-height:40px;cursor:pointer}
+.oschk input{width:20px;height:20px;margin:2px 0 0;flex:none}
+.oschk span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.oschk small{font-size:12.5px;color:var(--ink-3)}
+.oschk.off{opacity:.45}
+.osppl{margin-left:28px}
+.osparty{border-top:1px solid var(--line-2)}
 .oppmain{display:grid;grid-template-columns:250px minmax(0,1fr) 340px;height:calc(100vh - var(--hdh, 56px) - 58px)}
 .oppmap{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--surface)}
 /* v124: the layered map */
@@ -784,6 +796,19 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .opitems .opx{flex:none;width:32px;height:32px;border:0;background:transparent;color:var(--warn);cursor:pointer;padding:6px}
 .opadd{display:flex;gap:6px;margin-top:6px}
 .opadd input{flex:1;min-width:0}
+/* v127: a microphone beside a Blue Sheet box */
+.talk{display:flex;gap:6px;align-items:center;flex:1;min-width:0}
+.talk.tall{align-items:flex-start}
+.talk > input,.talk > textarea{flex:1;min-width:0;margin:0}
+.talk > .micbtn{flex:none;margin:0;min-height:40px}
+/* v127: a document printed from the app (the Blue Sheet's PDF): only it prints */
+#printHost{display:none}
+@media print{
+  body.printing{background:#fff !important;margin:0 !important;padding:0 !important}
+  body.printing > *:not(#printHost){display:none !important}
+  body.printing > #printHost{display:block !important}
+}
+@page{size:A4;margin:14mm}
 .oplegend{display:grid;grid-template-columns:56px 1fr;gap:6px 10px;align-items:center;font-size:12.5px;color:var(--ink-2)}
 .oplegend svg{width:44px;height:12px}
 .opconfirm{background:var(--red-soft);border-radius:var(--r);padding:10px;margin-top:10px;font-size:13.5px}
@@ -853,7 +878,8 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .bscrit li{align-items:center}
 .bscrit select{flex:none;width:76px;min-height:36px;padding:4px 6px}
 .bsnadd{display:grid;grid-template-columns:150px 1fr auto;gap:6px;margin-top:6px}
-@media (max-width:520px){ .bsnadd{grid-template-columns:1fr auto} .bsnadd input[type=text]{grid-column:1 / -1;grid-row:1} }
+@media (max-width:520px){ .bsnadd{grid-template-columns:1fr auto} .bsnadd input[type=text],.bsnadd .talk{grid-column:1 / -1;grid-row:1} }
+.bsnadd .talk{min-width:0}
 .oppcard .bsimp{display:block;margin-top:6px;min-height:40px}
 .bsstar{flex:none;width:32px;height:32px;border:0;background:transparent;cursor:pointer;font-size:18px;color:var(--ink-3);padding:0}
 .bsstar.on{color:var(--act)}
@@ -2065,7 +2091,7 @@ details.bsx > .msg{margin:8px 12px}
   <details class="sx hx">
     <summary><b>Talk into a box, or tidy a note</b><span class="sxs">The microphone and Tidy</span></summary>
     <div class="fld help">
-      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes.</p>
+      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet.</p>
       <ol>
         <li>Tap the microphone.</li>
         <li>The first time, allow the microphone when the phone asks.</li>
@@ -2193,7 +2219,7 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Open the account: tap <b>Directory</b> on Home, then the account.</li>
         <li>On the <b>Opportunities</b> card, tap <b>New opportunity</b>.</li>
-        <li>Type its name, then tap <b>Done</b>. The map opens with the end user (the account) and Intralox already on it.</li>
+        <li>Type its name, then tap <b>Done</b>. The map opens with the end user (the account) and Intralox already on it. Or describe it instead: see <b>Set up an opportunity by describing it</b>.</li>
         <li>In the list beside the map, tap the circle-plus next to <b>Head contractors</b> or <b>OEMs and integrators</b>.</li>
         <li>Type the company's name, or pick it from your customer list, then tap <b>Add</b>.</li>
         <li>Tap the table icon next to a party to add its people.</li>
@@ -2208,7 +2234,25 @@ details.bsx > .msg{margin:8px 12px}
       <p>Tap a person to see their relationships on their own: everything else fades. Their role, view, rating, win and evidence are under <b>More detail</b>. Tap the opportunity to see everyone again.</p>
       <p>At the top of the list, <b>People shown</b> hides everyone's people, and <b>Links on</b> hides the relationships between people. The eye next to a party hides just its people.</p>
       <p>On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap <b>Parties and people</b> to open it. Drag the background to move around, and use &minus; and + to zoom.</p>
-      <p>Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap <b>Details</b>. A map made before this change is sorted into parties the first time it opens.</p>
+      <p>Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or record how it ended, tap <b>Details</b>. A map made before this change is sorted into parties the first time it opens.</p>
+      <p>Every text box on the map and the Blue Sheet has a microphone beside it. Tap it, talk, then tap <b>Finish</b>: Claude tidies what you said, and you check it before it goes in.</p>
+      <p>To delete the opportunity, tap the bin at the right-hand end of the bar above the map. It says what will be lost and asks first.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Set up an opportunity by describing it</b><span class="sxs">Claude fills in the parties and people</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the account, then tap <b>New opportunity</b> on the <b>Opportunities</b> card.</li>
+        <li>Type a name if you have one.</li>
+        <li>Under <b>Or describe it</b>, tap the microphone and say what the project is: who it is for, the head contractor, the OEMs, and anyone you know at each. Tap <b>Finish</b>.</li>
+        <li>Claude reads it. Check the list: each company and person found is ticked.</li>
+        <li>Untick anything that is wrong.</li>
+        <li>Tap <b>Make the map</b>.</li>
+      </ol>
+      <p>Companies are matched to your customer list where they can be, even if the voice typing misspelt them a little. A company with several sites needs the site said. Anyone new at one of your customers joins its contacts, marked <b>Not in Dynamics yet</b>. Someone already on another Blue Sheet brings their part and stance as estimates.</p>
+      <p>To add more to a map later, tap <b>Add from a description</b> at the top of the list beside the map. Parties and people already on it are not added twice.</p>
+      <p>It needs signal and cloud sync. Only the description and the customer's name go to Claude, never your customer list.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2270,11 +2314,13 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Open the opportunity, then tap <b>Blue Sheet</b> at the top.</li>
         <li>Tap <b>Create and share</b>.</li>
-        <li>Tap <b>Document</b> or <b>Excel</b>.</li>
-        <li>For a document, tick the box if the relationship map should go too.</li>
+        <li>Tap <b>PDF</b> or <b>Excel</b>.</li>
+        <li>For a PDF, tick the box if the relationship map should go too.</li>
         <li>Tap <b>Create and share</b>.</li>
+        <li>For a PDF, the print screen opens. Choose <b>Save as PDF</b> as the printer.</li>
+        <li>On the phone, tap the round <b>PDF</b> button. On the PC, click <b>Save</b>.</li>
       </ol>
-      <p>Both follow Miller Heiman's own Blue Sheet, in its order and with its letters, so anyone who knows the form can read it. The document is A4: on the PC it opens in a new tab, and on the phone it goes to the share sheet. The Excel copy is laid out in the template's own cells, so it opens in Excel and can be imported back. Excel can't carry the map. The map is left out unless you tick it, because it is your planning view.</p>
+      <p>Both follow Miller Heiman's own Blue Sheet, in its order and with its letters, so anyone who knows the form can read it. The PDF is A4 and is named after the account and the opportunity. The Excel copy is laid out in the template's own cells, so it opens in Excel and can be imported back. Excel can't carry the map. The map is left out unless you tick it, because it is your planning view.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2865,6 +2911,8 @@ details.bsx > .msg{margin:8px 12px}
     <button type="button" class="btn opz" id="opOut" aria-label="Zoom out" title="Zoom out">&minus;</button>
     <button type="button" class="btn opz" id="opFit" aria-label="Fit the map to the screen" title="Fit to the screen">&#9634;</button>
     <button type="button" class="btn opz" id="opIn" aria-label="Zoom in" title="Zoom in">+</button>
+    <!-- v127: delete, apart from the main actions, in the warning colour -->
+    <button type="button" class="btn opz opbin" id="opDelBtn" aria-label="Delete this opportunity" title="Delete this opportunity"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
   </div>
   <div class="oppmain">
     <!-- v124: the list to build the map from: parties by kind, their people under them -->
@@ -3144,6 +3192,24 @@ details.bsx > .msg{margin:8px 12px}
   <div class="dlg-f"><button class="btn" id="boCancel" type="button">Cancel</button><span class="spacer"></span><button class="btn go" id="boGo" type="button">Create and share</button></div>
 </dialog>
 
+<!-- v127: set up from a description: what Claude found, to tick -->
+<dialog id="osdlg" class="wide">
+  <div class="dlg-h tkh">
+    <button type="button" class="btn" id="osCancel">Cancel</button>
+    <b id="osHead">Add from a description</b>
+    <button type="button" class="btn go" id="osGo">Read it</button>
+  </div>
+  <div class="dlg-b">
+    <div id="osAsk">
+      <p class="hint" id="osSub"></p>
+      <textarea id="osText" rows="5" aria-label="Description" placeholder="e.g. the head contractor is ..., and the OEMs are ... and ..."></textarea>
+      <div class="txtacts" id="osActs"></div>
+    </div>
+    <div class="msg" id="osMsg"></div>
+    <div id="osList" hidden></div>
+  </div>
+</dialog>
+
 <!-- v124: a party's people, as rows. Only the name is needed. Done keeps them. -->
 <dialog id="optbl" class="wide">
   <div class="dlg-h tkh">
@@ -3163,11 +3229,16 @@ details.bsx > .msg{margin:8px 12px}
   <div class="dlg-b">
     <p class="hint" id="odSub"></p>
     <div class="f"><label for="odName">Name</label><input type="text" id="odName" autocomplete="off" placeholder="e.g. Line 3 upgrade"></div>
-    <div class="f"><label for="odObj">Objective</label><textarea id="odObj" rows="3" placeholder="What, how much and by when, e.g. 12 S800 belts and sprockets on Line 3, ordered by March"></textarea></div>
+    <div class="f"><label for="odObj">Objective</label><textarea id="odObj" data-talk="sales" rows="3" placeholder="What, how much and by when, e.g. 12 S800 belts and sprockets on Line 3, ordered by March"></textarea></div>
     <div class="row">
       <div class="f"><label for="odValue">Value</label><input type="text" id="odValue" autocomplete="off" placeholder="e.g. AUD 180k"></div>
       <div class="f"><label for="odClose">Expected close</label><input type="month" id="odClose"></div>
     </div>
+    <!-- v127: or say it all at once; Claude sets the map up, and you tick what is right -->
+    <div class="f" id="odDescF"><label for="odDesc">Or describe it</label>
+      <textarea id="odDesc" rows="4" placeholder="e.g. who the project is for and what it is, the head contractor, the OEMs, and anyone you know there"></textarea>
+      <div class="txtacts" id="odDescActs"><button type="button" class="btn act2" id="odDescGo">Set it up from this</button></div>
+      <p class="hint">Claude reads it and finds the parties and people. You tick what is right before anything goes on the map. Needs signal.</p></div>
     <!-- v125: how it ended, so the next Blue Sheet can learn from it -->
     <div class="f" id="odOutF"><label>Outcome</label><div class="chips" id="odOut"></div></div>
   </div>

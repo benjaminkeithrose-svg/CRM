@@ -799,6 +799,11 @@ for now. Reviewed a clickable mock first.*
   company): it fills a new table row's part and stance as estimates, shows
   on the person, and goes to the coach with each person. Each opportunity
   has an outcome (Open, Won, Lost, On hold).
+- **Built (v127):** the Blue Sheet as PDF (the print screen's Save as PDF)
+  or Excel; a microphone with Tidy on every Blue Sheet text box; setting an
+  opportunity up from a spoken description (Claude finds the parties and
+  people, matched to the customer list on the device, ticked before they go
+  on the map), on New opportunity and from the map; a bin on the map's bar.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's

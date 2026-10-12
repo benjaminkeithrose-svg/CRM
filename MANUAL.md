@@ -323,7 +323,7 @@ Tap an MBO's name to see the proof it needs. To change the list, tap **⋯**, th
 
 1. Open the account: tap **Directory** on Home, then the account.
 2. On the **Opportunities** card, tap **New opportunity**.
-3. Type its name, then tap **Done**. The map opens with the end user (the account) and Intralox already on it.
+3. Type its name, then tap **Done**. The map opens with the end user (the account) and Intralox already on it. Or describe it instead: see **Set up an opportunity by describing it**.
 4. In the list beside the map, tap the circle-plus next to **Head contractors** or **OEMs and integrators**.
 5. Type the company's name, or pick it from your customer list, then tap **Add**.
 6. Tap the table icon next to a party to add its people.
@@ -343,7 +343,26 @@ At the top of the list, **People shown** hides everyone's people, and **Links on
 
 On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap **Parties and people** to open it. Drag the background to move around, and use − and + to zoom.
 
-Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap **Details**. A map made before this change is sorted into parties the first time it opens.
+Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or record how it ended, tap **Details**. A map made before this change is sorted into parties the first time it opens.
+
+Every text box on the map and the Blue Sheet has a microphone beside it. Tap it, talk, then tap **Finish**: Claude tidies what you said, and you check it before it goes in.
+
+To delete the opportunity, tap the bin at the right-hand end of the bar above the map. It says what will be lost and asks first.
+
+### Set up an opportunity by describing it
+
+1. Open the account, then tap **New opportunity** on the **Opportunities** card.
+2. Type a name if you have one.
+3. Under **Or describe it**, tap the microphone and say what the project is: who it is for, the head contractor, the OEMs, and anyone you know at each. Tap **Finish**.
+4. Claude reads it. Check the list: each company and person found is ticked.
+5. Untick anything that is wrong.
+6. Tap **Make the map**.
+
+Companies are matched to your customer list where they can be, even if the voice typing misspelt them a little. A company with several sites needs the site said. Anyone new at one of your customers joins its contacts, marked **Not in Dynamics yet**. Someone already on another Blue Sheet brings their part and stance as estimates.
+
+To add more to a map later, tap **Add from a description** at the top of the list beside the map. Parties and people already on it are not added twice.
+
+It needs signal and cloud sync. Only the description and the customer's name go to Claude, never your customer list.
 
 ### People met on a Blue Sheet
 
@@ -402,11 +421,13 @@ The coaching is kept with the opportunity, so **Coach** shows it again with no s
 
 1. Open the opportunity, then tap **Blue Sheet** at the top.
 2. Tap **Create and share**.
-3. Tap **Document** or **Excel**.
-4. For a document, tick the box if the relationship map should go too.
+3. Tap **PDF** or **Excel**.
+4. For a PDF, tick the box if the relationship map should go too.
 5. Tap **Create and share**.
+6. For a PDF, the print screen opens. Choose **Save as PDF** as the printer.
+7. On the phone, tap the round **PDF** button. On the PC, click **Save**.
 
-Both follow Miller Heiman's own Blue Sheet, in its order and with its letters, so anyone who knows the form can read it. The document is A4: on the PC it opens in a new tab, and on the phone it goes to the share sheet. The Excel copy is laid out in the template's own cells, so it opens in Excel and can be imported back. Excel can't carry the map. The map is left out unless you tick it, because it is your planning view.
+Both follow Miller Heiman's own Blue Sheet, in its order and with its letters, so anyone who knows the form can read it. The PDF is A4 and is named after the account and the opportunity. The Excel copy is laid out in the template's own cells, so it opens in Excel and can be imported back. Excel can't carry the map. The map is left out unless you tick it, because it is your planning view.
 
 ### Import a Blue Sheet
 
