@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v129';
+const APP_BUILD = 'v130';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1375,7 +1375,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -13449,6 +13449,36 @@ function lapList(key, good){
     '</span><button type="button" class="opx" data-laprm="' + key + ':' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('')
     : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>';
 }
+/* v130: the plan in Dynamics' own tabs (Ben, 2026-10-12, from the Large
+   Account Plan screens), so each part copies straight across: Key plan
+   information, Objectives, Activities, Accounts, SWOT, Critical success
+   factors and Team members. What the plan held before keeps its place:
+   their business is the Account overview, what we have today the Intralox
+   position, strengths and vulnerabilities the SWOT's strengths and
+   weaknesses, an objective's measure its revenue. */
+let lapTab = 'key';
+const LAP_TABS = [['key', 'Key info'], ['obj', 'Objectives'], ['act', 'Activities'], ['acc', 'Accounts'], ['swot', 'SWOT'], ['csf', 'Success factors'], ['team', 'Team']];
+const lapYear = L => String(L.year || new Date().getFullYear());
+const lapObjRev = o => o.revenue != null ? o.revenue : (o.measure || '');
+const lapObjPeriod = (L, o) => o.period != null ? o.period : (o.by ? 'Fiscal Year ' + o.by.slice(0, 4) : 'Fiscal Year ' + lapYear(L));
+// the corporate accounts on the plan's map that are in the customer list
+const lapCorps = L => (L.parties || []).filter(q => q.kind === 'corp');
+const lapAccts = L => [...new Set((L.sites || []).concat(lapCorps(L).map(q => q.acct).filter(Boolean)))];
+// Dynamics' Description: one box, five headed parts
+function lapDescription(L){
+  const v = x => String(x == null ? '' : x).trim();
+  const pos = [v(L.ladder) && 'How they see us: ' + v(L.ladder), v(L.today), (v(L.spendUs) || v(L.spendAll)) && ['Our yearly sales: ' + (v(L.spendUs) || 'unknown'), 'their belting spend: ' + (v(L.spendAll) || 'unknown')].join(', ') + (lapShareLine(L) ? ' (' + lapShareLine(L).toLowerCase() + ')' : ''),
+    v(L.comp) && 'Competition: ' + v(L.comp)].filter(Boolean).join('\n');
+  return [['Intralox Vision', L.vision], ['Account Overview', L.business], ['Business Goals', L.goals], ['Key Insights', L.insights], ['Intralox Position', pos]]
+    .filter(([, t]) => v(t)).map(([h, t]) => h + ':\n' + v(t)).join('\n\n');
+}
+async function lapActivities(L){
+  const accts = new Set(lapAccts(L)), out = [];
+  for(const c of await callsAll()) if(accts.has(c.customer)) out.push({kind: 'call', id: c.id, when: c.when || 0, date: c.date, type: c.type || 'Call', subj: c.type || 'Call', acct: c.customer, status: callStatus(c).label});
+  for(const a of APPTS) if(accts.has(a.acct) && !a.callId) out.push({kind: 'visit', id: a.id, when: parseIso(a.date).getTime(), date: ddmmyyyy(a.date), type: 'Appointment', subj: (a.agenda || '').trim().split('\n')[0] || a.type || 'Visit', acct: a.acct, status: AP_STATUS[apStatus(a)].label});
+  return out.sort((a, b) => b.when - a.when);
+}
+const lapShort = a => { const x = ACC_BY_NAME.get(a); return (x && x.sub) || String(a || '').split(' - ').slice(1).join(' - ') || a; };
 function renderLap(){
   const el = $('lapBody');
   if(!LAP){ go('acct', true); return; }
@@ -13456,80 +13486,132 @@ function renderLap(){
   const L = LAP, opps = lapOpps(L);
   $('title').textContent = L.name || 'Large account';
   $('subtitle').textContent = (L.sites || []).length + ((L.sites || []).length === 1 ? ' site' : ' sites');
-  const suggest = [...new Set((L.sites || []).flatMap(groupSites))].filter(x => !(L.sites || []).includes(x));
   const owners = [...new Set(teamPeople().map(m => m.name).concat([localStorage.getItem(LS('mgr')) || '']).filter(Boolean))];
-  el.innerHTML =
-    '<h2>The account</h2><div class="opsum">' +
+  const ta = (id, val, ph, rows) => '<textarea id="' + id + '" data-talk="sales" rows="' + (rows || 3) + '" placeholder="' + esc(ph) + '">' + esc(val || '') + '</textarea>';
+  const tabs = '<div class="laptabs" role="tablist">' + LAP_TABS.map(([k, t]) => '<button type="button" role="tab" data-laptab="' + k + '" aria-selected="' + (lapTab === k) + '"' + (lapTab === k ? ' class="on"' : '') + '>' + t + '</button>').join('') + '</div>';
+  let h = '';
+  if(lapTab === 'key'){
+    h = '<h2>Key plan information</h2>' +
       '<label class="l" for="lapName">Name</label><input type="text" id="lapName" value="' + esc(L.name || '') + '">' +
-      '<label class="l">Sites</label><div class="lapsites">' + (L.sites || []).map((x, i) => '<span>' + esc(x) + '<button type="button" data-lapsite="' + i + '" aria-label="Take ' + esc(x) + ' out">' + icon('close') + '</button></span>').join('') + '</div>' +
-      (suggest.length ? '<label class="l">More sites of this customer</label><div class="lapsites">' + suggest.map((x, i) => '<button type="button" class="add" data-lapadd="' + i + '">+ ' + esc(x) + '</button>').join('') + '</div>' : '') +
-      '<div class="opadd"><input type="text" id="lapSite" list="lapSites" placeholder="Add another site" aria-label="Add another site"><button type="button" class="btn act2" id="lapSiteGo">Add</button></div>' +
-      '<datalist id="lapSites">' + ACCOUNTS.filter(a => !(L.sites || []).includes(a.a)).map(a => '<option value="' + esc(a.a) + '">').join('') + '</datalist>' +
+      '<div class="row"><div><label class="l" for="lapRev">Plan revenue</label><input type="text" id="lapRev" value="' + esc(L.revenue || '') + '" placeholder="e.g. $1,500,000"></div>' +
+      '<div><label class="l" for="lapYear">Year</label><input type="text" id="lapYear" inputmode="numeric" value="' + esc(lapYear(L)) + '"></div></div>' +
+      '<label class="l" for="lapSp">SharePoint link</label><input type="url" id="lapSp" value="' + esc(L.sharepoint || '') + '" placeholder="https://...">' +
+      (L.sharepoint ? '<p class="hint"><a href="' + esc(L.sharepoint) + '" target="_blank" rel="noopener">Open the SharePoint folder</a></p>' : '') +
       '<p class="meta" style="margin-top:8px">' + (L.reviewed ? 'Last reviewed ' + esc(new Date(L.reviewed).toLocaleDateString()) : 'Not reviewed yet') + '</p>' +
-      '<button type="button" class="btn act2" id="lapReviewed">Reviewed today</button></div>' +
-    '<h2>Where we are</h2>' +
-      '<label class="l" for="lapBiz">Their business</label><textarea id="lapBiz" rows="3" placeholder="What they make, where they are heading, what is pressing on them">' + esc(L.business || '') + '</textarea>' +
-      '<label class="l">How they see us</label>' + opChips('ladder', LAP_LADDER, L.ladder || '') +
-      '<label class="l" for="lapToday">What we have today</label><textarea id="lapToday" rows="3" placeholder="The lines and products we are on">' + esc(L.today || '') + '</textarea>' +
+      '<button type="button" class="btn act2" id="lapReviewed">Reviewed today</button>' +
+      '<h2>Description</h2>' +
+      '<label class="l" for="lapVision">Intralox vision</label>' + ta('lapVision', L.vision, 'e.g. Level 4 partnership at site and corporate levels; the revenue it brings', 3) +
+      '<label class="l" for="lapBiz">Account overview</label>' + ta('lapBiz', L.business, 'What they make, how many sites, what they process') +
+      '<label class="l" for="lapGoals">Their business goals</label>' + ta('lapGoals', L.goals, 'What the customer is aiming for') +
+      '<label class="l" for="lapIns">Key insights</label>' + ta('lapIns', L.insights, 'What is pressing on them now: markets, people, projects', 4) +
+      '<label class="l">Intralox position: how they see us</label>' + opChips('ladder', LAP_LADDER, L.ladder || '') +
+      '<label class="l" for="lapToday">Intralox position</label>' + ta('lapToday', L.today, 'Agreements, install base, relationships at site and corporate level', 4) +
       '<div class="row"><div><label class="l" for="lapUs">Our yearly sales here</label><input type="text" id="lapUs" value="' + esc(L.spendUs || '') + '" placeholder="e.g. AUD 250k"></div>' +
       '<div><label class="l" for="lapAll">Their yearly belting spend</label><input type="text" id="lapAll" value="' + esc(L.spendAll || '') + '" placeholder="e.g. AUD 900k"></div></div>' +
       '<p class="lapshare" id="lapShareLine">' + esc(lapShareLine(L)) + '</p>' +
-      '<label class="l" for="lapComp">Competition</label><textarea id="lapComp" rows="2" placeholder="Who else is in there, and where">' + esc(L.comp || '') + '</textarea>' +
-      '<label class="l">Strengths</label>' + lapList('strengths', true) +
-      '<div class="opadd"><input type="text" id="lapNs" placeholder="A strength" aria-label="A strength"><button type="button" class="btn act2" id="lapNsGo">Add</button></div>' +
-      '<label class="l">Vulnerabilities</label>' + lapList('flags') +
-      '<div class="opadd"><input type="text" id="lapNf" placeholder="A vulnerability or red flag" aria-label="A vulnerability"><button type="button" class="btn act2" id="lapNfGo">Add</button></div>' +
-    '<h2>Open opportunities</h2>' +
-      (opps.length ? opps.map(o => '<button type="button" class="opprow" data-lapopp="' + esc(o.id) + '" style="display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 10px;margin-top:6px;cursor:pointer;color:var(--ink);font:inherit"><b>' + esc(o.name || 'Untitled') + '</b>' +
-        '<span class="meta" style="display:block">' + esc([o.acct, o.value, o.close && 'close ' + oppMonth(o.close), o.pos != null && 'position ' + opPosLabel(o.pos)].filter(Boolean).join(' · ')) + '</span></button>').join('')
+      '<label class="l" for="lapComp">Competition</label>' + ta('lapComp', L.comp, 'Who else is in there, and where', 2);
+  } else if(lapTab === 'obj'){
+    const objs = L.objectives || [];
+    h = '<h2>Objectives</h2>' + (objs.length ? objs.map((o, i) =>
+      '<div class="lapobj"><div class="lapobjh"><input type="text" data-lapo="t:' + i + '" value="' + esc(o.t || '') + '" placeholder="Name" aria-label="Objective name"><button type="button" class="opx" data-laprm="objectives:' + i + '" aria-label="Remove">' + icon('trash') + '</button></div>' +
+      '<label class="lapf"><span>Description</span><textarea data-lapo="desc:' + i + '" rows="2">' + esc(o.desc || '') + '</textarea></label>' +
+      '<div class="row3"><label class="lapf"><span>Revenue</span><input type="text" data-lapo="revenue:' + i + '" value="' + esc(lapObjRev(o)) + '" placeholder="e.g. $400,000"></label>' +
+      '<label class="lapf"><span>Period</span><input type="text" data-lapo="period:' + i + '" value="' + esc(lapObjPeriod(L, o)) + '"></label>' +
+      '<label class="lapf"><span>Owner</span><input type="text" data-lapo="owner:' + i + '" list="lapOwners" value="' + esc(o.owner || '') + '"></label></div></div>').join('') : '<p class="hint">None yet.</p>') +
+      '<button type="button" class="btn act2" id="lapObjNew">Add an objective</button>' +
+      '<h2>Opportunities on these sites</h2>' +
+      (opps.length ? opps.map(o => '<button type="button" class="opprow lapopp" data-lapopp="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled') + '</b>' +
+        '<span class="meta" style="display:block">' + esc([lapShort(o.acct), o.value, o.close && 'close ' + oppMonth(o.close), o.pos != null && 'position ' + opPosLabel(o.pos)].filter(Boolean).join(' · ')) + '</span></button>').join('')
         : '<p class="hint">None on these sites yet. Start one from a site\'s account screen.</p>') +
-    '<h2>Where we want to get to</h2>' +
-      '<label class="l" for="lapVision">Vision</label><input type="text" id="lapVision" value="' + esc(L.vision || '') + '" placeholder="e.g. Intralox is the standard on every line at both plants">' +
-      '<label class="l">Objectives</label>' + lapList('objectives', 'plain') +
-      '<div class="lapform"><input type="text" id="lapObj" placeholder="An objective" aria-label="An objective"><input type="text" id="lapObjM" placeholder="Measure, e.g. AUD 400k" aria-label="Measure"><input type="month" id="lapObjBy" aria-label="By when"><button type="button" class="btn act2" id="lapObjGo">Add</button></div>' +
-    '<h2>How we get there</h2>' +
+      '<h2>How we get there</h2>' +
       '<label class="l">Strategies</label>' + lapList('strategies', 'plain') +
-      '<div class="opadd"><input type="text" id="lapStr" placeholder="A strategy" aria-label="A strategy"><button type="button" class="btn act2" id="lapStrGo">Add</button></div>' +
-      '<label class="l" for="lapInv">Investment</label><textarea id="lapInv" rows="2" placeholder="The time, trials, samples or people it will take">' + esc(L.invest || '') + '</textarea>' +
+      '<div class="opadd"><input type="text" id="lapStr" data-talk="line" placeholder="A strategy" aria-label="A strategy"><button type="button" class="btn act2" id="lapStrGo">Add</button></div>' +
+      '<label class="l" for="lapInv">Investment</label>' + ta('lapInv', L.invest, 'The time, trials, samples or people it will take', 2) +
       '<label class="l">Action plan</label><ul class="opitems lapacts bsacts">' + ((L.actions || []).length ? L.actions.map((a, i) => '<li class="' + (a.done ? 'done' : '') + '">' +
         '<input type="checkbox" data-lapdone="' + i + '"' + (a.done ? ' checked' : '') + ' aria-label="Done">' +
         '<span><b>' + esc(a.t) + '</b><span class="lapmeta">' + esc([a.owner, a.due && 'due ' + dayLabel(a.due)].filter(Boolean).join(' · ') || 'No owner or date') + '</span></span>' +
         '<button type="button" class="btn act2" data-laptask="' + i + '">Make a task</button>' +
         '<button type="button" class="opx" data-laprm="actions:' + i + '" aria-label="Remove">' + icon('trash') + '</button></li>').join('') : '<li class="none"><span class="pin">None yet.</span></li>') + '</ul>' +
-      '<div class="lapform"><input type="text" id="lapAct" placeholder="An action" aria-label="An action"><input type="text" id="lapOwn" list="lapOwners" placeholder="Owner" aria-label="Owner"><input type="date" id="lapDue" aria-label="Due"><button type="button" class="btn act2" id="lapActGo">Add</button></div>' +
-      '<datalist id="lapOwners">' + owners.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>';
-  const typed = (id, key, after) => $(id).addEventListener('input', e => { L[key] = e.target.value; if(after) after(); lapSaveSoon(); });
+      '<div class="lapform"><input type="text" id="lapAct" placeholder="An action" aria-label="An action"><input type="text" id="lapOwn" list="lapOwners" placeholder="Owner" aria-label="Owner"><input type="date" id="lapDue" aria-label="Due"><button type="button" class="btn act2" id="lapActGo">Add</button></div>';
+  } else if(lapTab === 'act'){
+    h = '<h2>Activities</h2><p class="hint">Visits and calls at the plan\'s sites and corporate accounts, newest first.</p><div id="lapActs"><p class="hint">Reading' + String.fromCharCode(8230) + '</p></div>';
+  } else if(lapTab === 'acc'){
+    const suggest = [...new Set((L.sites || []).flatMap(groupSites))].filter(x => !(L.sites || []).includes(x));
+    const corps = lapCorps(L);
+    h = '<h2>Sites</h2><div class="lapsites">' + (L.sites || []).map((x, i) => '<span>' + esc(x) + '<button type="button" data-lapsite="' + i + '" aria-label="Take ' + esc(x) + ' out">' + icon('close') + '</button></span>').join('') + '</div>' +
+      (suggest.length ? '<label class="l">More sites of this customer</label><div class="lapsites">' + suggest.map((x, i) => '<button type="button" class="add" data-lapadd="' + i + '">+ ' + esc(x) + '</button>').join('') + '</div>' : '') +
+      '<div class="opadd"><input type="text" id="lapSite" list="lapSites" placeholder="Add another site" aria-label="Add another site"><button type="button" class="btn act2" id="lapSiteGo">Add</button></div>' +
+      '<datalist id="lapSites">' + ACCOUNTS.filter(a => !(L.sites || []).includes(a.a)).map(a => '<option value="' + esc(a.a) + '">').join('') + '</datalist>' +
+      '<h2>Corporate</h2>' + (corps.length ? '<ul class="opitems good">' + corps.map(q => '<li><span>' + esc(q.name) + '<span class="pin">' + esc(q.acct ? 'In your customer list' : 'Not in your customer list') + '</span></span></li>').join('') + '</ul>'
+        : '<p class="hint">None yet.</p>') + '<button type="button" class="btn act2" id="lapCorpMap">Add or change on the map</button>';
+  } else if(lapTab === 'swot'){
+    const box = (key, title, ph, good) => '<h2>' + title + '</h2>' + lapList(key, good) +
+      '<div class="opadd"><input type="text" id="lapN' + key + '" data-talk="line" placeholder="' + esc(ph) + '" aria-label="' + esc(ph) + '"><button type="button" class="btn act2" data-lapadd2="' + key + '">Add</button></div>';
+    h = box('strengths', 'Strengths', 'A strength', true) + box('flags', 'Weaknesses', 'A weakness or vulnerability') +
+      box('swopps', 'Opportunities', 'An opportunity', 'plain') + box('threats', 'Threats', 'A threat');
+  } else if(lapTab === 'csf'){
+    const c = L.csf || [];
+    h = '<h2>Critical success factors</h2>' + [0, 1, 2, 3, 4, 5].map(i => '<label class="l" for="lapCsf' + i + '">Critical success factor ' + (i + 1) + '</label>' +
+      '<textarea id="lapCsf' + i + '" data-csf="' + i + '" data-talk="sales" rows="2">' + esc(c[i] || '') + '</textarea>').join('');
+  } else {
+    const us = (L.people || []).filter(p => p.side === 'us');
+    h = '<h2>Team members</h2><p class="hint">Our people on the plan\'s map.</p>' +
+      (us.length ? '<ul class="opitems good">' + us.map(p => '<li><span>' + esc(p.n || 'Someone') + (p.title ? '<span class="pin">' + esc(p.title) + '</span>' : '') + '</span></li>').join('') + '</ul>' : '<p class="hint">Nobody yet.</p>') +
+      '<button type="button" class="btn act2" id="lapTeamMap">Add or change on the map</button>';
+  }
+  el.innerHTML = tabs + h + '<datalist id="lapOwners">' + owners.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>';
+  el.querySelectorAll('[data-laptab]').forEach(b => b.addEventListener('click', () => { if(lapSaveTimer) lapSaveNow().catch(reportErr); lapTab = b.dataset.laptab; renderLap(); }));
+  const typed = (id, key, after) => { const x = $(id); if(x) x.addEventListener('input', e => { L[key] = e.target.value; if(after) after(); lapSaveSoon(); }); };
   typed('lapName', 'name', () => { $('title').textContent = L.name || 'Large account'; });
-  typed('lapBiz', 'business'); typed('lapToday', 'today'); typed('lapComp', 'comp'); typed('lapVision', 'vision'); typed('lapInv', 'invest');
+  typed('lapRev', 'revenue'); typed('lapYear', 'year'); typed('lapSp', 'sharepoint');
+  typed('lapBiz', 'business'); typed('lapGoals', 'goals'); typed('lapIns', 'insights'); typed('lapToday', 'today'); typed('lapComp', 'comp'); typed('lapVision', 'vision'); typed('lapInv', 'invest');
   typed('lapUs', 'spendUs', () => { $('lapShareLine').textContent = lapShareLine(L); });
   typed('lapAll', 'spendAll', () => { $('lapShareLine').textContent = lapShareLine(L); });
   const redraw = () => { lapSaveNow().catch(reportErr); renderLap(); };
   el.querySelectorAll('[data-opchips="ladder"] button').forEach(b => b.addEventListener('click', () => { L.ladder = b.classList.contains('on') ? '' : b.dataset.v; redraw(); }));
-  $('lapReviewed').addEventListener('click', () => { L.reviewed = Date.now(); redraw(); toast('Marked reviewed today'); });
+  if($('lapReviewed')) $('lapReviewed').addEventListener('click', () => { L.reviewed = Date.now(); redraw(); toast('Marked reviewed today'); });
+  // objectives: typed straight into each
+  el.querySelectorAll('[data-lapo]').forEach(x => x.addEventListener('input', () => {
+    const [k, i] = x.dataset.lapo.split(':'), o = (L.objectives || [])[+i]; if(!o) return;
+    o[k] = x.value; lapSaveSoon();
+  }));
+  if($('lapObjNew')) $('lapObjNew').addEventListener('click', () => {
+    L.objectives = (L.objectives || []).concat([{id: newId('li'), t: '', desc: '', revenue: '', period: 'Fiscal Year ' + lapYear(L), owner: localStorage.getItem(LS('mgr')) || ''}]);
+    redraw();
+    const ins = el.querySelectorAll('[data-lapo^="t:"]'); if(ins.length) try { ins[ins.length - 1].focus(); } catch(_){}
+  });
+  el.querySelectorAll('[data-csf]').forEach(x => x.addEventListener('input', () => { const c = (L.csf || []).slice(); while(c.length < 6) c.push(''); c[+x.dataset.csf] = x.value; L.csf = c; lapSaveSoon(); }));
   el.querySelectorAll('[data-lapsite]').forEach(b => b.addEventListener('click', () => {
     const x = L.sites[+b.dataset.lapsite];
     if(!x || !confirm('Take ' + x + ' out of this large account plan?')) return;
     L.sites = L.sites.filter(s => s !== x); redraw();
   }));
+  const suggest = [...new Set((L.sites || []).flatMap(groupSites))].filter(x => !(L.sites || []).includes(x));
   el.querySelectorAll('[data-lapadd]').forEach(b => b.addEventListener('click', () => { L.sites = [...new Set(L.sites.concat([suggest[+b.dataset.lapadd]]))].sort(); redraw(); }));
-  $('lapSiteGo').addEventListener('click', () => {
+  if($('lapSiteGo')) $('lapSiteGo').addEventListener('click', () => {
     const x = $('lapSite').value.trim();
     if(!ACC_BY_NAME.has(x)){ toast('Pick a site from the list'); return; }
     const other = largeFor(x);
     if(other && other.id !== L.id){ toast(x + ' is already in ' + (other.name || 'another large account')); return; }
     L.sites = [...new Set(L.sites.concat([x]))].sort(); redraw();
   });
+  const toMap = kind => () => {
+    if(lapSaveTimer) lapSaveNow().catch(reportErr);
+    openLap(L.id, true);
+    opEnsure(OPP);
+    const q = OPP.parties.find(x => x.kind === kind);
+    if(q) opTableOpen(q.id); else { opBarAdding = kind; opBarOpen = true; renderOpBar(); }
+  };
+  if($('lapCorpMap')) $('lapCorpMap').addEventListener('click', toMap('corp'));
+  if($('lapTeamMap')) $('lapTeamMap').addEventListener('click', toMap('ilx'));
   const add = (key, inp, extra) => { const t = $(inp).value.trim(); if(!t) return; L[key] = (L[key] || []).concat([Object.assign({id: newId('li'), t}, extra ? extra() : {})]); redraw(); };
-  $('lapNsGo').addEventListener('click', () => add('strengths', 'lapNs'));
-  $('lapNfGo').addEventListener('click', () => add('flags', 'lapNf'));
-  $('lapStrGo').addEventListener('click', () => add('strategies', 'lapStr'));
-  $('lapObjGo').addEventListener('click', () => add('objectives', 'lapObj', () => ({measure: $('lapObjM').value.trim(), by: $('lapObjBy').value})));
-  $('lapActGo').addEventListener('click', () => add('actions', 'lapAct', () => ({owner: $('lapOwn').value.trim(), due: $('lapDue').value, done: false})));
-  [['lapNs', 'lapNsGo'], ['lapNf', 'lapNfGo'], ['lapStr', 'lapStrGo']].forEach(([i, b]) => $(i).addEventListener('keydown', e => { if(e.key === 'Enter') $(b).click(); }));
+  el.querySelectorAll('[data-lapadd2]').forEach(b => { const k = b.dataset.lapadd2; b.addEventListener('click', () => add(k, 'lapN' + k)); $('lapN' + k).addEventListener('keydown', e => { if(e.key === 'Enter') add(k, 'lapN' + k); }); });
+  if($('lapStrGo')){ $('lapStrGo').addEventListener('click', () => add('strategies', 'lapStr')); $('lapStr').addEventListener('keydown', e => { if(e.key === 'Enter') $('lapStrGo').click(); }); }
+  if($('lapActGo')) $('lapActGo').addEventListener('click', () => add('actions', 'lapAct', () => ({owner: $('lapOwn').value.trim(), due: $('lapDue').value, done: false})));
   el.querySelectorAll('[data-laprm]').forEach(b => b.addEventListener('click', () => {
     const [key, i] = b.dataset.laprm.split(':'), f = L[key][+i];
-    const what = {strengths: 'strength', flags: 'vulnerability', objectives: 'objective', strategies: 'strategy', actions: 'action'}[key];
-    if(!f || !confirm('Remove this ' + what + '?\n\n' + f.t)) return;
+    const what = {strengths: 'strength', flags: 'weakness', swopps: 'opportunity', threats: 'threat', objectives: 'objective', strategies: 'strategy', actions: 'action'}[key];
+    if(!f || !confirm('Remove this ' + what + '?' + (f.t ? '\n\n' + f.t : ''))) return;
     L[key] = L[key].filter((_, j) => j !== +i); redraw();
   }));
   el.querySelectorAll('[data-lapdone]').forEach(b => b.addEventListener('change', () => { const a = L.actions[+b.dataset.lapdone]; if(a){ a.done = b.checked; redraw(); } }));
@@ -13543,7 +13625,53 @@ function renderLap(){
     if(ACC_BY_NAME.has(o.acct)){ viewAcct = ACC_BY_NAME.get(o.acct); renderAccount(); renderPlanCard(); }
     openOpp(o.id);
   }));
+  micAuto(el);
+  if(lapTab === 'act') lapActivities(L).then(list => {
+    const box = $('lapActs'); if(!box || LAP !== L || lapTab !== 'act') return;
+    box.innerHTML = list.length ? list.map(x => '<button type="button" class="opprow lapopp" data-lapactv="' + x.kind + ':' + esc(x.id) + '"><b>' + esc(x.subj) + '</b>' +
+      '<span class="meta" style="display:block">' + esc([x.type, lapShort(x.acct), x.date, x.status].filter(Boolean).join(' · ')) + '</span></button>').join('') : '<p class="hint">Nothing logged at these accounts yet.</p>';
+    box.querySelectorAll('[data-lapactv]').forEach(b => b.addEventListener('click', async () => {
+      const [k, id] = b.dataset.lapactv.split(':');
+      if(k === 'call'){ const c = (await callsAll()).find(x => x.id === id); if(c) openCallRecord(c); }
+      else openDialog(id);
+    }));
+  }).catch(reportErr);
 }
+/* ---- Copy for Dynamics (v130): each field of Dynamics' plan, with its own Copy ---- */
+function lapDynFields(L){
+  const v = x => String(x == null ? '' : x).trim();
+  const lines = items => (items || []).map(f => v(f.t)).filter(Boolean).join('\n');
+  const F = [['Key plan information', [['Name', v(L.name)], ['Plan Type', 'Account Plan'], ['Plan Revenue', v(L.revenue)], ['Year', lapYear(L)], ['SharePoint Link', v(L.sharepoint)], ['Description', lapDescription(L)]]]];
+  (L.objectives || []).forEach((o, i) => F.push(['Objective ' + (i + 1), [['Name', v(o.t)], ['Description', v(o.desc)], ['Objective Revenue', v(lapObjRev(o))], ['Period', v(lapObjPeriod(L, o))], ['Owner', v(o.owner)]]]));
+  F.push(['SWOT', [['Strengths', lines(L.strengths)], ['Weaknesses', lines(L.flags)], ['Opportunities', lines(L.swopps)], ['Threats', lines(L.threats)]]]);
+  F.push(['Critical success factors', [0, 1, 2, 3, 4, 5].map(i => ['Critical Success Factor ' + (i + 1), v((L.csf || [])[i])])]);
+  F.push(['Accounts', [['Sites', (L.sites || []).join('\n')], ['Corporate', lapCorps(L).map(q => q.name).join('\n')]]]);
+  F.push(['Team members', [['Team', (L.people || []).filter(p => p.side === 'us').map(p => [p.n, p.title].filter(Boolean).join(', ')).join('\n')]]]);
+  return F;
+}
+function openLapDyn(){
+  if(!LAP) return;
+  if(lapSaveTimer) lapSaveNow().catch(reportErr);
+  const F = lapDynFields(LAP), all = [];
+  $('dynBody').innerHTML = '<p class="hint">Open the plan in Dynamics on the PC, then copy each field across.</p>' + F.map(([sec, rows]) => '<h3 class="osh">' + esc(sec) + '</h3>' + rows.map(([lbl, val]) => {
+    all.push(val);
+    return '<div class="dynrow"><div class="dynl"><b>' + esc(lbl) + '</b>' + (val ? '<div class="dynv">' + esc(val) + '</div>' : '<div class="dynv none">Empty</div>') + '</div>' +
+      (val ? '<button type="button" class="btn act2" data-dyncopy="' + (all.length - 1) + '" aria-label="Copy ' + esc(lbl) + '">Copy</button>' : '') + '</div>';
+  }).join('')).join('');
+  $('dynBody').querySelectorAll('[data-dyncopy]').forEach(b => b.addEventListener('click', () => copyText(all[+b.dataset.dyncopy], b.getAttribute('aria-label').replace(/^Copy /, ''))));
+  const d = $('dyndlg');
+  if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+  pushDialog('dyndlg');
+}
+function closeLapDyn(){
+  const d = $('dyndlg');
+  if(!d.hasAttribute('open')) return;
+  if(history.state && history.state.dialog === 'dyndlg'){ history.back(); return; }
+  if(d.close) d.close(); else d.removeAttribute('open');
+}
+$('lapDyn').addEventListener('click', openLapDyn);
+$('dynClose').addEventListener('click', closeLapDyn);
+
 function buildLapHTML(L, png){
   const v = x => (x == null ? '' : String(x)).trim();
   const cell = x => v(x) ? esc(v(x)).replace(/\n/g, '<br>') : '—';
@@ -13558,14 +13686,19 @@ function buildLapHTML(L, png){
   p.push('<h1>Large account plan ' + DASH_CH + ' ' + esc(L.name || '') + '</h1>');
   p.push('<p class="sub">' + esc([(L.sites || []).length + ((L.sites || []).length === 1 ? ' site' : ' sites'),
     L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet', 'as at ' + new Date().toLocaleDateString()].join(' · ')) + '</p>');
-  p.push('<h2>Sites</h2>' + list((L.sites || []).map(t => ({t}))));
-  p.push('<h2>Where we are</h2>' + rows([['Their business', cell(L.business)], ['How they see us', cell(L.ladder)], ['What we have today', cell(L.today)],
-    ['Our yearly sales here', cell(L.spendUs)], ['Their yearly belting spend', cell(L.spendAll)], ['Our share', cell(lapShareLine(L))], ['Competition', cell(L.comp)]]));
-  p.push('<h3>Strengths</h3>' + list(L.strengths) + '<h3>Vulnerabilities</h3>' + list(L.flags));
+  // v130: in Dynamics' order - key information, objectives, SWOT, success factors, accounts, team - then our own working
+  p.push('<h2>Key plan information</h2>' + rows([['Name', cell(L.name)], ['Plan type', 'Account Plan'], ['Plan revenue', cell(L.revenue)], ['Year', esc(lapYear(L))], ['SharePoint link', cell(L.sharepoint)]]));
+  p.push('<h3>Description</h3>' + rows([['Intralox vision', cell(L.vision)], ['Account overview', cell(L.business)], ['Business goals', cell(L.goals)], ['Key insights', cell(L.insights)],
+    ['How they see us', cell(L.ladder)], ['Intralox position', cell(L.today)], ['Our yearly sales here', cell(L.spendUs)], ['Their yearly belting spend', cell(L.spendAll)], ['Our share', cell(lapShareLine(L))], ['Competition', cell(L.comp)]]));
+  p.push('<h2>Objectives</h2>' + ((L.objectives || []).length ? '<table><tr><th>Objective</th><th>Description</th><th>Revenue</th><th>Period</th><th>Owner</th></tr>' +
+    L.objectives.map(o => '<tr><td><b>' + cell(o.t) + '</b></td><td>' + cell(o.desc) + '</td><td>' + cell(lapObjRev(o)) + '</td><td>' + cell(lapObjPeriod(L, o)) + '</td><td>' + cell(o.owner) + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
   p.push('<h2>Open opportunities</h2>' + (opps.length ? '<table><tr><th>Opportunity</th><th>Site</th><th>Value</th><th>Close</th><th>Position</th></tr>' +
     opps.map(o => '<tr><td><b>' + cell(o.name) + '</b></td><td>' + cell(o.acct) + '</td><td>' + cell(o.value) + '</td><td>' + cell(oppMonth(o.close)) + '</td><td>' + (o.pos == null ? '—' : esc(opPosLabel(o.pos))) + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
-  p.push('<h2>Where we want to get to</h2>' + rows([['Vision', cell(L.vision)]]) + '<h3>Objectives</h3>' +
-    list(L.objectives, o => '<li>' + esc(o.t) + (o.measure || o.by ? ' <span style="color:#77787A">(' + esc([o.measure, o.by && 'by ' + oppMonth(o.by)].filter(Boolean).join(', ')) + ')</span>' : '') + '</li>'));
+  p.push('<h2>SWOT</h2><h3>Strengths</h3>' + list(L.strengths) + '<h3>Weaknesses</h3>' + list(L.flags) + '<h3>Opportunities</h3>' + list(L.swopps) + '<h3>Threats</h3>' + list(L.threats));
+  const csf = (L.csf || []).map((t, i) => [i, String(t || '').trim()]).filter(([, t]) => t);
+  p.push('<h2>Critical success factors</h2>' + (csf.length ? rows(csf.map(([i, t]) => ['Critical success factor ' + (i + 1), cell(t)])) : '<p>—</p>'));
+  p.push('<h2>Accounts</h2>' + rows([['Sites', cell((L.sites || []).join('\n'))], ['Corporate', cell(lapCorps(L).map(q => q.name).join('\n'))]]));
+  p.push('<h2>Team members</h2>' + list((L.people || []).filter(x => x.side === 'us').map(x => ({t: [x.n, x.title].filter(Boolean).join(', ')}))));
   p.push('<h2>How we get there</h2><h3>Strategies</h3>' + list(L.strategies) + rows([['Investment', cell(L.invest)]]));
   p.push('<h3>Action plan</h3>' + ((L.actions || []).length ? '<table><tr><th>Action</th><th>Owner</th><th>Due</th><th>Done</th></tr>' +
     L.actions.map(a => '<tr><td>' + cell(a.t) + '</td><td>' + cell(a.owner) + '</td><td>' + (a.due ? esc(dayLabel(a.due)) : '—') + '</td><td>' + (a.done ? 'Done' : '—') + '</td></tr>').join('') + '</table>' : '<p>—</p>'));
@@ -15992,12 +16125,14 @@ function cxLapBlock(L, o){
   add('Their business', L.business); add('How they see us', L.ladder); add('What we have today', L.today);
   if(v(L.spendUs) || v(L.spendAll)) lines.push('Spend: ours ' + (v(L.spendUs) || 'unknown') + ', their belting ' + (v(L.spendAll) || 'unknown') + (lapShareLine(L) ? ' (' + lapShareLine(L).toLowerCase() + ')' : ''));
   add('Competition', L.comp); add('Vision', L.vision);
+  add('Their business goals', L.goals); add('Key insights', L.insights); add('Plan revenue', L.revenue); add('Year', L.year);   // v130
   const list = (k, items, f) => { if((items || []).length) lines.push(k + ': ' + items.map(f || (x => x.t)).join('; ')); };
   // the people on the account's own map (v123), by title when names are hidden
   list('People on its map', (L.people || []).filter(p => p.side !== 'us'), p => (o.hide ? v(p.title) || 'someone' : p.n + (v(p.title) ? ', ' + p.title : '')) +
     (p.side === 'oem' ? ' (OEM' + (v(p.org) && !o.hide ? ', ' + p.org : '') + ')' : '') + (bsRoles(p).length ? ': ' + bsRoles(p).join(' and ').toLowerCase() : ''));
-  list('Strengths', L.strengths); list('Vulnerabilities', L.flags);
-  list('Objectives', L.objectives, x => x.t + (x.measure || x.by ? ' (' + [x.measure, x.by && 'by ' + oppMonth(x.by)].filter(Boolean).join(', ') + ')' : ''));
+  list('Strengths', L.strengths); list('Weaknesses', L.flags); list('Opportunities', L.swopps); list('Threats', L.threats);
+  list('Critical success factors', (L.csf || []).filter(t => v(t)).map(t => ({t})));
+  list('Objectives', L.objectives, x => [x.t, v(x.desc), lapObjRev(x), lapObjPeriod(L, x), x.owner].filter(y => v(y)).join(', '));
   list('Strategies', L.strategies); add('Investment', L.invest);
   list('Actions', L.actions, x => x.t + ' (' + [x.owner, x.due && 'due ' + x.due, x.done ? 'done' : 'open'].filter(Boolean).join(', ') + ')');
   if(L.reviewed) lines.push('Last reviewed: ' + cxDay(L.reviewed));

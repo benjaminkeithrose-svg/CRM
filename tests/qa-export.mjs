@@ -145,7 +145,7 @@ r = await run({ who: 'team' });
 let dt = r.files[1].text;
 ok(r.opps === 2 && r.laps === 1 && /2 opportunities, 1 large account plan/.test(r.files[0].text), 'opportunities and large account plans are counted: ' + (r.files[0].text.match(/\d+ accounts with activity[^.]*/) || [''])[0]);
 ok(dt.indexOf('## Large account: Example Meats') >= 0 && dt.indexOf('## Large account: Example Meats') < dt.indexOf('## ' + A), 'the large account plan comes first');
-ok(/Spend: ours AUD 250k, their belting AUD 1m \(about 25% of their belting spend\)/.test(dt) && /Objectives: Win both retrofits \(AUD 270k, by Jun 2027\)/.test(dt) && /Actions: Meet Tom at Bendigo \(Ben, due 2026-11-05, open\)/.test(dt), 'with its spend, objectives and actions');
+ok(/Spend: ours AUD 250k, their belting AUD 1m \(about 25% of their belting spend\)/.test(dt) && /Objectives: Win both retrofits, AUD 270k, Fiscal Year 2027/.test(dt) && /Actions: Meet Tom at Bendigo \(Ben, due 2026-11-05, open\)/.test(dt), 'with its spend, objectives and actions');
 const aBlock = dt.slice(dt.indexOf('## ' + A), dt.indexOf('\n## ', dt.indexOf('## ' + A) + 4));
 ok(/### Opportunity: Line 3 upgrade · AUD 180k · close Mar 2027 · position \+2/.test(aBlock) && aBlock.indexOf('### Opportunity') < aBlock.indexOf('Site call'), 'the opportunity sits on its account, before the calls');
 ok(/- Tom Ward \(customer, Operations Manager\); part: Signs the order;.*covered by: nobody/.test(aBlock) && /covered by: Ben \(strong\); personal win: Fewer call-outs/.test(aBlock), 'with its people, coverage and wins, as the coach reads them');

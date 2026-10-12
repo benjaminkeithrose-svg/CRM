@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v129">
+<meta name="build" content="v130">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -359,6 +359,24 @@ ul.rep li{margin-bottom:2px}
 @media (max-width:480px){
   .ptabs .ptab button[data-v],.ptabs .ptab button[data-pane]{font-size:12.5px;padding-left:4px;letter-spacing:-.01em}
 }
+/* v130: the large account plan in Dynamics' tabs */
+.laptabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.laptabs button{min-height:40px;padding:6px 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer}
+.laptabs button.on{background:var(--ink-2);border-color:var(--ink-2);color:#fff;font-weight:700}
+.lapobj{border:1px solid var(--line-2);border-left:3px solid var(--act);border-radius:var(--r-sm);background:var(--surface);padding:8px;margin:0 0 8px;display:flex;flex-direction:column;gap:6px}
+.lapobjh{display:flex;gap:6px;align-items:center}
+.lapobjh input{flex:1;min-width:0;font-weight:700}
+.lapf{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lapf span{font-size:11.5px;color:var(--ink-3)}
+.lapf input,.lapf textarea{width:100%}
+.lapobj .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+@media (max-width:520px){ .lapobj .row3{grid-template-columns:1fr 1fr} .lapobj .row3 .lapf:last-child{grid-column:1 / -1} }
+.lapopp{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 10px;margin:0 0 6px;cursor:pointer;font:inherit;color:var(--ink)}
+.dynrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.dynl{flex:1;min-width:0}
+.dynv{white-space:pre-wrap;font-size:13px;color:var(--ink-2);margin-top:2px;max-height:9em;overflow:auto}
+.dynv.none{color:var(--ink-3);font-style:italic}
+.dynrow .btn{flex:none;min-height:40px}
 .mission h3{font-size:17px;margin:4px 0 8px;color:var(--ink)}
 .mission h3 + p,.mission p{margin:0 0 8px;line-height:1.45}
 .mission ol{margin:0 0 10px;padding-left:20px}
@@ -2374,13 +2392,17 @@ details.bsx > .msg{margin:8px 12px}
         <li>If a head office or group account drives the sites, tap the circle-plus next to <b>Corporate</b> in the list beside the map, then type its name or pick it from your customer list.</li>
         <li>Tap the table icon next to a site or the corporate account to add its people. Link people across sites with <b>Link to&hellip;</b>.</li>
         <li>Tap a site to open its account plan or one of its opportunities.</li>
-        <li>Tap <b>Plan</b> at the top to open the plan behind the map.</li>
-        <li>Check the sites. Tap <b>&times;</b> to take one out, or type a name and tap <b>Add</b> to add one.</li>
-        <li>Under <b>Where we are</b>, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.</li>
-        <li>Under <b>Where we want to get to</b>, write the vision and add the objectives, each with a measure and a date.</li>
-        <li>Under <b>How we get there</b>, add the strategies, the investment and the actions. Give each action an owner and a due date.</li>
-        <li>Tick an action when it is done. Tap <b>Make a task</b> to put one in your calendar.</li>
-        <li>After a review, tap <b>Reviewed today</b>.</li>
+        <li>Tap <b>Plan</b> at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.</li>
+        <li>On <b>Key info</b>, fill in the plan revenue, the year and the SharePoint link, then the description: the Intralox vision, the account overview, their business goals, the key insights and the Intralox position.</li>
+        <li>On <b>Objectives</b>, tap <b>Add an objective</b>. Type its name, description, revenue, period and owner.</li>
+        <li>Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap <b>Make a task</b>.</li>
+        <li><b>Activities</b> lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.</li>
+        <li>On <b>Accounts</b>, check the sites. Tap <b>&times;</b> to take one out, or type a name and tap <b>Add</b>.</li>
+        <li>On <b>SWOT</b>, add strengths, weaknesses, opportunities and threats.</li>
+        <li>On <b>Success factors</b>, type up to six critical success factors.</li>
+        <li><b>Team</b> shows our people on the map. Tap <b>Add or change on the map</b> to change them.</li>
+        <li>After a review, tap <b>Reviewed today</b> on Key info.</li>
+        <li>To put it into Dynamics, tap <b>Copy for Dynamics</b> on the PC. Tap <b>Copy</b> beside each field, then paste it into the same field in Dynamics.</li>
         <li>To send the plan, tap <b>Create and share</b>.</li>
       </ol>
       <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
@@ -2983,6 +3005,8 @@ details.bsx > .msg{margin:8px 12px}
       <button type="button" data-v="plan" class="on">Plan</button>
     </div>
     <button type="button" class="btn go" id="lapShare">Create and share</button>
+    <!-- v130: each Dynamics field, with its own Copy -->
+    <button type="button" class="btn act2" id="lapDyn">Copy for Dynamics</button>
     <span class="spacer"></span>
     <button type="button" class="tkdel" id="lapDel" aria-label="Delete this large account plan" title="Delete this large account plan"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
   </div>
@@ -3235,6 +3259,16 @@ details.bsx > .msg{margin:8px 12px}
     <p class="note" id="boNote"></p>
   </div>
   <div class="dlg-f"><button class="btn" id="boCancel" type="button">Cancel</button><span class="spacer"></span><button class="btn go" id="boGo" type="button">Create and share</button></div>
+</dialog>
+
+<!-- v130: the large account plan, field by field, to copy into Dynamics -->
+<dialog id="dyndlg" class="wide">
+  <div class="dlg-h tkh">
+    <span style="width:40px"></span>
+    <b>Copy for Dynamics</b>
+    <button type="button" class="btn go" id="dynClose">Done</button>
+  </div>
+  <div class="dlg-b" id="dynBody"></div>
 </dialog>
 
 <!-- v127: set up from a description: what Claude found, to tick -->

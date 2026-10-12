@@ -814,6 +814,11 @@ for now. Reviewed a clickable mock first.*
   (named by its place, kept in step with the plan's sites, opening its plan and
   opportunities), and a Corporate kind of box that drives the sites; an old
   map's group box became its corporate account.
+- **Built (v130):** the large account plan in Dynamics' tabs (Key info with
+  the five-part description, Objectives with revenue, period and owner,
+  Activities from the app's visits and calls, Accounts, SWOT, six critical
+  success factors, Team from the map), Copy for Dynamics field by field, and
+  the coach drawing on Ben's five sales books.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
