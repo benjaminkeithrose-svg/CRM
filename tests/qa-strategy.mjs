@@ -58,7 +58,7 @@ tile.click(); await tick(150);
 ok(g('screen') === 'strategy' && $('title').textContent === 'Strategy' && !$('back').hidden, 'it opens Strategy');
 
 // ---- opportunities
-ok($('stTabs').querySelector('.on').dataset.v === 'opps' && $('stWho').hidden, 'Opportunities first; no Mine and Team on your own');
+ok($('stTabs').querySelector('button.on[data-v]').dataset.v === 'opps' && $('stWho').hidden, 'Opportunities first; no Mine and Team on your own');
 ok(names() === 'Spiral freezer belts|Line 3 upgrade|Jo retrofit', 'nearest close first, undated last: ' + names());
 ok(/3 opportunities/.test($('stHint').textContent), 'counted');
 const line3 = rows().find(b => /Line 3/.test(b.textContent));
@@ -72,9 +72,9 @@ ok(g('screen') === 'strategy', 'back comes to Strategy, not the account');
 tab('laps'); await tick(100);
 ok(names() === 'Example Meats' && /2 sites · 2 opportunities · The standard on every line/.test(rows()[0].textContent) && /reviewed/.test(rows()[0].textContent), 'large accounts with sites, opportunities and the review date');
 rows()[0].click(); await tick(150);
-ok(g('screen') === 'lap' && g('LAP.id') === 'la1', 'tapping one opens the plan');
+ok(g('screen') === 'opp' && g('LAP.id') === 'la1' && g('OPP === LAP'), 'tapping one opens the large account on its map (v123)');
 $('back').click(); await tick(150);
-ok(g('screen') === 'strategy' && $('stTabs').querySelector('.on').dataset.v === 'laps', 'back comes to Strategy, on the same tab');
+ok(g('screen') === 'strategy' && $('stTabs').querySelector('button.on[data-v]').dataset.v === 'laps', 'back comes to Strategy, on the same tab');
 
 // ---- account plans
 tab('plans'); await tick(100);
@@ -103,7 +103,7 @@ $('stWho').querySelector('[data-v="mine"]').click(); await tick(50);
 $('stSearch').click(); await tick(100);
 $('fsQ').value = 'tom ward'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(200);
 const found = [...$('fsRes').querySelectorAll('[data-st]')].map(b => b.querySelector('.rn').textContent);
-ok(found.join('|') === 'Line 3 upgrade|' + A && /2 found/.test($('fsHint') ? $('fsHint').textContent : '2 found'), 'search finds a person across opportunities and plans: ' + found.join('|'));
+ok(found.join('|') === 'Line 3 upgrade|Example Meats|' + A && /3 found/.test($('fsHint').textContent), 'search finds a person across opportunities, large account maps and plans: ' + found.join('|'));
 $('fsQ').value = 'retrofit'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(200);
 ok([...$('fsRes').querySelectorAll('[data-st]')].map(b => b.querySelector('.rn').textContent).join() === 'Jo retrofit', 'and a teammate\'s, from Mine');
 $('fsRes').querySelector('[data-st]').click(); await tick(150);
@@ -113,8 +113,9 @@ ok(g('screen') === 'opp' && g('OPP.id') === 'o3' && !$('srchdlg').hasAttribute('
 const pickAcct = async q => { $('fsQ').value = q; $('fsQ').dispatchEvent(new w.Event('input')); await tick(200); return [...$('fsRes').querySelectorAll('[data-stnew]')]; };
 await g(`(async () => { go('home'); go('strategy'); })()`); await tick(150);
 tab('opps'); await tick(100);
-ok($('stNew').textContent === '+ New opportunity' && $('stNew').compareDocumentPosition($('stTabs')) & 4, 'New is the main action, at the top');
-$('stNew').click(); await tick(100);
+const plus = v => d.querySelector('#stTabs [data-new="' + v + '"]');
+ok(!$('stNew') && plus('opps') && plus('laps') && plus('plans') && plus('opps').querySelector('svg') && plus('opps').getAttribute('aria-label') === 'New opportunity', 'each tab carries its own circle-plus; no big button (v123)');
+plus('opps').click(); await tick(100);
 ok($('srchdlg').hasAttribute('open') && /Type the account's name/.test($('fsHint').textContent), 'New asks which account');
 let hits = await pickAcct('bendigo');
 ok(hits.length === 1 && hits[0].dataset.stnew === B, 'and finds it by name or suburb');
@@ -125,22 +126,22 @@ ok(g('screen') === 'opp' && g('OPP.acct') === B && g('OPP.name') === 'Chiller li
 $('back').click(); await tick(150);
 ok(g('screen') === 'strategy' && /Chiller line/.test($('stRes').textContent), 'back comes to Strategy, with it listed');
 tab('plans'); await tick(100);
-ok($('stNew').textContent === '+ New account plan', 'each tab starts its own kind');
-$('stNew').click(); await tick(100);
+tab('opps'); await tick();
+plus('plans').click(); await tick(100);
+ok(g('stTab') === 'plans' && $('stTabs').querySelector('button.on[data-v]').dataset.v === 'plans', 'a tab\'s circle-plus opens that tab and starts its own kind');
 hits = await pickAcct('ringwood');
 ok(/Has an account plan: opens it/.test(hits[0].textContent), 'an account that already has a plan says so');
 hits[0].click(); await tick(150);
 ok($('plandlg').hasAttribute('open') && $('plSub').textContent === C && $('plGoal').value === 'Get back in by June', 'and opens the plan it has');
 $('plOk').click(); await tick(300);
-tab('laps'); await tick(100);
-$('stNew').click(); await tick(100);
+plus('laps').click(); await tick(100);
 hits = await pickAcct('dandenong');
 ok(/In Example Meats: opens it/.test(hits[0].textContent), 'a site already in a large account says which');
 hits = await pickAcct('ringwood');
 hits[0].click(); await tick(400);
-ok(g('screen') === 'lap' && g('LAP.name') === 'Other Foods' && g('LAP.sites.join()') === C, 'a new large account plan starts from one of its sites');
+ok(g('screen') === 'opp' && g('LAP.name') === 'Other Foods' && g('LAP.sites.join()') === C && g('OPP === LAP'), 'a new large account plan starts from one of its sites, on its map');
 $('back').click(); await tick(150);
-ok(g('screen') === 'strategy' && $('stTabs').querySelector('.on').dataset.v === 'laps' && /Other Foods/.test($('stRes').textContent), 'back comes to Strategy, with it listed');
+ok(g('screen') === 'strategy' && $('stTabs').querySelector('button.on[data-v]').dataset.v === 'laps' && /Other Foods/.test($('stRes').textContent), 'back comes to Strategy, with it listed');
 
 // ---- empty
 await g(`(async () => { TEAM = null; for(const o of await oppsAll()) await oppsDel(o.id); OPPS = []; go('strategy'); })()`); await tick(100);

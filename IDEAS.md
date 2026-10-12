@@ -774,6 +774,13 @@ for now. Reviewed a clickable mock first.*
 - **Built (v122): the CIP and MBO page's Save HTML copy imports.** The plan
   comes from the JSON the page carries; the reference from the page's own
   lists, read as plain values and never run.
+- **Built (v123): the diagram first.** A circle-plus on each Strategy and
+  Lists tab replaces the big buttons. A new opportunity asks only its name,
+  then the map opens. The map is built on the phone too (add, link, remove;
+  dragging stays on the PC), and tapping an empty part of a lane adds
+  someone there. A large account opens on its own relationship map, seeded
+  once from its sites' opportunities and kept with the plan; the plan sits
+  behind a Map / Plan switch.
 - **Later:** the coach reading the large account plan; the group column's
   real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics

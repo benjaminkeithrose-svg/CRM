@@ -273,10 +273,9 @@ In a team, **Mine** shows your own and **Team** your colleagues'. The search ico
 
 To start a new one from here:
 
-1. Tap the tab: **Opportunities**, **Large accounts** or **Account plans**.
-2. Tap **+ New** at the top.
-3. Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.
-4. Fill it in, then tap **Done**. Back comes to Strategy.
+1. On **Opportunities**, **Large accounts** or **Account plans**, tap the circle-plus on the tab.
+2. Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.
+3. Fill it in, then tap **Done**. Back comes to Strategy.
 
 If the account already has an account plan, or the site is already in a large account, the list says so and tapping it opens that one.
 
@@ -324,20 +323,21 @@ Tap an MBO's name to see the proof it needs. To change the list, tap **⋯**, th
 
 1. Open the account: tap **Directory** on Home, then the account.
 2. On the **Opportunities** card, tap **New opportunity**.
-3. Type its name and the objective. Add the value and the expected close if you know them.
+3. Type its name.
 4. Tap **Done**. The map opens.
-5. On the PC, tap **Add person**. Pick **Customer**, **OEM** or **Our team**, type or pick the name, then tap **Add to the map**.
-6. Tap a person to set their part in the decision, how they see it, and how they rate us from −5 to +5.
-7. To link two people, tap one, tap **Link to…**, then tap the other, or the opportunity.
-8. Set the link's kind and strength in the panel.
-9. Drag people where they make sense.
-10. Add red flags and strengths in the panel, and pin each to a person or a link.
+5. Tap an empty part of a lane: **Customer**, **OEMs and integrators** or **Our team**.
+6. Type or pick the name, then tap **Add to the map**. They go where you tapped.
+7. Tap a person to set their part in the decision, how they see it, and how well our base is covered with them, from −5 to +5.
+8. To link two people, tap one, tap **Link to…**, then tap the other, or the opportunity.
+9. Set the link's kind and strength in the panel.
+10. On the PC, drag people where they make sense.
+11. Add red flags and strengths in the panel, and pin each to a person or a link.
 
 Customer names come from the account's CRM contacts. OEM people you have used on any opportunity are offered again as you type.
 
-On the phone, the map is for looking: drag the background to move around, use − and + to zoom, and tap a person or a link to change its details. Add people, link them and move them on the PC.
+The phone does all of this too except dragging: drag the background to move around, and use − and + to zoom. **Add person** at the top works as well as tapping a lane.
 
-Everything saves as you go, and the team shares it. To change the name or value, or delete the opportunity, tap **Details**.
+Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or delete the opportunity, tap **Details**.
 
 ### Fill in the Blue Sheet
 
@@ -395,18 +395,20 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 1. Open one of the customer's sites: tap **Directory** on Home, then the site.
 2. Tap the **Account plan** card.
 3. Tick **Large account: several sites under one plan**.
-4. Tap **Done**. The large account plan opens, with the customer's other sites already in it.
-5. Check the sites. Tap **×** to take one out, or type a name and tap **Add** to add one.
-6. Under **Where we are**, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.
-7. Under **Where we want to get to**, write the vision and add the objectives, each with a measure and a date.
-8. Under **How we get there**, add the strategies, the investment and the actions. Give each action an owner and a due date.
-9. Tick an action when it is done. Tap **Make a task** to put one in your calendar.
-10. After a review, tap **Reviewed today**.
-11. To send the plan, tap **Create and share**.
+4. Tap **Done**. The large account opens on its own map, with everyone from its sites' opportunities already on it.
+5. Add people to it the same way as an opportunity's map: tap an empty part of a lane, or tap **Add person**. Link them with **Link to…**.
+6. Tap **Plan** at the top to open the plan behind the map.
+7. Check the sites. Tap **×** to take one out, or type a name and tap **Add** to add one.
+8. Under **Where we are**, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.
+9. Under **Where we want to get to**, write the vision and add the objectives, each with a measure and a date.
+10. Under **How we get there**, add the strategies, the investment and the actions. Give each action an owner and a due date.
+11. Tick an action when it is done. Tap **Make a task** to put one in your calendar.
+12. After a review, tap **Reviewed today**.
+13. To send the plan, tap **Create and share**.
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
 
-Open opportunities and the relationship map come from the sites' opportunities: a person on several opportunities shows once. Change people on each opportunity's own map.
+The large account's map is its own, kept with the plan. The first time it opens it starts with everyone from the sites' opportunities, once each; after that, people added to it stay on it and not on the opportunities. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
 
 To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
 
@@ -515,7 +517,7 @@ Draft it works like **Tidy**: it needs signal and cloud sync, and sends the poin
 
 1. Tap **Lists** on Home.
 2. Tap **Saved notes** at the top.
-3. Tap **+ Saved note**.
+3. Tap the circle-plus on the **Saved notes** tab.
 4. Give it a label, tap its reason, and type or dictate the text.
 5. Tap **Done**.
 
@@ -527,7 +529,7 @@ Tap a saved note to change it. **Duplicate** on the **⋯** opens a copy to chan
 
 1. Tap **Lists** on Home.
 2. Tap **Products** at the top.
-3. Tap **+ Product**.
+3. Tap the circle-plus on the **Products** tab.
 4. Fill in the product, part number, status and account.
 5. Tap **Done**.
 
