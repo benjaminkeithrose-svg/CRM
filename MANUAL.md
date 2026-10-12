@@ -447,14 +447,18 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 5. If a head office or group account drives the sites, tap the circle-plus next to **Corporate** in the list beside the map, then type its name or pick it from your customer list.
 6. Tap the table icon next to a site or the corporate account to add its people. Link people across sites with **Link to…**.
 7. Tap a site to open its account plan or one of its opportunities.
-8. Tap **Plan** at the top to open the plan behind the map.
-9. Check the sites. Tap **×** to take one out, or type a name and tap **Add** to add one.
-10. Under **Where we are**, describe their business, pick how they see us, and fill in what we have today, the spend and the competition.
-11. Under **Where we want to get to**, write the vision and add the objectives, each with a measure and a date.
-12. Under **How we get there**, add the strategies, the investment and the actions. Give each action an owner and a due date.
-13. Tick an action when it is done. Tap **Make a task** to put one in your calendar.
-14. After a review, tap **Reviewed today**.
-15. To send the plan, tap **Create and share**.
+8. Tap **Plan** at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.
+9. On **Key info**, fill in the plan revenue, the year and the SharePoint link, then the description: the Intralox vision, the account overview, their business goals, the key insights and the Intralox position.
+10. On **Objectives**, tap **Add an objective**. Type its name, description, revenue, period and owner.
+11. Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap **Make a task**.
+12. **Activities** lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.
+13. On **Accounts**, check the sites. Tap **×** to take one out, or type a name and tap **Add**.
+14. On **SWOT**, add strengths, weaknesses, opportunities and threats.
+15. On **Success factors**, type up to six critical success factors.
+16. **Team** shows our people on the map. Tap **Add or change on the map** to change them.
+17. After a review, tap **Reviewed today** on Key info.
+18. To put it into Dynamics, tap **Copy for Dynamics** on the PC. Tap **Copy** beside each field, then paste it into the same field in Dynamics.
+19. To send the plan, tap **Create and share**.
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
 

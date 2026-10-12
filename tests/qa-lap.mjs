@@ -79,26 +79,39 @@ $('opView').querySelector('[data-v="sheet"]').click(); await tick(150);
 ok(g(`screen`) === 'lap' && $('lapView').querySelector('.on').dataset.v === 'plan', 'Plan opens the plan behind the map');
 ok(g(`PLANS.filter(p => p.kind === 'large').length`) === 1 && g(`planFor('${A}')`) === null, 'it is not taken for the site\'s own plan');
 ok(g(`Object.keys(cloudDirty).some(k => k.startsWith('plans/la'))`), 'marked to sync');
+// v130 (deliberate): the plan is in Dynamics' tabs
+const tab = async k => { $('lapBody').querySelector('[data-laptab="' + k + '"]').click(); await tick(60); };
+ok([...$('lapBody').querySelectorAll('[data-laptab]')].map(b => b.textContent).join() === 'Key info,Objectives,Activities,Accounts,SWOT,Success factors,Team' && $('lapBody').querySelector('[data-laptab="key"].on'),
+  'the plan has Dynamics\' tabs, Key info first (v130)');
+await tab('obj');
 ok(/Line 3 upgrade/.test(body()) && /Spiral freezer belts/.test(body()) && !/Elsewhere/.test(body()), 'open opportunities come from both sites, no others');
 ok(/position \+2/.test(body()), 'with our position from the Blue Sheet');
 
 // ---- the sections
 const type = (id, v) => { $(id).value = v; $(id).dispatchEvent(new w.Event('input')); };
+await tab('key');
 type('lapBiz', 'Two meat plants, growing poultry');
 type('lapUs', 'AUD 250k'); type('lapAll', 'AUD 1m');
 ok($('lapShareLine').textContent === 'About 25% of their belting spend', 'the share works itself out: ' + $('lapShareLine').textContent);
 type('lapVision', 'The standard on every line');
 await tick(900);
 $('lapBody').querySelector('[data-opchips="ladder"] [data-v="Service provider"]').click(); await tick(50);
-$('lapObj').value = 'Win both retrofits'; $('lapObjM').value = 'AUD 270k'; $('lapObjBy').value = '2027-06'; $('lapObjGo').click(); await tick(50);
-$('lapStr').value = 'Lead with hygiene'; $('lapStrGo').click(); await tick(50);
-$('lapNs').value = 'Strong at Bendigo'; $('lapNsGo').click(); await tick(50);
-$('lapNf').value = 'Purchasing changes in 2027'; $('lapNfGo').click(); await tick(50);
-$('lapAct').value = 'Meet Tom at Bendigo'; $('lapOwn').value = 'Ben'; $('lapDue').value = '2026-11-05'; $('lapActGo').click(); await tick(50);
 $('lapReviewed').click(); await tick(100);
+await tab('obj');
+$('lapObjNew').click(); await tick(50);
+const oin = k => $('lapBody').querySelector('[data-lapo="' + k + ':0"]');
+oin('t').value = 'Win both retrofits'; oin('t').dispatchEvent(new w.Event('input'));
+oin('revenue').value = 'AUD 270k'; oin('revenue').dispatchEvent(new w.Event('input'));
+$('lapStr').value = 'Lead with hygiene'; $('lapStrGo').click(); await tick(50);
+$('lapAct').value = 'Meet Tom at Bendigo'; $('lapOwn').value = 'Ben'; $('lapDue').value = '2026-11-05'; $('lapActGo').click(); await tick(50);
+await tab('swot');
+$('lapNstrengths').value = 'Strong at Bendigo'; $('lapBody').querySelector('[data-lapadd2="strengths"]').click(); await tick(50);
+$('lapNflags').value = 'Purchasing changes in 2027'; $('lapBody').querySelector('[data-lapadd2="flags"]').click(); await tick(50);
+await tab('obj');
 const L = (await g(`plansAll()`)).find(p => p.kind === 'large');
 ok(L.business === 'Two meat plants, growing poultry' && L.ladder === 'Service provider' && L.spendUs === 'AUD 250k' && L.vision === 'The standard on every line', 'where we are and the vision saved');
-ok(L.objectives[0].t === 'Win both retrofits' && L.objectives[0].measure === 'AUD 270k' && L.objectives[0].by === '2027-06' && L.strategies.length === 1 && L.strengths.length === 1 && L.flags.length === 1, 'objectives, strategies, strengths and vulnerabilities saved');
+ok(L.objectives[0].t === 'Win both retrofits' && L.objectives[0].revenue === 'AUD 270k' && /^Fiscal Year \d{4}$/.test(L.objectives[0].period) && L.objectives[0].owner === '' && L.strategies.length === 1 && L.strengths.length === 1 && L.flags.length === 1,
+  'objectives (with revenue, period and owner), strategies, strengths and weaknesses saved');
 ok(L.actions[0].owner === 'Ben' && L.actions[0].due === '2026-11-05' && !L.actions[0].done && L.reviewed > 0, 'the action with its owner and date, and the review date');
 $('lapBody').querySelector('[data-lapdone="0"]').checked = true; $('lapBody').querySelector('[data-lapdone="0"]').dispatchEvent(new w.Event('change')); await tick(100);
 ok(g(`LAP.actions[0].done`) === true, 'an action ticked done');
@@ -126,11 +139,14 @@ $('opPanel').querySelector('#opToPlan').click(); await tick(150);
 ok(g(`screen`) === 'lap', 'Open the plan goes back to the plan');
 
 // ---- sites: add from the suggestions or by name, take one out
+await tab('acc');
 ok(!$('lapBody').querySelector('[data-lapadd]'), 'no more sites to suggest when the group is all in');
 $('lapSite').value = 'Not a real site'; $('lapSiteGo').click(); await tick();
 ok(/Pick a site from the list/.test(toast()) && g(`LAP.sites.length`) === 2, 'a site that is not in the CRM is refused');
 $('lapSite').value = C; $('lapSiteGo').click(); await tick(100);
+await tab('obj');
 ok(g(`LAP.sites.includes('${C}')`) && /Elsewhere/.test(body()), 'another site added by name brings its opportunities');
+await tab('acc');
 confirms = [];
 [...$('lapBody').querySelectorAll('[data-lapsite]')].find(b => /Ringwood/.test(b.getAttribute('aria-label'))).click(); await tick(100);
 ok(!g(`LAP.sites.includes('${C}')`) && /Take Other Foods - Ringwood out/.test(confirms[0]), 'and taken out again, asked first');
@@ -152,7 +168,8 @@ ok(g(`PLANS.filter(p => p.kind === 'large').length`) === 1 && g(`LAP.sites.join(
 
 // ---- the document
 const doc = g(`buildLapHTML(LAP, '')`);
-ok(/<title>Large account plan/.test(doc) && /@page\{size:A4/.test(doc) && /Their business<\/td><td class="v">Two meat plants/.test(doc) && /About 25% of their belting spend/.test(doc), 'the document has where we are');
+ok(/<title>Large account plan/.test(doc) && /@page\{size:A4/.test(doc) && /Account overview<\/td><td class="v">Two meat plants/.test(doc) && /About 25% of their belting spend/.test(doc) && /<h2>Key plan information/.test(doc) && /<h2>SWOT/.test(doc),
+  'the document follows Dynamics\' tabs');
 ok(/Line 3 upgrade/.test(doc) && /Win both retrofits/.test(doc) && /Meet Tom at Bendigo<\/td><td>Ben<\/td>/.test(doc) && /<td>Done<\/td>/.test(doc) && !/N\/A/.test(doc), 'the opportunities, objectives and action plan, with no N/A');
 $('lapShare').click(); await tick(300);
 ok(/new tab/.test(toast()), 'Create and share opens it in a tab on the PC: ' + toast());
