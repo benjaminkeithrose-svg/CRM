@@ -71,7 +71,11 @@ encrypted through cloud sync (dataset `beltref`). The old GitHub-repo and
 OneDrive-folder syncs were removed in v78.
 
 **Storage is promise-gated.** `openDB()` returns a cached promise and clears
-itself on failure so the next call retries. Every store operation awaits it. Never
+itself on failure so the next call retries. Every store operation awaits it.
+A database version bump must never strand the app (v126): a blocked open waits
+for the older copy and says so, and an open database closes and reloads on
+`versionchange`. v125's bump to version 9 started the app empty while an old
+tab held version 8; `tests/qa-upgrade.mjs` guards this. Never
 write a bare `db.transaction(...)` that assumes the global is populated — an
 earlier build did, and it surfaced minutes later as an unrelated-looking import
 failure.

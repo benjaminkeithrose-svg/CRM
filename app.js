@@ -45,9 +45,21 @@ function openDB(){
       // v9 (app v125): people met on Blue Sheets who are not in the CRM export yet - shared with the team
       if(!d.objectStoreNames.contains('people')) d.createObjectStore('people', {keyPath:'id'});
     };
-    r.onsuccess = e => { db = e.target.result; res(db); };
+    r.onsuccess = e => {
+      db = e.target.result;
+      /* v126: a newer build opening the database asks this copy to let go.
+         Without this an old tab, or the app left running in the background,
+         held on and the new build started with no accounts and no belt data
+         (v125's upgrade, 2026-10-12). Nothing is lost: the reload picks up
+         the newer build and the same data. */
+      db.onversionchange = () => { try { db.close(); } catch(x){} db = null; dbReady = null; location.reload(); };
+      if(r.wasBlocked) try { $('toast').classList.remove('show'); } catch(x){}
+      res(db);
+    };
     r.onerror = () => rej(r.error || new Error('the database would not open'));
-    r.onblocked = () => rej(new Error('another copy of this app is open - close it and reopen'));
+    /* An older copy still has the database open. Wait for it rather than
+       failing - the open goes through the moment it closes - and say so. */
+    r.onblocked = () => { try { toast('Close any other Field CRM window or tab to finish the update'); clearTimeout($('toast')._h); r.wasBlocked = true; } catch(x){} };
   });
   dbReady.catch(() => { dbReady = null; });   // let the next attempt try again
   return dbReady;
@@ -978,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v125';
+const APP_BUILD = 'v126';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
