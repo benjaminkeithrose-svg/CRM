@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v133">
+<meta name="build" content="v134">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -1024,6 +1024,20 @@ mark.cipconfirm{background:#FFF3C4;color:inherit}
 .mchips{display:flex;flex-wrap:wrap;gap:4px}
 .mchip{border:1px solid var(--edge);background:var(--sunk);border-radius:var(--r-pill);padding:4px 9px;font-size:12px;cursor:pointer;color:var(--ink);min-height:32px;text-align:left}
 .mchip.has{border-color:var(--cyan-dk)}
+/* v134: completions that came from a call or task, and ones arriving through a link */
+.mchip.fromwork{border-color:var(--cyan)}
+.mchip.via{border-style:dashed;background:var(--surface);color:var(--ink-2)}
+.minith{margin-top:26px}
+.rgrid{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 8px}
+.mtick{font-size:15px;color:var(--ink);padding:6px 0;min-height:40px}
+.mtick .tag{margin-left:4px}
+.mbobar{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;cursor:pointer;margin:0 0 12px}
+.mbobar .mbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.mbobar .mbv{font-size:15px;color:var(--ink)}
+.cipprog{margin:4px 0 10px}
+#mtBody h3,#miBody h3{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:16px 0 4px}
+#mtBody .hint,#miBody .hint{margin:0 0 6px}
+#miBody p.l{font-size:13px;font-weight:600;color:var(--ink-2);margin:10px 0 4px}
 .madd{width:36px;height:32px;border:1px dashed var(--edge);background:var(--surface);border-radius:var(--r-pill);color:var(--act);font-size:16px;cursor:pointer}
 .camt{font-size:11.5px;color:var(--ink-3);margin-top:4px}
 .mgrid .yc{width:9%;white-space:nowrap}
@@ -2276,6 +2290,28 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Count calls towards your MBOs and initiatives</b><span class="sxs">On the call, and by rules</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>In the call, tap <b>MBOs and initiatives</b>, under the summary.</li>
+        <li>Tick each one this call counts towards.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>A tick goes into the call's quarter (January to March is Q1), with the account and the date. Untick it to take it out. Moving the call to another date moves its ticks. A locked quarter can't take new ticks.</p>
+      <p>To have one tick itself:</p>
+      <ol>
+        <li>Tap <b>MBO</b> on Home.</li>
+        <li>Tap the MBO's or initiative's name.</li>
+        <li>Under <b>Ticks itself when a call</b>, choose what the call must be: the account's focus, the call type, a health check, a project, a project moved to Complete, or a belt mentioning a product.</li>
+        <li>Tap <b>Close</b>. Calls already made this year are counted too.</li>
+      </ol>
+      <p>Everything you set must be true for the tick. Untick a rule's tick on the call, or delete it on the MBO screen, and the rule leaves that call alone.</p>
+      <p>Initiatives sit under the MBOs and earn nothing. To add one, tap <b>Add initiative</b> at the bottom of the MBO screen. To make one count towards an MBO, open it, pick the MBO under <b>Counts towards an MBO</b>, and pick the quarter it starts from. From then on a call ticked on either counts on both, and is paid once.</p>
+      <p>A task can count too: open the task, pick it under <b>Counts towards</b>. It counts in the quarter you tick the task done. A CIP goal with a related MBO shows that MBO's count for the year.</p>
+      <p>Your MBOs, initiatives and ticks are private. They are kept with your MBO list, never on the call, so your team never sees them.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Map a large opportunity</b><span class="sxs">The parties, their people, and how they connect</span></summary>
     <div class="fld help">
       <ol>
@@ -3129,6 +3165,8 @@ details.bsx > .msg{margin:8px 12px}
     </div>
     <div class="f"><label for="tkNotes">Notes</label><textarea id="tkNotes" rows="4"></textarea>
       <div class="txtacts" id="tkNotesActs"></div></div>
+    <div class="f" id="tkMboRow" hidden><label for="tkMbo">Counts towards</label><select id="tkMbo"></select>
+      <p class="hint">An MBO or initiative. It counts in the quarter you tick the task done.</p></div>
     <label class="ct"><input type="checkbox" id="tkDone"><div><div class="cn">Completed</div><div class="cr">The task itself is finished. Ticked tasks stay on the calendar, greyed out.</div></div></label>
     <p class="note" id="tkFrom" hidden></p>
   </div>
@@ -3260,15 +3298,22 @@ details.bsx > .msg{margin:8px 12px}
     <div class="f"><label for="meSite" id="meSiteL">Customer / site</label><input type="text" id="meSite" autocomplete="off"></div>
     <div class="f"><label for="meDate">Date</label><input type="date" id="meDate"></div>
     <div class="f"><label for="meRef">Proof reference</label><input type="text" id="meRef" autocomplete="off" placeholder="Dynamics record, order no., etc."></div>
+    <button type="button" class="btn act2" id="meWork" hidden>Open the call</button>
     <datalist id="mboBooks"></datalist>
   </div>
 </dialog>
 
-<!-- What an MBO asks for -->
+<!-- What an MBO asks for, its rules; an initiative's details (v134) -->
 <dialog id="mboinfodlg">
   <div class="dlg-h"><b id="miHead">MBO</b></div>
   <div class="dlg-b" id="miBody"></div>
-  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="miClose" type="button">Close</button></div>
+  <div class="dlg-f"><button type="button" class="tkdel" id="miDel" hidden aria-label="Delete this initiative" title="Delete this initiative"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button><span class="spacer"></span><button class="btn" id="miClose" type="button">Close</button></div>
+</dialog>
+
+<!-- A call's MBOs and initiatives (v134) -->
+<dialog id="mbotickdlg">
+  <div class="dlg-h tkh"><b>MBOs and initiatives</b><button type="button" class="btn go" id="mtOk">Done</button></div>
+  <div class="dlg-b" id="mtBody"></div>
 </dialog>
 
 <!-- Create and share a CIP or an MBO claim -->
@@ -3629,6 +3674,11 @@ details.bsx > .msg{margin:8px 12px}
       <p class="hint">Goes at the top of the full call notes. Not in the health check or belt requirements documents. Coaching stays with the call and is never in a report.</p>
     </div>
   </details>
+
+  <!-- v134: tick this call against the year's MBOs and initiatives. Shown only
+       when there is an MBO list for the call's year. Ticks live in the private
+       MBO record, never on the call. -->
+  <button type="button" class="fld mbobar" id="dashMbo" hidden></button>
 
   <h2 id="dashAddHead">Add to call</h2>
   <div class="tiles four">

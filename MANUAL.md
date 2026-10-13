@@ -321,6 +321,29 @@ Each quarter pays up to a quarter of the annual cap. Anything over carries to th
 
 Tap an MBO's name to see the proof it needs. To change the list, tap **⋯**, then **Edit the MBO list**. If the list is locked, tap **⋯** and unlock it first. A new year starts by copying last year's list.
 
+### Count calls towards your MBOs and initiatives
+
+1. In the call, tap **MBOs and initiatives**, under the summary.
+2. Tick each one this call counts towards.
+3. Tap **Done**.
+
+A tick goes into the call's quarter (January to March is Q1), with the account and the date. Untick it to take it out. Moving the call to another date moves its ticks. A locked quarter can't take new ticks.
+
+To have one tick itself:
+
+1. Tap **MBO** on Home.
+2. Tap the MBO's or initiative's name.
+3. Under **Ticks itself when a call**, choose what the call must be: the account's focus, the call type, a health check, a project, a project moved to Complete, or a belt mentioning a product.
+4. Tap **Close**. Calls already made this year are counted too.
+
+Everything you set must be true for the tick. Untick a rule's tick on the call, or delete it on the MBO screen, and the rule leaves that call alone.
+
+Initiatives sit under the MBOs and earn nothing. To add one, tap **Add initiative** at the bottom of the MBO screen. To make one count towards an MBO, open it, pick the MBO under **Counts towards an MBO**, and pick the quarter it starts from. From then on a call ticked on either counts on both, and is paid once.
+
+A task can count too: open the task, pick it under **Counts towards**. It counts in the quarter you tick the task done. A CIP goal with a related MBO shows that MBO's count for the year.
+
+Your MBOs, initiatives and ticks are private. They are kept with your MBO list, never on the call, so your team never sees them.
+
 ### Map a large opportunity
 
 1. Open the account: tap **Directory** on Home, then the account.

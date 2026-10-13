@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v133';
+const APP_BUILD = 'v134';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1375,7 +1375,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1483,7 +1483,7 @@ function showScreen(name){
   if(name==='strategy' || name === 'home' || name === 'acct') stOpened = '';
   if(name==='strategy') renderStrategy().catch(e => console.error('strategy', e));
   if(name==='cip') renderCip();
-  if(name==='mbo') renderMbo();
+  if(name==='mbo'){ renderMbo(); mboSweepSoon(); }
   if(name==='acct') try { renderOppsCard(); renderLapCard(); } catch(e){ console.error('opportunities', e); }
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
   // the plan breaks out of the phone column; everything else stays in it
@@ -4792,6 +4792,7 @@ async function taskToggle(t){
   await tasksPut(t);
   toast(t.done ? 'Completed: ' + taskTitle(t) : 'Not completed: ' + taskTitle(t));
   taskRefresh();
+  if(t.mbo) mboSweepSoon();   // v134
 }
 function taskRefresh(){
   if(screen === 'tasks') renderTasks();          // v132
@@ -4912,6 +4913,7 @@ function taskRead(){
   t.project = $('tkProject').value.trim();
   t.revenue = $('tkRevenue').value.trim();
   t.notes = $('tkNotes').value;
+  if($('tkMbo') && $('tkMbo').value) t.mbo = $('tkMbo').value; else delete t.mbo;   // v134
   if($('tkDone').checked !== !!t.done){ t.done = $('tkDone').checked; t.doneAt = t.done ? Date.now() : null; }
   return t;
 }
@@ -4950,6 +4952,7 @@ function openTask(id, extra){
   $('tkRevenue').value = e.revenue || '';
   $('tkNotes').value = e.notes || '';
   $('tkDone').checked = !!e.done;
+  taskMboFill(e);
   const from = e.callId ? (CALLS_BY_ACCT.get(e.acct) || []).find(c => c.id === e.callId) : null;
   $('tkFrom').hidden = !e.callId;
   $('tkFrom').textContent = e.callId ? 'Raised in the call with ' + (from ? from.customer + ' on ' + from.date : (e.acct || 'this account')) : '';
@@ -4981,6 +4984,7 @@ async function taskFinish(){
   toast(!t.title && !t.type ? 'Kept as a draft — it has no title yet (' + when + ')'
     : taskIsNew ? 'Task on the calendar: ' + when : 'Task saved');
   taskRefresh();
+  if(t.mbo || JSON.parse(taskBefore || '{}').mbo) mboSweepSoon();   // v134: counts when done
 }
 async function taskDeleteAsk(t){
   if(!t) return false;
@@ -6682,6 +6686,7 @@ async function cloudSyncRecs(){
     if(screen === 'acct') try { renderPlanCard(); renderOppsCard(); renderLapCard(); } catch(e){ console.error('plan card', e); }
     try { oppCloudIn(); lapCloudIn(); } catch(e){ console.error('opportunity', e); }
     try { await cipCloudIn(); } catch(e){ console.error('cip', e); }
+    mboSweepSoon();   // v134: calls and tasks from the other devices
     if(screen === 'dash') try { renderDashTasks(); } catch(e){ console.error('tasks', e); }
     try { await renderHome(); } catch(e){ console.error('home', e); }
     if(screen === 'plan') try { renderPlan(); } catch(e){ console.error('plan', e); }
@@ -7998,6 +8003,7 @@ function renderDash(){
      opens, not here. */
   renderOutSummary();
   renderVisitSummary();
+  try { if(mboApplyCall(c)) cipSaveSoon('mbo'); renderDashMbo(); } catch(e){ console.error('mbo', e); }   // v134
 
   renderLoose();
 
@@ -14365,7 +14371,7 @@ function cipRenderPlan(){
       return '<div class="cipblk' + (g.locked ? ' saved' : '') + '">' + cipBlockHead('Goal', 'goals', i, g, goals.length, L) +
         cipTa('goals.' + i + '.goal', 'Goal', {rows: 2, locked: BL, noPast: true}) +
         cipPick('goals.' + i + '.indicant', 'Job indicant', 'ind', BL) + cipPick('goals.' + i + '.lci', 'LCI principle', 'lci', BL) + cipGoalPast(i) +
-        cipPick('goals.' + i + '.mbo', 'Related MBO', 'mbo', BL, 'optional') +
+        cipPick('goals.' + i + '.mbo', 'Related MBO', 'mbo', BL, 'optional') + mboGoalProgress(g) +
         cipTa('goals.' + i + '.measure', 'How I\'ll know it\'s working', {rows: 2, locked: BL}) +
         cipTa('goals.' + i + '.progress', 'Progress update (' + kind + ')', {rows: 2, locked: BL}) + '</div>'; }).join('') +
     (!L && goals.length < CIP_MAX_GOALS ? '<button type="button" class="btn act2 cipaddb" data-cipadd="goals">Add goal</button>' : ''));
@@ -14591,7 +14597,7 @@ function mboCalc(Y){
   let carry = 0; const out = {};
   for(const q of MBO_QS){
     const qcap = mboCap(Y, q) / 4; let earned = 0;
-    for(const it of cipArr(Y.items)) earned += mboLog(Y, q, it.id).length * mboVal(Y, q, it);
+    for(const it of cipArr(Y.items)) earned += mboLogAll(Y, q, it.id).length * mboVal(Y, q, it);
     const cin = carry, tot = earned + cin, paid = Math.min(tot, qcap); let cout = tot - paid, lost = 0;
     if(q === 'Q4'){ lost = cout; cout = 0; }
     out[q] = {qcap, earned, cin, tot, paid, cout, lost}; carry = cout;
@@ -14623,8 +14629,9 @@ function renderMbo(){
     if(cat !== last){ rows += '<tr class="cat"><td colspan="6">' + esc(cat) + '</td></tr>'; last = cat; }
     let yc = 0, yv = 0;
     const cells = MBO_QS.map(q => {
-      const L = mboLocked(Y, q), log = mboLog(Y, q, it.id), v = mboVal(Y, q, it); yc += log.length; yv += log.length * v;
-      return '<td class="qc' + (L ? ' lk' : '') + '" data-q="' + q + '"><div class="mchips">' + log.map((x, i) => '<button type="button" class="mchip' + (cipFilled(x.date) || (cipFilled(x.ref) && !/^(Imported|Copied)/.test(x.ref)) ? ' has' : '') + '" data-mchip="' + esc(it.id) + '|' + q + '|' + i + '">' + esc(x.site || '(unnamed)') + '</button>').join('') +
+      const L = mboLocked(Y, q), own = mboLog(Y, q, it.id), log = mboLogAll(Y, q, it.id), v = mboVal(Y, q, it); yc += log.length; yv += log.length * v;
+      return '<td class="qc' + (L ? ' lk' : '') + '" data-q="' + q + '"><div class="mchips">' + own.map((x, i) => '<button type="button" class="mchip' + (cipFilled(x.date) || (cipFilled(x.ref) && !/^(Imported|Copied)/.test(x.ref)) ? ' has' : '') + (x.call || x.task ? ' fromwork' : '') + '" data-mchip="' + esc(it.id) + '|' + q + '|' + i + '">' + esc(x.site || '(unnamed)') + '</button>').join('') +
+        log.slice(own.length).map(x => mboViaChip(Y, x)).join('') +
         (L ? '' : '<button type="button" class="madd" data-madd="' + esc(it.id) + '|' + q + '" aria-label="Add a completion to ' + esc(it.title) + ', ' + q + '">+</button>') + '</div>' +
         (log.length ? '<div class="camt">' + log.length + ' × ' + cipMoney(v) + ' = <b>' + cipMoney(log.length * v) + '</b></div>' : '') + '</td>';
     }).join('');
@@ -14648,7 +14655,8 @@ function renderMbo(){
     '<div class="mgridwrap"><table class="mgrid sq-' + cipUi.mq + '"><thead><tr><th>MBO</th>' + MBO_QS.map(q => { const L = mboLocked(Y, q);
       return '<th data-q="' + q + '"' + (L ? ' class="lk"' : '') + '><span class="qn">' + q + '</span><button type="button" class="btn qlock" data-qlock="' + q + '">' + (L ? 'Locked' : 'Lock') + '</button></th>'; }).join('') + '<th class="yc">Year</th></tr></thead>' +
     '<tbody>' + rows + '</tbody><tfoot>' + foot + '</tfoot></table></div>' +
-    (!cipArr(Y.items).length ? '<p class="empty">This year\'s list is empty. ' + (Y.setupLocked ? 'Unlock the list from &#8943;, then edit it.' : 'Edit the list from &#8943; to add MBOs.') + '</p>' : '');
+    (!cipArr(Y.items).length ? '<p class="empty">This year\'s list is empty. ' + (Y.setupLocked ? 'Unlock the list from &#8943;, then edit it.' : 'Edit the list from &#8943; to add MBOs.') + '</p>' : '') +
+    mboInitsHTML(Y);
 }
 function mboEditHTML(Y){
   const f = (path, label, o) => { o = o || {}; const v = cipGetP(Y, path);
@@ -14695,7 +14703,7 @@ $('mboBody').addEventListener('click', e => {
   if(b.dataset.ystart){
     const M = mboRec(), prev = mboYears().filter(y => y < cipUi.my), from = M.years[prev[prev.length - 1]];
     const ny = {cap: from ? from.cap : 15000, setupLocked: false, items: [], mega: [], quarters: {}};
-    if(b.dataset.ystart === 'copy' && from){ ny.items = cipClone(cipArr(from.items)); ny.mega = cipClone(cipArr(from.mega)).map(m => Object.assign(m, {met: 'no'})); }
+    if(b.dataset.ystart === 'copy' && from){ ny.items = cipClone(cipArr(from.items)); ny.mega = cipClone(cipArr(from.mega)).map(m => Object.assign(m, {met: 'no'})); ny.inits = cipClone(cipArr(from.inits)); }
     M.years[cipUi.my] = ny; cipUi.medit = true; cipUiSave(); redraw(); return;
   }
   if(!Y) return;
@@ -14716,6 +14724,12 @@ $('mboBody').addEventListener('click', e => {
   if(b.dataset.mega != null){ Y.mega[+b.dataset.mega].met = b.dataset.v; redraw(); return; }
   if(b.dataset.madd){ const [id, q] = b.dataset.madd.split('|'); return mboEntOpen(id, q, -1); }
   if(b.dataset.mchip){ const [id, q, i] = b.dataset.mchip.split('|'); return mboEntOpen(id, q, +i); }
+  if(b.dataset.iadd){ const [id, q] = b.dataset.iadd.split('|'); return mboEntOpen(id, q, -1, 'i'); }
+  if(b.dataset.ichip){ const [id, q, i] = b.dataset.ichip.split('|'); return mboEntOpen(id, q, +i, 'i'); }
+  if(b.dataset.mvia != null) return mboViaOpen(b.dataset.mvia);
+  if(b.dataset.iinfo) return mboInfo('i:' + b.dataset.iinfo);
+  if(b.dataset.maddinit){ Y.inits = cipArr(Y.inits); const n = {id: newId('n'), title: '', def: '', link: null, rules: {}};
+    Y.inits.push(n); cipSaveSoon('mbo'); renderMbo(); return mboInfo('i:' + n.id); }
   if(b.dataset.minfo) return mboInfo(b.dataset.minfo);
   if(b.dataset.madditem){ const lastCat = Y.items.length ? Y.items[Y.items.length - 1].cat : '';
     Y.items.push({id: newId('m'), cat: lastCat || '', title: '', value: 0, proof: '', def: '', buId: '', logLabel: '', books: false}); redraw(); return; }
@@ -14737,27 +14751,40 @@ function mboInfo(key){
     const m = Y.mega[+key.split('.')[1]]; if(!m) return;
     t = m.title || 'Mega MBO';
     body = '<p><b>Worth:</b> ' + esc(m.pct) + '% of the annual cap, paid with Q4 above the cap.</p>' + (cipFilled(m.def) ? '<div class="cipdef">' + esc(m.def) + '</div>' : '');
+  } else if(key.startsWith('i:')){
+    const x = cipArr(Y.inits).find(v => v.id === key.slice(2)); if(!x) return;
+    t = x.title || 'New initiative';
+    body = mboInitEditHTML(Y, x) + mboRulesHTML(x.rules);
   } else {
     const it = cipArr(Y.items).find(i => i.id === key); if(!it) return;
     const bu = it.buId && CIPREF && cipFind(CIPREF.bu, 'bu', it.buId);
     t = it.title || 'MBO';
+    const via = cipArr(Y.inits).filter(x => x.link && x.link.mbo === it.id);
     body = '<p><b>Proof required:</b> ' + (cipFilled(it.proof) ? esc(it.proof) : '<i>not given in the plan</i>') + '</p>' + (bu ? '<p><b>Supports BU goal:</b> ' + esc(bu.i.t) + '</p>' : '') +
-      (cipFilled(it.def) ? '<div class="cipdef">' + esc(it.def) + '</div>' : '');
+      (cipFilled(it.def) ? '<div class="cipdef">' + esc(it.def) + '</div>' : '') +
+      (via.length ? '<p class="hint">Also counts the calls of ' + via.map(x => esc(x.title || 'an initiative') + ' from ' + esc(x.link.from || 'Q1')).join(', ') + '.</p>' : '') +
+      mboRulesHTML(it.rules);
   }
+  mboInfoKey = key; mboInfoDirty = false;
   $('miHead').textContent = t; $('miBody').innerHTML = body;
+  $('miDel').hidden = !key.startsWith('i:');
   cipDlgOpen('mboinfodlg');
 }
 $('miClose').addEventListener('click', () => cipDlgShut('mboinfodlg'));
 
 /* a completion: Done keeps it, nothing typed in a new one drops it */
 let mboEnt = null;
-function mboEntOpen(id, q, i){
-  const Y = mboYear(), it = cipArr(Y.items).find(x => x.id === id); if(!it) return;
-  const L = mboLocked(Y, q), e = i >= 0 ? mboLog(Y, q, id)[i] : {site: '', date: '', ref: ''};
+function mboEntOpen(id, q, i, kind){
+  kind = kind || 'm';
+  const Y = mboYear(), it = kind === 'i' ? cipArr(Y.inits).find(x => x.id === id) : cipArr(Y.items).find(x => x.id === id); if(!it) return;
+  const L = mboLocked(Y, q), e = i >= 0 ? mboRead(Y, q, kind + ':' + id)[i] : {site: '', date: '', ref: ''};
   if(!e) return;
-  mboEnt = {id, q, i, L};
+  mboEnt = {id, q, i, L, kind, e};
+  $('meWork').hidden = !(e.call || e.task);
+  $('meWork').textContent = e.call ? 'Open the call' : 'Open the task';
   $('meHead').textContent = i >= 0 ? 'Completion' : 'New completion';
-  $('meSub').textContent = it.title + ', ' + cipUi.my + ' ' + q + (L ? ' (locked)' : '');
+  $('meSub').textContent = (it.title || (kind === 'i' ? 'Initiative' : 'MBO')) + ', ' + cipUi.my + ' ' + q + (L ? ' (locked)' : '') +
+    (e.call ? ' \u00b7 from a call' + (e.auto ? ', ticked by its rule' : '') : e.task ? ' \u00b7 from a task' : '');
   $('meSiteL').textContent = mboEntryLabel(it);
   $('meSite').value = e.site || ''; $('meDate').value = e.date || ''; $('meRef').value = e.ref || '';
   ['meSite', 'meDate', 'meRef'].forEach(x => { $(x).readOnly = L; });
@@ -14773,12 +14800,12 @@ function mboEntFinish(){
   if(s.L) return;
   const Y = mboYear(); if(!Y) return;
   const v = {site: $('meSite').value.trim(), date: $('meDate').value, ref: $('meRef').value.trim()};
-  const Q = mboQ(Y, s.q); Q.log[s.id] = cipArr(Q.log[s.id]);
+  const log = mboLogOf(Y, s.q, s.kind + ':' + s.id);
   if(s.i < 0){
     if(!v.site && !v.date && !v.ref) return;
-    Q.log[s.id].push(v);
+    log.push(v);
   } else {
-    const e = Q.log[s.id][s.i]; if(!e || (e.site === v.site && (e.date || '') === v.date && (e.ref || '') === v.ref)) return;
+    const e = log[s.i]; if(!e || (e.site === v.site && (e.date || '') === v.date && (e.ref || '') === v.ref)) return;
     Object.assign(e, v);
   }
   cipSaveSoon('mbo');
@@ -14787,13 +14814,363 @@ function mboEntFinish(){
 $('meOk').addEventListener('click', () => { mboEntFinish(); cipDlgShut('mboentdlg'); });
 $('meDel').addEventListener('click', () => {
   const s = mboEnt; if(!s || s.i < 0) return;
-  const Y = mboYear(), log = mboLog(Y, s.q, s.id), e = log[s.i], it = Y.items.find(x => x.id === s.id);
+  const Y = mboYear(), key = s.kind + ':' + s.id, log = mboRead(Y, s.q, key), e = log[s.i];
+  const it = s.kind === 'i' ? cipArr(Y.inits).find(x => x.id === s.id) : Y.items.find(x => x.id === s.id);
+  if(!e) return;
   if(!confirm('Remove ' + (e.site || 'this completion') + ' from ' + (it ? it.title : 'this MBO') + ', ' + s.q + '?\n\nIts date and proof reference go with it. This cannot be undone.')) return;
   log.splice(s.i, 1); mboEnt = null;
+  // a call's rule must not put it straight back, and its tick on the call goes off
+  if(e.call){ Y.off = Y.off || {}; const off = Y.off[e.call] = cipArr(Y.off[e.call]); if(!off.includes(key)) off.push(key); }
+  if(e.task){ const k = TASKS.find(x => x.id === e.task); if(k && k.mbo === key){ delete k.mbo; k.updated = Date.now(); tasksPut(k).catch(reportErr); } }
   cipSaveSoon('mbo'); cipDlgShut('mboentdlg'); renderMbo();
 });
 $('mboentdlg').addEventListener('cancel', e => { e.preventDefault(); mboEntFinish(); cipDlgShut('mboentdlg'); });
 $('mboentdlg').addEventListener('close', () => mboEntFinish());
+
+/* ================= MBOs and initiatives from the work (v134) =================
+   Ben, 2026-10-13: "as we're doing calls in this system, the MBOs should
+   self-populate". A call can be ticked against any of the year's MBOs and
+   initiatives; the tick is a completion in the call's calendar quarter, carrying
+   the account and the date and pointing back at the call. Each MBO or initiative
+   can have rules that tick it for you (account focus, call type, a health check,
+   a project, a project moved to Complete, a belt mentioning a product); a rule's
+   tick can be taken off on the call or deleted on the MBO screen, and then stays
+   off. A task can count towards one when it is ticked done.
+
+   Initiatives sit under the MBOs and earn nothing. One can be linked to an MBO
+   from a quarter: from then on its completions count towards that MBO and the
+   MBO's show under it - one tick seen from two sides, never paid twice.
+
+   All of it lives in the private 'mbo' record: never on the call, which the
+   team shares. Locked quarters are never changed. */
+const MBO_FOCUS = ['High', 'Medium', 'Low', 'No Focus'];
+let mboInfoKey = null, mboInfoDirty = false, mboSweepT = null;
+const mboQn = q => +String(q || 'Q1').slice(1);
+const mboQOf = t => 'Q' + (Math.floor(new Date(t).getMonth() / 3) + 1);
+const mboYOf = t => String(new Date(t).getFullYear());
+const mboDay = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const mboSrc = e => e.call ? 'c:' + e.call : e.task ? 't:' + e.task : null;
+// read a quarter's completions without creating anything
+function mboRead(Y, q, key){
+  const Q = Y && Y.quarters && Y.quarters[q]; if(!Q) return [];
+  const id = key.slice(2);
+  return cipArr(key[0] === 'i' ? (Q.ilog || {})[id] : (Q.log || {})[id]);
+}
+// the list itself, made if missing, for writing
+function mboLogOf(Y, q, key){
+  const Q = mboQ(Y, q), id = key.slice(2);
+  if(key[0] === 'i'){ Q.ilog = Q.ilog || {}; return Q.ilog[id] = cipArr(Q.ilog[id]); }
+  Q.log = Q.log || {}; return Q.log[id] = cipArr(Q.log[id]);
+}
+function mboTargets(Y){
+  return cipArr(Y.items).map(it => ({key: 'm:' + it.id, id: it.id, kind: 'm', title: it.title || 'Untitled MBO', cat: it.cat || 'Other', rules: it.rules}))
+    .concat(cipArr(Y.inits).map(x => ({key: 'i:' + x.id, id: x.id, kind: 'i', title: x.title || 'Untitled initiative', cat: 'Initiatives', rules: x.rules, link: x.link})));
+}
+const mboHas = (Y, key, src) => MBO_QS.some(q => mboRead(Y, q, key).some(e => mboSrc(e) === src));
+// an MBO's completions in a quarter: its own, then any arriving through a linked initiative
+function mboLogAll(Y, q, itemId){
+  const own = mboLog(Y, q, itemId), seen = new Set(own.map(mboSrc).filter(Boolean)), out = own.slice();
+  for(const x of cipArr(Y.inits)){
+    if(!x.link || x.link.mbo !== itemId || mboQn(q) < mboQn(x.link.from)) continue;
+    for(const e of mboRead(Y, q, 'i:' + x.id)){
+      const s = mboSrc(e); if(s && seen.has(s)) continue;
+      if(s) seen.add(s);
+      out.push(Object.assign({}, e, {via: 'i:' + x.id}));
+    }
+  }
+  return out;
+}
+// an initiative's completions: its own, then its MBO's once linked
+function mboInitAll(Y, q, initId){
+  const x = cipArr(Y.inits).find(v => v.id === initId), own = mboRead(Y, q, 'i:' + initId);
+  if(!x || !x.link || mboQn(q) < mboQn(x.link.from)) return own;
+  const seen = new Set(own.map(mboSrc).filter(Boolean));
+  return own.concat(mboLog(Y, q, x.link.mbo).filter(e => { const s = mboSrc(e); if(s && seen.has(s)) return false; if(s) seen.add(s); return true; })
+    .map(e => Object.assign({}, e, {via: 'm:' + x.link.mbo})));
+}
+function mboViaChip(Y, e){
+  const t = mboTargets(Y).find(v => v.key === e.via);
+  return '<button type="button" class="mchip via" data-mvia="' + esc(mboSrc(e) || '') + '" title="Through ' + esc(t ? t.title : 'a link') + '">' + esc(e.site || '(unnamed)') + '</button>';
+}
+async function mboViaOpen(src){
+  if(!src){ toast('Added by hand under the linked one - open it there'); return; }
+  return mboOpenWork(src);
+}
+async function mboOpenWork(src){
+  if(src.startsWith('t:')){ const k = TASKS.find(x => x.id === src.slice(2)); if(!k){ toast('That task is no longer here'); return; } return openTask(k.id); }
+  const c = (await recordsAll()).find(x => x.id === src.slice(2));
+  if(!c){ toast('That call is no longer here'); return; }
+  openCallRecord(c);
+}
+
+/* ---- rules ---- */
+const mboRuleSet = r => !!(r && ((r.focus && r.focus.length) || (r.types && r.types.length) || r.health || r.project || r.projDone || (r.belt && r.belt.trim())));
+function mboRuleMatch(r, c){
+  if(!mboRuleSet(r)) return false;
+  const es = cipArr(c.entries);
+  if(r.focus && r.focus.length){ const a = ACC_BY_NAME.get(c.customer); if(!r.focus.includes(c.focus || (a && a.foc) || 'No Focus')) return false; }
+  if(r.types && r.types.length && !r.types.includes(c.type || (isQuote(c) ? 'Quote request' : ''))) return false;
+  if(r.health && !es.some(e => e.type === 'health')) return false;
+  if(r.project && !es.some(e => e.type === 'project')) return false;
+  if(r.projDone && !es.some(e => e.type === 'project' && e.status === 'Complete')) return false;
+  if(r.belt && r.belt.trim()){
+    const words = r.belt.split(',').map(w => w.trim().toLowerCase()).filter(Boolean);
+    if(!es.some(e => e.type === 'belt' && words.some(w => [e.asset, e.beltdesc, e.series, e.style, e.beltmat, e.comment].join(' ').toLowerCase().includes(w)))) return false;
+  }
+  return true;
+}
+const mboCallCounts = c => !!(c && c.id && !c.test && isMine('calls', c.id) && c.status !== 'cancelled' && c.status !== 'missed');
+/* One call against every year's list: rule ticks added or taken back, every
+   tick on the call's own quarter. Returns whether anything changed. */
+function mboApplyCall(c){
+  if(!MBO || !MBO.years || !c || !c.id) return false;
+  const ok = mboCallCounts(c), when = callWhen(c), cy = mboYOf(when), cq = mboQOf(when), src = 'c:' + c.id;
+  let changed = false;
+  for(const y of Object.keys(MBO.years)){
+    const Y = MBO.years[y], off = cipArr(Y.off && Y.off[c.id]);
+    for(const t of mboTargets(Y)){
+      const match = ok && y === cy && mboRuleMatch(t.rules, c) && !off.includes(t.key);
+      let found = false, move = null;
+      for(const q of MBO_QS){
+        const log = mboRead(Y, q, t.key);
+        for(let i = log.length - 1; i >= 0; i--){
+          const e = log[i]; if(mboSrc(e) !== src) continue;
+          if(mboLocked(Y, q)){ found = true; continue; }
+          if(!ok || y !== cy || (e.auto && !match)){ log.splice(i, 1); changed = true; continue; }
+          if(found){ log.splice(i, 1); changed = true; continue; }   // never twice
+          found = true;
+          // the call moved quarter: its tick follows, once the scan is done
+          if(q !== cq && !mboLocked(Y, cq)){ log.splice(i, 1); e.date = mboDay(when); move = e; changed = true; }
+        }
+      }
+      if(move) mboLogOf(Y, cq, t.key).push(move);
+      if(match && !found && !mboLocked(Y, cq)){
+        mboLogOf(Y, cq, t.key).push({site: c.customer || '', date: mboDay(when), ref: '', call: c.id, auto: true});
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+/* Every call and task, after a sync, on opening the MBO screen, after a rule
+   changes: rules reach calls made before the rule, and ticks whose call has
+   gone are cleared. */
+async function mboSweep(){
+  clearTimeout(mboSweepT); mboSweepT = null;
+  if(!MBO || !MBO.years || !Object.keys(MBO.years).length) return false;
+  const recs = await recordsAll(), ids = new Set(recs.map(c => 'c:' + c.id));
+  let changed = false;
+  for(const c of recs) if(mboApplyCall(c)) changed = true;
+  for(const y of Object.keys(MBO.years)){
+    const Y = MBO.years[y], targets = mboTargets(Y), moves = [];
+    for(const t of targets) for(const q of MBO_QS){
+      if(mboLocked(Y, q)) continue;
+      const log = mboRead(Y, q, t.key);
+      for(let i = log.length - 1; i >= 0; i--){
+        const e = log[i];
+        if(e.call && !ids.has('c:' + e.call)){ log.splice(i, 1); changed = true; continue; }
+        if(!e.task) continue;
+        const k = TASKS.find(x => x.id === e.task);
+        if(!k || !k.done || !k.doneAt || k.mbo !== t.key || mboYOf(k.doneAt) !== y){ log.splice(i, 1); changed = true; continue; }
+        const tq = mboQOf(k.doneAt);
+        if(tq !== q && !mboLocked(Y, tq)){ log.splice(i, 1); moves.push([tq, t.key, e]); changed = true; }
+      }
+    }
+    moves.forEach(([tq, key, e]) => mboLogOf(Y, tq, key).push(e));
+    for(const k of TASKS){
+      if(!k.mbo || !k.done || !k.doneAt || mboYOf(k.doneAt) !== y || !targets.some(t => t.key === k.mbo)) continue;
+      const q = mboQOf(k.doneAt);
+      if(mboLocked(Y, q) || mboHas(Y, k.mbo, 't:' + k.id)) continue;
+      mboLogOf(Y, q, k.mbo).push({site: k.acct || taskTitle(k), date: mboDay(k.doneAt), ref: taskTitle(k), task: k.id});
+      changed = true;
+    }
+  }
+  if(changed) mboChanged();
+  return changed;
+}
+function mboSweepSoon(){ clearTimeout(mboSweepT); mboSweepT = setTimeout(() => mboSweep().catch(reportErr), 1200); }
+function mboChanged(){
+  cipSaveSoon('mbo');
+  if(screen === 'mbo'){ const y = window.scrollY; renderMbo(); window.scrollTo(0, y); }
+  if(screen === 'dash') renderDashMbo();
+}
+
+/* ---- on the call ---- */
+function mboCallYear(c){ return c && MBO && MBO.years && MBO.years[mboYOf(callWhen(c))]; }
+function renderDashMbo(){
+  const b = $('dashMbo'); if(!b) return;
+  const c = call, Y = mboCallYear(c);
+  const show = !!(Y && mboTargets(Y).length && mboCallCounts(c));
+  b.hidden = !show; if(!show) return;
+  const src = 'c:' + c.id, names = mboTargets(Y).filter(t => mboHas(Y, t.key, src)).map(t => t.title);
+  b.innerHTML = '<span class="mbl">MBOs and initiatives</span><span class="mbv">' + (names.length ? esc(names.join(', ')) : 'None ticked · tap to choose') + '</span>';
+}
+function mboTickOpen(){
+  const c = call, Y = mboCallYear(c); if(!Y) return;
+  renderMboTick(); cipDlgOpen('mbotickdlg');
+}
+function renderMboTick(){
+  const c = call, Y = mboCallYear(c), el = $('mtBody'); if(!Y || !c) return;
+  const when = callWhen(c), y = mboYOf(when), q = mboQOf(when), L = mboLocked(Y, q), src = 'c:' + c.id;
+  const box = t => {
+    const e = MBO_QS.map(qq => mboRead(Y, qq, t.key).find(x => mboSrc(x) === src)).find(Boolean);
+    const linked = t.kind === 'm' ? cipArr(Y.inits).filter(x => x.link && x.link.mbo === t.id && mboQn(q) >= mboQn(x.link.from) && mboHas(Y, 'i:' + x.id, src)) : [];
+    const lk = t.kind === 'i' && t.link && mboQn(q) >= mboQn(t.link.from) ? cipArr(Y.items).find(i => i.id === t.link.mbo) : null;
+    return '<label class="chk mtick"><input type="checkbox" data-mt="' + esc(t.key) + '"' + (e ? ' checked' : '') + (L ? ' disabled' : '') + '><span><b>' + esc(t.title) + '</b>' +
+      (e && e.auto ? ' <span class="tag">by its rule</span>' : '') +
+      (linked.length ? '<br><span class="hint">Already counted through ' + linked.map(x => esc(x.title || 'an initiative')).join(', ') + '</span>' : '') +
+      (lk ? '<br><span class="hint">Counts towards ' + esc(lk.title || 'its MBO') + ' too</span>' : '') + '</span></label>';
+  };
+  const ts = mboTargets(Y), cats = [];
+  ts.forEach(t => { if(!cats.includes(t.cat)) cats.push(t.cat); });
+  el.innerHTML = '<p class="hint">' + (L ? q + ' ' + y + ' is locked, so this call can’t be added to it.' : 'Counts in ' + y + ' ' + q + ', the quarter of this call.') + '</p>' +
+    cats.map(cat => '<h3>' + esc(cat === 'Initiatives' ? 'Initiatives (not paid)' : cat) + '</h3>' + ts.filter(t => t.cat === cat).map(box).join('')).join('');
+}
+function mboToggle(c, key, on){
+  const Y = mboCallYear(c); if(!Y) return;
+  const when = callWhen(c), q = mboQOf(when), src = 'c:' + c.id;
+  if(mboLocked(Y, q)){ toast(q + ' is locked'); return; }
+  Y.off = Y.off || {};
+  const off = Y.off[c.id] = cipArr(Y.off[c.id]);
+  if(on){
+    const j = off.indexOf(key); if(j >= 0) off.splice(j, 1);
+    if(!mboHas(Y, key, src)) mboLogOf(Y, q, key).push({site: c.customer || '', date: mboDay(when), ref: '', call: c.id, auto: false});
+  } else {
+    MBO_QS.forEach(qq => { if(mboLocked(Y, qq)) return; const log = mboRead(Y, qq, key);
+      for(let i = log.length - 1; i >= 0; i--) if(mboSrc(log[i]) === src) log.splice(i, 1); });
+    if(!off.includes(key)) off.push(key);    // a rule must not tick it again
+  }
+  if(!off.length) delete Y.off[c.id];
+  mboChanged();
+}
+$('dashMbo').addEventListener('click', mboTickOpen);
+$('mtBody').addEventListener('change', e => {
+  const t = e.target; if(!t.dataset.mt || !call) return;
+  mboToggle(call, t.dataset.mt, t.checked);
+  renderMboTick();
+});
+$('mtOk').addEventListener('click', () => cipDlgShut('mbotickdlg'));
+$('mbotickdlg').addEventListener('close', () => { if(screen === 'dash') renderDashMbo(); });
+
+/* ---- the MBO screen: initiatives, and the rules in the info sheet ---- */
+function mboInitsHTML(Y){
+  const inits = cipArr(Y.inits);
+  const rows = inits.map(x => {
+    const lk = x.link && cipArr(Y.items).find(i => i.id === x.link.mbo);
+    let yc = 0;
+    const cells = MBO_QS.map(q => {
+      const L = mboLocked(Y, q), own = mboRead(Y, q, 'i:' + x.id), all = mboInitAll(Y, q, x.id); yc += all.length;
+      return '<td class="qc' + (L ? ' lk' : '') + '" data-q="' + q + '"><div class="mchips">' +
+        own.map((e, i) => '<button type="button" class="mchip' + (e.call || e.task ? ' fromwork' : '') + '" data-ichip="' + esc(x.id) + '|' + q + '|' + i + '">' + esc(e.site || '(unnamed)') + '</button>').join('') +
+        all.slice(own.length).map(e => mboViaChip(Y, e)).join('') +
+        (L ? '' : '<button type="button" class="madd" data-iadd="' + esc(x.id) + '|' + q + '" aria-label="Add a completion to ' + esc(x.title) + ', ' + q + '">+</button>') +
+        '</div>' + (all.length ? '<div class="camt">' + all.length + ' done</div>' : '') + '</td>';
+    }).join('');
+    return '<tr><td class="mc"><button type="button" class="mtitle" data-iinfo="' + esc(x.id) + '">' + esc(x.title || 'Untitled initiative') + ' <span class="minfo" aria-hidden="true">i</span></button>' +
+      '<span class="mv">' + (lk ? 'Counts towards ' + esc(lk.title || 'an MBO') + ' from ' + esc(x.link.from || 'Q1') : 'Not linked to an MBO') + '</span></td>' + cells +
+      '<td class="yc">' + (yc ? yc + ' done' : '—') + '</td></tr>';
+  }).join('');
+  return '<h2 class="minith">Initiatives <span class="cipmute">tracked, not paid</span></h2>' +
+    (inits.length ? '<div class="mgridwrap"><table class="mgrid minit sq-' + cipUi.mq + '"><thead><tr><th>Initiative</th>' + MBO_QS.map(q => '<th data-q="' + q + '"' + (mboLocked(Y, q) ? ' class="lk"' : '') + '><span class="qn">' + q + '</span></th>').join('') +
+      '<th class="yc">Year</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<p class="hint">Something you want to track that isn’t an MBO, such as a customer service initiative. Calls fill it the same way.</p>') +
+    '<button type="button" class="btn act2 cipaddb" data-maddinit="1">Add initiative</button>';
+}
+function mboInitEditHTML(Y, x){
+  const lk = x.link || {};
+  return '<div class="f"><label class="l" for="miTitle">Initiative</label><input type="text" id="miTitle" data-ifield="title" value="' + esc(x.title || '') + '" placeholder="Customer service initiative"></div>' +
+    '<div class="f"><label class="l" for="miDef">What counts</label><textarea id="miDef" data-ifield="def" rows="3">' + esc(x.def || '') + '</textarea></div>' +
+    '<h3>Counts towards an MBO</h3><p class="hint">From the quarter you pick, each completion here also counts towards that MBO, and the MBO’s show here. A call ticked on both counts once.</p>' +
+    '<div class="row"><div class="f"><label class="l" for="miLink">MBO</label><select id="miLink" data-ifield="link"><option value="">Not linked</option>' +
+      cipArr(Y.items).map(i => '<option value="' + esc(i.id) + '"' + (lk.mbo === i.id ? ' selected' : '') + '>' + esc(i.title || 'Untitled MBO') + '</option>').join('') + '</select></div>' +
+    '<div class="f"><label class="l" for="miFrom">From</label><select id="miFrom" data-ifield="from">' + MBO_QS.map(q => '<option' + ((lk.from || 'Q1') === q ? ' selected' : '') + '>' + q + '</option>').join('') + '</select></div></div>';
+}
+function mboRulesHTML(r){
+  r = r || {};
+  const types = [...$('cType').options].map(o => o.value);
+  const chk = (rule, val, on, label) => '<label class="chk"><input type="checkbox" data-rule="' + rule + '" value="' + esc(val) + '"' + (on ? ' checked' : '') + '> ' + esc(label) + '</label>';
+  return '<h3>Ticks itself when a call…</h3><p class="hint">Everything set here has to be true. Leave it all clear to tick it by hand only. You can still untick it on any call.</p>' +
+    '<p class="l">is to an account with focus</p><div class="rgrid">' + MBO_FOCUS.map(f => chk('focus', f, cipArr(r.focus).includes(f), f)).join('') + '</div>' +
+    '<p class="l">is a</p><div class="rgrid">' + types.map(t => chk('types', t, cipArr(r.types).includes(t), t)).join('') + '</div>' +
+    '<p class="l">has logged</p><div class="rgrid">' + chk('health', '1', r.health, 'a health check') + chk('project', '1', r.project, 'a project') + chk('projDone', '1', r.projDone, 'a project moved to Complete') + '</div>' +
+    '<label class="l" for="miBelt">a belt that mentions any of</label><input type="text" id="miBelt" data-rule="belt" value="' + esc(r.belt || '') + '" placeholder="Product names, separated by commas">';
+}
+function mboInfoTarget(){
+  const Y = mboYear(); if(!Y || !mboInfoKey || mboInfoKey.startsWith('mega.')) return null;
+  return mboInfoKey.startsWith('i:') ? cipArr(Y.inits).find(v => v.id === mboInfoKey.slice(2)) : cipArr(Y.items).find(i => i.id === mboInfoKey);
+}
+function mboInfoEdit(e){
+  const t = e.target, x = mboInfoTarget(), Y = mboYear(); if(!x || !Y) return;
+  if(t.dataset.rule){
+    const r = x.rules = x.rules || {}, k = t.dataset.rule;
+    if(k === 'focus' || k === 'types') r[k] = [...$('miBody').querySelectorAll('input[data-rule="' + k + '"]:checked')].map(i => i.value);
+    else if(k === 'belt') r.belt = t.value;
+    else r[k] = t.checked;
+  } else if(t.dataset.ifield === 'title'){ x.title = t.value; $('miHead').textContent = t.value || 'New initiative'; }
+  else if(t.dataset.ifield === 'def') x.def = t.value;
+  else if(t.dataset.ifield === 'link' || t.dataset.ifield === 'from'){
+    const before = x.link ? Object.assign({}, x.link) : null;
+    const mbo = $('miLink').value, from = $('miFrom').value;
+    const next = mbo ? {mbo, from} : null;
+    // a locked quarter keeps what it was locked with: the link may not reach into one
+    const touched = MBO_QS.filter(q => [before, next].some(l => l && mboQn(q) >= mboQn(l.from)));
+    const lockedQ = touched.find(q => mboLocked(Y, q));
+    if(lockedQ && JSON.stringify(before) !== JSON.stringify(next)){
+      toast(lockedQ + ' is locked - link from a quarter after it');
+      $('miLink').value = before ? before.mbo : ''; $('miFrom').value = before ? before.from : 'Q1'; return;
+    }
+    x.link = next;
+  }
+  mboInfoDirty = true; cipSaveSoon('mbo');
+}
+$('miBody').addEventListener('change', mboInfoEdit);
+$('miBody').addEventListener('input', e => { if(e.target.matches('input[type=text], textarea')) mboInfoEdit(e); });
+$('mboinfodlg').addEventListener('close', () => {
+  if(!mboInfoDirty) return;
+  mboInfoDirty = false;
+  if(screen === 'mbo'){ const y = window.scrollY; renderMbo(); window.scrollTo(0, y); }
+  mboSweep().catch(reportErr);
+});
+$('miDel').addEventListener('click', () => {
+  const Y = mboYear(), x = mboInfoTarget(); if(!Y || !x || !mboInfoKey.startsWith('i:')) return;
+  const key = 'i:' + x.id, n = MBO_QS.reduce((a, q) => a + mboRead(Y, q, key).length, 0);
+  const lockedN = MBO_QS.filter(q => mboLocked(Y, q) && mboRead(Y, q, key).length);
+  if(lockedN.length){ toast('It has completions in a locked quarter (' + lockedN.join(', ') + '), so it stays'); return; }
+  if(!confirm('Delete the initiative ' + (x.title || 'with no name') + '?' + (n ? '\n\nIts ' + n + ' completion' + (n === 1 ? '' : 's') + ' this year go with it.' : '') + ' Calls are not changed. This cannot be undone.')) return;
+  Y.inits = cipArr(Y.inits).filter(v => v !== x);
+  MBO_QS.forEach(q => { const Q = Y.quarters && Y.quarters[q]; if(Q && Q.ilog) delete Q.ilog[x.id]; });
+  Object.keys(Y.off || {}).forEach(id => { Y.off[id] = Y.off[id].filter(k => k !== key); if(!Y.off[id].length) delete Y.off[id]; });
+  TASKS.filter(k => k.mbo === key).forEach(k => { delete k.mbo; k.updated = Date.now(); tasksPut(k).catch(reportErr); });
+  mboInfoDirty = false; mboInfoKey = null;
+  cipSaveSoon('mbo'); cipDlgShut('mboinfodlg'); renderMbo();
+});
+$('meWork').addEventListener('click', () => {
+  const s = mboEnt; if(!s || !s.e) return;
+  const src = mboSrc(s.e);
+  cipDlgShut('mboentdlg');
+  if(src) setTimeout(() => mboOpenWork(src).catch(reportErr), 50);
+});
+
+/* ---- a CIP goal shows its MBO's count ---- */
+function mboGoalProgress(g){
+  if(!g || !g.mboId || !MBO) return '';
+  const y = mboYearFor(cipUi.cur), Y = y && MBO.years[y];
+  if(!Y || !cipArr(Y.items).some(i => i.id === g.mboId)) return '';
+  const per = MBO_QS.map(q => mboLogAll(Y, q, g.mboId).length), tot = per.reduce((a, b) => a + b, 0);
+  return '<p class="hint cipprog">So far in ' + esc(y) + ': ' + MBO_QS.map((q, i) => q + ' ' + per[i]).join(' · ') + ' — ' + tot + ' in all</p>';
+}
+
+/* ---- a task can count towards one when it is ticked done ---- */
+function taskMboFill(t){
+  const sel = $('tkMbo'), wrap = $('tkMboRow'); if(!sel || !wrap) return;
+  const y = String((t.date || todayISOdate()).slice(0, 4)), Y = MBO && MBO.years && MBO.years[y];
+  const ts = Y ? mboTargets(Y) : [];
+  wrap.hidden = !ts.length && !t.mbo;
+  const cats = []; ts.forEach(x => { if(!cats.includes(x.cat)) cats.push(x.cat); });
+  sel.innerHTML = '<option value="">Nothing</option>' + cats.map(c => '<optgroup label="' + esc(c === 'Initiatives' ? 'Initiatives' : y + ' MBOs – ' + c) + '">' +
+    ts.filter(x => x.cat === c).map(x => '<option value="' + esc(x.key) + '">' + esc(x.title) + '</option>').join('') + '</optgroup>').join('');
+  if(t.mbo && !ts.some(x => x.key === t.mbo)) sel.insertAdjacentHTML('beforeend', '<option value="' + esc(t.mbo) + '">(no longer on the list)</option>');
+  sel.value = t.mbo || '';
+}
 
 /* ---------- the ⋯ menu, on both screens ---------- */
 function cipMenu(){
@@ -14992,7 +15369,7 @@ function cipShareStart(which){
   $('coQWrap').hidden = which !== 'mbo';
   $('coRefWrap').hidden = which !== 'cip' || !CIPREF;
   if(which === 'mbo'){
-    const Y = mboYear(), withEntries = MBO_QS.filter(q => cipArr(Y.items).some(it => mboLog(Y, q, it.id).length));
+    const Y = mboYear(), withEntries = MBO_QS.filter(q => cipArr(Y.items).some(it => mboLogAll(Y, q, it.id).length));
     const def = withEntries[withEntries.length - 1] || 'Q1';
     chipRow($('coQ'), MBO_QS, def);
     $('coNote').textContent = 'The year\'s grid with lines to sign, then the proof for the quarter.';
@@ -15058,7 +15435,7 @@ function mboClaimHTML(q){
     const cat = it.cat || 'Other';
     if(cat !== last){ rows += '<tr><td colspan="6" style="background:#F2F7FA;font-weight:bold">' + esc(cat) + '</td></tr>'; last = cat; }
     let yc = 0, yv = 0;
-    const cells = MBO_QS.map(x => { const log = mboLog(Y, x, it.id), v = mboVal(Y, x, it); yc += log.length; yv += log.length * v;
+    const cells = MBO_QS.map(x => { const log = mboLogAll(Y, x, it.id), v = mboVal(Y, x, it); yc += log.length; yv += log.length * v;
       return '<td' + sel(x) + '>' + (log.length ? log.map(z => esc(z.site || '(unnamed)')).join('<br>') + '<div style="color:#77787A;font-size:9pt">' + log.length + ' × ' + cipMoney(v) + ' = ' + cipMoney(log.length * v) + '</div>' : '—') + '</td>'; }).join('');
     rows += '<tr><td><b>' + esc(it.title) + '</b><br><span style="color:#77787A">' + cipMoney(it.value) + ' each</span></td>' + cells + '<td>' + (yc ? yc + '<br><b>' + cipMoney(yv) + '</b>' : '—') + '</td></tr>';
   });
@@ -15069,7 +15446,7 @@ function mboClaimHTML(q){
     cipArr(Y.mega).map(m => { const val = mboCap(Y, 'Q4') * (+m.pct || 0) / 100;
       return '<tr><th>Mega MBO: ' + esc(m.title) + '</th><td></td><td></td><td></td><td' + sel('Q4') + '>' + (m.met === 'yes' ? '&#9746; Met' : '&#9744; Met') + '</td><td>' + (m.met === 'yes' ? cipMoney(val) : '—') + '</td></tr>'; }).join('') +
     '<tr><th colspan="5" style="text-align:right">' + esc(cipUi.my) + ' total paid</th><td><b>' + cipMoney(c.total) + '</b></td></tr>';
-  const det = cipArr(Y.items).filter(it => mboLog(Y, q, it.id).length);
+  const det = cipArr(Y.items).filter(it => mboLogAll(Y, q, it.id).length);
   const body = '<table>' + [['Name', e.name], ['Job title', e.title], ['Supervisor', e.supervisor],
       ['Claiming', q + ', ' + cipMoney(d.paid) + ' paid' + (d.cin ? ' (includes ' + cipMoney(d.cin) + ' carried in)' : '')], ['Annual cap', cipMoney(Y.cap)], ['Quarterly cap', cipMoney((+Y.cap || 0) / 4)]]
       .map(([l, v]) => '<tr><td class="l">' + l + '</td><td class="v">' + cipCell(v) + '</td></tr>').join('') + '</table>' +
@@ -15077,7 +15454,7 @@ function mboClaimHTML(q){
     '<table style="margin-top:18px"><tr><td style="width:40%">Submitted by: ' + esc(e.name || '') + '</td><td style="width:35%">Signature</td><td>Date</td></tr>' +
     '<tr><td>ITL approval: name</td><td>Signature</td><td>Date</td></tr></table>' +
     '<div style="page-break-before:always"></div><h2>' + esc(cipUi.my + ' ' + q) + ' proof of completion</h2>' +
-    (det.length ? det.map(it => { const log = mboLog(Y, q, it.id), v = mboVal(Y, q, it);
+    (det.length ? det.map(it => { const log = mboLogAll(Y, q, it.id), v = mboVal(Y, q, it);
       return '<h3>' + esc(it.title) + ': ' + log.length + ' × ' + cipMoney(v) + ' = ' + cipMoney(log.length * v) + '</h3>' + (cipFilled(it.proof) ? '<p style="color:#77787A">Proof required: ' + esc(it.proof) + '</p>' : '') +
         '<table><tr><th style="width:40%">' + esc(mboEntryLabel(it)) + '</th><th style="width:15%">Date</th><th>Proof reference</th></tr>' +
         log.map(z => '<tr><td>' + cipCell(z.site) + '</td><td>' + cipCell(cipDate(z.date)) + '</td><td>' + cipCell(z.ref) + '</td></tr>').join('') + '</table>'; }).join('')
@@ -16643,6 +17020,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   try { await renderHome(); } catch(e){ console.error('home', e); }
   try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
   try { await consumeJoin(); } catch(e){ console.error('set-up link', e); }
+  setTimeout(() => mboSweep().catch(e => console.error('mbo', e)), 3000);   // v134
   if(dbErr){
     $('dbStat').textContent = 'Storage error - ' + dbErr.message;
     toast('Storage error - ' + dbErr.message);

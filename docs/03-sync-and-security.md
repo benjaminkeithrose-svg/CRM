@@ -84,7 +84,7 @@ in the cloud can be read or written at all.
 | CRM export, belt reference, audit register, overrides, reassignments | Read (admin writes) | Read | Read and write | Scrambled only |
 | Tasks and emails | Yours only | — | — | Scrambled only |
 | Planning weeks | Yours only | — | — | Scrambled only |
-| CIP and MBOs | Yours only | — | — | Scrambled only |
+| CIP and MBOs, initiatives, and which calls count towards them | Yours only | — | — | Scrambled only |
 
 Without a team, everything is yours only.
 
