@@ -91,6 +91,7 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `acct`, `contact`, `email`, `mobile`, `project`, `revenue`, `notes` | What it is about |
 | `mailTo`, `mailSubject`, `mailBody` | An email's To, Subject and Body |
 | `done`, `doneAt`, `callId`, `created`, `updated` | Finished, when, and the call it came from |
+| `mbo` | The MBO (`m:` and its id) or initiative (`i:` and its id) the task counts towards when done (v134) |
 
 **snippets** (saved notes): `id`, `label`, `text`, `reason` (Won, Lost, Not
 Qualified, Other), `created`, `lastUsed`, `updated`.
@@ -133,6 +134,20 @@ as Dynamics' Large Account Plan:
 reviews) and the four pillars; `mbo` your MBO list and claims by year and
 quarter; `ref` the reference you import (job indicants, LCI principles, BU
 goals, booklist). All three are private and never shared with the team.
+
+The `mbo` record, one entry per year under `years`:
+
+| Field | Meaning |
+|---|---|
+| `cap`, `setupLocked`, `mega` | The annual cap, whether the list is agreed, the Mega MBOs |
+| `items` | The MBOs: `id`, `cat`, `title`, `value` ($ each), `proof`, `def`, `buId`, `logLabel`, `books`, and `rules` (when a call ticks it itself: `focus`, `types`, `health`, `project`, `projDone`, `belt`) (v134) |
+| `inits` | Initiatives, tracked and not paid (v134): `id`, `title`, `def`, `rules`, and `link` (`mbo`, `from`: counts towards that MBO from that quarter) |
+| `quarters` | `Q1` to `Q4`: `locked`, `snap` (the values it was locked at), `log` (an MBO's completions by its id) and `ilog` (an initiative's). A completion is `site`, `date`, `ref`, and, when it came from the work, `call` or `task`, and `auto` when a rule ticked it |
+| `off` | By call id, the ticks taken off a call that its rules must not put back |
+
+A call's MBO ticks are kept here, never on the call: calls are shared with the
+team, MBOs are not. A completion from a linked initiative is counted once,
+however many ways the same call was ticked.
 
 **people** (contacts added on maps): `id`, `acct`, `n`, `t` (title), `added`,
 `by`, `from` (which Blue Sheet), `updated`. A record clears itself once a CRM
@@ -253,6 +268,9 @@ erDiagram
   ACCOUNT }o--o| LARGE_ACCOUNT_PLAN : "sites"
   VISIT |o--o| CALL : "callId"
   CALL ||--o{ TASK : "callId"
+  CALL }o--o{ MBO_COMPLETION : "call (private, in the mbo record)"
+  TASK |o--o| MBO_COMPLETION : "task, when done"
+  INITIATIVE }o--o| MBO : "link, from a quarter"
   CALL ||--o{ ENTRY : "belts, health checks, notes, projects"
   OPPORTUNITY ||--o{ PARTY : "end user, head contractor, OEM, corporate, Intralox"
   PARTY ||--o{ PERSON : "people, as an org chart"

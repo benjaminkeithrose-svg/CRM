@@ -67,7 +67,9 @@ records per person: `me` (CIP periods and the four pillars), `mbo` and `ref`
 (job indicants, LCI principles, BU goals, booklist). The record is personal and
 the reference is Intralox's internal wording, so both are imported on a device
 from a file and sync encrypted. `cip` is private: never add it to the shared
-stores in the team migrations.
+stores in the team migrations. Since v134 a call's MBO and initiative ticks live
+in the `mbo` record too (by call id), never on the call, because calls are
+shared with the team.
 
 **Contacts added in the app live in store `people`, never in `accounts`**
 (v125). A CRM import replaces the account list wholesale, so `peopleMerge()`

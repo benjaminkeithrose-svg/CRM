@@ -841,6 +841,23 @@ for now. Reviewed a clickable mock first.*
   draft. Done just leaves; a new one rubbed out is taken back out. Belt and
   health check still save on Done.
 - **Later:** a Change to a project / Change to a note option on an entry.
+- **Built (v134):** calls fill the MBOs. An MBOs and initiatives tick list on
+  every call (a completion in the call's calendar quarter, linked to the
+  call); rules on each MBO or initiative that tick it for you (account focus,
+  call type, health check, project, project moved to Complete, a belt
+  mentioning a product), reaching calls already made; a rule's tick taken off
+  stays off. Initiatives under the MBOs, not paid, linkable to an MBO from a
+  quarter so one tick counts on both and is paid once. A task counts when
+  ticked done. A CIP goal shows its MBO's count. All of it private, in the mbo
+  record. Not chosen this round: won opportunities counting, a coverage
+  reading on the MBO screen.
+- **Next to propose (Ben, 2026-10-13):** large accounts with more than one
+  engineering group. Corporate on one side and group engineering on another,
+  each its own box; several regional engineering groups (a southern and a
+  northern one, say), each with its own set of sites; a division with its own
+  engineering; and a separate business line under the same corporate. The
+  links from each engineering group to the sites it serves need defining, on
+  the large account map, the account and the opportunity map.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
