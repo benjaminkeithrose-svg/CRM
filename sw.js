@@ -3,7 +3,7 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v134';
+const CACHE = 'fieldcrm-v135';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
@@ -15,7 +15,7 @@ const SHARE_KEY = './shared-file';
 const ASSETS = [
   './', './index.html', './app.js', './zones.js', './manuals.js', './healthlib.js',
   './health-seed.json', './manifest.webmanifest', './supabase-2.117.1.js',
-  './icon-192.png', './icon-512.png', './icon-maskable-512.png',
+  './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png',
   // SheetJS ships with the app since v93 (it came from jsDelivr, so a first
   // load that missed it left imports broken until the CDN was reached again)
   './xlsx-0.18.5.full.min.js'

@@ -27,7 +27,7 @@ work from a copy of a file anywhere other than this checkout.
 | `sw.js` | Service worker, cache-first, offline |
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
-| `manifest.webmanifest`, icons, `logo.png` | Installability and branding |
+| `manifest.webmanifest`, icons, `logo.png` | Installability and branding. `apple-touch-icon.png` (v135) is the iPhone home-screen icon, an opaque 180px copy of the maskable icon |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
 | `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. `0008_team_people.sql` (v125) shares contacts added on Blue Sheet maps. Not served by the app |

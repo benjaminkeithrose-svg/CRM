@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v134';
+const APP_BUILD = 'v135';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -16451,7 +16451,7 @@ function renderOutHint(){
     ? 'Renders the file in a new tab so you can read it or print it to PDF. Nothing leaves this device, and the call is not marked issued.'
     : dest === 'download'
     ? (isPhone() ? 'Saves the file to this phone.' : 'Saves the file to your Downloads folder.')
-    : 'Sends the file to the Android share sheet \u2014 pick OneDrive, Outlook or Teams.');
+    : 'Sends the file to the phone\u2019s share sheet \u2014 pick OneDrive, Outlook or Teams.');
   if(scope === 'health' || scope === 'belts'){
     bits.push('This is for handing to the customer. It leaves out general notes, '+
       'project discovery and the visit history'+

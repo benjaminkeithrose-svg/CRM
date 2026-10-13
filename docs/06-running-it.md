@@ -130,3 +130,10 @@ Keep a backup file from time to time anyway, somewhere other than the phone.
   button goes up the app's structure. Deliberate.
 - pdf.js, used only when importing an engineering manual, loads from a CDN on
   first use.
+- On an iPhone (v135 onwards): a file can't be shared into the app from another
+  app (iOS has no share target for web apps), so imports use the app's own
+  buttons; the microphone button depends on Safari's speech support and may
+  not work in the home-screen app, where the keyboard microphone always does;
+  text boxes keep their fixed size with their own scroll. The app must be
+  added to the Home Screen: a Safari tab can lose its data after a week unused.
+  Not yet tried on a real iPhone.

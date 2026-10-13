@@ -7,9 +7,15 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v134">
+<meta name="build" content="v135">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
+<!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
+     the manifest. The icon is the maskable one, opaque, at 180px. -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Field CRM">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root{
   --link:#0377BA;
@@ -101,6 +107,7 @@ header{
   position:sticky; top:0; z-index:20; background:var(--surface);
   border-bottom:1px solid var(--line-2); box-shadow:var(--lift); display:flex; align-items:stretch;
   min-height:54px; padding-right:12px;
+  padding-top:env(safe-area-inset-top);   /* v135: clear of an iPhone's status bar when it reaches under it */
 }
 header .redbox{
   background:var(--red); width:84px; flex:none;
@@ -1945,15 +1952,24 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>1. Install it on your phone</b><span class="sxs">Once, from Chrome</span></summary>
+    <summary><b>1. Install it on your phone</b><span class="sxs">Once, from Chrome or Safari</span></summary>
     <div class="fld help">
+      <p>On an Android phone:</p>
       <ol>
         <li>Open the app's web address in Chrome on your phone.</li>
         <li>Tap the three dots at the top right of Chrome.</li>
         <li>Tap <b>Add to Home screen</b>, then <b>Install</b>.</li>
         <li>From now on, open Field CRM from its icon on your home screen, not from Chrome.</li>
       </ol>
+      <p>On an iPhone:</p>
+      <ol>
+        <li>Open the app's web address in Safari.</li>
+        <li>Tap the Share button (the square with an arrow).</li>
+        <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>From now on, open Field CRM from its icon on your home screen, not from Safari. Your data is kept safe there; a Safari tab can lose it after a week unused.</li>
+      </ol>
       <p>Once it has opened once, it works with no signal.</p>
+      <p>On an iPhone you can't share a file into Field CRM from another app; use its own import buttons instead. If the microphone button doesn't work, use the microphone on the keyboard.</p>
     </div>
   </details>
   <details class="sx hx">

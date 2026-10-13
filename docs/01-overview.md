@@ -6,7 +6,7 @@ quote requests, call notes for customers, tasks and emails, account plans,
 opportunities with their Blue Sheets, large account plans, and the CIP and
 MBOs.
 
-It is one app that runs in a web browser, on an Android phone and on a PC.
+It is one app that runs in a web browser: on an Android phone (Chrome), an iPhone (Safari, iOS 16.4 or later) and a PC (Chrome or Edge).
 It is installed from the browser like an app (a "progressive web app") and
 works with no signal: everything it needs, and all your data, is kept on the
 device. When there is signal it keeps the phone and the PC in step through a

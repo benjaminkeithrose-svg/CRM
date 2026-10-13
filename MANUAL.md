@@ -24,12 +24,23 @@ Skip steps 3 and 4: in a team, the admin loads the accounts and the belt data fo
 
 ### 1. Install it on your phone
 
+On an Android phone:
+
 1. Open the app's web address in Chrome on your phone.
 2. Tap the three dots at the top right of Chrome.
 3. Tap **Add to Home screen**, then **Install**.
 4. From now on, open Field CRM from its icon on your home screen, not from Chrome.
 
+On an iPhone:
+
+1. Open the app's web address in Safari.
+2. Tap the Share button (the square with an arrow).
+3. Tap **Add to Home Screen**, then **Add**.
+4. From now on, open Field CRM from its icon on your home screen, not from Safari. Your data is kept safe there; a Safari tab can lose it after a week unused.
+
 Once it has opened once, it works with no signal.
+
+On an iPhone you can't share a file into Field CRM from another app; use its own import buttons instead. If the microphone button doesn't work, use the microphone on the keyboard.
 
 ### 2. Open it on your PC
 

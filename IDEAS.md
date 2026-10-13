@@ -851,6 +851,11 @@ for now. Reviewed a clickable mock first.*
   ticked done. A CIP goal shows its MBO's count. All of it private, in the mbo
   record. Not chosen this round: won opportunities counting, a coverage
   reading on the MBO screen.
+- **Built (v135):** ready for iPhones as a home-screen web app (no App Store
+  app, Ben's choice 2026-10-13): the iPhone icon and name, the header clear of
+  the status bar, install steps for Safari in Help. Limits on iPhone: no
+  sharing a file into the app, the microphone button may not work (keyboard
+  microphone does), text boxes don't grow. To be tried by a colleague.
 - **Next to propose (Ben, 2026-10-13):** large accounts with more than one
   engineering group. Corporate on one side and group engineering on another,
   each its own box; several regional engineering groups (a southern and a
