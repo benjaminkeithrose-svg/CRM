@@ -60,7 +60,8 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `rectype` | `'quote'` for a quote request, otherwise absent |
 | `customer`, `site`, `zone`, `suburb`, `focus`, `mgr` | The account and its details at the time |
 | `contacts` | People on the call: `name`, `role`, `email`, `mobile`, `crm` (from the export or not), `cid`, and the per-contact document tick |
-| `entries` | What was logged, in order. Each has a `type`: `belt` (the full belt specification: series, style, material, widths, sprockets, flights, sideguards, quantities, comments), `health` (fault, severity, recommended action, comments), `note`, or `project` (name, status, next action, target, owner, notes). Each can carry `photos` |
+| `entries` | What was logged, in order. Each has a `type`: `belt` (the full belt specification: series, style, material, widths, sprockets, flights, sideguards, quantities, comments), `health` (fault, severity, recommended action, comments), `note`, or `project` (name, status, next action, target, owner, notes). Each can carry `photos`. A note or project is written here as it is typed (v133); a belt or health check on Done |
+| `drafts` | A belt or health check form left half filled, by kind, offered back next time that form opens. Also a note or project form left without its text or name |
 | `loose` | Photos not tied to an entry |
 | `summary` | The visit summary that heads the call notes |
 | `coaching`, `brief` | What the sales coach wrote, kept with the call |

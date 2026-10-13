@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v132">
+<meta name="build" content="v133">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -243,7 +243,11 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 input:focus,select:focus,textarea:focus{outline:none;background:var(--surface);
   border-color:var(--cyan-dk);box-shadow:0 0 0 3px var(--cyan-lt)}
 input:disabled{color:var(--ink-3);background:var(--sunk);border-color:var(--line-2)}
-textarea{min-height:88px;resize:vertical}
+/* v133: a text box grows with what is in it, like a message box, so it never
+   has a scroll bar of its own - one too thin to use on the phone. A flick then
+   scrolls the page. Chrome and Edge do this from CSS; other browsers keep the
+   old fixed box with its own scroll. */
+textarea{min-height:88px;resize:vertical;field-sizing:content}
 .fld{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);
   padding:14px;margin-bottom:14px;box-shadow:var(--lift)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
@@ -2141,7 +2145,8 @@ details.bsx > .msg{margin:8px 12px}
         <li>Fill it in.</li>
         <li>Tap <b>Done</b> at the top.</li>
       </ol>
-      <p>Leave a form with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.</p>
+      <p>A note saves itself to the call log as soon as it has text, and a project as soon as it has a name. Every change saves as you type, and the form says so at the top. Done takes you back. Rub out a new one before you leave and it's taken back out.</p>
+      <p>A belt or health check saves on Done. Leave one with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.</p>
       <p>The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Photos and comments, and Quote contact. Tap a section's name to open or close it. A closed one shows a line saying what's in it. A new belt opens on Belt data; a belt you've already logged opens with them all closed.</p>
     </div>
   </details>
