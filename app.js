@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v132';
+const APP_BUILD = 'v133';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1450,6 +1450,8 @@ function showScreen(name){
   if(screen === 'opp' && name !== 'opp' && opSaveTimer) oppSaveNow().catch(e => console.error('opportunity', e));
   if(screen === 'lap' && name !== 'lap' && lapSaveTimer) lapSaveNow().catch(e => console.error('large account', e));
   if((screen === 'cip' || screen === 'mbo') && name !== screen && cipTimer) cipSaveNow().catch(e => console.error('cip', e));
+  // leaving a note or project with a change still being typed: into the log now (v133)
+  if((screen === 'note' || screen === 'project') && name !== screen) entryAutoFlush(screen);
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -7360,7 +7362,17 @@ function leaveEntry(kind){
     // opened and backed out of: leave nothing behind, not even a draft
     resetShots(kind);
     draftSaved(kind);   // nothing typed, so there is no draft worth keeping
+    entryAutoDropIfNew(kind);   // v133: a note or project emptied again on this visit
     return false;
+  }
+  const auto = ENTRY_AUTO[kind] && ENTRY_AUTO[kind]();
+  if(auto && auto.e && call.entries.includes(auto.e)){
+    if(auto.isNew) entryAutoDropIfNew(kind);   // started this visit, its text or name rubbed out: out of the log
+    else {
+      toast((kind === 'note' ? 'The note stays' : 'The project stays') + ' as last saved \u2014 ' +
+        (kind === 'note' ? 'its text' : 'its name') + ' was empty');
+      return false;
+    }
   }
   // part filled: the draft survives, nothing reaches the log
   toast('Kept as a draft \u2014 ' + ENTRY_REQUIRED[kind].length + ' required field still empty');
@@ -7383,7 +7395,11 @@ document.querySelectorAll('.backcall').forEach(b =>
    into two out and one back, landing on the screen you left rather than the
    dashboard. */
 
-function resetNote(){ $('nText').value=''; resetShots('note'); }
+function resetNote(){
+  $('nText').value=''; resetShots('note');
+  // a fresh note must not write into whatever entry was last open (v133)
+  clearEditing(); clearTimeout(noteAutoT); noteAuto = {e: null, isNew: false};
+}
 const CALL_SUBS = {belt:'Belt form', project:'Project form', note:'Note form',
                    health:'Health check', dash:'Call'};
 let lastCallScreen = 'dash';
@@ -7448,6 +7464,9 @@ function draftSaved(kind){
 function captureDraft(kind){
   if(justSaved === kind){ justSaved = null; return; }
   if(!call || !DRAFT_FIELDS[kind]) return;
+  // once a note or project is in the log, the log holds it: a draft as well would
+  // come back as a second copy next time the form opens (v133)
+  if(ENTRY_AUTO[kind] && entryHasRequired(kind) && ENTRY_AUTO[kind]().e){ if(call.drafts) delete call.drafts[kind]; return; }
   const d = {};
   let any = false;
   DRAFT_FIELDS[kind].forEach(id => {
@@ -8078,6 +8097,10 @@ function openLogged(i, copy){
   } else if(e.type==='note'){
     $('nTopic').value = e.topic || ''; $('nText').value = e.text || '';
     $('nErr').classList.remove('show');
+    clearTimeout(noteAutoT);
+    noteAuto = copy ? {e: null, isNew: false} : {e: e, isNew: false};
+    if(!copy) showMsg($('draft_note'), 'ok', 'In the call log as a note. Changes save as you type.');
+    else showMsg($('draft_note'), '', '');
   } else if(e.type==='health'){
     resetHealth(); editingIdx = i;
     $('hAsset').value = e.asset || ''; $('hFault').value = e.fault || '';
@@ -8101,6 +8124,10 @@ function openLogged(i, copy){
     editingIdx = null;                // project replaces through its own path
     if(copy){ editingProject = null; $('pName').value = ''; }
     $('pErr').classList.remove('show');
+    clearTimeout(projAutoT);
+    projAuto = copy ? {e: null, isNew: false} : {e: e, isNew: false};
+    if(!copy) showMsg($('draft_project'), 'ok', 'In the call log as a project. Changes save as you type.');
+    else showMsg($('draft_project'), '', '');
   } else return;
   if(copy) editingIdx = null;
   go(e.type);
@@ -9622,6 +9649,7 @@ function loadProject(x){
 }
 function resetProjectFields(){
   resetShots('project');
+  clearTimeout(projAutoT); projAuto = {e: null, isNew: false};
   ['pName','pNext','pTarg','pOwner','pNotes'].forEach(i=>$(i).value='');
   $('pStat').value='Being considered';
   $('pErr').classList.remove('show');
@@ -9633,30 +9661,107 @@ function resetProject(){
   resetProjectFields();
   renderProjectCarry();
 }
-$('pSave').addEventListener('click', async ()=>{
+/* ---- a note or project saves itself (v133) ----
+   It used to reach the call log only on Done, and until then it was a hidden
+   draft: leave the form and nothing on the call said a note or a project was
+   half written, or which one it was (Ben, 2026-10-13). Now it goes into the log
+   as soon as it has its text (a note) or its name (a project), and every change
+   after that updates the same entry a moment after you stop typing. Done just
+   leaves. A new one emptied again before leaving is taken back out, so nothing
+   ghostly is left behind. Photos taken on the form still join it on Done. */
+let noteAuto = {e: null, isNew: false}, noteAutoT = null;
+let projAuto = {e: null, isNew: false}, projAutoT = null;
+const ENTRY_AUTO = {note: () => noteAuto, project: () => projAuto};
+function noteAutoNow(){
+  clearTimeout(noteAutoT); noteAutoT = null;
+  if(!call) return false;
+  const t = $('nText').value.trim();
+  if(!t) return false;
+  // the entry itself, not its place in the list: deleting another entry
+  // meanwhile must not point this at the wrong one
+  const e = noteAuto.e && call.entries.includes(noteAuto.e) ? noteAuto.e : null;
+  if(e){ e.topic = $('nTopic').value; e.text = t; }
+  else {
+    const n = {type:'note', topic:$('nTopic').value, text:t, photos:[]};
+    call.entries.push(n);
+    noteAuto = {e: n, isNew: true};
+  }
+  if(call.drafts) delete call.drafts.note;
+  showMsg($('draft_note'), 'ok', 'Saved in the call log as a note.');
+  return true;
+}
+function projAutoNow(){
+  clearTimeout(projAutoT); projAutoT = null;
+  if(!call) return false;
   const p = $('pName').value.trim();
-  if(!p){ $('pErr').classList.add('show'); $('pName').focus(); return; }
+  if(!p) return false;
   const status = $('pStat').value;
-  const carried = editingProject && editingProject.key === projKey(p);
   const entry = {type:'project', project:p, status:status, next:$('pNext').value.trim(),
-    target:$('pTarg').value.trim(), owner:$('pOwner').value.trim(),
-    notes:$('pNotes').value.trim(), photos:takeShots('project')};
+    target:$('pTarg').value.trim(), owner:$('pOwner').value.trim(), notes:$('pNotes').value.trim()};
+  const carried = editingProject && editingProject.key === projKey(p);
   if(carried && editingProject.fromStatus && editingProject.fromStatus !== status){
     entry.fromStatus = editingProject.fromStatus;   // the report reads this as a move
   }
-  /* Updating a project already logged in THIS call replaces it. Two entries for
-     one project in one visit is the duplication this was built to stop. */
-  let replaced = false;
-  if(carried && editingProject.inThisCall){
-    const i = call.entries.findIndex(e => e.type==='project' && projKey(e.project) === editingProject.key);
-    // keep what the earlier entry carried and add anything shot this time
-    if(i >= 0){ entry.photos = (call.entries[i].photos || []).concat(entry.photos); call.entries[i] = entry; replaced = true; }
+  /* A project already logged in THIS call is updated, never added twice: two
+     entries for one project in one visit is the duplication the form exists to
+     stop. Once this form has written an entry it keeps writing that one, even
+     while the name is still being typed. */
+  let prev = projAuto.e && call.entries.includes(projAuto.e) ? projAuto.e : null;
+  if(!prev && carried && editingProject.inThisCall){
+    prev = call.entries.find(e => e.type==='project' && projKey(e.project) === editingProject.key) || null;
   }
-  if(!replaced) call.entries.push(entry);
+  if(prev){
+    Object.assign(prev, entry);
+    if(!entry.fromStatus) delete prev.fromStatus;
+    projAuto.e = prev;
+  } else {
+    entry.photos = [];
+    call.entries.push(entry);
+    projAuto = {e: entry, isNew: true};
+  }
+  if(call.drafts) delete call.drafts.project;
+  showMsg($('draft_project'), 'ok', 'Saved in the call log as a project.');
+  return true;
+}
+function entryAutoFlush(kind){
+  const t = kind === 'note' ? noteAutoT : kind === 'project' ? projAutoT : null;
+  if(!t) return;
+  if((kind === 'note' ? noteAutoNow() : projAutoNow())) saveCall().catch(reportErr);
+}
+function entryAutoDropIfNew(kind){
+  const a = ENTRY_AUTO[kind] && ENTRY_AUTO[kind]();
+  const i = a && a.isNew && a.e && call ? call.entries.indexOf(a.e) : -1;
+  if(i < 0) return;
+  call.entries.splice(i, 1);
+  if(kind === 'note') noteAuto = {e: null, isNew: false}; else projAuto = {e: null, isNew: false};
+  clearEditing();
+  saveCall().catch(reportErr);
+}
+['nTopic','nText'].forEach(id => {
+  const f = $(id);
+  const soon = () => { clearTimeout(noteAutoT); noteAutoT = setTimeout(() => { if(noteAutoNow()) saveCall().catch(reportErr); }, 800); };
+  f.addEventListener('input', soon); f.addEventListener('change', soon);
+});
+['pName','pStat','pNext','pTarg','pOwner','pNotes'].forEach(id => {
+  const f = $(id);
+  const soon = () => { clearTimeout(projAutoT); projAutoT = setTimeout(() => { if(projAutoNow()) saveCall().catch(reportErr); }, 800); };
+  f.addEventListener('input', soon); f.addEventListener('change', soon);
+});
+
+$('pSave').addEventListener('click', async ()=>{
+  const p = $('pName').value.trim();
+  if(!p){ $('pErr').classList.add('show'); $('pName').focus(); return; }
+  projAutoNow();
+  const entry = projAuto.e;
+  // anything shot on the form joins the entry
+  const shots = takeShots('project');
+  if(shots.length) entry.photos = (entry.photos || []).concat(shots);
+  const wasNew = projAuto.isNew;
   draftSaved('project');
   editingProject = null;
+  projAuto = {e: null, isNew: false};
   await saveCall();
-  toast(entry.fromStatus ? ('Project moved to ' + status) : (replaced ? 'Project updated' : 'Project logged'));
+  toast(entry.fromStatus ? ('Project moved to ' + entry.status) : (wasNew ? 'Project logged' : 'Project updated'));
   go('dash');
 });
 
@@ -9664,13 +9769,15 @@ $('pSave').addEventListener('click', async ()=>{
 $('nSave').addEventListener('click', async ()=>{
   const t = $('nText').value.trim();
   if(!t){ $('nErr').classList.add('show'); $('nText').focus(); return; }
-  const wasEdit = editingIdx != null;
-  const noteKept = (wasEdit && call.entries[editingIdx]) ? (call.entries[editingIdx].photos || []) : [];
-  commitEntry({type:'note', topic:$('nTopic').value, text:t,
-    photos: noteKept.concat(takeShots('note'))}, false);
+  noteAutoNow();
+  const entry = noteAuto.e;
+  const shots = takeShots('note');
+  if(shots.length) entry.photos = (entry.photos || []).concat(shots);
+  const wasNew = noteAuto.isNew;
+  noteAuto = {e: null, isNew: false};
   clearEditing();
   draftSaved('note');
-  await saveCall(); toast(wasEdit ? 'Note updated' : 'Note logged'); go('dash');
+  await saveCall(); toast(wasNew ? 'Note logged' : 'Note updated'); go('dash');
 });
 
 /* ---------- entry: health ---------- */

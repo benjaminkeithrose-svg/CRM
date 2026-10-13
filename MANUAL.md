@@ -196,7 +196,9 @@ Close out is for a visit with nothing to write up. It still counts as a visit. T
 2. Fill it in.
 3. Tap **Done** at the top.
 
-Leave a form with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.
+A note saves itself to the call log as soon as it has text, and a project as soon as it has a name. Every change saves as you type, and the form says so at the top. Done takes you back. Rub out a new one before you leave and it's taken back out.
+
+A belt or health check saves on Done. Leave one with nothing typed and nothing is saved. Leave it half filled and it's kept as a draft for next time. A health check needs a severity.
 
 The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Photos and comments, and Quote contact. Tap a section's name to open or close it. A closed one shows a line saying what's in it. A new belt opens on Belt data; a belt you've already logged opens with them all closed.
 

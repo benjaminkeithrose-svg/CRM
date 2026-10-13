@@ -832,6 +832,15 @@ for now. Reviewed a clickable mock first.*
   calendar file (subject "Type: Account"); other tasks have no Outlook export.
   Options raised: a different subject format (account first), and an Add to
   Outlook button making a task a 30-minute calendar entry.
+- **Built (v133):** text boxes grow with what is in them, like a message box,
+  so there is no thin scroll bar inside them on the phone and a flick scrolls
+  the page (CSS `field-sizing`, Chrome and Edge).
+- **Built (v133):** notes and projects save themselves into the call log as
+  they are typed (a note once it has text, a project once it has a name), so a
+  half-done one shows on the call as a note or a project instead of a hidden
+  draft. Done just leaves; a new one rubbed out is taken back out. Belt and
+  health check still save on Done.
+- **Later:** a Change to a project / Change to a note option on an entry.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
