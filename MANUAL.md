@@ -332,6 +332,15 @@ Each quarter pays up to a quarter of the annual cap. Anything over carries to th
 
 Tap an MBO's name to see the proof it needs. To change the list, tap **⋯**, then **Edit the MBO list**. If the list is locked, tap **⋯** and unlock it first. A new year starts by copying last year's list.
 
+To plan next year's MBOs while this year's run:
+
+1. Tap **⋯** on the MBO screen.
+2. Tap **Plan the** next year's **MBOs**. It starts from this year's list, with no values.
+3. Tap **⋯**, then **Edit the MBO list**, and add, change or remove MBOs. This year's list is not touched.
+4. To make an initiative one of next year's MBOs, tap its name, then **Make it one of the** next year's **MBOs**.
+
+Next year's list says **Planning** until 1 January, then it is that year's list. Add the values once they're agreed.
+
 ### Count calls towards your MBOs and initiatives
 
 1. In the call, tap **MBOs and initiatives**, under the summary.

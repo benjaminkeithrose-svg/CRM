@@ -863,6 +863,10 @@ for now. Reviewed a clickable mock first.*
   OEM's Works with says which boxes it deals with and how (a person, site
   management, group engineering, procurement, other, and a note); the map
   lays engineering above the sites it serves, in columns by division.
+- **Built (v137):** next year's MBOs planned while this year's run: Plan the
+  next year's MBOs (⋯ on the MBO screen) rolls this year's list over without
+  values, marked Planning until 1 January; an initiative can become one of
+  next year's MBOs, staying an initiative this year.
 - **Later:** the account screen saying where a site sits in its large account,
   and an opportunity map offering the site's engineering and corporate as
   parties.

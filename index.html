@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v136">
+<meta name="build" content="v137">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -1051,6 +1051,7 @@ mark.cipconfirm{background:#FFF3C4;color:inherit}
 .opwork select,.opwork input[type=text]{margin:4px 0 2px}
 .opstates{align-items:center;margin:2px 0 10px}
 .opstates .hint{margin:0 6px 0 0}
+.mboplan{margin:0 0 12px}
 #miBody p.l{font-size:13px;font-weight:600;color:var(--ink-2);margin:10px 0 4px}
 .madd{width:36px;height:32px;border:1px dashed var(--edge);background:var(--surface);border-radius:var(--r-pill);color:var(--act);font-size:16px;cursor:pointer}
 .camt{font-size:11.5px;color:var(--ink-3);margin-top:4px}
@@ -2310,6 +2311,14 @@ details.bsx > .msg{margin:8px 12px}
       </ol>
       <p>Each quarter pays up to a quarter of the annual cap. Anything over carries to the next quarter, and whatever is still over after Q4 is not paid. A Mega MBO marked <b>Met</b> pays its share of the cap on top. A locked quarter keeps the values it was locked at, even if the list changes later.</p>
       <p>Tap an MBO's name to see the proof it needs. To change the list, tap <b>&#8943;</b>, then <b>Edit the MBO list</b>. If the list is locked, tap <b>&#8943;</b> and unlock it first. A new year starts by copying last year's list.</p>
+      <p>To plan next year's MBOs while this year's run:</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on the MBO screen.</li>
+        <li>Tap <b>Plan the</b> next year's <b>MBOs</b>. It starts from this year's list, with no values.</li>
+        <li>Tap <b>&#8943;</b>, then <b>Edit the MBO list</b>, and add, change or remove MBOs. This year's list is not touched.</li>
+        <li>To make an initiative one of next year's MBOs, tap its name, then <b>Make it one of the</b> next year's <b>MBOs</b>.</li>
+      </ol>
+      <p>Next year's list says <b>Planning</b> until 1 January, then it is that year's list. Add the values once they're agreed.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3294,6 +3303,7 @@ details.bsx > .msg{margin:8px 12px}
     <button class="ghost" id="cmLock" type="button">Lock this period</button>
     <button class="ghost" id="cmEdit" type="button">Edit the MBO list</button>
     <button class="ghost" id="cmListLock" type="button">Lock the MBO list</button>
+    <button class="ghost" id="cmPlanNext" type="button">Plan next year's MBOs</button>
     <button class="ghost" id="cmImport" type="button">Import a CIP and MBO file</button>
     <input type="file" id="cmFile" accept=".html,.htm,.json,text/html,application/json" hidden>
     <p class="note" id="cmNote"></p>

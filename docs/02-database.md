@@ -140,6 +140,7 @@ The `mbo` record, one entry per year under `years`:
 | Field | Meaning |
 |---|---|
 | `cap`, `setupLocked`, `mega` | The annual cap, whether the list is agreed, the Mega MBOs |
+| `planning` | Next year's list being planned (v137): rolled over from this year's without values; it goes on 1 January |
 | `items` | The MBOs: `id`, `cat`, `title`, `value` ($ each), `proof`, `def`, `buId`, `logLabel`, `books`, and `rules` (when a call ticks it itself: `focus`, `types`, `health`, `project`, `projDone`, `belt`) (v134) |
 | `inits` | Initiatives, tracked and not paid (v134): `id`, `title`, `def`, `rules`, and `link` (`mbo`, `from`: counts towards that MBO from that quarter) |
 | `quarters` | `Q1` to `Q4`: `locked`, `snap` (the values it was locked at), `log` (an MBO's completions by its id) and `ilog` (an initiative's). A completion is `site`, `date`, `ref`, and, when it came from the work, `call` or `task`, and `auto` when a rule ticked it |
