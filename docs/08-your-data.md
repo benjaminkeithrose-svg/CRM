@@ -10,6 +10,8 @@ A short page for anyone using Field CRM.
   your phone and PC in step. It is scrambled on your device before it leaves,
   with a key only your passphrase unlocks, so the cloud provider (Supabase)
   cannot read it.
+- **On an iPhone, only once it is on the Home Screen.** A Safari tab can lose
+  its data after a week unused; the home-screen app keeps it.
 - **Nowhere else.** The app's code is public on GitHub; none of your data is
   ever in it.
 
