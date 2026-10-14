@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v141">
+<meta name="build" content="v142">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -867,6 +867,10 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .opitems.good li{border-left-color:var(--ok)}
 /* v140: someone's relationships, by box, each strength one tap away */
 .oprelg{margin:0 0 8px}
+/* v142: Intralox people */
+.sfpos{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:var(--sunk);color:var(--ink-2);font-size:12px;font-weight:700;vertical-align:1px}
+.sfh{margin:14px 0 8px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+#sfRels .lnkbtn[data-sfmap]{margin:2px 0 6px;font-size:13.5px}
 .oprtodo{margin:0 0 8px;padding:8px 10px;border-radius:var(--r-sm);background:var(--cyan-lt);color:var(--ink);font-size:14px;font-weight:700}
 .oprelg>summary{cursor:pointer;font-weight:700;font-size:14px;padding:8px 2px;min-height:40px;display:flex;align-items:center;gap:6px}
 .oprelg>summary small{font-weight:400;color:var(--ink-3)}
@@ -2550,6 +2554,22 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Intralox people</b><span class="sxs">Our own people, their positions and relationships</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Lists</b> on Home, then tap the circle-plus on the <b>Intralox</b> tab.</li>
+        <li>Type their name.</li>
+        <li>Tap their position: <b>AM</b> account manager, <b>ATL</b> account team leader, <b>ITL</b> industry team leader, <b>SS</b> solution seller (P2P), <b>AE</b> application engineer or <b>TSG</b> technical service group. For anything else, tap <b>Other</b> and type it.</li>
+        <li>Under <b>Reports to</b>, pick their manager if they are on the list. Leave it as <b>Nobody yet</b> if not.</li>
+        <li>Add their email and phone if you have them, then tap <b>Done</b>.</li>
+        <li>To put them on a map, tap the table icon next to <b>Intralox</b> in the list beside the map and start typing their name. Pick it from the list.</li>
+        <li>To see everyone they have a relationship with, tap them on the <b>Intralox</b> tab, or tap them on a map and then <b>Their Intralox record</b>.</li>
+        <li>Under <b>Their relationships</b>, each map they are on is listed. Tap <b>Strong</b>, <b>Neutral</b>, <b>Weak</b>, <b>Hostile</b> or <b>Unknown</b> on a row to set it, or tap a name to go to them on that map.</li>
+      </ol>
+      <p>The list is shared with your team. On a map, someone in the Intralox box with the same name is tied to their record and shows their position. When their manager is in the box too, they are drawn under them, as an organisation chart. Someone on a map who is not on the list yet has <b>Add to Intralox people</b> in their panel. Deleting someone from the list leaves them on the maps they are on.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Prepare for a visit, and get coaching after it</b><span class="sxs">The sales coach</span></summary>
     <div class="fld help">
       <p>Keep an account plan:</p>
@@ -3270,6 +3290,24 @@ details.bsx > .msg{margin:8px 12px}
     <div class="f"><label>Reason</label><div class="chips" id="snReason"></div>
       <input type="text" id="snOther" autocomplete="off" placeholder="Type the reason" hidden></div>
     <div class="f"><label for="snText">Text</label><textarea id="snText" data-talk="note" rows="8" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
+  </div>
+</dialog>
+
+<!-- An Intralox person (v142): name, position, who they report to; their relationships across every map -->
+<dialog id="staffdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="sfDel" aria-label="Delete this person" title="Delete this person"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="sfHead">Intralox person</b>
+    <button type="button" class="btn go" id="sfOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <div class="f"><label for="sfName">Name</label><input type="text" id="sfName" autocomplete="off"></div>
+    <div class="f"><label>Position</label><div class="chips" id="sfPos"></div>
+      <input type="text" id="sfPosOther" autocomplete="off" placeholder="Type the position, e.g. RSM" hidden></div>
+    <div class="f"><label for="sfBoss">Reports to</label><select id="sfBoss"></select></div>
+    <div class="f"><label for="sfEmail">Email</label><input type="email" id="sfEmail" autocomplete="off"></div>
+    <div class="f"><label for="sfPhone">Phone</label><input type="tel" id="sfPhone" autocomplete="off"></div>
+    <div id="sfRels"></div>
   </div>
 </dialog>
 
@@ -4215,6 +4253,8 @@ details.bsx > .msg{margin:8px 12px}
   <div class="seg tabs ptabs" id="lsTabs">
     <span class="ptab on"><button type="button" data-pane="notes" class="on">Saved notes</button><button type="button" class="tplus" id="snNew" aria-label="New saved note" title="New saved note"></button></span>
     <span class="ptab"><button type="button" data-pane="prods">Products</button><button type="button" class="tplus" id="prNew" aria-label="New product" title="New product"></button></span>
+    <!-- v142: Intralox's own people, shared with the team -->
+    <span class="ptab"><button type="button" data-pane="staff">Intralox</button><button type="button" class="tplus" id="sfNew" aria-label="New Intralox person" title="New Intralox person"></button></span>
   </div>
   <div class="pane" id="paneNotes">
     <div class="rptop lsrow">
@@ -4234,6 +4274,10 @@ details.bsx > .msg{margin:8px 12px}
     </div>
     <div style="height:10px"></div>
     <div id="prRes"></div>
+  </div>
+  <div class="pane" id="paneStaff" hidden>
+    <div class="rptop lsrow"><p class="hint" id="sfHint"></p></div>
+    <div id="sfRes"></div>
   </div>
 </section>
 

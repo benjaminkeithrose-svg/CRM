@@ -544,6 +544,19 @@ The boxes with a chain stay on the large account plan. Their people, the links b
 
 Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated **Unknown** stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.
 
+### Intralox people
+
+1. Tap **Lists** on Home, then tap the circle-plus on the **Intralox** tab.
+2. Type their name.
+3. Tap their position: **AM** account manager, **ATL** account team leader, **ITL** industry team leader, **SS** solution seller (P2P), **AE** application engineer or **TSG** technical service group. For anything else, tap **Other** and type it.
+4. Under **Reports to**, pick their manager if they are on the list. Leave it as **Nobody yet** if not.
+5. Add their email and phone if you have them, then tap **Done**.
+6. To put them on a map, tap the table icon next to **Intralox** in the list beside the map and start typing their name. Pick it from the list.
+7. To see everyone they have a relationship with, tap them on the **Intralox** tab, or tap them on a map and then **Their Intralox record**.
+8. Under **Their relationships**, each map they are on is listed. Tap **Strong**, **Neutral**, **Weak**, **Hostile** or **Unknown** on a row to set it, or tap a name to go to them on that map.
+
+The list is shared with your team. On a map, someone in the Intralox box with the same name is tied to their record and shows their position. When their manager is in the box too, they are drawn under them, as an organisation chart. Someone on a map who is not on the list yet has **Add to Intralox people** in their panel. Deleting someone from the list leaves them on the maps they are on.
+
 ### Prepare for a visit, and get coaching after it
 
 Keep an account plan:

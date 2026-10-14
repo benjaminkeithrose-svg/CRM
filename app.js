@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v141';
+const APP_BUILD = 'v142';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1377,7 +1377,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -5060,7 +5060,11 @@ async function loadLists(){
   catch(e){ console.error('lists', e); }
   // not while a change is still to be saved: the copy on screen is the newer one
   try { if(!cipTimer) await cipLoad(); } catch(e){ console.error('cip', e); }
-  try { PEOPLE = await peopleAll(); peopleMerge(); } catch(e){ console.error('people', e); }
+  try {
+    const all = await peopleAll();
+    PEOPLE = all.filter(r => r.kind !== 'staff'); STAFF = all.filter(r => r.kind === 'staff');   // v142: Intralox people share the store
+    peopleMerge();
+  } catch(e){ console.error('people', e); }
 }
 function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
 const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -5098,9 +5102,11 @@ function wireListRows(el, before){
 function renderLists(){
   const notes = listsPane === 'notes';
   $('paneNotes').hidden = !notes;
-  $('paneProds').hidden = notes;
+  $('paneProds').hidden = listsPane !== 'prods';
+  $('paneStaff').hidden = listsPane !== 'staff';
   document.querySelectorAll('#lsTabs button[data-pane]').forEach(b => { b.classList.toggle('on', b.dataset.pane === listsPane); b.parentNode.classList.toggle('on', b.dataset.pane === listsPane); });
-  if(notes){
+  if(listsPane === 'staff') renderStaff();
+  else if(notes){
     $('snHint').textContent = SNIPS.length ? SNIPS.length + ' saved note' + (SNIPS.length === 1 ? '' : 's') : '';
     $('snRes').innerHTML = SNIPS.length ? snSorted(SNIPS).map(snRow).join('') : '<p class="empty">No saved notes yet.</p>';
     wireListRows($('snRes'));
@@ -11638,6 +11644,8 @@ function opTreeOrder(q){
   return out;
 }
 const opUnder = (x, p) => { for(let b = x.boss, n = 0; b && n < 50; n++){ if(b === p.id) return true; const m = opPerson(b); b = m && m.boss; } return false; };
+// v142: Intralox's people in a row, unless someone there reports to someone else there: then a chart, like any party
+const opIlxRow = q => q.kind === 'ilx' && !opPeopleOf(q).some(p => p.boss && opPeopleOf(q).some(x => x.id === p.boss));
 function opLayout(){
   const o = OPP, pos = o.kind === 'large' ? {} : {OPP: {x: o.ox, y: o.oy, w: OPOW, h: OPOH}};
   const blockH = q => OPPH + (opShows(q) && q.kind !== 'ilx' ? opPeopleOf(q).length * (OPCH + OPCG) + 8 : 0);
@@ -11648,7 +11656,7 @@ function opLayout(){
       for(let i = 0; i < qs.length; i += 4){
         const part = qs.slice(i, i + 4), x0 = OPW / 2 - (part.length * (OPPW + 30) - 30) / 2;
         part.forEach((q, j) => { pos[q.id] = {x: q.x != null ? q.x : x0 + j * (OPPW + 30), y: q.y != null ? q.y : y, w: OPPW, h: q.kind === 'ilx' ? OPPH + 10 : OPPH}; });
-        y += Math.max(...part.map(q => q.kind === 'ilx' ? OPPH + 10 + (opShows(q) && opPeopleOf(q).length ? OPCH + 34 : 0) : blockH(q))) + 70;
+        y += Math.max(...part.map(q => q.kind !== 'ilx' ? blockH(q) : opIlxRow(q) ? OPPH + 10 + (opShows(q) && opPeopleOf(q).length ? OPCH + 34 : 0) : blockH(q) + 10)) + 70;
       }
     };
     const divs = o.parties.filter(q => q.kind === 'div'), grps = o.parties.filter(q => q.kind === 'grp'), sites = opSitesOf(o);
@@ -11708,8 +11716,8 @@ function opLayout(){
     for(const q of o.parties){
       if(!opShows(q) || !pos[q.id]) continue;
       const b = pos[q.id];
-      if(q.kind === 'ilx') opPeopleOf(q).forEach((p, i, a) => { pos[p.id] = {x: b.x + b.w / 2 - (a.length * (OPCW + 16) - 16) / 2 + i * (OPCW + 16), y: b.y + b.h + 34, w: OPCW, h: OPCH, d: 0}; });
-      else opTreeOrder(q).forEach(({p, d}, i) => { pos[p.id] = {x: b.x + 14 + d * OPIND, y: b.y + OPPH + 8 + i * (OPCH + OPCG), w: OPCW, h: OPCH, d}; });
+      if(opIlxRow(q)) opPeopleOf(q).forEach((p, i, a) => { pos[p.id] = {x: b.x + b.w / 2 - (a.length * (OPCW + 16) - 16) / 2 + i * (OPCW + 16), y: b.y + b.h + 34, w: OPCW, h: OPCH, d: 0}; });
+      else opTreeOrder(q).forEach(({p, d}, i) => { pos[p.id] = {x: b.x + 14 + d * OPIND, y: b.y + b.h + 8 + i * (OPCH + OPCG), w: OPCW, h: OPCH, d}; });
     }
     return pos;
   }
@@ -11739,8 +11747,8 @@ function opLayout(){
   for(const q of o.parties){
     if(!opShows(q) || !pos[q.id]) continue;
     const b = pos[q.id];
-    if(q.kind === 'ilx') opPeopleOf(q).forEach((p, i, a) => { pos[p.id] = {x: b.x + b.w / 2 - (a.length * (OPCW + 16) - 16) / 2 + i * (OPCW + 16), y: b.y + b.h + 34, w: OPCW, h: OPCH, d: 0}; });
-    else opTreeOrder(q).forEach(({p, d}, i) => { pos[p.id] = {x: b.x + 14 + d * OPIND, y: b.y + OPPH + 8 + i * (OPCH + OPCG), w: OPCW, h: OPCH, d}; });
+    if(opIlxRow(q)) opPeopleOf(q).forEach((p, i, a) => { pos[p.id] = {x: b.x + b.w / 2 - (a.length * (OPCW + 16) - 16) / 2 + i * (OPCW + 16), y: b.y + b.h + 34, w: OPCW, h: OPCH, d: 0}; });
+    else opTreeOrder(q).forEach(({p, d}, i) => { pos[p.id] = {x: b.x + 14 + d * OPIND, y: b.y + b.h + 8 + i * (OPCH + OPCG), w: OPCW, h: OPCH, d}; });
   }
   return pos;
 }
@@ -11830,7 +11838,7 @@ function drawOppIn(svg, live){
     opPeopleOf(q).forEach(p => {
       const pb = pos[p.id]; if(!pb) return;
       const boss = p.boss && pos[p.boss];
-      const d = q.kind === 'ilx' ? 'M' + (b.x + b.w / 2) + ',' + (b.y + b.h) + ' L' + (pb.x + pb.w / 2) + ',' + pb.y
+      const d = opIlxRow(q) ? 'M' + (b.x + b.w / 2) + ',' + (b.y + b.h) + ' L' + (pb.x + pb.w / 2) + ',' + pb.y
         : boss ? 'M' + (boss.x + 8) + ',' + (boss.y + boss.h) + ' V' + (pb.y + pb.h / 2) + ' H' + pb.x
         : 'M' + (b.x + 6) + ',' + (b.y + b.h) + ' V' + (pb.y + pb.h / 2) + ' H' + pb.x;
       opEl('path', {d, class: 'op-tree' + (faded(p.id) ? ' op-faded' : ''), stroke: col}, svg);
@@ -12215,7 +12223,8 @@ function opAmEnsure(o){
     const m = opAmOf(o, q);
     if(!m || gone.has(opAmKey(m)) || !(o.people || []).some(p => p.party === q.id)) continue;
     if((o.people || []).some(p => p.side === 'us' && opAmKey(p.n) === opAmKey(m))) continue;
-    o.people = (o.people || []).concat([{id: newId('pp'), party: ilx.id, side: 'us', n: m, title: 'Account Manager', am: true, mode: '', rate: 0, note: '', win: '', result: '', evid: ''}]);
+    const st = STAFF.find(x => pKey(x.n) === pKey(m));      // v142: one of the Intralox people
+    o.people = (o.people || []).concat([Object.assign({id: newId('pp'), party: ilx.id, side: 'us', n: m, title: st && st.pos ? staffPosName(st.pos) : 'Account Manager', am: true, mode: '', rate: 0, note: '', win: '', result: '', evid: ''}, st ? {sid: st.id} : {})]);
     added = true;
   }
   return added;
@@ -12289,8 +12298,11 @@ function opPersonPanel(p){
   const hist = ours ? [] : opHistory(p.n, opCompany(OPP, q), OPP.id);
   const confirmed = k => { if(p.est){ p.est = p.est.filter(x => x !== k); if(!p.est.length){ delete p.est; delete p.estFrom; } } };
   const away = opBossElsewhere(p), bv = opBossVal(p);
+  const st = ours ? staffOf(p) : null;
   P.innerHTML = '<h2>' + esc(opQName(q) || 'Person') + '</h2>' +
     (q.lk ? '<p class="hint">On the large account plan: a change here shows there too.</p>' : '') +
+    // v142: one of the Intralox people, or not yet
+    (ours ? '<div class="orow"><button type="button" class="btn act2" id="opStaff">' + (st ? 'Their Intralox record' + (st.pos ? ' (' + esc(st.pos) + ')' : '') : 'Add to Intralox people') + '</button></div>' : '') +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
     '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
     (mates.length || away ? '<label class="l" for="opPboss">Reports to</label><select id="opPboss"><option value="">Nobody</option>' +
@@ -12328,6 +12340,7 @@ function opPersonPanel(p){
     P.querySelector('details.opmore').addEventListener('toggle', e => { opMoreOpen = e.target.open; });
   }
   $('opDone').addEventListener('click', () => opSelect(null));
+  if($('opStaff')) $('opStaff').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); if(st) openStaff(st.id); else openStaff(null, {n: p.n || ''}); });
   $('opLink').addEventListener('click', () => {
     opLinkFrom = p.id; $('opHint').hidden = false;
     $('opHintT').textContent = 'Tap the person to link ' + (p.n || 'them') + ' to, or the ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.';
@@ -12390,7 +12403,10 @@ function opSuggest(side){
   if(side === 'us'){
     const mine = localStorage.getItem(LS('mgr')) || '';
     const names = teamPeople().map(m => m.name).concat(mine ? [mine] : []).filter(Boolean);
-    return [...new Set(names)].map(n => ({n, title: ''}));
+    // v142: Intralox people first, with their position
+    const out = staffSorted().map(x => ({n: x.n, title: x.pos ? staffPosName(x.pos) : '', sid: x.id}));
+    [...new Set(names)].forEach(n => { if(!out.some(y => pKey(y.n) === pKey(n))) out.push({n, title: ''}); });
+    return out;
   }
   const seen = new Map();
   OPPS.forEach(o => (o.people || []).filter(p => p.side === 'oem' && p.n).forEach(p => { if(!seen.has(p.n)) seen.set(p.n, {n: p.n, title: p.title || '', org: p.org || ''}); }));
@@ -12849,6 +12865,7 @@ function opTblFinish(){
       newcomers.push(p);
       const c = opPartySuggest(T.q).find(s => s.n === p.n);
       if(c && c.cid) p.cid = c.cid;
+      if(c && c.sid) p.sid = c.sid;                 // v142: one of the Intralox people
       OPP.people = (OPP.people || []).concat([p]);
       changed = true;
     } else if(Object.keys(vals).some(k => (p[k] || '') !== (vals[k] || ''))){ Object.assign(p, vals); changed = true; }
@@ -12986,6 +13003,203 @@ $('pplShare').addEventListener('click', async () => {
   await deliverFile(new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
     'contacts_not_in_dynamics_' + todayISOdate() + '.xlsx', 'Contacts not in Dynamics');
 });
+
+/* ================= Intralox people (v142) =================
+   Ben, 2026-10-14: "as I add Intralox staff, I would like to add some details
+   about them so they can be pulled into other large accounts, and keep track
+   of the relationships they have individually as people". A shared list of
+   our own people: name, position (AM account manager, ATL account team
+   leader, ITL industry team leader, SS solution seller (P2P), AE application
+   engineer, TSG technical service group, or another), who they report to,
+   email and phone. Kept in store 'people' as kind 'staff' (shared with the
+   team under migration 0008, synced record by record), so no new store and no
+   new cloud rule. Offered for the Intralox box on every map; a person there
+   is tied to their record (sid, or the same name), and their manager in the
+   box becomes their Reports to. Their record lists every relationship they
+   have on every map, by account, each strength one tap away. */
+const STAFF_POS = [['AM', 'Account manager'], ['ATL', 'Account team leader'], ['ITL', 'Industry team leader'],
+  ['SS', 'Solution seller (P2P)'], ['AE', 'Application engineer'], ['TSG', 'Technical service group']];
+const staffPosName = k => (STAFF_POS.find(x => x[0] === k) || ['', k || ''])[1];
+let STAFF = [];
+const staffOf = p => !p || p.side !== 'us' ? null : STAFF.find(s => s.id === p.sid) || STAFF.find(s => pKey(s.n) === pKey(p.n)) || null;
+const staffSorted = () => STAFF.slice().sort((a, b) => String(a.n).localeCompare(String(b.n)));
+// every map with them on it, and the relationships they have there
+function staffRels(s){
+  const out = [];
+  for(const o of OPPS.concat(PLANS.filter(p => p.kind === 'large'))){
+    if(!Array.isArray(o.parties) || o.test) continue;
+    const mine = (o.people || []).filter(p => staffOf(p) === s);
+    if(!mine.length) continue;
+    const ids = new Set(mine.map(p => p.id));
+    const links = (o.links || []).filter(l => !l.lk && (ids.has(l.a) || ids.has(l.b))).concat(opImplied(o).filter(l => ids.has(l.a)));
+    out.push({o, ids, links});
+  }
+  return out;
+}
+const staffRecTitle = o => o.kind === 'large' ? (o.name || 'Large account') + ' (large account)' : (o.name || 'Untitled') + (o.acct ? ' · ' + o.acct : '');
+function staffRow(s){
+  const boss = STAFF.find(x => x.id === s.boss), maps = staffRels(s).length;
+  const meta = [s.pos ? staffPosName(s.pos) : '', boss ? 'reports to ' + boss.n : '', maps ? maps + (maps === 1 ? ' map' : ' maps') : ''].filter(Boolean).join(' · ');
+  return '<div class="rprow"><button class="rpt" data-sfopen="' + esc(s.id) + '"><div class="rn">' + esc(s.n || 'Someone') + (s.pos ? ' <span class="sfpos">' + esc(s.pos) + '</span>' : '') + '</div>' +
+    '<div class="rm">' + esc(meta || 'No position yet') + '</div></button>' + binBtn('data-sfdel', s.id, s.n || 'this person') + '</div>';
+}
+function renderStaff(){
+  $('sfHint').textContent = STAFF.length ? STAFF.length + (STAFF.length === 1 ? ' person' : ' people') + ', shared with your team' : '';
+  $('sfRes').innerHTML = STAFF.length ? staffSorted().map(staffRow).join('') : '<p class="empty">No Intralox people yet.</p>';
+  $('sfRes').querySelectorAll('[data-sfopen]').forEach(b => b.addEventListener('click', () => openStaff(b.dataset.sfopen)));
+  $('sfRes').querySelectorAll('[data-sfdel]').forEach(b => b.addEventListener('click', () => { const s = STAFF.find(x => x.id === b.dataset.sfdel); if(s) staffDelete(s).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr); }));
+}
+let sfEdit = null, sfIsNew = false, sfBefore = '';
+function openStaff(id, seed){
+  const r = id ? STAFF.find(x => x.id === id) : null;
+  if(id && !r){ toast('That person could not be found'); return; }
+  sfIsNew = !r;
+  sfEdit = r ? Object.assign({}, r) : Object.assign({id: newId('sf'), kind: 'staff', n: '', pos: '', boss: '', e: '', p: '', added: Date.now()}, seed || {});
+  const e = sfEdit, known = STAFF_POS.some(x => x[0] === e.pos);
+  $('sfHead').textContent = sfIsNew ? 'New Intralox person' : 'Intralox person';
+  $('sfName').value = e.n || '';
+  $('sfPos').innerHTML = STAFF_POS.map(([k, t]) => '<button type="button" data-v="' + k + '" title="' + esc(t) + '"' + (e.pos === k ? ' class="on"' : '') + '>' + k + '</button>').join('') +
+    '<button type="button" data-v="Other"' + (e.pos && !known ? ' class="on"' : '') + '>Other</button>';
+  $('sfPosOther').value = e.pos && !known ? e.pos : '';
+  $('sfPosOther').hidden = !(e.pos && !known);
+  staffBossOpts();
+  $('sfEmail').value = e.e || ''; $('sfPhone').value = e.p || '';
+  $('sfDel').hidden = sfIsNew;
+  staffRelsDraw();
+  sfBefore = JSON.stringify(staffRead());
+  const d = $('staffdlg');
+  if(!d.open){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('staffdlg'); }
+  if(sfIsNew && !e.n) setTimeout(() => { try { $('sfName').focus(); } catch(_){} }, 50);
+}
+// nobody can report to themselves, or to someone who reports to them
+function staffUnder(x, s){ for(let b = x.boss, n = 0; b && n < 50; n++){ if(b === s.id) return true; const m = STAFF.find(y => y.id === b); b = m && m.boss; } return false; }
+function staffBossOpts(){
+  const e = sfEdit;
+  $('sfBoss').innerHTML = '<option value="">Nobody yet</option>' + staffSorted().filter(x => x.id !== e.id && !staffUnder(x, e))
+    .map(x => '<option value="' + esc(x.id) + '"' + (e.boss === x.id ? ' selected' : '') + '>' + esc(x.n + (x.pos ? ' (' + x.pos + ')' : '')) + '</option>').join('');
+}
+function staffRead(){
+  const pick = chipVal($('sfPos'));
+  return Object.assign({}, sfEdit, {n: $('sfName').value.trim(), pos: pick === 'Other' ? $('sfPosOther').value.trim() : pick,
+    boss: $('sfBoss').value, e: $('sfEmail').value.trim(), p: $('sfPhone').value.trim()});
+}
+// their relationships on every map, by account, each strength one tap away
+const sfRelOpen = new Set();
+function staffRelsDraw(){
+  const el = $('sfRels'), s = sfEdit;
+  if(!el || !s) return;
+  const all = sfIsNew ? [] : staffRels(STAFF.find(x => x.id === s.id) || s);
+  if(!all.length){ el.innerHTML = sfIsNew ? '' : '<p class="hint">Not on any map yet. Add them in the Intralox box of a large account or an opportunity.</p>'; return; }
+  const todo = all.reduce((n, g) => n + g.links.filter(opUnrated).length, 0);
+  el.innerHTML = '<h3 class="sfh">Their relationships</h3>' + (todo ? '<p class="oprtodo">' + todo + ' to rate</p>' : '') + all.map(({o, ids, links}) => {
+    const name = id => ((o.people || []).find(p => p.id === id) || {}).n || (id === 'OPP' ? 'The ' + (o.kind === 'large' ? 'account' : 'opportunity') : 'Someone');
+    const box = id => { const p = (o.people || []).find(x => x.id === id), q = p && (o.parties || []).find(x => x.id === p.party); return q ? opQName(q) : ''; };
+    const rows = links.slice().sort((a, b) => opUnrated(b) - opUnrated(a));
+    const n = rows.filter(opUnrated).length;
+    return '<details class="oprelg" data-g="' + esc(o.id) + '"' + (all.length === 1 || sfRelOpen.has(o.id) || n ? ' open' : '') + '><summary>' + esc(staffRecTitle(o)) + ' <small>' + rows.length + (n ? ', ' + n + ' to rate' : '') + '</small></summary>' +
+      (rows.length ? '<ul class="opitems good oprels">' + rows.map(l => {
+        const mine = ids.has(l.a), other = mine ? l.b : l.a;
+        return '<li><span><button type="button" class="lnkbtn" data-sfgo="' + esc(o.id + '|' + other) + '">' + esc(name(other)) + '</button>' +
+          '<span class="pin">' + esc([mine ? l.kind : OP_THEM[l.kind] || l.kind, box(other), l.implied ? 'account manager, not rated yet' : l.str === 'Unknown' ? 'strength unknown' : ''].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="seg oprs" role="group" aria-label="Strength">' + OP_STRS.map(v => '<button type="button" data-sfrs="' + esc(o.id + '|' + l.id) + '" data-v="' + v + '"' + (l.str === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</span></span></li>';
+      }).join('') + '</ul>' : '<p class="hint">On this map, with no relationships yet.</p>') +
+      '<button type="button" class="lnkbtn" data-sfmap="' + esc(o.id) + '">Open this map</button></details>';
+  }).join('');
+  el.querySelectorAll('details.oprelg').forEach(d => d.addEventListener('toggle', () => { if(d.open) sfRelOpen.add(d.dataset.g); else sfRelOpen.delete(d.dataset.g); }));
+  el.querySelectorAll('[data-sfrs]').forEach(b => b.addEventListener('click', () => { const [rid, lid] = b.dataset.sfrs.split('|'); staffRate(rid, lid, b.dataset.v).catch(reportErr); }));
+  el.querySelectorAll('[data-sfgo]').forEach(b => b.addEventListener('click', () => { const [rid, pid] = b.dataset.sfgo.split('|'); staffToMap(rid, pid); }));
+  el.querySelectorAll('[data-sfmap]').forEach(b => b.addEventListener('click', () => staffToMap(b.dataset.sfmap, '')));
+}
+// set a strength on one of their relationships, on whichever map it is
+async function staffRate(rid, lid, v){
+  const o = OPP && OPP.id === rid ? OPP : OPPS.find(x => x.id === rid) || PLANS.find(x => x.id === rid);
+  if(!o) return;
+  let l = (o.links || []).find(x => x.id === lid);
+  if(l) l.str = v;
+  else {
+    const im = opImplied(o).find(x => x.id === lid); if(!im) return;
+    o.links = (o.links || []).concat([{id: newId('lk'), a: im.a, b: im.b, kind: im.kind, str: v, note: ''}]);
+  }
+  if(o === OPP) await oppSaveNow();
+  else {
+    o.updated = Date.now();
+    if(o.kind === 'large'){ await plansPut(JSON.parse(JSON.stringify(o))); PLANS = PLANS.filter(x => x.id !== o.id).concat([o]); }
+    else { await oppsPut(oppPlain(o)); OPPS = OPPS.filter(x => x.id !== o.id).concat([o]); }
+  }
+  staffRelsDraw();
+  if(screen === 'opp' && OPP && OPP.id === o.id){ drawOpp(); opPanel(); }
+}
+function staffToMap(rid, pid){
+  staffFinish().catch(reportErr);
+  const isPlan = PLANS.some(x => x.id === rid && x.kind === 'large');
+  if(isPlan) openLap(rid); else openOpp(rid);
+  if(pid) setTimeout(() => { if(OPP && OPP.id === rid && opPerson(pid)) opSelect({t: 'p', id: pid}); }, 60);
+}
+async function staffFinish(){
+  if(!sfEdit) return;
+  if($('staffdlg').open && history.state && history.state.dialog === 'staffdlg'){ history.back(); return; }
+  const r = staffRead();
+  sfEdit = null;
+  const d = $('staffdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  if(sfIsNew && !r.n) return;                                     // nothing entered: nothing kept
+  if(!sfIsNew && JSON.stringify(r) === sfBefore) return;
+  if(!r.n){ toast('A name is needed: nothing was changed'); return; }
+  r.updated = Date.now();
+  if(sfIsNew) r.by = localStorage.getItem(LS('mgr')) || '';
+  await peoplePut(r);
+  STAFF = STAFF.filter(x => x.id !== r.id).concat([r]);
+  toast(sfIsNew ? r.n + ' added to Intralox people' : r.n + ' saved');
+  if(screen === 'lists') renderLists();
+  if(screen === 'opp' && OPP){ renderOpp(); }
+}
+async function staffDelete(s){
+  const under = STAFF.filter(x => x.boss === s.id).length, maps = staffRels(s).length;
+  if(!confirm('Delete ' + (s.n || 'this person') + ' from Intralox people?' +
+      (under ? '\n\n' + under + (under === 1 ? ' person reports' : ' people report') + ' to them; they will report to nobody.' : '') +
+      (maps ? '\n\nThey stay on the ' + maps + (maps === 1 ? ' map' : ' maps') + ' they are on, with their relationships; only this record goes.' : '') + ' This cannot be undone.')) return false;
+  await peopleDel(s.id);
+  STAFF = STAFF.filter(x => x.id !== s.id);
+  for(const x of STAFF.filter(y => y.boss === s.id)){ x.boss = ''; x.updated = Date.now(); await peoplePut(x); }
+  toast((s.n || 'They') + ' deleted from Intralox people');
+  if(screen === 'lists') renderLists();
+  return true;
+}
+// in a map's Intralox box: tie people to their records, and their manager there is who they report to
+function staffOnMap(o){
+  if(!o || !Array.isArray(o.parties) || !STAFF.length) return false;
+  const ilx = o.parties.find(q => q.kind === 'ilx'); if(!ilx) return false;
+  const box = (o.people || []).filter(p => p.party === ilx.id);
+  let changed = false;
+  for(const p of box){
+    const s = staffOf(p); if(!s) continue;
+    if(p.sid !== s.id){ p.sid = s.id; changed = true; }
+    if(!p.title && s.pos){ p.title = staffPosName(s.pos); changed = true; }
+    const b = s.boss && box.find(x => x !== p && staffOf(x) && staffOf(x).id === s.boss);
+    if(b && !p.boss && !opUnderIn(box, b, p)){ p.boss = b.id; changed = true; }    // never over one typed
+  }
+  return changed;
+}
+const opUnderIn = (box, x, p) => { for(let b = x.boss, n = 0; b && n < 50; n++){ if(b === p.id) return true; const m = box.find(y => y.id === b); b = m && m.boss; } return false; };
+$('sfNew').innerHTML = icon('plusc');
+$('sfNew').addEventListener('click', () => { listsPane = 'staff'; renderLists(); openStaff(null); });
+chipTap($('sfPos'), () => {
+  const other = chipVal($('sfPos')) === 'Other';
+  $('sfPosOther').hidden = !other;
+  if(other) setTimeout(() => { try { $('sfPosOther').focus(); } catch(_){} }, 30);
+});
+$('sfOk').addEventListener('click', () => staffFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
+$('sfDel').addEventListener('click', async () => {
+  const r = STAFF.find(x => sfEdit && x.id === sfEdit.id);
+  if(!r) return;
+  const keep = sfEdit; sfEdit = null;
+  const d = $('staffdlg');
+  if(!await staffDelete(r).catch(e => { reportErr(e); return false; })){ sfEdit = keep; return; }
+  if(history.state && history.state.dialog === 'staffdlg') history.back();
+  else if(d.close) d.close(); else d.removeAttribute('open');
+});
+$('staffdlg').addEventListener('cancel', e => { e.preventDefault(); staffFinish().catch(console.error); });
+$('staffdlg').addEventListener('close', () => { if(sfEdit) staffFinish().catch(console.error); });
 
 /* ---------- Set up from a description (v127) ----------
    Ben, 2026-10-12: describe the project in one go - who it is for, the head
@@ -13321,7 +13535,7 @@ function renderOpp(){
   if(!OPP){ go('acct', true); return; }
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   if(!lap) lapRefresh(OPP);                     // v139: the large account's boxes, fresh from its plan
-  if(opAmEnsure(OPP)) oppSaveSoon();            // v140: the sites' account managers join Intralox
+  if(opAmEnsure(OPP) | staffOnMap(OPP)) oppSaveSoon();   // v140: the sites' account managers join Intralox; v142: tied to their records
   $('title').textContent = OPP.name || (lap ? 'Large account' : 'Opportunity');
   $('subtitle').textContent = lap ? ns + (ns === 1 ? ' site' : ' sites') : OPP.acct;
   $('opView').querySelector('[data-v="sheet"]').textContent = lap ? 'Plan' : 'Blue Sheet';
@@ -17303,7 +17517,7 @@ async function buildBackup(withPhotos){
     overrides: OVERRIDES,
     prefs: {mgr: localStorage.getItem(LS('mgr')) || ''},
     accounts: accPlain(),                        // v125: the added contacts travel as people, below
-    people: PEOPLE,                              // v125
+    people: PEOPLE.concat(STAFF),                // v125; v142 with the Intralox people
     appts: APPTS,
     tasks: TASKS,
     snippets: SNIPS,
@@ -17668,7 +17882,7 @@ async function doRestore(file){
   for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
   for(const r of (Array.isArray(data.opps) ? data.opps : [])) if(r && r.id) await oppsPut(r);      // v115
   for(const r of (Array.isArray(data.cip) ? data.cip : [])) if(r && /^(me|mbo|ref)$/.test(r.id)) await cipPut(r);   // v121
-  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && r.acct && r.n) await peoplePut(r);   // v125
+  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && (r.acct || r.kind === 'staff') && r.n) await peoplePut(r);   // v125; v142 Intralox people
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
