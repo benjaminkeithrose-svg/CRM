@@ -136,6 +136,8 @@ An opportunity at a large account's site can bring that account in (v139). Its b
 
 Relationships across sites (v140). A person can report to someone in another box: within a box it is `boss`; across boxes it is a `links` entry of kind `Reports to` from them to their manager. Each site's account manager (`effMgr`, the CRM export or the reassignment) is added to the Intralox box as a person with `am: true`. Between them and each person at a site there is an implied Our coverage link, worked out when the map is drawn and never stored; rating it stores it as an ordinary link, which is when the Blue Sheet counts it as coverage. A party with `amOff: true` has no implied links.
 
+A large account's sites fill from the CRM export (v143): each contact for the site's account becomes a person with `crm: true` and `cid` (their Dynamics contact id), unless someone of that name is already there or the site's `crmOut` lists them (people taken off, by name in lower case). A site first filled from nothing gets `show: false`, so it is listed beside the map but not drawn; `crmFilled` marks that it has been filled once.
+
 **people**, kind `staff` (v142): the Intralox people list, shared with the team in the same store as contacts added on maps. Each has `id`, `kind: 'staff'`, `n` (name), `pos` (AM, ATL, ITL, SS, AE, TSG, or another typed), `boss` (the `id` of the person they report to), `e` (email), `p` (phone), `added`, `by`, `updated`. A person in a map's Intralox box carries `sid`, the `id` of their record, once tied to it.
 
 **cip**: three records. `me` holds your CIP periods (goals, strengths, gaps,

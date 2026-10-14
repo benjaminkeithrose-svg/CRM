@@ -73,7 +73,7 @@ ok(!$('plLarge').checked, 'the plan\'s Large account tick starts off');
 $('plLarge').checked = true; $('plOk').click(); await tick(400);
 ok(g(`screen`) === 'opp' && g(`OPP === LAP`) && g(`LAP && LAP.sites.join('|')`) === B + '|' + A && g(`LAP.name`) === 'Example Meats', 'ticking it starts a plan across the customer\'s sites, and opens on its map (v123)');
 ok($('title').textContent === 'Example Meats' && $('subtitle').textContent === '2 sites', 'named for the customer');
-ok(g(`OPP.people.map(p => p.n).sort().join('|')`) === 'Ana Silva|Ben|Tom Ward' && g(`OPP.links.length`) === 2, 'the map starts with everyone from the sites\' opportunities, once each, and their links');
+ok(g(`OPP.people.filter(p => !p.crm).map(p => p.n).sort().join('|')`) === 'Ana Silva|Ben|Tom Ward' && g(`OPP.links.length`) === 2, 'the map starts with everyone from the sites\' opportunities, once each, and their links (v143: and the sites\' Dynamics contacts, apart)');
 ok($('opView').querySelector('[data-v="sheet"]').textContent === 'Plan' && $('opEdit').hidden && $('opShare').hidden && $('opCoach').hidden && /Large account/.test($('opPanel').textContent) && /Vulnerabilities/.test($('opPanel').textContent), 'Map / Plan, a large account\'s panel, no Blue Sheet tools');
 $('opView').querySelector('[data-v="sheet"]').click(); await tick(150);
 ok(g(`screen`) === 'lap' && $('lapView').querySelector('.on').dataset.v === 'plan', 'Plan opens the plan behind the map');
