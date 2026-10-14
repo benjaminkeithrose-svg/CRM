@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v144';
+const APP_BUILD = 'v145';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -6764,7 +6764,7 @@ function renderPeople(q, el, hint, before){
       const c = p.c, email = (c.e && c.e[0]) || '';
       P.push('<div class="pcard '+FOC_CLS[p.a.foc]+'">'+
         '<div class="pn">'+esc(c.n)+'</div>'+
-        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.moved ? ' <span class="tag moved">Moved to '+esc(c.moved)+'</span>' : c.movedFrom ? ' <span class="tag nodyn">Moved from '+esc(c.movedFrom)+', not in Dynamics yet</span>' : c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : c.changed ? ' <span class="tag nodyn">Changed, not in Dynamics yet</span>' : '')+'</div>'+
+        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.left ? ' <span class="tag moved">Left, to remove from Dynamics</span>' : c.moved ? ' <span class="tag moved">Moved to '+esc(c.moved)+'</span>' : c.movedFrom ? ' <span class="tag nodyn">Moved from '+esc(c.movedFrom)+', not in Dynamics yet</span>' : c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : c.changed ? ' <span class="tag nodyn">Changed, not in Dynamics yet</span>' : '')+'</div>'+
         '<div class="pa">'+esc(p.a.a)+(p.a.sub ? ' \u00b7 '+esc(p.a.sub) : '')+'</div>'+
         '<div class="pl">'+
           (c.p ? '<a href="tel:'+esc(c.p.replace(/\s/g,''))+'">Call '+esc(c.p)+'</a>'
@@ -11310,7 +11310,7 @@ const OPW = 1100, OPPW = 210, OPPH = 46, OPCW = 196, OPCH = 34, OPCG = 6, OPIND 
 const lsFlag = (k, d) => { try { const v = localStorage.getItem(LS(k)); return v == null ? d : v === '1'; } catch(e){ return d; } };
 let opPeopleOn = lsFlag('opPeople', true), opLinksOn = lsFlag('opLinks', true), opPos = {};
 const opParty = id => OPP && (OPP.parties || []).find(q => q.id === id);
-const opPeopleOf = q => (OPP.people || []).filter(p => p.party === q.id);
+const opPeopleOf = q => (OPP.people || []).filter(p => p.party === q.id && !p.hidden);   // v145: not those hidden as not relevant
 const opShows = q => opPeopleOn && q.show !== false;
 // every supplier anyone has put on an OEM, after the usual ones
 function opBelts(){
@@ -12327,7 +12327,7 @@ function opImplied(o){
     if(q.amOff) continue;
     const m = opAmOf(o, q); if(!m) continue;
     const am = us.find(p => opAmKey(p.n) === opAmKey(m)); if(!am) continue;
-    (o.people || []).filter(p => p.party === q.id).forEach(p => {
+    (o.people || []).filter(p => p.party === q.id && !p.hidden).forEach(p => {
       if((o.links || []).some(l => (l.a === am.id && l.b === p.id) || (l.a === p.id && l.b === am.id))) return;
       out.push({id: 'im:' + am.id + ':' + p.id, a: am.id, b: p.id, kind: 'Our coverage', str: '', note: '', implied: true, by: 'am'});
     });
@@ -12336,7 +12336,7 @@ function opImplied(o){
   const atl = o.kind === 'large' && o.atl && us.find(p => opAmKey(p.n) === opAmKey(o.atl));
   if(atl) for(const q of o.parties){
     if(q.atlOff || q.lk || !atlCovers(q)) continue;
-    (o.people || []).filter(p => p.party === q.id && p.side !== 'us').forEach(p => {
+    (o.people || []).filter(p => p.party === q.id && p.side !== 'us' && !p.hidden).forEach(p => {
       const id = 'im:' + atl.id + ':' + p.id;
       if(out.some(l => l.id === id) || (o.links || []).some(l => (l.a === atl.id && l.b === p.id) || (l.a === p.id && l.b === atl.id))) return;
       out.push({id, a: atl.id, b: p.id, kind: 'Our coverage', str: '', note: '', implied: true, by: 'atl'});
@@ -12356,7 +12356,8 @@ const OP_THEM = {'Reports to': 'Reports to them', 'Influences': 'Influences them
 /* v140: someone's relationships, grouped by the box the other person is in,
    each with its strength to change in one tap, or tap the name for the rest */
 function opRelsHTML(p){
-  const rl = (OPP.links || []).concat(opImplied(OPP)).filter(l => l.a === p.id || l.b === p.id);
+  const hid = id => { const x = opPerson(id); return x && x.hidden; };
+  const rl = (OPP.links || []).concat(opImplied(OPP)).filter(l => (l.a === p.id || l.b === p.id) && !hid(l.a === p.id ? l.b : l.a));
   if(!rl.length) return '<ul class="opitems good"><li class="none"><span class="pin">None yet. Tap Link to…, then the other person.</span></li></ul>';
   const groups = new Map();
   rl.forEach(l => {
@@ -12403,7 +12404,8 @@ function opPersonPanel(p){
     (q.lk ? '<p class="hint">On the large account plan: a change here shows there too.</p>' : '') +
     // v142: one of the Intralox people, or not yet
     // v144: a customer's person who moved, or whose details changed
-    (!ours && opPartyAcct(OPP, q) ? '<div class="orow"><button type="button" class="btn act2" id="opCtChg">Moved or details changed</button></div>' : '') +
+    (!ours ? '<div class="orow ppact">' + (opPartyAcct(OPP, q) ? '<button type="button" class="btn sm act2" id="opCtChg">Details changed</button><button type="button" class="btn sm" id="opPmv">Moved site</button>' : '') +
+      '<button type="button" class="btn sm" id="opPhide">Hide: not relevant</button><button type="button" class="btn sm warnb" id="opPleft">Left the company</button></div>' : '') +
     (ours ? '<div class="orow"><button type="button" class="btn act2" id="opStaff">' + (st ? 'Their Intralox record' + (st.pos ? ' (' + esc(st.pos) + ')' : '') : 'Add to Intralox people') + '</button></div>' : '') +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
     '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
@@ -12415,6 +12417,11 @@ function opPersonPanel(p){
       (p.role ? '<label class="l">A second part, if they have one</label>' + opChips('role2', OP_ROLES.filter(r => r !== p.role), p.role2 || '') : '') +
       '<label class="l">Are they helping us?' + (p.est && p.est.includes('stance') ? ' <span class="esttag">estimate, from ' + esc(p.estFrom || 'another Blue Sheet') + '</span>' : '') + '</label>' + opChips('stance', Object.values(OP_STANCE), stanceLbl)) +
     (hist.length ? '<h2>On other Blue Sheets</h2><ul class="opitems good">' + hist.slice(0, 5).map(h => '<li><span>' + esc(opHistLine(h)) + '</span></li>').join('') + '</ul>' : '') +
+    // v145: who of ours knows them, one tap each
+    (!ours && (OPP.people || []).some(x => x.side === 'us' && !x.hidden) ? '<label class="l">Known by</label><div class="chips knownby">' + (OPP.people || []).filter(x => x.side === 'us' && !x.hidden).map(x => {
+      const l = (OPP.links || []).find(k => (k.a === x.id && k.b === p.id) || (k.a === p.id && k.b === x.id));
+      return '<button type="button" data-kb="' + esc(x.id) + '"' + (l ? ' class="on" data-kbl="' + esc(l.id) + '"' : '') + ' aria-pressed="' + !!l + '">' + esc(x.n || 'Someone') + '</button>';
+    }).join('') + '</div><p class="hint">Tap someone of ours who knows them; their strength is Unknown until you rate it below.</p>' : '') +
     '<h2>Their relationships</h2>' + opRelsHTML(p) +
     (ours ? '' : '<details class="opmore"' + (opMoreOpen ? ' open' : '') + '><summary>More detail</summary>' +
       '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
@@ -12425,10 +12432,10 @@ function opPersonPanel(p){
       '</details>') +
     '<label class="l" for="opPnote">Notes</label><textarea id="opPnote" data-talk="sales" rows="3">' + esc(p.note || '') + '</textarea>' +
     '<div class="orow"><button type="button" class="btn go" id="opLink">Link to…</button><button type="button" class="btn" id="opDone">Done</button>' +
-      '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button></div>' +
-    (opConfirm ? '<div class="opconfirm">Remove ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
+      '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Take off this map</button></div>' +
+    (opConfirm ? '<div class="opconfirm">Take ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
       (lapPersonIn(p) ? ' They are on the large account plan: this takes them off it, and off its other opportunities, too.' : '') +
-      '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Remove</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
+      '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Take off this map</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
   const typed = (id, key, redraw) => $(id) && $(id).addEventListener('input', e => { p[key] = e.target.value; if(redraw) drawOpp(); oppSaveSoon(); });
   typed('opPn', 'n', true); typed('opPt', 'title', true); typed('opPw', 'win'); typed('opPres', 'result'); typed('opPe', 'evid'); typed('opPnote', 'note');
   if($('opPboss')) $('opPboss').addEventListener('change', e => { opSetBoss(p, e.target.value); oppSaveNow().catch(reportErr); drawOpp(); opPersonPanel(p); });
@@ -12442,19 +12449,15 @@ function opPersonPanel(p){
     P.querySelector('details.opmore').addEventListener('toggle', e => { opMoreOpen = e.target.open; });
   }
   $('opDone').addEventListener('click', () => opSelect(null));
-  if($('opCtChg')) $('opCtChg').addEventListener('click', () => {
-    if(opSaveTimer) oppSaveNow().catch(reportErr);
-    openContactChange({acct: opPartyAcct(OPP, q), n: p.n, cid: p.cid, t: p.title}, res => {
-      if(!OPP || !opPerson(p.id)) return;
-      if(res.now.t && res.now.t !== p.title) p.title = res.now.t;
-      if(res.to && OPP.kind === 'large'){
-        const site = OPP.parties.find(x => x.site && !x.lk && x.acct === res.to);
-        if(site){ p.party = site.id; p.boss = ''; toast(p.n + ' moved to ' + opQName(site) + ' on this map'); }
-        else if(!q.lk){ opDropPeople([p.id]); opSel = null; toast(p.n + ' taken off this map: ' + res.to + ' is not one of its sites'); }
-      }
-      oppSaveNow().catch(reportErr); drawOpp(); opPanel();
-    });
-  });
+  if($('opCtChg')) $('opCtChg').addEventListener('click', () => opContactChange(p, false));
+  P.querySelectorAll('[data-kb]').forEach(b => b.addEventListener('click', () => {
+    if(b.dataset.kbl){ const id = b.dataset.kbl; opSelect({t: 'l', id}); opLinkBack = p.id; opPanel(); return; }
+    OPP.links = (OPP.links || []).concat([{id: newId('lk'), a: b.dataset.kb, b: p.id, kind: 'Our coverage', str: 'Unknown', note: ''}]);
+    oppSaveNow().catch(reportErr); drawOpp(); opPersonPanel(p);
+  }));
+  if($('opPmv')) $('opPmv').addEventListener('click', () => opContactChange(p, true));
+  if($('opPhide')) $('opPhide').addEventListener('click', () => { opHidePerson(p); opPanel(); });
+  if($('opPleft')) $('opPleft').addEventListener('click', () => opLeftPerson(p).catch(reportErr));
   if($('opStaff')) $('opStaff').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); if(st) openStaff(st.id); else openStaff(null, {n: p.n || ''}); });
   $('opLink').addEventListener('click', () => {
     opLinkFrom = p.id; $('opHint').hidden = false;
@@ -12512,7 +12515,7 @@ function opSuggest(side){
     const lap = OPP.kind === 'large', out = [];
     for(const name of lap ? OPP.sites || [] : [OPP.acct]){
       const a = ACC_BY_NAME.get(name);
-      (a ? a.c || [] : []).filter(c => c.n && !c.moved).forEach(c => out.push({n: c.n, title: [c.t || c.r || '', lap ? a.sub || name : ''].filter(Boolean).join(', '), cid: c.id || ''}));
+      (a ? a.c || [] : []).filter(c => c.n && !c.moved && !c.left).forEach(c => out.push({n: c.n, title: [c.t || c.r || '', lap ? a.sub || name : ''].filter(Boolean).join(', '), cid: c.id || ''}));
     }
     return out;
   }
@@ -12605,7 +12608,7 @@ function renderOpBar(){
       if(tree.length && exp) h.push('<ul class="opbar-ppl">' + tree.map(({p, d}) => '<li style="padding-left:' + d * 12 + 'px"><button type="button" data-pick="p:' + esc(p.id) + '"' + (opSel && opSel.t === 'p' && opSel.id === p.id ? ' class="on"' : '') + '>' +
         (q.kind === 'ilx' ? '' : '<span class="st ' + (p.stance || 'unknown') + '"></span>') + esc(p.n || 'Someone') + '<em>' + esc(q.kind === 'ilx' ? p.title || '' : bsRoleCode(p)) + '</em></button>' +
         // v143: one tap takes someone off the map
-        (q.lk ? '' : '<button type="button" class="opout" data-out="' + esc(p.id) + '" aria-label="Take ' + esc(p.n || 'them') + ' off this map" title="Take off this map">' + icon('close') + '</button>') + '</li>').join('') + '</ul>');
+        (q.kind === 'ilx' ? '' : '<button type="button" class="opout" data-out="' + esc(p.id) + '" aria-label="Hide ' + esc(p.n || 'them') + ': not relevant" title="Hide: not relevant">' + icon('eyeoff') + '</button>') + '</li>').join('') + '</ul>');
     }
     h.push('</div>');
   }
@@ -12659,16 +12662,7 @@ $('opBar').addEventListener('click', e => {
   if(b.dataset.desc){ osOpen('map', OPP.acct, '', ''); return; }
   if(b.dataset.addparty){ opBarAdding = opBarAdding === b.dataset.addparty ? '' : b.dataset.addparty; renderOpBar(); return; }
   if(b.dataset.addsite){ opBarAdding = opBarAdding === 'site' ? '' : 'site'; if(opBarAdding) opBarOpen = true; renderOpBar(); return; }
-  if(b.dataset.out){
-    const p = opPerson(b.dataset.out); if(!p) return;
-    const nl = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
-    if(nl && !confirm('Take ' + (p.n || 'them') + ' off this map?\n\nTheir ' + nl + (nl === 1 ? ' relationship goes' : ' relationships go') + ' with them.')) return;
-    opDropPeople([p.id]);
-    if(opSel && opSel.t === 'p' && opSel.id === p.id) opSel = null;
-    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
-    toast((p.n || 'They') + ' taken off the map');
-    return;
-  }
+  if(b.dataset.out){ const p = opPerson(b.dataset.out); if(p){ opHidePerson(p); opPanel(); } return; }   // v145: Hide: not relevant
   if(b.dataset.fold){ const k = b.dataset.fold; if(opBarExp.has(k)) opBarExp.delete(k); else opBarExp.add(k); renderOpBar(); return; }
   if(b.dataset.spec){ const q = opParty(b.dataset.spec); if(q){ q.spec = OP_SPEC_NEXT[q.spec || '']; oppSaveNow().catch(reportErr); drawOpp(); if(opSel && opSel.t === 'party' && opSel.id === q.id) opPanel(); } return; }
   if(b.dataset.eye){ const q = opParty(b.dataset.eye); if(q){ q.show = q.show === false; oppSaveNow().catch(reportErr); drawOpp(); } return; }
@@ -12690,13 +12684,13 @@ function opLapPartyPanel(q){
     '<div class="opsum"><b>' + esc(opQName(q)) + '</b><div class="meta">From the large account plan ' + esc(L ? L.name || 'Large account' : '') + '. Its people, their links and its spec are kept on that plan: a change here shows there too, and on its other opportunities.</div>' +
       '<button type="button" class="btn act2" id="opQlap">Open the large account map</button></div>' +
     '<label class="l">Have they specified Intralox?</label><div class="seg opspecseg" id="opQspec">' + ['yes', 'unsure', 'no'].map(v => '<button type="button" data-v="' + v + '"' + ((q.spec || '') === v ? ' class="on"' : '') + '>' + {yes: 'Specced', unsure: 'Unsure', no: 'Not specced'}[v] + '</button>').join('') + '</div>' +
-    '<label class="l">People</label><ul class="opitems good">' + (ppl.length ? ppl.map(({p, d}) => '<li style="margin-left:' + d * 14 + 'px"><span><button type="button" class="lnkbtn" data-qp="' + esc(p.id) + '">' + esc(p.n) + '</button>' +
-      '<span class="pin">' + esc([p.title, bsRoleCode(p)].filter(Boolean).join(' · ')) + '</span></span></li>').join('') : '<li class="none"><span class="pin">Nobody yet.</span></li>') + '</ul>' +
-    '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Show people' : 'Hide people') + '</button>' +
+    opPplHTML(q, ppl) +
+    '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Draw them on the map' : 'List only, off the map') + '</button>' +
       '<button type="button" class="btn" id="opDone">Done</button></div>';
   const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opLapPartyPanel(q); };
   $('opQspec').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q.spec = q.spec === b.dataset.v ? '' : b.dataset.v; redraw(); }));
   P.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => opSelect({t: 'p', id: b.dataset.qp})));
+  opPplWire(() => opLapPartyPanel(q));
   $('opQtbl').addEventListener('click', () => opTableOpen(q.id));
   $('opQeye').addEventListener('click', () => { q.show = q.show === false; redraw(); });
   $('opDone').addEventListener('click', () => opSelect(null));
@@ -12719,6 +12713,9 @@ function opPartyPanel(q){
     '<label class="l" for="opQn">Name</label><input type="text" id="opQn" list="opAcctList" value="' + esc(q.name) + '"' + (q.kind === 'ilx' || q.site ? ' readonly' : '') + '>' + opAcctList() +
     (q.site ? '<p class="hint">One of this large account\'s sites. Its contacts are offered for its people. Add more with + beside Sites in the list.</p>'
       : q.acct ? '<p class="hint">From the customer list: its contacts are offered for its people.</p>' : '') +
+    // v145: a box typed by name, tied to the customer list so its contacts come in
+    (!q.site && !q.lk && q.kind !== 'ilx' && !(q.acct && ACC_BY_NAME.has(q.acct)) ? '<label class="l" for="opQmatch">Match to a customer</label><div class="opadd"><input type="text" id="opQmatch" list="opAcctList" placeholder="Pick their account" autocomplete="off"><button type="button" class="btn act2" id="opQmatchGo">Match</button></div>'
+      : !q.site && q.acct && q.acct !== q.name ? '<p class="hint">Matched to ' + esc(q.acct) + ' in the customer list.</p>' : '') +
     siteOwnerHTML(q) +                                 // v144
     (OPP.kind === 'large' && OPP.atl && atlCovers(q) && !q.lk ? '<label class="chk"><input type="checkbox" id="opQatl"' + (q.atlOff ? '' : ' checked') + '> ' + esc(OPP.atl) + ', the account team leader, covers everyone here</label>' : '') +
     // v140: the account manager covers everyone here, unless switched off for this site
@@ -12748,9 +12745,8 @@ function opPartyPanel(q){
       '<label class="l">Belting they prefer</label><div class="chips" id="opQbelts">' + belts.map(v => '<button type="button" data-v="' + esc(v) + '"' + ((q.belts || []).includes(v) ? ' class="on"' : '') + ' aria-pressed="' + (q.belts || []).includes(v) + '">' + esc(v) + '</button>').join('') + '</div>' +
       '<div class="opadd"><input type="text" id="opQbeltN" placeholder="Another supplier" aria-label="Another belting supplier"><button type="button" class="btn act2" id="opQbeltGo">Add</button></div>' +
       (OPP.kind === 'large' ? opWorksHTML(q) : '') : '') +
-    '<label class="l">People</label><ul class="opitems good">' + (ppl.length ? ppl.map(({p, d}) => '<li style="margin-left:' + d * 14 + 'px"><span><button type="button" class="lnkbtn" data-qp="' + esc(p.id) + '">' + esc(p.n) + '</button>' +
-      '<span class="pin">' + esc([p.title, q.kind === 'ilx' ? '' : bsRoleCode(p)].filter(Boolean).join(' · ')) + '</span></span></li>').join('') : '<li class="none"><span class="pin">Nobody yet.</span></li>') + '</ul>' +
-    '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Show people' : 'Hide people') + '</button>' +
+    opPplHTML(q, ppl) +
+    '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Draw them on the map' : 'List only, off the map') + '</button>' +
       '<button type="button" class="btn" id="opDone">Done</button>' + (q.kind !== 'ilx' && !q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQrm">Remove</button>' : '') +
       (q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQout">Take out of the plan</button>' : '') + '</div>' +
     (opConfirm ? '<div class="opconfirm">Remove ' + esc(q.name) + ', its ' + ppl.length + (ppl.length === 1 ? ' person' : ' people') + ' and their ' + nLinks + (nLinks === 1 ? ' link' : ' links') +
@@ -12758,6 +12754,17 @@ function opPartyPanel(q){
       '<div class="orow"><button type="button" class="btn warnb" id="opQrmY">Remove</button><button type="button" class="btn" id="opQrmN">Cancel</button></div></div>' : '');
   const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); };
   siteOwnerWire(q);
+  if($('opQmatchGo')) $('opQmatchGo').addEventListener('click', () => {
+    const v = $('opQmatch').value.trim();
+    if(!ACC_BY_NAME.has(v)){ toast('Pick the account from the list'); return; }
+    q.acct = v;
+    const n = (OPP.people || []).length;
+    lapCrmFill(OPP);
+    const added = (OPP.people || []).length - n;
+    toast('Matched to ' + v + (added ? ': ' + added + (added === 1 ? ' contact' : ' contacts') + ' listed beside the map' : ''));
+    if(added && !(opPeopleOf(q).length - added)) opBarExp.add(q.id);
+    redraw();
+  });
   if($('opQatl')) $('opQatl').addEventListener('change', e => { if(e.target.checked) delete q.atlOff; else q.atlOff = true; redraw(); });
   if($('opQam')) $('opQam').addEventListener('change', e => { if(e.target.checked) delete q.amOff; else q.amOff = true; if(e.target.checked && opAmEnsure(OPP)) toast(opAmOf(OPP, q) + ' added to Intralox'); redraw(); });
   $('opQn').addEventListener('input', e => { if(q.kind === 'ilx') return; q.name = e.target.value; q.acct = ACC_BY_NAME.has(q.name.trim()) ? q.name.trim() : ''; drawOpp(); oppSaveSoon(); });
@@ -12783,6 +12790,7 @@ function opPartyPanel(q){
     $('opQbeltN').addEventListener('keydown', e => { if(e.key === 'Enter') add(); });
   }
   P.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => opSelect({t: 'p', id: b.dataset.qp})));
+  opPplWire(() => opPartyPanel(q));
   $('opQtbl').addEventListener('click', () => opTableOpen(q.id));
   if($('opQhq')) $('opQhq').addEventListener('change', e => {
     OPP.parties.forEach(x => { if(x.kind === 'end' && x.hq){ x.hq = false; delete x.x; delete x.y; } });
@@ -12885,7 +12893,7 @@ function opDropPeople(ids){
   const gone = new Set(ids), pins = new Set(ids.map(id => 'p:' + id));
   (OPP.people || []).filter(p => gone.has(p.id) && p.am).forEach(p => { OPP.amGone = [...new Set((OPP.amGone || []).concat([opAmKey(p.n)]))]; });   // v140
   // v143: someone taken off a site is not brought back by the next import
-  (OPP.people || []).filter(p => gone.has(p.id)).forEach(p => { const q = opParty(p.party); if(q && q.site && !q.lk) q.crmOut = [...new Set((q.crmOut || []).concat([pKey(p.n)]))]; });
+  (OPP.people || []).filter(p => gone.has(p.id)).forEach(p => { const q = opParty(p.party); if(q && q.acct && !q.lk && OPP.kind === 'large') q.crmOut = [...new Set((q.crmOut || []).concat([pKey(p.n)]))]; });
   (OPP.links || []).filter(l => gone.has(l.a) || gone.has(l.b)).forEach(l => pins.add('l:' + l.id));
   for(const p of OPP.people || []) if(!gone.has(p.id) && gone.has(p.boss)){ const b = opPerson(p.boss); p.boss = b && b.boss && !gone.has(b.boss) ? b.boss : ''; }
   OPP.people = (OPP.people || []).filter(p => !gone.has(p.id));
@@ -12913,7 +12921,7 @@ function opPartySuggest(q){
   if(q.kind === 'ilx') return opSuggest('us');
   const accts = q.acct ? [q.acct] : q.kind === 'end' || ((q.kind === 'corp' || q.kind === 'grp') && OPP.kind === 'large') ? (OPP.kind === 'large' ? OPP.sites || [] : [OPP.acct]) : [];
   const out = [];
-  accts.forEach(n => { const a = ACC_BY_NAME.get(n); (a ? a.c || [] : []).filter(c => c.n && !c.moved).forEach(c => out.push({n: c.n, title: c.t || c.r || '', cid: c.id || ''})); });
+  accts.forEach(n => { const a = ACC_BY_NAME.get(n); (a ? a.c || [] : []).filter(c => c.n && !c.moved && !c.left).forEach(c => out.push({n: c.n, title: c.t || c.r || '', cid: c.id || ''})); });
   if(q.kind === 'head' || q.kind === 'oem') opSuggest('oem').forEach(x => { if(!out.some(y => y.n === x.n)) out.push(x); });
   return out;
 }
@@ -13014,7 +13022,7 @@ function opTblFinish(){
   }
   // the table's order is the order on the map
   const order = keep.map(r => r.id);
-  OPP.people = (OPP.people || []).filter(p => p.party !== T.q.id).concat(order.map(id => opPerson(id)).filter(Boolean));
+  OPP.people = (OPP.people || []).filter(p => p.party !== T.q.id || p.hidden).concat(order.map(id => opPerson(id)).filter(Boolean));   // v145: the hidden stay
   T.q.show = true;
   if(changed) oppSaveNow().catch(reportErr);
   drawOpp(); opPanel();
@@ -13140,9 +13148,15 @@ function chgApply(){
   // start from the contacts as the CRM gave them, then lay the changes over
   for(const a of ACCOUNTS) for(const c of a.c || []){
     if(c.moved){ delete c.moved; delete a._hay; }
+    if(c.left){ delete c.left; delete a._hay; }
     if(c._crm){ c.t = c._crm.t; c.e = c._crm.e; c.p = c._crm.p; delete c._crm; delete c.changed; delete a._hay; }
   }
   for(const r of CHG){
+    if(r.type === 'left' && !r.done){                // v145: off the export, or still to go
+      const c = chgContact(ACC_BY_NAME.get(r.acct), r.n, r.cid);
+      if(!c) done.push(r); else { c.left = r.id; delete ACC_BY_NAME.get(r.acct)._hay; }
+      continue;
+    }
     if(r.done || (r.type !== 'move' && r.type !== 'edit')) continue;
     const a = ACC_BY_NAME.get(r.type === 'move' ? r.from : r.acct);
     if(r.type === 'edit'){
@@ -13196,24 +13210,26 @@ function cagItems(){
     out.push({kind: 'owner', r: rec || null, sent: rec && rec.sent || 0, done: 0, acct: a.a, n: '', to: effMgr(a), from: a.mgr || '', what: 'Account manager: ' + effMgr(a) + ' (was ' + (a.mgr || 'nobody') + ')'});
   });
   CHG.filter(r => r.type === 'owner' && r.done).forEach(r => out.push({kind: 'owner', r, sent: r.sent || 0, done: r.done, acct: r.acct, n: '', to: r.to, from: r.from, what: 'Account manager: ' + r.to}));
+  CHG.filter(r => r.type === 'left').forEach(r => out.push({kind: 'left', r, sent: r.sent || 0, done: r.done || 0, acct: r.acct, n: r.n, what: 'Left the company: remove from Dynamics'}));
   CHG.filter(r => r.type === 'atl').forEach(r => out.push({kind: 'atl', r, sent: r.sent || 0, done: r.done || 0, acct: r.acct, n: '', to: r.to, from: r.from || '',
     what: 'Account team leader: ' + (r.to || 'nobody') + (r.from ? ' (was ' + r.from + ')' : '')}));
   return out;
 }
-const CAG_KIND = {new: 'New contacts', move: 'Moved contacts', edit: 'Changed details', owner: 'Account owners', atl: 'Account owners'};
+const CAG_KIND = {new: 'New contacts', move: 'Moved contacts', edit: 'Changed details', left: 'Left the company', owner: 'Account owners', atl: 'Account owners'};
+const CAG_ORDER = ['New contacts', 'Moved contacts', 'Changed details', 'Left the company', 'Account owners'];
 const cagState = i => i.done ? 'Done ' + new Date(i.done).toLocaleDateString() : i.sent ? 'Sent ' + new Date(i.sent).toLocaleDateString() : 'Not sent yet';
 function renderPeopleStat(){
   const el = $('pplStat'); if(!el) return;
   const items = cagItems(), open = items.filter(i => !i.done), unsent = open.filter(i => !i.sent);
   const by = k => open.filter(i => CAG_KIND[i.kind] === k).length;
-  const bits = ['New contacts', 'Moved contacts', 'Changed details', 'Account owners'].map(k => [k, by(k)]).filter(([, n]) => n).map(([k, n]) => n + ' ' + k.toLowerCase().replace(/s$/, n === 1 ? '' : 's'));
+  const bits = CAG_ORDER.map(k => [k, by(k)]).filter(([, n]) => n).map(([k, n]) => n + ' ' + k.toLowerCase().replace(/s$/, n === 1 ? '' : 's'));
   el.textContent = open.length ? bits.join(', ') + '. ' + (unsent.length ? unsent.length + ' not sent to CAG yet.' : 'All sent to CAG.') : 'Nothing waiting: Dynamics has everything changed here.';
   $('pplShare').hidden = !open.length;
   $('cagAllW').hidden = !open.some(i => i.sent);
   const list = $('cagList');
   if(!list) return;
   list.hidden = !items.length;
-  list.innerHTML = items.length ? '<summary>Show them (' + items.length + ')</summary>' + ['New contacts', 'Moved contacts', 'Changed details', 'Account owners'].map(k => {
+  list.innerHTML = items.length ? '<summary>Show them (' + items.length + ')</summary>' + CAG_ORDER.map(k => {
     const its = items.filter(i => CAG_KIND[i.kind] === k); if(!its.length) return '';
     return '<div class="cagg"><b>' + k + '</b><ul class="opitems good">' + its.map(i => '<li><span>' + esc([i.n, i.acct].filter(Boolean).join(', ')) +
       '<span class="pin">' + esc(i.what + ' · ' + cagState(i)) + '</span></span>' +
@@ -13238,6 +13254,7 @@ $('pplShare').addEventListener('click', async () => {
     ['Moved contacts', ['(Do Not Modify) Contact', 'Full Name', 'From account', 'To account', 'Job Title', 'Email', 'Mobile', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'move').map(i => [i.r.cid || '', i.n, i.r.from, i.r.to, i.r.t || '', i.r.e || '', i.r.p || '', d(i.r.at), i.r.by || '', cagState(i)])],
     ['Changed details', ['(Do Not Modify) Contact', 'Account', 'Full Name', 'Job Title', 'Email', 'Mobile', 'Was', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'edit').map(i => [i.r.cid || '', i.acct, i.n, i.r.t || '', i.r.e || '', i.r.p || '',
       [i.r.was && i.r.was.t, i.r.was && i.r.was.e, i.r.was && i.r.was.p].filter(Boolean).join(' / '), d(i.r.at), i.r.by || '', cagState(i)])],
+    ['Left the company', ['(Do Not Modify) Contact', 'Full Name', 'Account', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'left').map(i => [i.r.cid || '', i.n, i.acct, d(i.r.at), i.r.by || '', cagState(i)])],
     ['Account owners', ['Account', 'Role', 'New owner', 'Was', 'Status'], items.filter(i => i.kind === 'owner' || i.kind === 'atl').map(i => [i.acct + (i.kind === 'atl' && i.r.sites ? ' (' + i.r.sites.join(', ') + ')' : ''), i.kind === 'atl' ? 'Account Team Leader' : 'Account Manager', i.to || '', i.from || '', cagState(i)])]
   ].filter(s => s[2].length);
   const wb = XLSX.utils.book_new();
@@ -13256,6 +13273,69 @@ $('pplShare').addEventListener('click', async () => {
   renderPeopleStat();
 });
 
+/* v145 - Ben, 2026-10-14: clear actions on each person, never a vague
+   "remove". Hide: not relevant (the receptionist we deal with daily but who
+   has no say: kept, not drawn, not rated, not on the Blue Sheet, shown again
+   from their box). Moved site (the contact dialog, for CAG). Left the company
+   (asks first, off the map, on the CAG list to remove from Dynamics). */
+function opPplHTML(q, ppl){
+  const ours = q.kind === 'ilx', hidden = (OPP.people || []).filter(p => p.party === q.id && p.hidden);
+  return '<label class="l">People</label><ul class="opitems good oppl">' + (ppl.length ? ppl.map(({p, d}) => '<li style="margin-left:' + d * 14 + 'px"><span><button type="button" class="lnkbtn" data-qp="' + esc(p.id) + '">' + esc(p.n) + '</button>' +
+      '<span class="pin">' + esc([p.title, ours ? '' : bsRoleCode(p)].filter(Boolean).join(' · ')) + '</span>' +
+      (ours ? '' : '<span class="ppact"><button type="button" class="btn sm" data-phide="' + esc(p.id) + '">Hide: not relevant</button><button type="button" class="btn sm" data-pmove="' + esc(p.id) + '">Moved site</button>' +
+        '<button type="button" class="btn sm warnb" data-pleft="' + esc(p.id) + '">Left the company</button></span>') + '</span></li>').join('')
+      : '<li class="none"><span class="pin">Nobody yet.</span></li>') + '</ul>' +
+    (hidden.length ? '<details class="pphid"><summary>Hidden: not relevant (' + hidden.length + ')</summary><ul class="opitems">' + hidden.map(p => '<li><span>' + esc(p.n) +
+      '<span class="pin">' + esc(p.title || '') + '</span></span><button type="button" class="btn sm" data-pshow="' + esc(p.id) + '">Show again</button></li>').join('') + '</ul></details>' : '');
+}
+function opPplWire(again){
+  const P = $('opPanel'), byId = id => (OPP.people || []).find(p => p.id === id);
+  P.querySelectorAll('[data-phide]').forEach(b => b.addEventListener('click', () => { const p = byId(b.dataset.phide); if(p){ opHidePerson(p); again(); } }));
+  P.querySelectorAll('[data-pmove]').forEach(b => b.addEventListener('click', () => { const p = byId(b.dataset.pmove); if(p) opContactChange(p, true); }));
+  P.querySelectorAll('[data-pleft]').forEach(b => b.addEventListener('click', () => { const p = byId(b.dataset.pleft); if(p) opLeftPerson(p).then(again).catch(reportErr); }));
+  P.querySelectorAll('[data-pshow]').forEach(b => b.addEventListener('click', () => { const p = byId(b.dataset.pshow); if(!p) return; delete p.hidden; oppSaveNow().catch(reportErr); drawOpp(); again(); toast(p.n + ' shown again'); }));
+}
+function opHidePerson(p){
+  p.hidden = true;
+  if(opSel && opSel.t === 'p' && opSel.id === p.id) opSel = null;
+  oppSaveNow().catch(reportErr); drawOpp();
+  toast((p.n || 'They') + ' hidden here: not relevant. Show them again from their box.');
+}
+// details changed, or moved site: the contact dialog; the map follows
+function opContactChange(p, moving){
+  const q = opParty(p.party), acct = opPartyAcct(OPP, q);
+  if(!acct){ toast((p.n || 'They') + ' is not at one of your customers in the CRM, so there is nothing for Dynamics'); return; }
+  if(opSaveTimer) oppSaveNow().catch(reportErr);
+  openContactChange({acct, n: p.n, cid: p.cid, t: p.title, moving}, res => {
+    if(!OPP || !opPerson(p.id)) return;
+    if(res.now.t && res.now.t !== p.title) p.title = res.now.t;
+    if(res.to && OPP.kind === 'large'){
+      const site = OPP.parties.find(x => x.site && !x.lk && x.acct === res.to);
+      if(site){ p.party = site.id; p.boss = ''; toast(p.n + ' moved to ' + opQName(site) + ' on this map, and on the list for CAG'); }
+      else if(!q.lk){ opDropPeople([p.id]); if(opSel && opSel.id === p.id) opSel = null; toast(p.n + ' taken off this map: ' + res.to + ' is not one of its sites. The move is on the list for CAG.'); }
+    }
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+  });
+}
+async function opLeftPerson(p){
+  const q = opParty(p.party), acct = opPartyAcct(OPP, q), a = acct && ACC_BY_NAME.get(acct);
+  const c = a && (a.c || []).find(x => (p.cid && x.id === p.cid) || pKey(x.n) === pKey(p.n));
+  const nl = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
+  if(!confirm((p.n || 'They') + ' has left ' + (acct || opQName(q)) + '?\n\nThey come off this map' + (nl ? ', with their ' + nl + (nl === 1 ? ' relationship' : ' relationships') : '') +
+      (c && !c.added ? ', and go on the list for CAG to remove from Dynamics.' : c ? '. They were only added in the app, so they are deleted from the contact list too.' : '.'))) return;
+  if(c && c.added && c.pid){ const r = PEOPLE.find(x => x.id === c.pid); if(r){ await peopleDel(r.id); PEOPLE = PEOPLE.filter(x => x !== r); } }
+  else if(c && c.added && c.chg){
+    // moved here, then left: they leave the account they came from
+    const r = CHG.find(x => x.id === c.chg);
+    if(r){ await peopleDel(r.id); CHG = CHG.filter(x => x !== r); await chgSave({id: newId('cg'), kind: 'chg', type: 'left', n: r.n, cid: r.cid || '', acct: r.from}); }
+  } else if(c) await chgSave({id: newId('cg'), kind: 'chg', type: 'left', n: c.n, cid: c.id || p.cid || '', acct});
+  opDropPeople([p.id]);
+  if(opSel && opSel.t === 'p' && opSel.id === p.id) opSel = null;
+  peopleMerge();
+  oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+  toast((p.n || 'They') + (c && !c.added ? ' has left: on the list for CAG to remove from Dynamics' : ' has left: taken off the map'));
+}
+
 /* ---- a contact who moved, or whose details changed (v144) ----
    From a customer's person on any map, or a contact in the Directory. A move
    or a change is a record for CAG (kind 'chg'); a contact added in the app is
@@ -13270,6 +13350,7 @@ function openContactChange(seed, after){
   $('ctHead').textContent = ctEdit.n || 'Contact';
   $('ctAt').textContent = 'At ' + a.a + (c && c.moved ? '. Already marked as moved to ' + c.moved + '.' : '');
   $('ctT').value = cur.t; $('ctE').value = cur.e; $('ctP').value = cur.p; $('ctTo').value = '';
+  if(seed.moving){ $('ctHead').textContent = (ctEdit.n || 'Contact') + ': moved site'; setTimeout(() => { try { $('ctTo').focus(); } catch(_){} }, 60); }
   $('ctAccts').innerHTML = ACCOUNTS.filter(x => x.a !== a.a).map(x => '<option value="' + esc(x.a) + '">').join('');
   const d = $('ctdlg');
   if(!d.open){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('ctdlg'); }
@@ -13346,7 +13427,8 @@ function staffRels(s){
     const mine = (o.people || []).filter(p => staffOf(p) === s);
     if(!mine.length) continue;
     const ids = new Set(mine.map(p => p.id));
-    const links = (o.links || []).filter(l => !l.lk && (ids.has(l.a) || ids.has(l.b))).concat(opImplied(o).filter(l => ids.has(l.a)));
+    const hid = id => ((o.people || []).find(p => p.id === id) || {}).hidden;
+    const links = (o.links || []).filter(l => !l.lk && (ids.has(l.a) || ids.has(l.b)) && !hid(ids.has(l.a) ? l.b : l.a)).concat(opImplied(o).filter(l => ids.has(l.a)));
     out.push({o, ids, links});
   }
   return out;
@@ -13893,7 +13975,7 @@ function opCoverage(p){
   return (OPP.links || []).filter(l => l.kind === 'Our coverage' && l.str !== 'Unknown' && (l.a === p.id || l.b === p.id))
     .map(l => { const o = opPerson(l.a === p.id ? l.b : l.a); return o && o.side === 'us' ? {n: o.n, str: l.str} : null; }).filter(Boolean);
 }
-const opTheirs = () => (OPP.people || []).filter(p => p.side !== 'us');
+const opTheirs = () => (OPP.people || []).filter(p => p.side !== 'us' && !p.hidden);
 // what the sheet says is missing: the classic Blue Sheet red flags
 function opGaps(){
   const out = [], theirs = opTheirs();
@@ -14168,7 +14250,7 @@ function oppText(o){
       (q.kind === 'oem' ? (q.via && pq(q.via) ? ', works for ' + pq(q.via).name : ', direct to the end user') + ((q.belts || []).length ? ', prefers ' + q.belts.join(', ') : '') : '') +
       '); Intralox spec: ' + OP_SPEC[q.spec || ''].toLowerCase()).join('\n'));
     L.push('People:');
-    (o.people || []).forEach(p => {
+    (o.people || []).filter(p => !p.hidden).forEach(p => {
       if(p.side === 'us'){ L.push('- ' + p.n + ' (ours' + (v(p.title) ? ', ' + p.title : '') + ')'); return; }
       const cov = opCoverage(p), boss = p.boss && (o.people || []).find(x => x.id === p.boss);
       L.push('- ' + [p.n + ' (' + side[p.side] + (v(p.title) ? ', ' + p.title : '') + (pq(p.party) ? ', ' + pq(p.party).name : p.side === 'oem' && v(p.org) ? ', ' + p.org : '') + ')',
@@ -14278,7 +14360,7 @@ $('opCoach').addEventListener('click', () => coachOpp(false).catch(reportErr));
    copyright line and mark stay off: this is not their software making it. */
 const bsDate = t => t ? new Date(t).toLocaleDateString() : '';
 const bsMode = p => MH_MODE[p.mode] || '';
-function bsPeople(o){ return (o.people || []).filter(p => p.side !== 'us'); }
+function bsPeople(o){ return (o.people || []).filter(p => p.side !== 'us' && !p.hidden); }
 function bsNameLine(p){ return [p.n, p.title, p.side === 'oem' || p.side === 'head' ? p.org : ''].filter(x => x && String(x).trim()).join(', '); }
 function bsWinLine(p){ return [p.win, p.result].filter(x => x && String(x).trim()).join(' / '); }
 function buildBlueSheetHTML(o, png){
@@ -14799,14 +14881,16 @@ function lapCrmFill(o){
   if(!o || o.kind !== 'large' || !Array.isArray(o.parties)) return false;
   let changed = false;
   for(const q of o.parties){
-    if(!q.site || q.lk) continue;
+    // v145: OEMs, contractors and any other box that is one of our customers fill the same way
+    if(q.kind === 'ilx' || q.lk || !q.acct) continue;
     const a = ACC_BY_NAME.get(q.acct); if(!a) continue;
     const out = new Set(q.crmOut || []), had = (o.people || []).some(p => p.party === q.id);
     const here = new Set((o.people || []).filter(p => p.party === q.id).map(p => pKey(p.n)));
     const cids = new Set((o.people || []).map(p => p.cid).filter(Boolean));
-    const add = (a.c || []).filter(c => c.n && !c.moved && !out.has(pKey(c.n)) && !here.has(pKey(c.n)) && !(c.id && cids.has(c.id)));
+    const add = (a.c || []).filter(c => c.n && !c.moved && !c.left && !out.has(pKey(c.n)) && !here.has(pKey(c.n)) && !(c.id && cids.has(c.id)));
     if(!add.length){ if(!q.crmFilled){ q.crmFilled = true; changed = true; } continue; }
-    o.people = (o.people || []).concat(add.map(c => ({id: newId('pp'), party: q.id, side: 'cust', n: c.n, title: c.t || c.r || '', cid: c.id || '', crm: true,
+    const side = opKind(q.kind).side;
+    o.people = (o.people || []).concat(add.map(c => ({id: newId('pp'), party: q.id, side, n: c.n, title: c.t || c.r || '', cid: c.id || '', crm: true,
       role: '', role2: '', stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: ''})));
     if(!q.crmFilled){ q.crmFilled = true; if(!had) q.show = false; }      // a site filled for the first time: listed, not drawn
     changed = true;
