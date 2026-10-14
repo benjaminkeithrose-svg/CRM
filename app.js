@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v137';
+const APP_BUILD = 'v138';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -11306,7 +11306,13 @@ function opEnsure(o){
   if(!o) return;
   if(!Array.isArray(o.parties)){
     const lap = o.kind === 'large';
-    const end = {id: 'pe', kind: 'end', name: lap ? (o.name || 'The customer') : (o.acct || 'The customer'), acct: lap ? '' : o.acct || ''}, ilx = {id: 'pi', kind: 'ilx', name: 'Intralox'};
+    /* v138: a large account's map made new has no box for the group itself -
+       Ben, 2026-10-14, a made-up Corporate box named after the group that was no account at all.
+       Only a map from before v129, whose customer people were kept under one
+       group box (none of them carries its site), still gets that box, which
+       becomes its corporate account below. */
+    const groupBox = !lap || (o.people || []).some(p => p.side === 'cust' && !p.siteAcct);
+    const end = groupBox ? {id: 'pe', kind: 'end', name: lap ? (o.name || 'The customer') : (o.acct || 'The customer'), acct: lap ? '' : o.acct || ''} : null, ilx = {id: 'pi', kind: 'ilx', name: 'Intralox'};
     const others = new Map();
     for(const p of o.people || []){
       if(p.side === 'us'){ p.party = ilx.id; continue; }
@@ -11316,9 +11322,10 @@ function opEnsure(o){
         if(!q){ q = {id: 'po' + (others.size + 1), kind: p.side === 'head' ? 'head' : 'oem', name: nm}; if(q.kind === 'oem') q.belts = ['Intralox']; others.set(nm.toLowerCase(), q); }
         p.party = q.id; continue;
       }
-      p.party = end.id;
+      p.party = end ? end.id : ilx.id;    // a new large map: under its site, just below
     }
-    o.parties = [end, ...others.values(), ilx];
+    o.parties = (end ? [end] : []).concat([...others.values(), ilx]);
+    if(!end) o.sitesOn = true;
     o.ox = OPW / 2 - OPOW / 2; o.oy = 330;
     delete o.laneH;
   }
@@ -11331,7 +11338,14 @@ function opEnsure(o){
     const sites = o.sites || [];
     if(!o.sitesOn){
       o.sitesOn = true;
-      o.parties.forEach(q => { if(q.kind === 'end' && !sites.includes(q.acct)){ q.kind = 'corp'; delete q.x; delete q.y; } });
+      o.parties.forEach(q => { if(q.kind === 'end' && !sites.includes(q.acct)){ q.kind = 'corp'; delete q.x; delete q.y; q.auto = true; } });
+    }
+    // v138: that box, made for a new map before v138 and never used, is taken away once
+    if(!o.autoCorpChecked){
+      o.autoCorpChecked = true;
+      o.parties = o.parties.filter(q => !(q.id === 'pe' && q.kind === 'corp' && !q.acct && q.name === (o.name || 'The customer') &&
+        !(o.people || []).some(p => p.party === q.id) && !(o.links || []).some(l => l.a === q.id || l.b === q.id) &&
+        !o.parties.some(x => (x.works || []).some(w => w.to === q.id) || x.via === q.id)));
     }
     for(const s of sites){
       const q = o.parties.find(x => x.kind === 'end' && x.acct === s);
@@ -11353,10 +11367,18 @@ function opEnsure(o){
   }
 }
 // a site is named by its place, not the group's name again (v129)
+// v138: a site is named by its account name, as in Dynamics ("SAMPLE FOODS - NORTHSIDE") - Ben, 2026-10-14
+// The side list is narrow: a site there drops the large account's own name
+// ("Sample Foods - Northside" under Sample Foods reads "Northside"); the map keeps the full name.
+function opBarName(q){
+  const n = opQName(q), g = (OPP && OPP.kind === 'large' && OPP.name || '').trim();
+  if(!q.site || !g || n.length <= g.length || n.slice(0, g.length).toLowerCase() !== g.toLowerCase()) return n;
+  const rest = n.slice(g.length).replace(/^[\s\-\u2013\u2014:,|/]+/, '');
+  return rest || n;
+}
 function opQName(q){
   if(!q.site) return q.name;
-  const a = ACC_BY_NAME.get(q.acct);
-  return (a && a.sub) || String(q.acct || '').split(' - ').slice(1).join(' - ') || q.name;
+  return q.acct || q.name;
 }
 // how the parties hang together: drawn from what each party is, never kept twice
 function opPartyLinks(o){
@@ -11689,7 +11711,7 @@ function drawOppIn(svg, live){
     if(q.kind === 'ilx') opEl('image', {href: NOTES_LOGO, x: b.x + 50, y: b.y + 9, width: 110, height: 110 * 132 / 321}, g);
     else {
       const ppl = opPeopleOf(q).length;
-      opText(g, {x: b.x + 12, y: b.y + 20, class: 'op-pname'}, opCut(opQName(q), 24));
+      opText(g, {x: b.x + 12, y: b.y + 20, class: 'op-pname'}, opCut(opQName(q), 26));   // v138: room for an account name
       const nop = q.site ? OPPS.filter(x => x.acct === q.acct).length : 0;
       opText(g, {x: b.x + 12, y: b.y + 37, class: 'op-psub'}, opCut(q.kind === 'oem' ? ((q.belts || []).length ? 'Belts: ' + q.belts.join(', ') : 'Belts not known') : q.kind === 'head' ? (q.status || 'Bidding')
         : q.kind === 'corp' ? 'Corporate' : q.kind === 'div' ? 'Division' : q.kind === 'grp' ? 'Group function' + ((q.covers || []).length ? ' · ' + q.covers.length + ((q.covers.length === 1) ? ' site' : ' sites') : '')
@@ -12042,6 +12064,7 @@ function opSuggest(side){
 }
 /* ---- the list down the side (v124): build from it, find things in it ---- */
 let opBarAdding = '', opBarOpen = false;
+const opBarExp = new Set();   // v138: boxes whose people are showing in the list
 function renderOpBar(){
   const el = $('opBar');
   if(!el || !OPP || screen !== 'opp') return;
@@ -12067,14 +12090,17 @@ function renderOpBar(){
     if(sitesHere && !qs.length) h.push('<p class="hint">Tap + to add a site.</p>');
     if(opBarAdding === K.k) h.push('<div class="opadd"><input type="text" id="opNewParty" list="opAcctList" placeholder="Name, or pick a customer" aria-label="Name of the ' + esc(K.one) + '" autocomplete="off"><button type="button" class="btn act2" id="opNewPartyGo">Add</button></div>' + opAcctList());
     for(const q of qs){
-      const sp = q.spec || '';
+      const sp = q.spec || '', tree = opTreeOrder(q);
+      // the person chosen on the map shows in the list, so their box opens
+      if(opSel && opSel.t === 'p' && tree.some(({p}) => p.id === opSel.id)) opBarExp.add(q.id);
+      const exp = opBarExp.has(q.id);
       h.push('<div class="opbar-party">' +
-        (q.kind === 'ilx' ? '' : '<button type="button" class="opspec ' + (sp || 'none') + '" data-spec="' + esc(q.id) + '" aria-label="' + esc(q.name) + ': ' + esc(OP_SPEC[sp]) + '. Tap to change." title="' + esc(OP_SPEC[sp]) + ' (tap to change)">' + {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp] + '</button>') +
-        '<button type="button" class="nm" data-pick="party:' + esc(q.id) + '" title="' + esc(q.name) + '">' + esc(opQName(q)) + ' <small>' + opPeopleOf(q).length + '</small></button>' +
-        '<button type="button" class="ib mute" data-eye="' + esc(q.id) + '" aria-label="' + (q.show === false ? 'Show' : 'Hide') + ' the people at ' + esc(q.name) + '" title="' + (q.show === false ? 'Show' : 'Hide') + ' people">' + icon(q.show === false ? 'eyeoff' : 'eye') + '</button>' +
-        '<button type="button" class="ib" data-tbl="' + esc(q.id) + '" aria-label="People at ' + esc(q.name) + '" title="Add or change people">' + icon('table') + '</button></div>');
-      const tree = opTreeOrder(q);
-      if(tree.length) h.push('<ul class="opbar-ppl">' + tree.map(({p, d}) => '<li style="padding-left:' + d * 12 + 'px"><button type="button" data-pick="p:' + esc(p.id) + '"' + (opSel && opSel.t === 'p' && opSel.id === p.id ? ' class="on"' : '') + '>' +
+        '<button type="button" class="opfold' + (exp ? ' open' : '') + '" data-fold="' + esc(q.id) + '"' + (tree.length ? '' : ' disabled') + ' aria-expanded="' + exp + '" aria-label="' + (exp ? 'Hide' : 'Show') + ' the people at ' + esc(opQName(q)) + ' in this list" title="' + (tree.length ? (exp ? 'Fold away' : 'Show the people') : 'Nobody yet') + '">' + icon('chev') + '</button>' +
+        '<button type="button" class="nm" data-pick="party:' + esc(q.id) + '" title="' + esc(opQName(q)) + '">' + esc(opBarName(q)) + ' <small>' + tree.length + '</small></button>' +
+        (q.kind === 'ilx' ? '' : '<button type="button" class="opspec ' + (sp || 'none') + '" data-spec="' + esc(q.id) + '" aria-label="' + esc(opQName(q)) + ': ' + esc(OP_SPEC[sp]) + '. Tap to change." title="' + esc(OP_SPEC[sp]) + ' (tap to change)">' + {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp] + '</button>') +
+        '<button type="button" class="ib mute" data-eye="' + esc(q.id) + '" aria-label="' + (q.show === false ? 'Show' : 'Hide') + ' the people at ' + esc(opQName(q)) + '" title="' + (q.show === false ? 'Show' : 'Hide') + ' people">' + icon(q.show === false ? 'eyeoff' : 'eye') + '</button>' +
+        '<button type="button" class="ib" data-tbl="' + esc(q.id) + '" aria-label="People at ' + esc(opQName(q)) + '" title="Add or change people">' + icon('table') + '</button></div>');
+      if(tree.length && exp) h.push('<ul class="opbar-ppl">' + tree.map(({p, d}) => '<li style="padding-left:' + d * 12 + 'px"><button type="button" data-pick="p:' + esc(p.id) + '"' + (opSel && opSel.t === 'p' && opSel.id === p.id ? ' class="on"' : '') + '>' +
         (q.kind === 'ilx' ? '' : '<span class="st ' + (p.stance || 'unknown') + '"></span>') + esc(p.n || 'Someone') + '<em>' + esc(q.kind === 'ilx' ? p.title || '' : bsRoleCode(p)) + '</em></button></li>').join('') + '</ul>');
     }
     h.push('</div>');
@@ -12129,6 +12155,7 @@ $('opBar').addEventListener('click', e => {
   if(b.dataset.desc){ osOpen('map', OPP.acct, '', ''); return; }
   if(b.dataset.addparty){ opBarAdding = opBarAdding === b.dataset.addparty ? '' : b.dataset.addparty; renderOpBar(); return; }
   if(b.dataset.addsite){ opBarAdding = opBarAdding === 'site' ? '' : 'site'; if(opBarAdding) opBarOpen = true; renderOpBar(); return; }
+  if(b.dataset.fold){ const k = b.dataset.fold; if(opBarExp.has(k)) opBarExp.delete(k); else opBarExp.add(k); renderOpBar(); return; }
   if(b.dataset.spec){ const q = opParty(b.dataset.spec); if(q){ q.spec = OP_SPEC_NEXT[q.spec || '']; oppSaveNow().catch(reportErr); drawOpp(); if(opSel && opSel.t === 'party' && opSel.id === q.id) opPanel(); } return; }
   if(b.dataset.eye){ const q = opParty(b.dataset.eye); if(q){ q.show = q.show === false; oppSaveNow().catch(reportErr); drawOpp(); } return; }
   if(b.dataset.tbl) return opTableOpen(b.dataset.tbl);
