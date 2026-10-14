@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v135">
+<meta name="build" content="v136">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -52,7 +52,7 @@
   --warn:#B2232F;           /* $error-color                          */
   --act:#00287B;            /* primary action - brand colours never  */
   /* v124: the layered map. The opportunity bright; each kind of party its own colour. */
-  --c-opp:#FFA400; --c-corp:#3E64B0; --c-grp:#52679F; --c-end:#00287B; --c-head:#00708D; --c-oem:#4D4D4F; --c-ilx:#ED1C24;
+  --c-opp:#FFA400; --c-corp:#3E64B0; --c-div:#2F7FA8; --c-grp:#52679F; --c-end:#00287B; --c-head:#00708D; --c-oem:#4D4D4F; --c-ilx:#ED1C24;
   --act-dk:#001A52;         /* carry action meaning, so not red      */
 
   /* Account focus. High reads in Intralox red; the rest step down through
@@ -1044,6 +1044,13 @@ mark.cipconfirm{background:#FFF3C4;color:inherit}
 .cipprog{margin:4px 0 10px}
 #mtBody h3,#miBody h3{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:16px 0 4px}
 #mtBody .hint,#miBody .hint{margin:0 0 6px}
+/* v136: an OEM's links on a large account, and ticking a state's sites at once */
+.opworks{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
+.opwork{border:1px solid var(--line-2);border-radius:var(--r-sm);padding:6px 10px}
+.opwork .chips{margin:4px 0}
+.opwork select,.opwork input[type=text]{margin:4px 0 2px}
+.opstates{align-items:center;margin:2px 0 10px}
+.opstates .hint{margin:0 6px 0 0}
 #miBody p.l{font-size:13px;font-weight:600;color:var(--ink-2);margin:10px 0 4px}
 .madd{width:36px;height:32px;border:1px dashed var(--edge);background:var(--surface);border-radius:var(--r-pill);color:var(--act);font-size:16px;cursor:pointer}
 .camt{font-size:11.5px;color:var(--ink-3);margin-top:4px}
@@ -2459,7 +2466,13 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Done</b>. The large account opens on its own map. Each site has its own box, with the people from its opportunities under it.</li>
         <li>If a head office or group account drives the sites, tap the circle-plus next to <b>Corporate</b> in the list beside the map, then type its name or pick it from your customer list.</li>
         <li>If the head office is at one of the sites, tap that site on the map instead, then tick <b>Head office here</b>.</li>
-        <li>For a group function such as group engineering, tap the circle-plus next to <b>Group functions</b> and type its name. Tap it, then under <b>Covers</b> tap the sites it looks after, or leave <b>All sites</b>.</li>
+        <li>To add another site, tap the circle-plus next to <b>Sites</b> in the list beside the map, pick the customer, then tap <b>Add</b>.</li>
+        <li>If group engineering sits at one of the sites, tap that site, then tick <b>Group engineering here</b>.</li>
+        <li>Under <b>Engineers for</b>, tap each site it looks after. To tick every site in a state at once, tap the state.</li>
+        <li>For a division with its own sites and engineering, tap the circle-plus next to <b>Divisions</b> and type its name.</li>
+        <li>Tap each of the division's sites, then pick the division under <b>Division</b>.</li>
+        <li>For group engineering that isn't at a site, tap the circle-plus next to <b>Group functions</b> and type its name. Tap it, then pick who it reports to under <b>Reports to</b>, and under <b>Covers</b> tap the sites it looks after.</li>
+        <li>For an OEM, tap it, then under <b>Works with</b> tick each site or engineering group it deals with. For each, tap how: <b>A person</b> (then pick who), <b>Site management</b>, <b>Group engineering</b>, <b>Procurement</b> or <b>Other</b>, and type how it works.</li>
         <li>Tap the table icon next to a site or the corporate account to add its people. Link people across sites with <b>Link to&hellip;</b>.</li>
         <li>Tap a site to open its account plan or one of its opportunities.</li>
         <li>Tap <b>Plan</b> at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.</li>
@@ -2467,7 +2480,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>On <b>Objectives</b>, tap <b>Add an objective</b>. Type its name, description, revenue, period and owner.</li>
         <li>Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap <b>Make a task</b>.</li>
         <li><b>Activities</b> lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.</li>
-        <li>On <b>Accounts</b>, check the sites. Tap <b>&times;</b> to take one out, or type a name and tap <b>Add</b>.</li>
+        <li>On <b>Accounts</b>, check the sites. Tap <b>&times;</b> to take one out, or type a name and tap <b>Add</b>. You can also take a site out from its panel on the map: tap <b>Take out of the plan</b>.</li>
         <li>On <b>SWOT</b>, add strengths, weaknesses, opportunities and threats.</li>
         <li>On <b>Success factors</b>, type up to six critical success factors.</li>
         <li><b>Team</b> shows our people on the map. Tap <b>Add or change on the map</b> to change them.</li>
@@ -2476,7 +2489,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>To send the plan, tap <b>Create and share</b>.</li>
       </ol>
       <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
-      <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, the group functions under it, the sites in rows below, and Intralox at the bottom. A site a group function covers hangs from that function. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
+      <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's <b>Works with</b> is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
       <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
     </div>
   </details>
