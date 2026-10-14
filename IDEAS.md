@@ -892,6 +892,11 @@ for now. Reviewed a clickable mock first.*
   for the Intralox box on every map and tied to it there; their manager in
   the box is who they report to; their record lists their relationships on
   every map, each rated in one tap.
+- **Built (v143):** a large account's sites fill from the Dynamics contacts
+  (assume Dynamics is right, then work on the relationships): every contact
+  joins their site, listed but hidden on the map until the eye; a cross
+  beside each name takes them off for good; new contacts from a later
+  import join; each arrives to rate under the account manager.
 - **Proposed, not built yet:** site owners (AM per site, ATL that could be
   responsible for the group, with default links to corporate and group
   engineering, above the AMs without a reporting line), contacts moved to

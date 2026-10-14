@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v142';
+const APP_BUILD = 'v143';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -11366,6 +11366,10 @@ function opEnsure(o){
     }
     // people brought in from the sites' opportunities go under their own site
     for(const p of o.people || []) if(p.siteAcct){ const q = o.parties.find(x => x.site && x.acct === p.siteAcct); if(q) p.party = q.id; delete p.siteAcct; }
+    // v143: a site leaving the plan takes its Dynamics contacts with it, unless you have worked on them
+    const untouched = p => p.crm && !p.role && (p.stance || 'unknown') === 'unknown' && !p.note && !(o.links || []).some(l => l.a === p.id || l.b === p.id);
+    const leaving = new Set(o.parties.filter(q => q.site && !sites.includes(q.acct)).map(q => q.id));
+    if(leaving.size) o.people = (o.people || []).filter(p => !(leaving.has(p.party) && untouched(p)));
     o.parties = o.parties.filter(q => !(q.site && !sites.includes(q.acct) && !(o.people || []).some(p => p.party === q.id)));
     o.parties.forEach(q => { if(q.site && !sites.includes(q.acct)) q.site = false; });
   }
@@ -11538,6 +11542,7 @@ function lapMerge(o){
     delete c.x; delete c.y; delete c.show;
     const a = at[q.id];
     if(a){ if(a.x != null){ c.x = a.x; c.y = a.y; } if(a.show === false) c.show = false; }
+    else if(q.show === false) c.show = false;          // v143: a box hidden on the plan starts hidden here
     return c;
   });
   const people = (L.people || []).filter(p => ids.has(p.party) && !ownPeople.has(p.id)).map(p => Object.assign(JSON.parse(JSON.stringify(p)), {party: LK + p.party}));
@@ -12487,7 +12492,9 @@ function renderOpBar(){
         '<button type="button" class="ib mute" data-eye="' + esc(q.id) + '" aria-label="' + (q.show === false ? 'Show' : 'Hide') + ' the people at ' + esc(opQName(q)) + '" title="' + (q.show === false ? 'Show' : 'Hide') + ' people">' + icon(q.show === false ? 'eyeoff' : 'eye') + '</button>' +
         '<button type="button" class="ib" data-tbl="' + esc(q.id) + '" aria-label="People at ' + esc(opQName(q)) + '" title="Add or change people">' + icon('table') + '</button></div>');
       if(tree.length && exp) h.push('<ul class="opbar-ppl">' + tree.map(({p, d}) => '<li style="padding-left:' + d * 12 + 'px"><button type="button" data-pick="p:' + esc(p.id) + '"' + (opSel && opSel.t === 'p' && opSel.id === p.id ? ' class="on"' : '') + '>' +
-        (q.kind === 'ilx' ? '' : '<span class="st ' + (p.stance || 'unknown') + '"></span>') + esc(p.n || 'Someone') + '<em>' + esc(q.kind === 'ilx' ? p.title || '' : bsRoleCode(p)) + '</em></button></li>').join('') + '</ul>');
+        (q.kind === 'ilx' ? '' : '<span class="st ' + (p.stance || 'unknown') + '"></span>') + esc(p.n || 'Someone') + '<em>' + esc(q.kind === 'ilx' ? p.title || '' : bsRoleCode(p)) + '</em></button>' +
+        // v143: one tap takes someone off the map
+        (q.lk ? '' : '<button type="button" class="opout" data-out="' + esc(p.id) + '" aria-label="Take ' + esc(p.n || 'them') + ' off this map" title="Take off this map">' + icon('close') + '</button>') + '</li>').join('') + '</ul>');
     }
     h.push('</div>');
   }
@@ -12541,6 +12548,16 @@ $('opBar').addEventListener('click', e => {
   if(b.dataset.desc){ osOpen('map', OPP.acct, '', ''); return; }
   if(b.dataset.addparty){ opBarAdding = opBarAdding === b.dataset.addparty ? '' : b.dataset.addparty; renderOpBar(); return; }
   if(b.dataset.addsite){ opBarAdding = opBarAdding === 'site' ? '' : 'site'; if(opBarAdding) opBarOpen = true; renderOpBar(); return; }
+  if(b.dataset.out){
+    const p = opPerson(b.dataset.out); if(!p) return;
+    const nl = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
+    if(nl && !confirm('Take ' + (p.n || 'them') + ' off this map?\n\nTheir ' + nl + (nl === 1 ? ' relationship goes' : ' relationships go') + ' with them.')) return;
+    opDropPeople([p.id]);
+    if(opSel && opSel.t === 'p' && opSel.id === p.id) opSel = null;
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+    toast((p.n || 'They') + ' taken off the map');
+    return;
+  }
   if(b.dataset.fold){ const k = b.dataset.fold; if(opBarExp.has(k)) opBarExp.delete(k); else opBarExp.add(k); renderOpBar(); return; }
   if(b.dataset.spec){ const q = opParty(b.dataset.spec); if(q){ q.spec = OP_SPEC_NEXT[q.spec || '']; oppSaveNow().catch(reportErr); drawOpp(); if(opSel && opSel.t === 'party' && opSel.id === q.id) opPanel(); } return; }
   if(b.dataset.eye){ const q = opParty(b.dataset.eye); if(q){ q.show = q.show === false; oppSaveNow().catch(reportErr); drawOpp(); } return; }
@@ -12752,6 +12769,8 @@ function opWorksWire(q, redraw){
 function opDropPeople(ids){
   const gone = new Set(ids), pins = new Set(ids.map(id => 'p:' + id));
   (OPP.people || []).filter(p => gone.has(p.id) && p.am).forEach(p => { OPP.amGone = [...new Set((OPP.amGone || []).concat([opAmKey(p.n)]))]; });   // v140
+  // v143: someone taken off a site is not brought back by the next import
+  (OPP.people || []).filter(p => gone.has(p.id)).forEach(p => { const q = opParty(p.party); if(q && q.site && !q.lk) q.crmOut = [...new Set((q.crmOut || []).concat([pKey(p.n)]))]; });
   (OPP.links || []).filter(l => gone.has(l.a) || gone.has(l.b)).forEach(l => pins.add('l:' + l.id));
   for(const p of OPP.people || []) if(!gone.has(p.id) && gone.has(p.boss)){ const b = opPerson(p.boss); p.boss = b && b.boss && !gone.has(b.boss) ? b.boss : ''; }
   OPP.people = (OPP.people || []).filter(p => !gone.has(p.id));
@@ -13535,7 +13554,8 @@ function renderOpp(){
   if(!OPP){ go('acct', true); return; }
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   if(!lap) lapRefresh(OPP);                     // v139: the large account's boxes, fresh from its plan
-  if(opAmEnsure(OPP) | staffOnMap(OPP)) oppSaveSoon();   // v140: the sites' account managers join Intralox; v142: tied to their records
+  opEnsure(OPP);
+  if(lapCrmFill(OPP) | opAmEnsure(OPP) | staffOnMap(OPP)) oppSaveSoon();   // v143: a large account's sites fill from Dynamics   // v140: the sites' account managers join Intralox; v142: tied to their records
   $('title').textContent = OPP.name || (lap ? 'Large account' : 'Opportunity');
   $('subtitle').textContent = lap ? ns + (ns === 1 ? ' site' : ' sites') : OPP.acct;
   $('opView').querySelector('[data-v="sheet"]').textContent = lap ? 'Plan' : 'Blue Sheet';
@@ -14471,6 +14491,31 @@ function lapShowPlan(){
   if(opSaveTimer) oppSaveNow().catch(reportErr);
   LAP = OPP;
   go('lap', true);
+}
+/* v143 - Ben, 2026-10-14: "assume Dynamics is correct to begin with": each
+   site on a large account's map starts with every contact the CRM export has
+   for it, and takes new ones from later imports. They are listed beside the
+   map, hidden on the map itself until the site's eye is tapped (a big site
+   would bury it). One tap on the cross beside a name takes them off; they are
+   remembered (crmOut, by name) so the next import does not bring them back.
+   The account manager's default cover (v140) means each arrives to rate. */
+function lapCrmFill(o){
+  if(!o || o.kind !== 'large' || !Array.isArray(o.parties)) return false;
+  let changed = false;
+  for(const q of o.parties){
+    if(!q.site || q.lk) continue;
+    const a = ACC_BY_NAME.get(q.acct); if(!a) continue;
+    const out = new Set(q.crmOut || []), had = (o.people || []).some(p => p.party === q.id);
+    const here = new Set((o.people || []).filter(p => p.party === q.id).map(p => pKey(p.n)));
+    const cids = new Set((o.people || []).map(p => p.cid).filter(Boolean));
+    const add = (a.c || []).filter(c => c.n && !out.has(pKey(c.n)) && !here.has(pKey(c.n)) && !(c.id && cids.has(c.id)));
+    if(!add.length){ if(!q.crmFilled){ q.crmFilled = true; changed = true; } continue; }
+    o.people = (o.people || []).concat(add.map(c => ({id: newId('pp'), party: q.id, side: 'cust', n: c.n, title: c.t || c.r || '', cid: c.id || '', crm: true,
+      role: '', role2: '', stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: ''})));
+    if(!q.crmFilled){ q.crmFilled = true; if(!had) q.show = false; }      // a site filled for the first time: listed, not drawn
+    changed = true;
+  }
+  return changed;
 }
 function lapMapSeed(L){
   if(Array.isArray(L.people)) return false;
