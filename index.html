@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v143">
+<meta name="build" content="v144">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -871,6 +871,15 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .opitems.good li{border-left-color:var(--ok)}
 /* v140: someone's relationships, by box, each strength one tap away */
 .oprelg{margin:0 0 8px}
+/* v144: changes for Dynamics */
+.cagl>summary{cursor:pointer;font-weight:700;padding:8px 0;min-height:40px}
+.cagg{margin:6px 0 10px}
+.ownrow{align-items:center;gap:8px}
+.ownrow>span{flex:1;min-width:0}
+.ownpick select{flex:1;min-width:0}
+.ownpick input{flex:1;min-width:0}
+.cagg>b{display:block;font-size:13px;margin:0 0 6px}
+.tag.moved{background:var(--sunk);color:var(--ink-2)}
 /* v142: Intralox people */
 .sfpos{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:var(--sunk);color:var(--ink-2);font-size:12px;font-weight:700;vertical-align:1px}
 .sfh{margin:14px 0 8px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
@@ -1817,12 +1826,16 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint adminonly">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
   </div>
   <!-- v125: people added on Blue Sheet maps, kept through CRM imports until Dynamics has them -->
+  <!-- v144: with moved contacts, changed details and account owners: one list for CAG -->
   <div class="fld">
-    <label>Contacts not in Dynamics yet</label>
-    <p class="stat" id="pplStat">Every contact here is in Dynamics.</p>
-    <button class="ghost" id="pplShare" hidden>Share the list</button>
-    <p class="hint">People added to a Blue Sheet under one of your customers join that customer's contacts here. Share the list to enter them into Dynamics; each one drops off by itself once a CRM import brings them in.</p>
+    <label>Changes for Dynamics</label>
+    <p class="stat" id="pplStat">Nothing waiting: Dynamics has everything changed here.</p>
+    <label class="chk" id="cagAllW" hidden><input type="checkbox" id="cagAll"> Include ones already sent</label>
+    <button class="ghost" id="pplShare" hidden>Download for CAG</button>
+    <details class="cagl" id="cagList" hidden></details>
+    <p class="hint">New contacts added on maps, contacts who moved, changed titles, emails and mobiles, and account owners changed here. Download the list for CAG, then mark it sent. Each change drops off by itself once a CRM import shows Dynamics has it.</p>
   </div>
+
   <div class="fld">
     <label>Plant audit register</label>
     <p class="stat" id="assetStat">No register loaded.</p>
@@ -2413,13 +2426,7 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>People met on a Blue Sheet</b><span class="sxs">New contacts, what was known about them, and how it ended</span></summary>
     <div class="fld help">
       <p>Anyone you add to a map under one of your customers joins that customer's contacts, marked <b>Not in Dynamics yet</b>. The team sees them too. They stay through every CRM import until Dynamics has the same name at that customer, then the mark goes by itself.</p>
-      <p>To put them into Dynamics:</p>
-      <ol>
-        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
-        <li>Open <b>CRM and belt data</b>.</li>
-        <li>Under <b>Contacts not in Dynamics yet</b>, tap <b>Share the list</b>.</li>
-        <li>Open the spreadsheet and enter each person into Dynamics.</li>
-      </ol>
+      <p>They go to CAG with the other changes: see <b>Owners, moved contacts and changes for Dynamics</b>.</p>
       <p>When you type a name into a party's table and that person is on another Blue Sheet at the same company, their part and whether they helped us are filled in from the latest one. These boxes are dashed: they are estimates. Change one and it is yours; leave it and it stays marked. On the map, tap the person to see the estimate and their other Blue Sheets. Choosing their part or stance there confirms it.</p>
       <p>To record how an opportunity ended:</p>
       <ol>
@@ -2555,6 +2562,35 @@ details.bsx > .msg{margin:8px 12px}
         <li>To switch off the account manager's default links for a site, tap the site, then untick <b>covers everyone here</b>.</li>
       </ol>
       <p>Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked <b>not rated yet</b> in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated <b>Unknown</b> stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Owners, moved contacts and changes for Dynamics</b><span class="sxs">Keeping Dynamics up to date through CAG</span></summary>
+    <div class="fld help">
+      <p>To change a site's account manager:</p>
+      <ol>
+        <li>On a large account's map, or an opportunity's map, tap the site's box.</li>
+        <li>Under <b>Account manager</b>, tap <b>Change</b>.</li>
+        <li>Pick who it is now, or pick <b>Someone else…</b> and type their name.</li>
+        <li>Tap <b>Apply</b>.</li>
+      </ol>
+      <p>To change every site of a large account at once, tap the map's background so nothing is selected, then under <b>Owners</b> tap <b>Change every site</b>. To set the account team leader, tap <b>Change</b> under <b>Account team leader</b> there. The ATL joins the Intralox box at the top, with a default link to everyone at corporate, the head office and group engineering; untick it on any of those boxes to switch it off.</p>
+      <p>When a contact moves, or their details change:</p>
+      <ol>
+        <li>Tap them on a map, then tap <b>Moved or details changed</b>. In the Directory, search for them and tap <b>Change</b>.</li>
+        <li>Correct their job title, email or mobile.</li>
+        <li>If they work somewhere else now, type the account under <b>Moved to another account</b> and pick it from the list.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>On a large account's map, someone who moved to another of its sites moves to that site's box; someone who moved elsewhere comes off the map. The contact list shows them at their new account, and as moved at the old one, until Dynamics has it.</p>
+      <p>To send the changes to CAG:</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
+        <li>Open <b>CRM and belt data</b>.</li>
+        <li>Under <b>Changes for Dynamics</b>, tap <b>Download for CAG</b> and send the spreadsheet to CAG.</li>
+        <li>When asked, tap <b>OK</b> to mark them as sent.</li>
+      </ol>
+      <p>The spreadsheet has a sheet each for new contacts, moved contacts, changed details and account owners, with Dynamics' contact ID where there is one. Next time, only changes not sent yet are included; tick <b>Include ones already sent</b> to send them all again. Tap <b>Show them</b> to see each change and whether it is sent or done. A change is done once a CRM import shows Dynamics has it, and drops off 30 days later. A team member's account manager changes go through the team's admin.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3294,6 +3330,22 @@ details.bsx > .msg{margin:8px 12px}
     <div class="f"><label>Reason</label><div class="chips" id="snReason"></div>
       <input type="text" id="snOther" autocomplete="off" placeholder="Type the reason" hidden></div>
     <div class="f"><label for="snText">Text</label><textarea id="snText" data-talk="note" rows="8" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
+  </div>
+</dialog>
+
+<!-- A contact who moved, or whose details changed (v144): goes on the list for CAG -->
+<dialog id="ctdlg">
+  <div class="dlg-h tkh">
+    <b id="ctHead">Contact</b>
+    <button type="button" class="btn go" id="ctOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <p class="hint" id="ctAt"></p>
+    <div class="f"><label for="ctT">Job title</label><input type="text" id="ctT" autocomplete="off"></div>
+    <div class="f"><label for="ctE">Email</label><input type="email" id="ctE" autocomplete="off"></div>
+    <div class="f"><label for="ctP">Mobile</label><input type="tel" id="ctP" autocomplete="off"></div>
+    <div class="f"><label for="ctTo">Moved to another account</label><input type="text" id="ctTo" list="ctAccts" autocomplete="off" placeholder="Pick the account they are at now"><datalist id="ctAccts"></datalist></div>
+    <p class="hint">Changes go on the list for CAG under Changes for Dynamics in Settings, and show on the contact list here until Dynamics has them.</p>
   </div>
 </dialog>
 

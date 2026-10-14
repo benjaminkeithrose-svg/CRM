@@ -67,7 +67,7 @@ const ben = g(`STAFF.find(s => s.n === 'Ben Example')`);
 ok(ben && ben.pos === 'AM' && ben.boss === ita && ben.e === 'ben@example.org' && ben.kind === 'staff', 'saved with position, manager and email');
 const stored = await g(`peopleAll()`);
 ok(stored.filter(r => r.kind === 'staff').length === 2, 'kept in the shared people store, as staff');
-ok(g(`PEOPLE.length`) === 0 && /Every contact here is in Dynamics/.test((renderPeopleStat(), $('pplStat').textContent)), 'not counted as contacts missing from Dynamics');
+ok(g(`PEOPLE.length`) === 0 && /Nothing waiting/.test((renderPeopleStat(), $('pplStat').textContent)), 'not counted as contacts missing from Dynamics');
 function renderPeopleStat(){ g(`renderPeopleStat()`); }
 ok(/Ben Example/.test($('sfRes').textContent) && /reports to Ita Leader/.test($('sfRes').textContent) && $('sfRes').querySelectorAll('.sfpos').length === 2, 'listed with position and manager');
 

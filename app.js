@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v143';
+const APP_BUILD = 'v144';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1377,7 +1377,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -5062,7 +5062,8 @@ async function loadLists(){
   try { if(!cipTimer) await cipLoad(); } catch(e){ console.error('cip', e); }
   try {
     const all = await peopleAll();
-    PEOPLE = all.filter(r => r.kind !== 'staff'); STAFF = all.filter(r => r.kind === 'staff');   // v142: Intralox people share the store
+    PEOPLE = all.filter(r => !r.kind); STAFF = all.filter(r => r.kind === 'staff');   // v142: Intralox people share the store
+    CHG = all.filter(r => r.kind === 'chg');                                           // v144: and changes for Dynamics
     peopleMerge();
   } catch(e){ console.error('people', e); }
 }
@@ -6763,7 +6764,7 @@ function renderPeople(q, el, hint, before){
       const c = p.c, email = (c.e && c.e[0]) || '';
       P.push('<div class="pcard '+FOC_CLS[p.a.foc]+'">'+
         '<div class="pn">'+esc(c.n)+'</div>'+
-        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : '')+'</div>'+
+        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.moved ? ' <span class="tag moved">Moved to '+esc(c.moved)+'</span>' : c.movedFrom ? ' <span class="tag nodyn">Moved from '+esc(c.movedFrom)+', not in Dynamics yet</span>' : c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : c.changed ? ' <span class="tag nodyn">Changed, not in Dynamics yet</span>' : '')+'</div>'+
         '<div class="pa">'+esc(p.a.a)+(p.a.sub ? ' \u00b7 '+esc(p.a.sub) : '')+'</div>'+
         '<div class="pl">'+
           (c.p ? '<a href="tel:'+esc(c.p.replace(/\s/g,''))+'">Call '+esc(c.p)+'</a>'
@@ -6771,6 +6772,7 @@ function renderPeople(q, el, hint, before){
           (email ? '<a href="mailto:'+esc(email)+'">Email</a>'
                  : '<span class="missing">No email</span>')+
           '<button data-peacct="'+esc(p.a.a)+'">Account</button>'+
+          '<button data-pechg="'+esc(p.a.a)+'" data-pen="'+esc(c.n)+'">Change</button>'+     // v144
         '</div></div>');
     });
     if(folk.length > 40) P.push('<p class="hint">'+(folk.length-40)+' more \u2014 narrow the search</p>');
@@ -6792,6 +6794,8 @@ function renderPeople(q, el, hint, before){
   el.innerHTML = P.join('') || '<p class="empty">Nothing matches that.</p>';
   el.querySelectorAll('[data-peacct]').forEach(b =>
     b.addEventListener('click', ()=>{ if(before) before(); openAccount(b.dataset.peacct); }));
+  el.querySelectorAll('[data-pechg]').forEach(b =>
+    b.addEventListener('click', ()=>{ if(before) before(); openContactChange({acct: b.dataset.pechg, n: b.dataset.pen}); }));
 }
 $('peSearch').innerHTML = icon('search');
 $('peSearch').addEventListener('click', () => {
@@ -11864,12 +11868,12 @@ function drawOppIn(svg, live){
     const cx = mx - dy / len * 28, cy = my + dx / len * 28;
     const st = opStrStyle(l.implied ? 'Unknown' : l.str);
     const g = opEl('g', {class: 'op-edge' + (chosen ? ' sel' : '') + (bright ? '' : selP ? ' op-ghost' : ' op-faint'), tabindex: '0', role: 'button',
-      'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + (l.implied ? 'account manager, not rated yet' : String(l.str).toLowerCase())}, svg);
+      'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + (l.implied ? (l.by === 'atl' ? 'account team leader' : 'account manager') + ', not rated yet' : String(l.str).toLowerCase())}, svg);
     const d = 'M' + p1.x + ',' + p1.y + ' Q' + cx + ',' + cy + ' ' + p2.x + ',' + p2.y;
     opEl('path', {d, class: 'hit'}, g);
     const v = opEl('path', {d, class: 'vis', fill: 'none', stroke: st.c, 'stroke-width': st.w, 'stroke-dasharray': st.d, 'stroke-linecap': 'round'}, g);
     if(l.kind !== 'Our coverage') v.setAttribute('marker-end', 'url(#opar-' + (l.str === 'Hostile' ? 'warn' : l.str === 'Strong' ? 'act' : 'ink') + ')');
-    if(bright) opText(g, {x: (mx + cx) / 2, y: (my + cy) / 2 - 4, 'text-anchor': 'middle', class: 'op-elbl'}, l.implied ? 'Account manager' : l.kind);
+    if(bright) opText(g, {x: (mx + cx) / 2, y: (my + cy) / 2 - 4, 'text-anchor': 'middle', class: 'op-elbl'}, l.implied ? (l.by === 'atl' ? 'Account team leader' : 'Account manager') : l.kind);
     if(bright && opPinned('l:' + l.id)) opFlag(g, (mx + cx) / 2 - 8, (my + cy) / 2 + 2);
     if(live){
       g.addEventListener('pointerdown', e => e.stopPropagation());
@@ -12112,7 +12116,7 @@ function opPanel(){
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   P.innerHTML = (lap
     ? '<h2>Large account</h2><div class="opsum"><b>' + esc(OPP.name || 'Large account') + '</b><div class="meta">' + esc(ns + (ns === 1 ? ' site: ' : ' sites: ') + (OPP.sites || []).join(', ')) + '</div>' +
-      (OPP.vision ? '<div>' + esc(OPP.vision) + '</div>' : '') + '<button type="button" class="btn act2" id="opToPlan">Open the plan</button></div>'
+      (OPP.vision ? '<div>' + esc(OPP.vision) + '</div>' : '') + '<button type="button" class="btn act2" id="opToPlan">Open the plan</button></div>' + lapOwnersHTML()
     : '<h2>Opportunity</h2><div class="opsum"><b>' + esc(OPP.name || 'Untitled') + '</b>' +
       (OPP.obj ? '<div>' + esc(OPP.obj) + '</div>' : '<div class="meta">No objective yet. Tap Details to add one.</div>') +
       ([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).length ? '<div class="meta">' + esc([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div>' +
@@ -12141,7 +12145,7 @@ function opPanel(){
     OPP[key] = (OPP[key] || []).concat([{id: newId('fl'), t, pin: $(pin).value}]);
     oppSaveNow().catch(reportErr); drawOpp(); opPanel();
   };
-  if(lap) $('opToPlan').addEventListener('click', () => lapShowPlan());
+  if(lap){ $('opToPlan').addEventListener('click', () => lapShowPlan()); lapOwnersWire(); }
   else {
     lapPanelWire();
     opWireChips('vsComp', v => { OPP.vsComp = v; });
@@ -12223,6 +12227,12 @@ function opAmEnsure(o){
   const ilx = o.parties.find(q => q.kind === 'ilx'); if(!ilx) return false;
   const gone = new Set(o.amGone || []);
   let added = false;
+  // v144: a large account's ATL, first in the box (above the account managers, not their manager)
+  if(o.kind === 'large' && o.atl && !gone.has(opAmKey(o.atl)) && !(o.people || []).some(p => p.side === 'us' && opAmKey(p.n) === opAmKey(o.atl))){
+    const st = STAFF.find(x => pKey(x.n) === pKey(o.atl));
+    o.people = [Object.assign({id: newId('pp'), party: ilx.id, side: 'us', n: o.atl, title: 'Account team leader', atl: true, mode: '', rate: 0, note: '', win: '', result: '', evid: ''}, st ? {sid: st.id} : {})].concat(o.people || []);
+    added = true;
+  }
   for(const q of o.parties){
     if(q.amOff || q.lk) continue;
     const m = opAmOf(o, q);
@@ -12234,6 +12244,81 @@ function opAmEnsure(o){
   }
   return added;
 }
+/* ---- owners (v144) ----
+   Ben, 2026-10-14: Dynamics' owners go stale. A site's account manager can
+   be changed from its box on any map, or every site of a large account at
+   once; it is the same reassignment as the planner's (MGR_OF), so it holds
+   across the app, and it goes on the list for CAG. The account team leader
+   (ATL) could be responsible for the group: one per large account plan (atl),
+   in the Intralox box above the account managers (no reporting line), with a
+   default link to everyone at corporate, the head office and group
+   engineering (sites marked Group engineering here, and group functions).
+   Each box can switch it off (atlOff). */
+const ownerNames = () => [...new Set(allManagers().concat(STAFF.filter(s => s.pos === 'AM' || s.pos === 'ATL').map(s => s.n)))].sort();
+function ownerPickHTML(id, cur, names){
+  return '<div class="opadd ownpick" id="' + id + '"><select aria-label="Pick who">' + names.map(n => '<option value="' + esc(n) + '"' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>').join('') +
+    '<option value="__new__">Someone else…</option></select><input type="text" placeholder="Their name" aria-label="Their name" hidden><button type="button" class="btn act2">Apply</button></div>';
+}
+function ownerPickWire(id, apply){
+  const el = $(id); if(!el) return;
+  const sel = el.querySelector('select'), inp = el.querySelector('input');
+  sel.addEventListener('change', () => { inp.hidden = sel.value !== '__new__'; if(!inp.hidden) setTimeout(() => { try { inp.focus(); } catch(_){} }, 30); });
+  el.querySelector('button').addEventListener('click', () => {
+    const v = sel.value === '__new__' ? inp.value.trim() : sel.value;
+    if(!v){ toast('Type their name, or pick one'); return; }
+    apply(v);
+  });
+}
+async function ownerSet(names, to){
+  if(isMember()){ toast(teamName(TEAM.admin) + ' looks after manager changes for the team'); return false; }
+  const accts = names.map(n => ACC_BY_NAME.get(n)).filter(Boolean);
+  accts.forEach(a => { if(a.mgr === to) delete MGR_OF[a.a]; else MGR_OF[a.a] = to; delete a._hay; });
+  await saveMgrOf();
+  toast(accts.length === 1 ? accts[0].a + ': ' + to + ' is the account manager' : to + ' is the account manager of ' + accts.length + ' sites');
+  return true;
+}
+async function atlSet(L, to){
+  const from = L.atl || '';
+  if(to === from) return;
+  L.atl = to;
+  // one change for CAG per plan until it is sent; back to where it started, it is no change at all
+  const open = CHG.find(r => r.type === 'atl' && r.plan === L.id && !r.sent && !r.done);
+  if(open && (open.from || '') === to){ await peopleDel(open.id); CHG = CHG.filter(r => r !== open); }
+  else await chgSave(Object.assign(open || {id: newId('cg'), kind: 'chg', type: 'atl', plan: L.id, from}, {acct: L.name || 'Large account', sites: (L.sites || []).slice(), to}));
+  toast(to ? to + ' is the account team leader' : 'No account team leader');
+}
+// the large account's owners, in its panel
+function lapOwnersHTML(){
+  const L = OPP, sites = (L.sites || []).map(n => ACC_BY_NAME.get(n)).filter(Boolean);
+  const by = {}; sites.forEach(a => { const m = effMgr(a) || 'Nobody'; by[m] = (by[m] || 0) + 1; });
+  return '<h2>Owners</h2>' +
+    '<label class="l">Account team leader</label><div class="orow ownrow"><span>' + esc(L.atl || 'Nobody yet') + '</span><button type="button" class="btn act2" id="opAtlCh">Change</button></div>' +
+    '<div id="opAtlPickW" hidden>' + ownerPickHTML('opAtlPick', L.atl || '', [...new Set(STAFF.filter(s => s.pos === 'ATL').map(s => s.n).concat(ownerNames()))]) + '</div>' +
+    '<label class="l">Account managers</label><div class="orow ownrow"><span>' + esc(Object.entries(by).map(([m, n]) => m + ' (' + n + (n === 1 ? ' site)' : ' sites)')).join(', ') || 'No sites yet') + '</span>' +
+      (sites.length ? '<button type="button" class="btn act2" id="opAmAll">Change every site</button>' : '') + '</div>' +
+    '<div id="opAmAllW" hidden>' + ownerPickHTML('opAmAllPick', '', ownerNames()) + '</div>';
+}
+function lapOwnersWire(){
+  if($('opAtlCh')) $('opAtlCh').addEventListener('click', () => { $('opAtlPickW').hidden = !$('opAtlPickW').hidden; });
+  if($('opAmAll')) $('opAmAll').addEventListener('click', () => { $('opAmAllW').hidden = !$('opAmAllW').hidden; });
+  ownerPickWire('opAtlPick', v => { atlSet(OPP, v).then(() => { opAmEnsure(OPP); oppSaveNow().catch(reportErr); drawOpp(); opPanel(); }).catch(reportErr); });
+  ownerPickWire('opAmAllPick', v => {
+    if(!confirm('Make ' + v + ' the account manager of every site in ' + (OPP.name || 'this large account') + '?\n\n' + (OPP.sites || []).join('\n'))) return;
+    ownerSet(OPP.sites || [], v).then(ok => { if(ok){ opAmEnsure(OPP); oppSaveNow().catch(reportErr); drawOpp(); opPanel(); } }).catch(reportErr);
+  });
+}
+// one site's account manager, in its box's panel
+function siteOwnerHTML(q){
+  const n = opSiteAcct(OPP, q), a = n && ACC_BY_NAME.get(n);
+  if(!a || q.lk) return '';
+  return '<label class="l">Account manager</label><div class="orow ownrow"><span>' + esc(effMgr(a) || 'Nobody') + (isMoved(a) ? ' <span class="tag moved">changed here, was ' + esc(a.mgr || 'nobody') + '</span>' : '') + '</span>' +
+    '<button type="button" class="btn act2" id="opOwnCh">Change</button></div><div id="opOwnPickW" hidden>' + ownerPickHTML('opOwnPick', effMgr(a) || '', ownerNames()) + '</div>';
+}
+function siteOwnerWire(q){
+  if($('opOwnCh')) $('opOwnCh').addEventListener('click', () => { $('opOwnPickW').hidden = !$('opOwnPickW').hidden; });
+  ownerPickWire('opOwnPick', v => { ownerSet([opSiteAcct(OPP, q)], v).then(ok => { if(ok){ opAmEnsure(OPP); oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); } }).catch(reportErr); });
+}
+const atlCovers = q => q.kind === 'corp' || q.kind === 'grp' || (q.site && (q.hq || q.eng));
 function opImplied(o){
   const out = [];
   if(!o || !Array.isArray(o.parties)) return out;
@@ -12244,7 +12329,17 @@ function opImplied(o){
     const am = us.find(p => opAmKey(p.n) === opAmKey(m)); if(!am) continue;
     (o.people || []).filter(p => p.party === q.id).forEach(p => {
       if((o.links || []).some(l => (l.a === am.id && l.b === p.id) || (l.a === p.id && l.b === am.id))) return;
-      out.push({id: 'im:' + am.id + ':' + p.id, a: am.id, b: p.id, kind: 'Our coverage', str: '', note: '', implied: true});
+      out.push({id: 'im:' + am.id + ':' + p.id, a: am.id, b: p.id, kind: 'Our coverage', str: '', note: '', implied: true, by: 'am'});
+    });
+  }
+  // v144: the account team leader, over corporate, the head office and group engineering
+  const atl = o.kind === 'large' && o.atl && us.find(p => opAmKey(p.n) === opAmKey(o.atl));
+  if(atl) for(const q of o.parties){
+    if(q.atlOff || q.lk || !atlCovers(q)) continue;
+    (o.people || []).filter(p => p.party === q.id && p.side !== 'us').forEach(p => {
+      const id = 'im:' + atl.id + ':' + p.id;
+      if(out.some(l => l.id === id) || (o.links || []).some(l => (l.a === atl.id && l.b === p.id) || (l.a === p.id && l.b === atl.id))) return;
+      out.push({id, a: atl.id, b: p.id, kind: 'Our coverage', str: '', note: '', implied: true, by: 'atl'});
     });
   }
   return out;
@@ -12277,7 +12372,7 @@ function opRelsHTML(p){
   return (todo ? '<p class="oprtodo">' + todo + ' to rate</p>' : '') + list.map(([key, G]) => '<details class="oprelg" data-g="' + esc(key) + '"' +
     (one || opRelOpen.has(key) || (G.todo && !opRelShut.has(key)) ? ' open' : '') + '><summary>' + esc(G.name) + ' <small>' + G.rows.length + (G.todo ? ', ' + G.todo + ' to rate' : '') + '</small></summary><ul class="opitems good oprels">' +
     G.rows.map(({l, o, op}) => '<li><span><button type="button" class="lnkbtn" data-rl="' + esc(l.id) + '">' + esc(op ? op.n || 'Someone' : opName(o)) + '</button>' +
-      '<span class="pin">' + esc((l.a === p.id ? l.kind : OP_THEM[l.kind] || l.kind) + (l.implied ? ' · account manager, not rated yet' : l.str === 'Unknown' ? ' · strength unknown' : '')) + '</span>' +
+      '<span class="pin">' + esc((l.a === p.id ? l.kind : OP_THEM[l.kind] || l.kind) + (l.implied ? ' · ' + (l.by === 'atl' ? 'account team leader' : 'account manager') + ', not rated yet' : l.str === 'Unknown' ? ' · strength unknown' : '')) + '</span>' +
       '<span class="seg oprs" role="group" aria-label="Strength">' + OP_STRS.map(v => '<button type="button" data-rs="' + esc(l.id) + '" data-v="' + v + '"' + (l.str === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</span></span></li>').join('') +
     '</ul></details>').join('');
 }
@@ -12307,6 +12402,8 @@ function opPersonPanel(p){
   P.innerHTML = '<h2>' + esc(opQName(q) || 'Person') + '</h2>' +
     (q.lk ? '<p class="hint">On the large account plan: a change here shows there too.</p>' : '') +
     // v142: one of the Intralox people, or not yet
+    // v144: a customer's person who moved, or whose details changed
+    (!ours && opPartyAcct(OPP, q) ? '<div class="orow"><button type="button" class="btn act2" id="opCtChg">Moved or details changed</button></div>' : '') +
     (ours ? '<div class="orow"><button type="button" class="btn act2" id="opStaff">' + (st ? 'Their Intralox record' + (st.pos ? ' (' + esc(st.pos) + ')' : '') : 'Add to Intralox people') + '</button></div>' : '') +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
     '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
@@ -12345,6 +12442,19 @@ function opPersonPanel(p){
     P.querySelector('details.opmore').addEventListener('toggle', e => { opMoreOpen = e.target.open; });
   }
   $('opDone').addEventListener('click', () => opSelect(null));
+  if($('opCtChg')) $('opCtChg').addEventListener('click', () => {
+    if(opSaveTimer) oppSaveNow().catch(reportErr);
+    openContactChange({acct: opPartyAcct(OPP, q), n: p.n, cid: p.cid, t: p.title}, res => {
+      if(!OPP || !opPerson(p.id)) return;
+      if(res.now.t && res.now.t !== p.title) p.title = res.now.t;
+      if(res.to && OPP.kind === 'large'){
+        const site = OPP.parties.find(x => x.site && !x.lk && x.acct === res.to);
+        if(site){ p.party = site.id; p.boss = ''; toast(p.n + ' moved to ' + opQName(site) + ' on this map'); }
+        else if(!q.lk){ opDropPeople([p.id]); opSel = null; toast(p.n + ' taken off this map: ' + res.to + ' is not one of its sites'); }
+      }
+      oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+    });
+  });
   if($('opStaff')) $('opStaff').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); if(st) openStaff(st.id); else openStaff(null, {n: p.n || ''}); });
   $('opLink').addEventListener('click', () => {
     opLinkFrom = p.id; $('opHint').hidden = false;
@@ -12364,7 +12474,8 @@ function opLinkPanel(l){
   // v140: the account manager's cover, not rated yet: a strength makes it a real link
   if(l.implied){
     const pb = opPerson(l.b), site = pb && opParty(pb.party);
-    P.innerHTML = backBtn + '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b><div class="meta">Account manager for ' + esc(site ? opQName(site) : 'this site') +
+    P.innerHTML = backBtn + '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b><div class="meta">' +
+      (l.by === 'atl' ? 'Account team leader for ' + esc(OPP.name || 'the large account') : 'Account manager for ' + esc(site ? opQName(site) : 'this site')) +
       ', so this is there by default. It is not counted on the Blue Sheet until you rate it. To switch it off for everyone at the site, tap the site.</div></div>' +
       '<label class="l">How strong is it?</label><div class="seg" id="opSg">' + OP_STRS.map(v => '<button type="button" data-v="' + v + '">' + v + '</button>').join('') + '</div>' +
       '<div class="orow"><button type="button" class="btn" id="opDone">Done</button></div>';
@@ -12401,7 +12512,7 @@ function opSuggest(side){
     const lap = OPP.kind === 'large', out = [];
     for(const name of lap ? OPP.sites || [] : [OPP.acct]){
       const a = ACC_BY_NAME.get(name);
-      (a ? a.c || [] : []).filter(c => c.n).forEach(c => out.push({n: c.n, title: [c.t || c.r || '', lap ? a.sub || name : ''].filter(Boolean).join(', '), cid: c.id || ''}));
+      (a ? a.c || [] : []).filter(c => c.n && !c.moved).forEach(c => out.push({n: c.n, title: [c.t || c.r || '', lap ? a.sub || name : ''].filter(Boolean).join(', '), cid: c.id || ''}));
     }
     return out;
   }
@@ -12608,6 +12719,8 @@ function opPartyPanel(q){
     '<label class="l" for="opQn">Name</label><input type="text" id="opQn" list="opAcctList" value="' + esc(q.name) + '"' + (q.kind === 'ilx' || q.site ? ' readonly' : '') + '>' + opAcctList() +
     (q.site ? '<p class="hint">One of this large account\'s sites. Its contacts are offered for its people. Add more with + beside Sites in the list.</p>'
       : q.acct ? '<p class="hint">From the customer list: its contacts are offered for its people.</p>' : '') +
+    siteOwnerHTML(q) +                                 // v144
+    (OPP.kind === 'large' && OPP.atl && atlCovers(q) && !q.lk ? '<label class="chk"><input type="checkbox" id="opQatl"' + (q.atlOff ? '' : ' checked') + '> ' + esc(OPP.atl) + ', the account team leader, covers everyone here</label>' : '') +
     // v140: the account manager covers everyone here, unless switched off for this site
     (opAmOf(OPP, q) ? '<label class="chk"><input type="checkbox" id="opQam"' + (q.amOff ? '' : ' checked') + '> ' + esc(opAmOf(OPP, q)) + ', the account manager, covers everyone here</label>' +
       '<p class="hint">Shown when you tap them or someone here. It counts on the Blue Sheet once you rate it.</p>' : '') +
@@ -12644,6 +12757,8 @@ function opPartyPanel(q){
       ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
       '<div class="orow"><button type="button" class="btn warnb" id="opQrmY">Remove</button><button type="button" class="btn" id="opQrmN">Cancel</button></div></div>' : '');
   const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); };
+  siteOwnerWire(q);
+  if($('opQatl')) $('opQatl').addEventListener('change', e => { if(e.target.checked) delete q.atlOff; else q.atlOff = true; redraw(); });
   if($('opQam')) $('opQam').addEventListener('change', e => { if(e.target.checked) delete q.amOff; else q.amOff = true; if(e.target.checked && opAmEnsure(OPP)) toast(opAmOf(OPP, q) + ' added to Intralox'); redraw(); });
   $('opQn').addEventListener('input', e => { if(q.kind === 'ilx') return; q.name = e.target.value; q.acct = ACC_BY_NAME.has(q.name.trim()) ? q.name.trim() : ''; drawOpp(); oppSaveSoon(); });
   if($('opQspec')) $('opQspec').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q.spec = q.spec === b.dataset.v ? '' : b.dataset.v; redraw(); }));
@@ -12798,7 +12913,7 @@ function opPartySuggest(q){
   if(q.kind === 'ilx') return opSuggest('us');
   const accts = q.acct ? [q.acct] : q.kind === 'end' || ((q.kind === 'corp' || q.kind === 'grp') && OPP.kind === 'large') ? (OPP.kind === 'large' ? OPP.sites || [] : [OPP.acct]) : [];
   const out = [];
-  accts.forEach(n => { const a = ACC_BY_NAME.get(n); (a ? a.c || [] : []).filter(c => c.n).forEach(c => out.push({n: c.n, title: c.t || c.r || '', cid: c.id || ''})); });
+  accts.forEach(n => { const a = ACC_BY_NAME.get(n); (a ? a.c || [] : []).filter(c => c.n && !c.moved).forEach(c => out.push({n: c.n, title: c.t || c.r || '', cid: c.id || ''})); });
   if(q.kind === 'head' || q.kind === 'oem') opSuggest('oem').forEach(x => { if(!out.some(y => y.n === x.n)) out.push(x); });
   return out;
 }
@@ -12954,6 +13069,7 @@ function peopleMerge(){
     a.c.push({n: r.n, t: r.t || '', r: '', p: r.p || '', e: r.e ? [r.e] : [], added: true, pid: r.id});
     delete a._hay;                                // contact names are searchable
   }
+  chgApply();                                     // v144: moved contacts and changed details, until Dynamics has them
   if(gone.length && !peopleMerge.busy){
     peopleMerge.busy = true;
     (async () => { for(const r of gone) await peopleDel(r.id); PEOPLE = PEOPLE.filter(x => !gone.includes(x)); })()
@@ -13002,26 +13118,206 @@ function opHistLine(h){
     ([bsRoles(h.p).join(' and ').toLowerCase(), h.p.stance && h.p.stance !== 'unknown' ? OP_STANCE[h.p.stance].toLowerCase() : '', h.p.mode ? 'sees it as ' + h.p.mode.toLowerCase() : ''].filter(Boolean).join(', ') || 'nothing recorded');
 }
 
-/* ---- Settings: the people added here, to enter into Dynamics ---- */
+/* ---- Settings: Changes for Dynamics (v144) ----
+   Ben, 2026-10-14: Dynamics is slow to keep up, so changes found in the field
+   go to CAG, who update it. Four kinds: contacts added in the app (store
+   'people', v125), contacts who moved to another account and contacts whose
+   title, email or mobile changed (kind 'chg', type 'move' / 'edit'), and
+   account owners: account managers reassigned here (MGR_OF) and the account
+   team leader of a large account (type 'atl'). Download for CAG makes one
+   spreadsheet, a sheet for each; then they can be marked sent. Each one is
+   done once a CRM import shows it (a move or edit: the export has the new
+   values; an owner: the export has the new manager); done ones drop off
+   after 30 days. A move or edit is laid over the contact list in memory
+   until then, like an added contact. */
+let CHG = [];
+const chgKey = s => pKey(s);
+// the contact in the CRM's list, by Dynamics id or name
+const chgContact = (a, n, cid) => a && (a.c || []).find(c => !c.added && ((cid && c.id === cid) || pKey(c.n) === pKey(n)));
+const chgRaw = c => { const o = c._crm || {t: c.t, e: c.e, p: c.p}; return {t: o.t || '', e: (o.e && o.e[0]) || '', p: o.p || ''}; };
+function chgApply(){
+  const done = [];
+  // start from the contacts as the CRM gave them, then lay the changes over
+  for(const a of ACCOUNTS) for(const c of a.c || []){
+    if(c.moved){ delete c.moved; delete a._hay; }
+    if(c._crm){ c.t = c._crm.t; c.e = c._crm.e; c.p = c._crm.p; delete c._crm; delete c.changed; delete a._hay; }
+  }
+  for(const r of CHG){
+    if(r.done || (r.type !== 'move' && r.type !== 'edit')) continue;
+    const a = ACC_BY_NAME.get(r.type === 'move' ? r.from : r.acct);
+    if(r.type === 'edit'){
+      const c = chgContact(a, r.n, r.cid); if(!c) continue;
+      const raw = chgRaw(c);
+      if(['t', 'e', 'p'].every(k => !r[k] || pKey(raw[k]) === pKey(r[k]))){ done.push(r); continue; }    // Dynamics has it
+      if(!c._crm) c._crm = {t: c.t, e: (c.e || []).slice(), p: c.p};
+      if(r.t) c.t = r.t; if(r.e) c.e = [r.e].concat((c.e || []).filter(x => x !== r.e)); if(r.p) c.p = r.p;
+      c.changed = r.id; delete a._hay;
+    } else {
+      const to = ACC_BY_NAME.get(r.to), old = chgContact(a, r.n, r.cid), there = chgContact(to, r.n, '');
+      if(!old && there){ done.push(r); continue; }                   // the export has them at the new account only
+      if(old){ old.moved = r.to; delete a._hay; }
+      if(to && !(to.c || []).some(c => pKey(c.n) === pKey(r.n))){
+        to.c = to.c || [];
+        to.c.push({n: r.n, t: r.t || (old && old.t) || '', r: '', p: r.p || (old && old.p) || '', e: r.e ? [r.e] : (old && old.e) || [], added: true, movedFrom: r.from, chg: r.id});
+        delete to._hay;
+      }
+    }
+  }
+  // account owners: done once the export has the new manager
+  for(const r of CHG) if(r.type === 'owner' && !r.done){ const a = ACC_BY_NAME.get(r.acct); if(!a || pKey(a.mgr) === pKey(r.to) || effMgr(a) !== r.to) done.push(r); }
+  if(done.length && !chgApply.busy){
+    chgApply.busy = true;
+    (async () => { for(const r of done){ r.done = Date.now(); r.updated = Date.now(); await peoplePut(r); } })()
+      .catch(e => console.warn('changes', e)).finally(() => { chgApply.busy = false; });
+  }
+  // done ones drop off after 30 days
+  const old = CHG.filter(r => r.done && Date.now() - r.done > 30 * 864e5);
+  if(old.length){ CHG = CHG.filter(r => !old.includes(r)); old.forEach(r => peopleDel(r.id).catch(() => {})); }
+}
+async function chgSave(r){
+  r.updated = Date.now();
+  if(!r.at) r.at = Date.now();
+  if(!r.by) r.by = localStorage.getItem(LS('mgr')) || '';
+  await peoplePut(r);
+  CHG = CHG.filter(x => x.id !== r.id).concat([r]);
+  peopleMerge();
+  if(screen === 'settings') renderPeopleStat();
+}
+// what is waiting for Dynamics, as rows: one list across the four kinds
+function cagItems(){
+  const out = [];
+  PEOPLE.forEach(r => out.push({kind: 'new', r, sent: r.sent || 0, done: 0, acct: r.acct, n: r.n, what: 'New contact' + (r.t ? ': ' + r.t : '')}));
+  CHG.filter(r => r.type === 'move').forEach(r => out.push({kind: 'move', r, sent: r.sent || 0, done: r.done || 0, acct: r.from, n: r.n, what: 'Moved to ' + r.to}));
+  CHG.filter(r => r.type === 'edit').forEach(r => out.push({kind: 'edit', r, sent: r.sent || 0, done: r.done || 0, acct: r.acct, n: r.n,
+    what: 'Changed ' + [r.t && 'title to ' + r.t, r.e && 'email to ' + r.e, r.p && 'mobile to ' + r.p].filter(Boolean).join(', ')}));
+  // account managers reassigned here, and any sent before that Dynamics has now caught up with
+  ACCOUNTS.filter(isMoved).forEach(a => {
+    const rec = CHG.find(r => r.type === 'owner' && r.acct === a.a && r.to === effMgr(a));
+    out.push({kind: 'owner', r: rec || null, sent: rec && rec.sent || 0, done: 0, acct: a.a, n: '', to: effMgr(a), from: a.mgr || '', what: 'Account manager: ' + effMgr(a) + ' (was ' + (a.mgr || 'nobody') + ')'});
+  });
+  CHG.filter(r => r.type === 'owner' && r.done).forEach(r => out.push({kind: 'owner', r, sent: r.sent || 0, done: r.done, acct: r.acct, n: '', to: r.to, from: r.from, what: 'Account manager: ' + r.to}));
+  CHG.filter(r => r.type === 'atl').forEach(r => out.push({kind: 'atl', r, sent: r.sent || 0, done: r.done || 0, acct: r.acct, n: '', to: r.to, from: r.from || '',
+    what: 'Account team leader: ' + (r.to || 'nobody') + (r.from ? ' (was ' + r.from + ')' : '')}));
+  return out;
+}
+const CAG_KIND = {new: 'New contacts', move: 'Moved contacts', edit: 'Changed details', owner: 'Account owners', atl: 'Account owners'};
+const cagState = i => i.done ? 'Done ' + new Date(i.done).toLocaleDateString() : i.sent ? 'Sent ' + new Date(i.sent).toLocaleDateString() : 'Not sent yet';
 function renderPeopleStat(){
   const el = $('pplStat'); if(!el) return;
-  const n = PEOPLE.length;
-  el.textContent = n ? n + (n === 1 ? ' contact was' : ' contacts were') + ' added in the app and ' + (n === 1 ? 'is' : 'are') + ' not in Dynamics yet.' : 'Every contact here is in Dynamics.';
-  $('pplShare').hidden = !n;
+  const items = cagItems(), open = items.filter(i => !i.done), unsent = open.filter(i => !i.sent);
+  const by = k => open.filter(i => CAG_KIND[i.kind] === k).length;
+  const bits = ['New contacts', 'Moved contacts', 'Changed details', 'Account owners'].map(k => [k, by(k)]).filter(([, n]) => n).map(([k, n]) => n + ' ' + k.toLowerCase().replace(/s$/, n === 1 ? '' : 's'));
+  el.textContent = open.length ? bits.join(', ') + '. ' + (unsent.length ? unsent.length + ' not sent to CAG yet.' : 'All sent to CAG.') : 'Nothing waiting: Dynamics has everything changed here.';
+  $('pplShare').hidden = !open.length;
+  $('cagAllW').hidden = !open.some(i => i.sent);
+  const list = $('cagList');
+  if(!list) return;
+  list.hidden = !items.length;
+  list.innerHTML = items.length ? '<summary>Show them (' + items.length + ')</summary>' + ['New contacts', 'Moved contacts', 'Changed details', 'Account owners'].map(k => {
+    const its = items.filter(i => CAG_KIND[i.kind] === k); if(!its.length) return '';
+    return '<div class="cagg"><b>' + k + '</b><ul class="opitems good">' + its.map(i => '<li><span>' + esc([i.n, i.acct].filter(Boolean).join(', ')) +
+      '<span class="pin">' + esc(i.what + ' · ' + cagState(i)) + '</span></span>' +
+      (i.r && i.kind !== 'new' ? '<button type="button" class="opx" data-cagrm="' + esc(i.r.id) + '" aria-label="Remove this change" title="Remove this change">' + icon('trash') + '</button>' : '') + '</li>').join('') + '</ul></div>';
+  }).join('') : '';
+  list.querySelectorAll('[data-cagrm]').forEach(b => b.addEventListener('click', async () => {
+    const r = CHG.find(x => x.id === b.dataset.cagrm); if(!r) return;
+    if(!confirm('Remove this change from the list for Dynamics?\n\n' + [r.n, r.acct || r.from].filter(Boolean).join(', ') + '\n\nIt is no longer shown on the contact list either.')) return;
+    await peopleDel(r.id); CHG = CHG.filter(x => x !== r);
+    peopleMerge(); renderPeopleStat();
+  }));
 }
 $('pplShare').addEventListener('click', async () => {
-  if(!PEOPLE.length) return;
+  const all = $('cagAll') && $('cagAll').checked;
+  const items = cagItems().filter(i => !i.done && (all || !i.sent));
+  if(!items.length){ toast('Nothing new to send: tick Include ones already sent to send them again'); return; }
   if(!window.XLSX){ toast('The spreadsheet library did not load'); return; }
-  const rows = [['Account', 'Full Name', 'Job Title', 'Added', 'Added by', 'From']].concat(
-    PEOPLE.slice().sort((a, b) => a.acct.localeCompare(b.acct) || a.n.localeCompare(b.n))
-      .map(r => [r.acct, r.n, r.t || '', r.added ? ddmmyyyy(iso(new Date(r.added))) : '', r.by || '', r.from || '']));
+  const d = t => t ? ddmmyyyy(iso(new Date(t))) : '';
+  const contact = (acct, n, cid) => { const a = ACC_BY_NAME.get(acct), c = a && (a.c || []).find(x => !x.added && ((cid && x.id === cid) || pKey(x.n) === pKey(n))); return c || {}; };
+  const sheets = [
+    ['New contacts', ['Account', 'Full Name', 'Job Title', 'Email', 'Mobile', 'Added', 'Added by', 'From', 'Status'], items.filter(i => i.kind === 'new').map(i => [i.acct, i.n, i.r.t || '', i.r.e || '', i.r.p || '', d(i.r.added), i.r.by || '', i.r.from || '', cagState(i)])],
+    ['Moved contacts', ['(Do Not Modify) Contact', 'Full Name', 'From account', 'To account', 'Job Title', 'Email', 'Mobile', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'move').map(i => [i.r.cid || '', i.n, i.r.from, i.r.to, i.r.t || '', i.r.e || '', i.r.p || '', d(i.r.at), i.r.by || '', cagState(i)])],
+    ['Changed details', ['(Do Not Modify) Contact', 'Account', 'Full Name', 'Job Title', 'Email', 'Mobile', 'Was', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'edit').map(i => [i.r.cid || '', i.acct, i.n, i.r.t || '', i.r.e || '', i.r.p || '',
+      [i.r.was && i.r.was.t, i.r.was && i.r.was.e, i.r.was && i.r.was.p].filter(Boolean).join(' / '), d(i.r.at), i.r.by || '', cagState(i)])],
+    ['Account owners', ['Account', 'Role', 'New owner', 'Was', 'Status'], items.filter(i => i.kind === 'owner' || i.kind === 'atl').map(i => [i.acct + (i.kind === 'atl' && i.r.sites ? ' (' + i.r.sites.join(', ') + ')' : ''), i.kind === 'atl' ? 'Account Team Leader' : 'Account Manager', i.to || '', i.from || '', cagState(i)])]
+  ].filter(s => s[2].length);
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch: 34}, {wch: 26}, {wch: 30}, {wch: 12}, {wch: 18}, {wch: 34}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Not in Dynamics');
+  sheets.forEach(([name, head, rows]) => { const ws = XLSX.utils.aoa_to_sheet([head].concat(rows)); ws['!cols'] = head.map(h => ({wch: Math.max(14, Math.min(40, h.length + 8))})); XLSX.utils.book_append_sheet(wb, ws, name); });
   await deliverFile(new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
-    'contacts_not_in_dynamics_' + todayISOdate() + '.xlsx', 'Contacts not in Dynamics');
+    'changes_for_dynamics_' + todayISOdate() + '.xlsx', 'Changes for Dynamics');
+  const unsent = items.filter(i => !i.sent);
+  if(!unsent.length || !confirm('Mark ' + (unsent.length === 1 ? 'this change' : 'these ' + unsent.length + ' changes') + ' as sent to CAG today?\n\nThey stay on the list until a CRM import shows Dynamics has them.')) return;
+  const now = Date.now();
+  for(const i of unsent){
+    if(i.kind === 'new'){ i.r.sent = now; i.r.updated = now; await peoplePut(i.r); continue; }
+    if(i.kind === 'owner' && !i.r){ await chgSave({id: newId('cg'), kind: 'chg', type: 'owner', acct: i.acct, to: i.to, from: i.from, sent: now}); continue; }
+    i.r.sent = now; await chgSave(i.r);
+  }
+  toast(unsent.length + (unsent.length === 1 ? ' change' : ' changes') + ' marked as sent to CAG');
+  renderPeopleStat();
 });
+
+/* ---- a contact who moved, or whose details changed (v144) ----
+   From a customer's person on any map, or a contact in the Directory. A move
+   or a change is a record for CAG (kind 'chg'); a contact added in the app is
+   simply corrected, since it goes to CAG as new anyway. */
+let ctEdit = null;
+function openContactChange(seed, after){
+  const a = ACC_BY_NAME.get(seed.acct);
+  if(!a){ toast('That contact is not at one of your customers'); return; }
+  const c = (a.c || []).find(x => (seed.cid && x.id === seed.cid) || pKey(x.n) === pKey(seed.n)) || null;
+  const cur = {t: c ? c.t || '' : seed.t || '', e: c && c.e && c.e[0] || '', p: c ? c.p || '' : ''};
+  ctEdit = {acct: a.a, n: (c && c.n) || seed.n, cid: (c && c.id) || seed.cid || '', c, cur, after};
+  $('ctHead').textContent = ctEdit.n || 'Contact';
+  $('ctAt').textContent = 'At ' + a.a + (c && c.moved ? '. Already marked as moved to ' + c.moved + '.' : '');
+  $('ctT').value = cur.t; $('ctE').value = cur.e; $('ctP').value = cur.p; $('ctTo').value = '';
+  $('ctAccts').innerHTML = ACCOUNTS.filter(x => x.a !== a.a).map(x => '<option value="' + esc(x.a) + '">').join('');
+  const d = $('ctdlg');
+  if(!d.open){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('ctdlg'); }
+}
+async function ctFinish(){
+  const E = ctEdit; if(!E) return;
+  const to = $('ctTo').value.trim();
+  if(to && (!ACC_BY_NAME.has(to) || to === E.acct)){ toast(to === E.acct ? 'They are at that account already' : 'Pick the account from the list'); return; }
+  if($('ctdlg').open && history.state && history.state.dialog === 'ctdlg'){ history.back(); return; }
+  ctEdit = null;
+  const d = $('ctdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  const now = {t: $('ctT').value.trim(), e: $('ctE').value.trim(), p: $('ctP').value.trim()};
+  const edited = ['t', 'e', 'p'].some(k => pKey(now[k]) !== pKey(E.cur[k]));
+  if(!edited && !to) return;                                       // nothing changed: nothing kept
+  const c = E.c;
+  // a contact added in the app: corrected where it is kept
+  if(c && c.added && c.pid){
+    const r = PEOPLE.find(x => x.id === c.pid);
+    if(r){ Object.assign(r, {t: now.t, e: now.e, p: now.p}, to ? {acct: to} : {}); r.updated = Date.now(); await peoplePut(r); peopleMerge(); }
+  } else if(c && c.added && c.chg){
+    const r = CHG.find(x => x.id === c.chg);
+    if(r){ Object.assign(r, {t: now.t, e: now.e, p: now.p}, to ? {to} : {}); await chgSave(r); }
+  } else if(to){
+    const r = CHG.find(x => x.type === 'move' && !x.done && pKey(x.n) === pKey(E.n) && x.from === E.acct) || {id: newId('cg'), kind: 'chg', type: 'move', n: E.n, cid: E.cid, from: E.acct};
+    Object.assign(r, {to, t: now.t, e: now.e, p: now.p}); delete r.sent;
+    await chgSave(r);
+    // a change of details at the old account is superseded by the move
+    for(const x of CHG.filter(y => y.type === 'edit' && !y.done && y.acct === E.acct && pKey(y.n) === pKey(E.n))){ await peopleDel(x.id); CHG = CHG.filter(y => y !== x); }
+  } else {
+    const raw = c ? chgRaw(c) : {t: '', e: '', p: ''};
+    let r = CHG.find(x => x.type === 'edit' && !x.done && x.acct === E.acct && pKey(x.n) === pKey(E.n));
+    const diff = {}; ['t', 'e', 'p'].forEach(k => { diff[k] = pKey(now[k]) !== pKey(raw[k]) ? now[k] : ''; });
+    if(!diff.t && !diff.e && !diff.p){ if(r){ await peopleDel(r.id); CHG = CHG.filter(y => y !== r); } }
+    else {
+      r = r || {id: newId('cg'), kind: 'chg', type: 'edit', n: E.n, cid: E.cid, acct: E.acct, was: raw};
+      Object.assign(r, diff); delete r.sent;
+      await chgSave(r);
+    }
+  }
+  peopleMerge();
+  if(screen === 'settings') renderPeopleStat();
+  toast(to ? E.n + ' marked as moved to ' + to + ', for CAG' : E.n + '\'s details changed, for CAG');
+  if(E.after) E.after({to, now});
+}
+$('ctOk').addEventListener('click', () => ctFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
+$('ctdlg').addEventListener('cancel', e => { e.preventDefault(); ctFinish().catch(console.error); });
+$('ctdlg').addEventListener('close', () => { if(ctEdit) ctFinish().catch(console.error); });
 
 /* ================= Intralox people (v142) =================
    Ben, 2026-10-14: "as I add Intralox staff, I would like to add some details
@@ -13119,7 +13415,7 @@ function staffRelsDraw(){
       (rows.length ? '<ul class="opitems good oprels">' + rows.map(l => {
         const mine = ids.has(l.a), other = mine ? l.b : l.a;
         return '<li><span><button type="button" class="lnkbtn" data-sfgo="' + esc(o.id + '|' + other) + '">' + esc(name(other)) + '</button>' +
-          '<span class="pin">' + esc([mine ? l.kind : OP_THEM[l.kind] || l.kind, box(other), l.implied ? 'account manager, not rated yet' : l.str === 'Unknown' ? 'strength unknown' : ''].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="pin">' + esc([mine ? l.kind : OP_THEM[l.kind] || l.kind, box(other), l.implied ? (l.by === 'atl' ? 'account team leader' : 'account manager') + ', not rated yet' : l.str === 'Unknown' ? 'strength unknown' : ''].filter(Boolean).join(' · ')) + '</span>' +
           '<span class="seg oprs" role="group" aria-label="Strength">' + OP_STRS.map(v => '<button type="button" data-sfrs="' + esc(o.id + '|' + l.id) + '" data-v="' + v + '"' + (l.str === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</span></span></li>';
       }).join('') + '</ul>' : '<p class="hint">On this map, with no relationships yet.</p>') +
       '<button type="button" class="lnkbtn" data-sfmap="' + esc(o.id) + '">Open this map</button></details>';
@@ -14508,7 +14804,7 @@ function lapCrmFill(o){
     const out = new Set(q.crmOut || []), had = (o.people || []).some(p => p.party === q.id);
     const here = new Set((o.people || []).filter(p => p.party === q.id).map(p => pKey(p.n)));
     const cids = new Set((o.people || []).map(p => p.cid).filter(Boolean));
-    const add = (a.c || []).filter(c => c.n && !out.has(pKey(c.n)) && !here.has(pKey(c.n)) && !(c.id && cids.has(c.id)));
+    const add = (a.c || []).filter(c => c.n && !c.moved && !out.has(pKey(c.n)) && !here.has(pKey(c.n)) && !(c.id && cids.has(c.id)));
     if(!add.length){ if(!q.crmFilled){ q.crmFilled = true; changed = true; } continue; }
     o.people = (o.people || []).concat(add.map(c => ({id: newId('pp'), party: q.id, side: 'cust', n: c.n, title: c.t || c.r || '', cid: c.id || '', crm: true,
       role: '', role2: '', stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: ''})));
@@ -17562,7 +17858,7 @@ async function buildBackup(withPhotos){
     overrides: OVERRIDES,
     prefs: {mgr: localStorage.getItem(LS('mgr')) || ''},
     accounts: accPlain(),                        // v125: the added contacts travel as people, below
-    people: PEOPLE.concat(STAFF),                // v125; v142 with the Intralox people
+    people: PEOPLE.concat(STAFF, CHG),           // v125; v142 the Intralox people; v144 changes for Dynamics
     appts: APPTS,
     tasks: TASKS,
     snippets: SNIPS,
@@ -17927,7 +18223,7 @@ async function doRestore(file){
   for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
   for(const r of (Array.isArray(data.opps) ? data.opps : [])) if(r && r.id) await oppsPut(r);      // v115
   for(const r of (Array.isArray(data.cip) ? data.cip : [])) if(r && /^(me|mbo|ref)$/.test(r.id)) await cipPut(r);   // v121
-  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && (r.acct || r.kind === 'staff') && r.n) await peoplePut(r);   // v125; v142 Intralox people
+  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && (r.kind === 'chg' || ((r.acct || r.kind === 'staff') && r.n))) await peoplePut(r);   // v125; v142 Intralox people; v144 changes
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }

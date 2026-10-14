@@ -413,12 +413,7 @@ It needs signal and cloud sync. Only the description and the customer's name go 
 
 Anyone you add to a map under one of your customers joins that customer's contacts, marked **Not in Dynamics yet**. The team sees them too. They stay through every CRM import until Dynamics has the same name at that customer, then the mark goes by itself.
 
-To put them into Dynamics:
-
-1. Tap **⋯** on Home, then **Settings**.
-2. Open **CRM and belt data**.
-3. Under **Contacts not in Dynamics yet**, tap **Share the list**.
-4. Open the spreadsheet and enter each person into Dynamics.
+They go to CAG with the other changes: see **Owners, moved contacts and changes for Dynamics**.
 
 When you type a name into a party's table and that person is on another Blue Sheet at the same company, their part and whether they helped us are filled in from the latest one. These boxes are dashed: they are estimates. Change one and it is yours; leave it and it stays marked. On the map, tap the person to see the estimate and their other Blue Sheets. Choosing their part or stance there confirms it.
 
@@ -543,6 +538,35 @@ The boxes with a chain stay on the large account plan. Their people, the links b
 8. To switch off the account manager's default links for a site, tap the site, then untick **covers everyone here**.
 
 Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated **Unknown** stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.
+
+### Owners, moved contacts and changes for Dynamics
+
+To change a site's account manager:
+
+1. On a large account's map, or an opportunity's map, tap the site's box.
+2. Under **Account manager**, tap **Change**.
+3. Pick who it is now, or pick **Someone else…** and type their name.
+4. Tap **Apply**.
+
+To change every site of a large account at once, tap the map's background so nothing is selected, then under **Owners** tap **Change every site**. To set the account team leader, tap **Change** under **Account team leader** there. The ATL joins the Intralox box at the top, with a default link to everyone at corporate, the head office and group engineering; untick it on any of those boxes to switch it off.
+
+When a contact moves, or their details change:
+
+1. Tap them on a map, then tap **Moved or details changed**. In the Directory, search for them and tap **Change**.
+2. Correct their job title, email or mobile.
+3. If they work somewhere else now, type the account under **Moved to another account** and pick it from the list.
+4. Tap **Done**.
+
+On a large account's map, someone who moved to another of its sites moves to that site's box; someone who moved elsewhere comes off the map. The contact list shows them at their new account, and as moved at the old one, until Dynamics has it.
+
+To send the changes to CAG:
+
+1. Tap **⋯** on Home, then **Settings**.
+2. Open **CRM and belt data**.
+3. Under **Changes for Dynamics**, tap **Download for CAG** and send the spreadsheet to CAG.
+4. When asked, tap **OK** to mark them as sent.
+
+The spreadsheet has a sheet each for new contacts, moved contacts, changed details and account owners, with Dynamics' contact ID where there is one. Next time, only changes not sent yet are included; tick **Include ones already sent** to send them all again. Tap **Show them** to see each change and whether it is sent or done. A change is done once a CRM import shows Dynamics has it, and drops off 30 days later. A team member's account manager changes go through the team's admin.
 
 ### Intralox people
 

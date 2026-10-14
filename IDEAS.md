@@ -897,11 +897,12 @@ for now. Reviewed a clickable mock first.*
   joins their site, listed but hidden on the map until the eye; a cross
   beside each name takes them off for good; new contacts from a later
   import join; each arrives to rate under the account manager.
-- **Proposed, not built yet:** site owners (AM per site, ATL that could be
-  responsible for the group, with default links to corporate and group
-  engineering, above the AMs without a reporting line), contacts moved to
-  another site or account, edited contact details, and a Changes for Dynamics
-  download for CAG marked sent and cleared once Dynamics has them.
+- **Built (v144):** owners and Changes for Dynamics. A site's account manager
+  changes from its box (or every site of a large account), as a reassignment;
+  an ATL per large account, first in the Intralox box, with default links to
+  corporate, the head office and group engineering; contacts marked moved or
+  changed from a map or the Directory; Settings lists it all for CAG
+  (download, mark sent, done once an import shows it).
 - **Later:** the account screen saying where a site sits in its large account.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
