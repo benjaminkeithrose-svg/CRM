@@ -48,20 +48,26 @@ async function supa(route) {
   if (u.includes('/rest/v1/vaults')) {
     if (m === 'GET') return json(200, VAULTS[sub] ? [VAULTS[sub]] : []);
     if (VAULTS[sub]) return json(409, { code: '23505', message: 'duplicate key' });
-    VAULTS[sub] = JSON.parse(req.postData()); return json(201, null);
+    VAULTS[sub] = Object.assign({owner: sub}, JSON.parse(req.postData())); return json(201, null);   // the server fills owner (v146: the app finds its own by it since v111)
   }
+  if (u.includes('/rest/v1/team_members') || u.includes('/rest/v1/teams')) return json(200, []);   // no team
   if (u.includes('/rest/v1/records')) {
     const q = new URL(u).searchParams;
     if (m === 'GET') {
       const ids = q.get('id') ? q.get('id').replace(/^in\.\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, '')) : null;
       const cols = (q.get('select') || '*').split(',');
-      return json(200, Object.values(RECORDS).filter(r => r.store === (q.get('store') || '').replace('eq.', '') && (!ids || ids.includes(r.id)))
+      // store=eq.x, or (v146: the record pull) store=in.(a,b) with server_updated=gt.<time>
+      const st = q.get('store') || '', stores = st.startsWith('in.') ? st.replace(/^in\.\(|\)$/g, '').split(',') : [st.replace('eq.', '')];
+      const after = (q.get('server_updated') || '').replace('gt.', '');
+      const off = Number(q.get('offset') || 0), lim = Number(q.get('limit') || 1e9);
+      return json(200, Object.values(RECORDS).filter(r => stores.includes(r.store) && (!ids || ids.includes(r.id)) && (!after || r.server_updated > after))
+        .sort((a, b) => a.server_updated.localeCompare(b.server_updated)).slice(off, off + lim)
         .map(r => Object.fromEntries(cols.map(c => [c, r[c]]))));
     }
     for (const row of [].concat(JSON.parse(req.postData()))) {
       const k = row.store + '|' + row.id;
       if (RECORDS[k] && Number(row.client_updated) < Number(RECORDS[k].client_updated)) continue;
-      RECORDS[k] = row;
+      RECORDS[k] = Object.assign({owner: sub, deleted: false}, row, {server_updated: new Date().toISOString()});
     }
     return json(201, null);
   }
@@ -76,7 +82,8 @@ async function device(name, live) {
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(e.message));
-  page.on('console', m => { if (m.type() === 'error' && !/favicon|status of 400|cdn\.jsdelivr\.net/.test(m.text() + (m.location().url || ''))) errs.push(m.text() + ' @' + (m.location().url || '')); });
+  // the stand-in has no live updates (wss) or edge functions: those errors are its, not the app's
+  page.on('console', m => { if (m.type() === 'error' && !/favicon|status of 400|cdn\.jsdelivr\.net|realtime\/v1\/websocket|functions\/v1\//.test(m.text() + (m.location().url || ''))) errs.push(m.text() + ' @' + (m.location().url || '')); });
   page.on('response', r => { if (r.status() >= 400 && !/favicon|supabase\.co/.test(r.url())) errs.push('HTTP ' + r.status() + ' ' + r.url()); });
   page.on('requestfailed', r => { if (!/cdn\.jsdelivr\.net/.test(r.url())) errs.push('FAILED ' + r.url() + ' ' + (r.failure() || {}).errorText); });
   await page.goto(APP);
@@ -87,7 +94,8 @@ async function device(name, live) {
 }
 const stat = d => d.page.locator('#sbStat').innerText();
 const ev = (d, f, a) => d.page.evaluate(f, a);
-async function settings(d) { await ev(d, () => showScreen('settings')); }
+// the cloud section sits in a closed fold in Settings (v146: the test opens it)
+async function settings(d) { await ev(d, () => { showScreen('settings'); document.querySelectorAll('#s-settings details').forEach(x => { x.open = true; }); }); }
 async function setUp(d) {
   await settings(d);
   await d.page.fill('#sbUrl', PROJ); await d.page.locator('#sbUrl').dispatchEvent('change');
@@ -127,7 +135,7 @@ ok(!/Acme|Bloggs/.test(Buffer.from(RECORDS['datasets|crm']?.body || '', 'base64'
 console.log('Phone: sign in, unlock, bring it in');
 const ph = await device('phone');
 await setUp(ph);
-ok(/locked on this device/.test(await stat(ph)), 'phone locked before passphrase');
+ok(/locked on this device/.test(await stat(ph)), 'phone locked before passphrase: ' + (await stat(ph)).replace(/\n/g, ' | '));
 await phrase(ph, 'not the passphrase');
 ok(/does not match/.test(await ph.page.locator('#toast').innerText()), 'wrong passphrase refused');
 await phrase(ph, PH);
@@ -140,6 +148,23 @@ await tick(4500);
 ok(!!RECORDS['datasets|mgrOf'], 'PC sent the reassignment');
 await syncNow(ph);
 ok(await ev(ph, () => MGR_OF['Acme Pty Ltd - Smithfield'] === 'Sam'), 'phone brought in the reassignment on the next sync');
+
+console.log('v142-v145: an Intralox person, a change for CAG, a large account with its ATL and someone hidden');
+await ev(pc, async () => {
+  const s = {id: 'sf1', kind: 'staff', n: 'Ada Lead', pos: 'ATL', boss: '', e: '', p: '', updated: Date.now()};
+  await peoplePut(s); STAFF = STAFF.concat([s]);
+  await chgSave({id: 'cg1', kind: 'chg', type: 'left', n: 'Jo Bloggs', cid: '', acct: ACCOUNTS[0].a});
+  await plansPut({id: 'L9', kind: 'large', name: 'Acme', sites: [ACCOUNTS[0].a], atl: 'Ada Lead', objectives: [], actions: [], updated: Date.now(), sitesOn: true, autoCorpChecked: true,
+    parties: [{id: 'pa', kind: 'end', name: ACCOUNTS[0].a, acct: ACCOUNTS[0].a, site: true, crmFilled: true}, {id: 'pi', kind: 'ilx', name: 'Intralox'}],
+    people: [{id: 'h1', party: 'pa', side: 'cust', n: 'Rae Desk', title: 'Receptionist', hidden: true}], links: []});
+});
+await settings(pc); await syncNow(pc);           // records go 10 s after a change; Sync now sends them at once
+ok(!!RECORDS['people|sf1'] && !!RECORDS['people|cg1'] && !!RECORDS['plans|L9'], 'PC sent the Intralox person, the change for CAG and the large account: ' + Object.keys(RECORDS).join(' '));
+ok(!/Ada Lead|Jo Bloggs|Rae Desk/.test(['people|sf1', 'people|cg1', 'plans|L9'].map(k => Buffer.from(RECORDS[k]?.body || '', 'base64').toString('latin1')).join('')), 'all three unreadable in the cloud');
+await syncNow(ph);
+ok(await ev(ph, () => STAFF.some(s => s.n === 'Ada Lead' && s.pos === 'ATL')), 'phone has the Intralox person');
+ok(await ev(ph, () => CHG.some(r => r.type === 'left' && r.n === 'Jo Bloggs') && !!ACCOUNTS[0].c.find(c => c.n === 'Jo Bloggs').left), 'phone has the change for CAG, and shows the contact as left');
+ok(await ev(ph, () => { const L = PLANS.find(p => p.id === 'L9'); return !!L && L.atl === 'Ada Lead' && L.people.some(p => p.n === 'Rae Desk' && p.hidden === true); }), 'phone has the large account, its ATL and the hidden person');
 await seedCrm(pc, Date.now() - 60e3, 'Acme Pty Ltd - Wetherill Park');
 await tick(4500);
 await syncNow(ph);
@@ -178,7 +203,7 @@ await lctx.route(PROJ + '/**', relay);
 const lpage = await lctx.newPage();
 await lpage.goto(APP);
 await lpage.waitForFunction(() => typeof showScreen === 'function', null, { timeout: 60000 });
-await lpage.evaluate(() => showScreen('settings'));
+await lpage.evaluate(() => { showScreen('settings'); document.querySelectorAll('#s-settings details').forEach(x => { x.open = true; }); });
 await lpage.fill('#sbUrl', PROJ); await lpage.locator('#sbUrl').dispatchEvent('change');
 await lpage.fill('#sbKey', 'sb_publishable_1c3t9uxaqIP2K4klSP7loA_bZYlgKfO'); await lpage.locator('#sbKey').dispatchEvent('change');
 await tick(300);
