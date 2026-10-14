@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v136';
+const APP_BUILD = 'v137';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -14806,7 +14806,8 @@ function renderMbo(){
   cipUiLoad();
   const el = $('mboBody'), Y = mboYear();
   $('subtitle').textContent = CIP && CIP.employee.name ? CIP.employee.name : '';
-  $('mboYear').innerHTML = mboAllYears().map(y => '<option value="' + esc(y) + '"' + (y === cipUi.my ? ' selected' : '') + '>' + esc(y) + ' MBOs' + (MBO && MBO.years[y] ? ' ✓' : '') + '</option>').join('');
+  mboPlanCheck();
+  $('mboYear').innerHTML = mboAllYears().map(y => '<option value="' + esc(y) + '"' + (y === cipUi.my ? ' selected' : '') + '>' + esc(y) + ' MBOs' + (MBO && MBO.years[y] ? (MBO.years[y].planning ? ' (planning)' : ' ✓') : '') + '</option>').join('');
   if(!Y){
     const prev = mboYears().filter(y => y < cipUi.my), from = prev[prev.length - 1];
     el.innerHTML = '<div class="cipstart"><h2>No MBO list for ' + esc(cipUi.my) + ' yet</h2><p class="hint">' +
@@ -14844,7 +14845,8 @@ function renderMbo(){
       '<button type="button" data-mega="' + i + '" data-v="yes"' + (m.met === 'yes' ? ' class="on"' : '') + (q4L ? ' disabled' : '') + '>Met</button></div><span class="mv">' + cipMoney(val) + '</span></td>' +
       '<td class="yc">' + (m.met === 'yes' ? cipMoney(val) : '—') + '</td></tr>'; });
   foot += '<tr class="ytot"><th>' + esc(cipUi.my) + ' total paid</th><td colspan="4" class="qall"></td><td class="yc"><b>' + cipMoney(c.total) + '</b></td></tr>';
-  el.innerHTML = '<p class="mbocap">Annual cap <b>' + cipMoney(Y.cap) + '</b>, up to <b>' + cipMoney((+Y.cap || 0) / 4) + '</b> paid a quarter · ' + (Y.setupLocked ? 'list agreed and locked' : 'list unlocked') + '</p>' +
+  el.innerHTML = (Y.planning ? '<p class="msg info show mboplan">Planning: in use from 1 January ' + esc(cipUi.my) + '. Change anything here; this year\'s list is not touched. Add the values once they\'re agreed.</p>' : '') +
+    '<p class="mbocap">Annual cap <b>' + cipMoney(Y.cap) + '</b>, up to <b>' + cipMoney((+Y.cap || 0) / 4) + '</b> paid a quarter · ' + (Y.setupLocked ? 'list agreed and locked' : 'list unlocked') + '</p>' +
     '<div class="seg mboq" id="mboQ">' + MBO_QS.map(q => '<button type="button" data-v="' + q + '"' + (q === cipUi.mq ? ' class="on"' : '') + '>' + q + (mboLocked(Y, q) ? ' ' + icon('lock') : '') + '</button>').join('') + '</div>' +
     '<div class="mgridwrap"><table class="mgrid sq-' + cipUi.mq + '"><thead><tr><th>MBO</th>' + MBO_QS.map(q => { const L = mboLocked(Y, q);
       return '<th data-q="' + q + '"' + (L ? ' class="lk"' : '') + '><span class="qn">' + q + '</span><button type="button" class="btn qlock" data-qlock="' + q + '">' + (L ? 'Locked' : 'Lock') + '</button></th>'; }).join('') + '<th class="yc">Year</th></tr></thead>' +
@@ -14896,7 +14898,9 @@ $('mboBody').addEventListener('click', e => {
   const redraw = () => { const y = window.scrollY; cipSaveSoon('mbo'); renderMbo(); window.scrollTo(0, y); };
   if(b.dataset.ystart){
     const M = mboRec(), prev = mboYears().filter(y => y < cipUi.my), from = M.years[prev[prev.length - 1]];
+    if(+cipUi.my > new Date().getFullYear() && b.dataset.ystart === 'copy' && from){ mboPlanFrom(cipUi.my, from); cipUi.medit = true; cipUiSave(); redraw(); return; }   // v137
     const ny = {cap: from ? from.cap : 15000, setupLocked: false, items: [], mega: [], quarters: {}};
+    if(+cipUi.my > new Date().getFullYear()){ ny.planning = true; ny.cap = ''; }
     if(b.dataset.ystart === 'copy' && from){ ny.items = cipClone(cipArr(from.items)); ny.mega = cipClone(cipArr(from.mega)).map(m => Object.assign(m, {met: 'no'})); ny.inits = cipClone(cipArr(from.inits)); }
     M.years[cipUi.my] = ny; cipUi.medit = true; cipUiSave(); redraw(); return;
   }
@@ -14948,7 +14952,12 @@ function mboInfo(key){
   } else if(key.startsWith('i:')){
     const x = cipArr(Y.inits).find(v => v.id === key.slice(2)); if(!x) return;
     t = x.title || 'New initiative';
-    body = mboInitEditHTML(Y, x) + mboRulesHTML(x.rules);
+    const nx = String(+cipUi.my + 1);
+    body = mboInitEditHTML(Y, x) + mboRulesHTML(x.rules) +
+      '<h3>Make it an MBO</h3><div class="orow">' +
+      (Y.planning ? '<button type="button" class="btn act2" data-mkmbo="here">Make it one of these MBOs</button>'
+        : '<button type="button" class="btn act2" data-mkmbo="next">Make it one of the ' + esc(nx) + ' MBOs</button>') + '</div>' +
+      '<p class="hint">' + (Y.planning ? 'It moves into the MBO list above, with no value yet.' : 'It goes into the ' + esc(nx) + ' MBO plan with no value yet. This year it stays an initiative, with its completions.') + '</p>';
   } else {
     const it = cipArr(Y.items).find(i => i.id === key); if(!it) return;
     const bu = it.buId && CIPREF && cipFind(CIPREF.bu, 'bu', it.buId);
@@ -15317,6 +15326,16 @@ function mboInfoEdit(e){
   mboInfoDirty = true; cipSaveSoon('mbo');
 }
 $('miBody').addEventListener('change', mboInfoEdit);
+$('miBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-mkmbo]'); if(!b) return;
+  const Y = mboYear(), x = mboInfoTarget(); if(!Y || !x || !mboInfoKey.startsWith('i:')) return;
+  const toYear = b.dataset.mkmbo === 'here' ? cipUi.my : String(+cipUi.my + 1);
+  mboInitToMbo(x, cipUi.my, toYear);
+  mboInfoDirty = false; mboInfoKey = null;
+  cipDlgShut('mboinfodlg');
+  if(toYear !== cipUi.my){ cipUi.my = toYear; cipUiSave(); }
+  renderMbo(); window.scrollTo(0, 0);
+});
 $('miBody').addEventListener('input', e => { if(e.target.matches('input[type=text], textarea')) mboInfoEdit(e); });
 $('mboinfodlg').addEventListener('close', () => {
   if(!mboInfoDirty) return;
@@ -15343,6 +15362,45 @@ $('meWork').addEventListener('click', () => {
   cipDlgShut('mboentdlg');
   if(src) setTimeout(() => mboOpenWork(src).catch(reportErr), 50);
 });
+
+/* ---- next year's MBOs, planned while this year's run (v137) ----
+   Ben, 2026-10-14: start next year's list as a rollover of this one, without
+   values, change it freely, and keep it until the year starts; and roll an
+   initiative into next year's MBOs. A planning list is marked 'planning' and
+   says so; on 1 January it simply becomes that year's list. Calls only ever
+   count into the year of their date, so nothing lands in it early. */
+function mboPlanFrom(y, from){
+  const M = mboRec();
+  const blank = it => Object.assign(cipClone(it), {value: ''});
+  M.years[y] = {planning: true, cap: '', setupLocked: false, quarters: {},
+    items: from ? cipArr(from.items).map(blank) : [],
+    mega: from ? cipArr(from.mega).map(m => Object.assign(cipClone(m), {met: 'no', pct: ''})) : [],
+    inits: from ? cipClone(cipArr(from.inits)) : []};
+  return M.years[y];
+}
+// the plan's year has come: it is simply that year's list now
+function mboPlanCheck(){
+  if(!MBO || !MBO.years) return;
+  const now = new Date().getFullYear(); let changed = false;
+  Object.keys(MBO.years).forEach(y => { if(MBO.years[y].planning && +y <= now){ delete MBO.years[y].planning; changed = true; } });
+  if(changed) cipSaveSoon('mbo');
+}
+function mboInitToMbo(x, fromYear, toYear){
+  const M = mboRec();
+  let T = M.years[toYear];
+  if(!T){ T = mboPlanFrom(toYear, M.years[fromYear]); }
+  // the copy of the initiative already rolled into that year goes: it is an MBO there now
+  const same = cipArr(T.inits).find(v => v.id === x.id || (v.title && v.title === x.title));
+  if(same){
+    T.inits = cipArr(T.inits).filter(v => v !== same);
+    MBO_QS.forEach(q => { const Q = T.quarters && T.quarters[q]; if(Q && Q.ilog) delete Q.ilog[same.id]; });
+  }
+  const it = {id: newId('m'), cat: 'From initiatives', title: x.title || 'Untitled', value: '', proof: '', def: x.def || '', buId: '', logLabel: '', books: false, rules: cipClone(x.rules || {})};
+  T.items = cipArr(T.items).concat([it]);
+  cipSaveSoon('mbo');
+  toast((x.title || 'The initiative') + ' is now one of the ' + toYear + ' MBOs');
+  return it;
+}
 
 /* ---- a CIP goal shows its MBO's count ---- */
 function mboGoalProgress(g){
@@ -15375,6 +15433,9 @@ function cipMenu(){
   $('cmEdit').hidden = !onMbo || !Y || Y.setupLocked;
   $('cmEdit').textContent = cipUi.medit ? 'Stop editing the MBO list' : 'Edit the MBO list';
   $('cmListLock').hidden = !onMbo || !Y;
+  const nx = String(new Date().getFullYear() + 1);
+  $('cmPlanNext').hidden = !onMbo;
+  $('cmPlanNext').textContent = MBO && MBO.years[nx] ? 'Open the ' + nx + ' MBO plan' : 'Plan the ' + nx + ' MBOs';
   if(Y) $('cmListLock').textContent = Y.setupLocked ? 'Unlock the ' + cipUi.my + ' MBO list' : 'Lock the ' + cipUi.my + ' MBO list';
   $('cmNote').textContent = 'Your CIP and MBOs are yours alone. They sync to your own devices, not to your team.' + (CIPREF ? '' : ' There is no reference on this device yet.');
   cipDlgOpen('cipmenu');
@@ -15392,6 +15453,16 @@ $('cmListLock').addEventListener('click', () => {
   const Y = mboYear(); if(!Y) return;
   Y.setupLocked = !Y.setupLocked; if(Y.setupLocked) cipUi.medit = false;
   cipUiSave(); cipSaveSoon('mbo'); cipDlgShut('cipmenu'); renderMbo();
+});
+$('cmPlanNext').addEventListener('click', () => {
+  const nx = String(new Date().getFullYear() + 1), M = mboRec();
+  if(!M.years[nx]){
+    const now = String(new Date().getFullYear()), from = M.years[now] || M.years[mboYears().filter(y => y < nx).pop()];
+    mboPlanFrom(nx, from);
+    cipSaveSoon('mbo');
+    toast('The ' + nx + ' MBO plan is started from ' + (from ? 'this year\'s list, without values' : 'nothing'));
+  }
+  cipUi.my = nx; cipUi.medit = false; cipUiSave(); cipDlgShut('cipmenu'); renderMbo(); window.scrollTo(0, 0);
 });
 $('cmImport').addEventListener('click', () => $('cmFile').click());
 $('cmFile').addEventListener('change', async e => {
