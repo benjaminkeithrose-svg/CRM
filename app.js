@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v135';
+const APP_BUILD = 'v136';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -11277,6 +11277,8 @@ const OP_PKINDS = [
   // v129: a corporate account (head office, the group) that drives the end users or a large account's sites
   {k: 'corp', t: 'Corporate', one: 'corporate account', col: '--c-corp', side: 'cust'},
   // v131: a group function (group engineering, procurement, QA) over a large account's sites
+  // v136: a division or business unit of a large account, with its own sites and engineering
+  {k: 'div', t: 'Divisions', one: 'division', col: '--c-div', side: 'cust'},
   {k: 'grp', t: 'Group functions', one: 'group function', col: '--c-grp', side: 'cust'},
   {k: 'end', t: 'End user', one: 'end user', col: '--c-end', side: 'cust'},
   {k: 'head', t: 'Head contractors', one: 'head contractor', col: '--c-head', side: 'head'},
@@ -11381,22 +11383,58 @@ function opPartyLinks(o){
    covers. There is no box for the account itself: its name is the title. */
 const opTops = o => o.parties.filter(q => q.kind === 'corp' || (q.kind === 'end' && q.hq));
 const opSitesOf = o => o.parties.filter(q => q.kind === 'end' && !q.hq);
-const opCovers = (g, s) => !(g.covers || []).length || g.covers.includes(s.id);
+/* v136 - Ben, 2026-10-14: corporate on one side and group engineering on
+   another; several engineering groups, each over its own set of sites; a
+   division with its own engineering. A group function reports to the top or to
+   a division ('under') and covers the sites ticked ('covers'; none ticked means
+   all of them, or all of its division's). A site can be where group
+   engineering sits ('eng'), engineering for the sites ticked ('engFor'), and
+   can belong to a division ('div'). An OEM can say which boxes it works with
+   and how ('works'). */
+const opDivOk = (o, id) => !!id && o.parties.some(q => q.kind === 'div' && q.id === id);
+const opCovers = (g, s, o) => (g.covers || []).length ? g.covers.includes(s.id) : (o && opDivOk(o, g.under) ? s.div === g.under : true);
+const OP_HOW = {person: 'A person', site: 'Site management', eng: 'Group engineering', proc: 'Procurement', other: 'Other'};
+function opHowLabel(w){
+  if(w.how === 'person'){ const p = opPerson(w.who); return p ? p.n : 'A person'; }
+  return w.how === 'other' ? (w.note || 'Other') : OP_HOW[w.how] || '';
+}
 function opLargeLinks(o){
   const out = [], tops = opTops(o), sites = opSitesOf(o), top = tops[0], first = sites[0] || top;
+  const divs = o.parties.filter(q => q.kind === 'div'), grps = o.parties.filter(q => q.kind === 'grp');
+  const engs = o.parties.filter(q => q.site && q.eng), siteIds = new Set(sites.map(x => x.id));
   for(const t of tops.slice(1)) out.push({a: top.id, b: t.id, t: ''});
-  for(const g of o.parties.filter(q => q.kind === 'grp')){
-    if(top) out.push({a: top.id, b: g.id, t: ''});
-    sites.filter(s => opCovers(g, s)).forEach(s => out.push({a: g.id, b: s.id, t: ''}));
+  for(const d of divs) if(top) out.push({a: top.id, b: d.id, t: ''});
+  for(const g of grps){
+    const up = opDivOk(o, g.under) ? g.under : top && top.id;
+    if(up) out.push({a: up, b: g.id, t: ''});
+    sites.filter(x => opCovers(g, x, o)).forEach(x => out.push({a: g.id, b: x.id, t: ''}));
   }
-  // a site a group function covers hangs from that function; the rest straight from the top
-  const grps = o.parties.filter(q => q.kind === 'grp');
-  for(const t of tops) for(const s of sites) if(!grps.some(g => opCovers(g, s))) out.push({a: t.id, b: s.id, t: ''});
+  for(const e of engs) (e.engFor || []).forEach(id => { if(id !== e.id && siteIds.has(id)) out.push({a: e.id, b: id, t: ''}); });
+  // a site nobody engineers for hangs from its division, or from the top
+  for(const x of sites){
+    if(grps.some(g => opCovers(g, x, o)) || engs.some(e => e.id !== x.id && (e.engFor || []).includes(x.id))) continue;
+    if(opDivOk(o, x.div)) out.push({a: x.div, b: x.id, t: ''});
+    else for(const t of tops) out.push({a: t.id, b: x.id, t: ''});
+  }
   for(const q of o.parties){
     if(q.kind === 'head' && first) out.push({a: first.id, b: q.id, t: q.status === 'Appointed' ? 'Engaged' : q.status === 'Out of it' ? 'Out' : 'Bidding', out: q.status === 'Out of it'});
-    if(q.kind === 'oem'){ const via = q.via && o.parties.find(x => x.id === q.via) || first; if(via) out.push({a: via.id, b: q.id, t: q.via ? 'Subcontracts' : 'Direct'}); }
+    if(q.kind === 'oem'){
+      const w = (q.works || []).filter(x => o.parties.some(p => p.id === x.to));
+      if(w.length) w.forEach(x => out.push({a: x.to, b: q.id, t: opHowLabel(x)}));
+      else { const via = q.via && o.parties.find(x => x.id === q.via) || first; if(via) out.push({a: via.id, b: q.id, t: q.via ? 'Subcontracts' : 'Direct'}); }
+    }
   }
   return out;
+}
+// a box leaving the map, or a site leaving the plan: nothing else may still point at it
+function opForget(o, id){
+  for(const q of o.parties){
+    if(q.engFor) q.engFor = q.engFor.filter(x => x !== id);
+    if(q.covers) q.covers = q.covers.filter(x => x !== id);
+    if(q.works) q.works = q.works.filter(x => x.to !== id);
+    if(q.div === id) q.div = '';
+    if(q.under === id) q.under = '';
+  }
 }
 // a party's people in organisation chart order: each person, then whoever reports to them
 function opTreeOrder(q){
@@ -11420,7 +11458,59 @@ function opLayout(){
         y += Math.max(...part.map(q => q.kind === 'ilx' ? OPPH + 10 + (opShows(q) && opPeopleOf(q).length ? OPCH + 34 : 0) : blockH(q))) + 70;
       }
     };
-    row(opTops(o)); row(o.parties.filter(q => q.kind === 'grp')); row(opSitesOf(o));
+    const divs = o.parties.filter(q => q.kind === 'div'), grps = o.parties.filter(q => q.kind === 'grp'), sites = opSitesOf(o);
+    const engAll = o.parties.filter(q => q.site && q.eng);
+    if(!divs.length && !engAll.length && !grps.some(g => (g.covers || []).length || g.under)){
+      row(opTops(o)); row(grps); row(sites);
+    } else {
+      /* v136: columns. The top row is corporate (or the head office) and the
+         functions that report to it; then the divisions; under each division
+         its engineering, each with the sites it serves stacked beneath it, so
+         the lines run down rather than across the map. */
+      const place = (q, x, yy) => { pos[q.id] = {x: q.x != null ? q.x : x, y: q.y != null ? q.y : yy, w: OPPW, h: OPPH}; };
+      const divOf = q => q.kind === 'grp' ? (opDivOk(o, q.under) ? q.under : '') : (opDivOk(o, q.div) ? q.div : '');
+      const topRow = opTops(o).concat(grps.filter(g => !divOf(g)));
+      row(topRow);
+      const inTop = new Set(topRow.map(q => q.id));
+      const engOf = x => engAll.find(e => e.id !== x.id && (e.engFor || []).includes(x.id)) ||
+        grps.find(g => (g.covers || []).includes(x.id)) || grps.find(g => !(g.covers || []).length && opCovers(g, x, o)) || null;
+      const cols = new Map();
+      const col = (key, div, head) => { if(!cols.has(key)) cols.set(key, {div, head, sites: []}); return cols.get(key); };
+      grps.filter(g => divOf(g)).forEach(g => col(g.id, divOf(g), g));
+      sites.filter(x => x.eng).forEach(e => col(e.id, divOf(e), e));
+      for(const x of sites){
+        if(x.eng && cols.has(x.id)) continue;            // heads its own column
+        const e = engOf(x);
+        if(e) col(e.id, inTop.has(e.id) ? divOf(x) : divOf(e), inTop.has(e.id) ? null : e).sites.push(x);
+        else col('none:' + divOf(x), divOf(x), null).sites.push(x);
+      }
+      const dIdx = d => d ? divs.findIndex(x => x.id === d) : divs.length;
+      const list = [...cols.values()].filter(c => c.head || c.sites.length).sort((a, b) => dIdx(a.div) - dIdx(b.div));
+      const subs = c => Math.max(1, Math.ceil(c.sites.length / 5)), colW = c => subs(c) * (OPPW + 30);
+      let W = 0; list.forEach((c, i) => { W += colW(c) + (i && list[i - 1].div !== c.div ? 40 : 0); });
+      let x = OPW / 2 - (W - 30) / 2; const colX = [];
+      list.forEach((c, i) => { if(i && list[i - 1].div !== c.div) x += 40; colX.push(x); x += colW(c); });
+      let divY = null;
+      if(divs.length){ divY = y; y += Math.max(...divs.map(blockH)) + 70; }
+      let bottom = y;
+      list.forEach((c, i) => {
+        let cy = y; const cx = colX[i], n = subs(c), per = Math.ceil(c.sites.length / n);
+        if(c.head){ place(c.head, cx + (colW(c) - 30) / 2 - OPPW / 2, cy); cy += blockH(c.head) + 60; }
+        bottom = Math.max(bottom, cy);
+        for(let k = 0; k < n; k++){
+          let yy = cy;
+          c.sites.slice(k * per, (k + 1) * per).forEach(q => { place(q, cx + k * (OPPW + 30), yy); yy += blockH(q) + 22; });
+          bottom = Math.max(bottom, yy);
+        }
+      });
+      let spare = x;
+      divs.forEach(d => {
+        const idx = list.map((c, i) => c.div === d.id ? i : -1).filter(i => i >= 0);
+        if(idx.length){ const a = colX[idx[0]], b = colX[idx[idx.length - 1]] + colW(list[idx[idx.length - 1]]) - 30; place(d, (a + b) / 2 - OPPW / 2, divY); }
+        else { place(d, spare, divY); spare += OPPW + 30; }
+      });
+      y = bottom + 48;
+    }
     row(o.parties.filter(q => q.kind === 'head' || q.kind === 'oem')); row(o.parties.filter(q => q.kind === 'ilx'));
     for(const q of o.parties){
       if(!opShows(q) || !pos[q.id]) continue;
@@ -11602,8 +11692,8 @@ function drawOppIn(svg, live){
       opText(g, {x: b.x + 12, y: b.y + 20, class: 'op-pname'}, opCut(opQName(q), 24));
       const nop = q.site ? OPPS.filter(x => x.acct === q.acct).length : 0;
       opText(g, {x: b.x + 12, y: b.y + 37, class: 'op-psub'}, opCut(q.kind === 'oem' ? ((q.belts || []).length ? 'Belts: ' + q.belts.join(', ') : 'Belts not known') : q.kind === 'head' ? (q.status || 'Bidding')
-        : q.kind === 'corp' ? 'Corporate' : q.kind === 'grp' ? 'Group function' + ((q.covers || []).length ? ' · ' + q.covers.length + ((q.covers.length === 1) ? ' site' : ' sites') : '')
-        : q.site ? (q.hq ? 'Head office' : 'Site') + (nop ? ' · ' + nop + (nop === 1 ? ' opportunity' : ' opportunities') : '') : 'End user', 30) +
+        : q.kind === 'corp' ? 'Corporate' : q.kind === 'div' ? 'Division' : q.kind === 'grp' ? 'Group function' + ((q.covers || []).length ? ' · ' + q.covers.length + ((q.covers.length === 1) ? ' site' : ' sites') : '')
+        : q.site ? (q.hq ? 'Head office' : q.eng ? 'Group engineering' : 'Site') + (nop ? ' · ' + nop + (nop === 1 ? ' opportunity' : ' opportunities') : '') : 'End user', 30) +
         (!opShows(q) && ppl ? ' · ' + ppl + (ppl === 1 ? ' person' : ' people') : ''));
       // the Intralox spec, on every party but our own
       const sp = q.spec || '', tick = {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp];
@@ -11964,13 +12054,17 @@ function renderOpBar(){
     (lap ? '' : '<button type="button" class="btn act2 opbar-desc" data-desc="1">Add from a description</button>') +
     '<button type="button" class="opbar-opp" data-pick="OPP"><span class="sw" style="background:var(--c-opp)"></span><b>' + esc(o.name || (lap ? 'Large account' : 'Untitled')) + '</b></button>'];
   for(const K of OP_PKINDS){
-    if(K.k === 'grp' && !lap) continue;                // group functions: a large account's only (v131)
+    if((K.k === 'grp' || K.k === 'div') && !lap) continue;   // group functions and divisions: a large account's only (v131, v136)
     const qs = o.parties.filter(q => q.kind === K.k);
     // a large account's end users are its sites, from the plan (v129)
     const sitesHere = lap && K.k === 'end';
     h.push('<div class="opbar-grp"><div class="opbar-gh"><span class="sw" style="background:var(' + K.col + ')"></span>' + esc(sitesHere ? 'Sites' : K.t) + '<span class="spacer"></span>' +
-      (K.k === 'ilx' || sitesHere ? '' : '<button type="button" class="ib" data-addparty="' + K.k + '" aria-label="Add a ' + esc(K.one) + '" title="Add a ' + esc(K.one) + '">' + icon('plusc') + '</button>') + '</div>');
-    if(sitesHere && !qs.length) h.push('<p class="hint">Add sites in the plan.</p>');
+      (K.k === 'ilx' ? '' : sitesHere ? '<button type="button" class="ib" data-addsite="1" aria-label="Add a site" title="Add a site">' + icon('plusc') + '</button>'
+        : '<button type="button" class="ib" data-addparty="' + K.k + '" aria-label="Add a ' + esc(K.one) + '" title="Add a ' + esc(K.one) + '">' + icon('plusc') + '</button>') + '</div>');
+    // v136: a site added from here joins the plan straight away
+    if(sitesHere && opBarAdding === 'site') h.push('<div class="opadd"><input type="text" id="opNewSite" list="opSiteList" placeholder="Pick a customer" aria-label="The site to add" autocomplete="off"><button type="button" class="btn act2" id="opNewSiteGo">Add</button></div>' +
+      '<datalist id="opSiteList">' + ACCOUNTS.filter(a => !(o.sites || []).includes(a.a)).map(a => '<option value="' + esc(a.a) + '">').join('') + '</datalist>');
+    if(sitesHere && !qs.length) h.push('<p class="hint">Tap + to add a site.</p>');
     if(opBarAdding === K.k) h.push('<div class="opadd"><input type="text" id="opNewParty" list="opAcctList" placeholder="Name, or pick a customer" aria-label="Name of the ' + esc(K.one) + '" autocomplete="off"><button type="button" class="btn act2" id="opNewPartyGo">Add</button></div>' + opAcctList());
     for(const q of qs){
       const sp = q.spec || '';
@@ -11986,6 +12080,13 @@ function renderOpBar(){
     h.push('</div>');
   }
   el.querySelector('.opbar-body').innerHTML = h.join('');
+  const si = $('opNewSite');
+  if(si){
+    setTimeout(() => { try { si.focus(); } catch(_){} }, 0);
+    const go = () => { const v = si.value.trim(); if(!v){ opBarAdding = ''; renderOpBar(); return; } opAddSite(v); };
+    $('opNewSiteGo').addEventListener('click', go);
+    si.addEventListener('keydown', e => { if(e.key === 'Enter') go(); if(e.key === 'Escape'){ opBarAdding = ''; renderOpBar(); } });
+  }
   const inp = $('opNewParty');
   if(inp){
     setTimeout(() => { try { inp.focus(); } catch(_){} }, 0);
@@ -11993,6 +12094,19 @@ function renderOpBar(){
     $('opNewPartyGo').addEventListener('click', go);
     inp.addEventListener('keydown', e => { if(e.key === 'Enter') go(); if(e.key === 'Escape'){ opBarAdding = ''; renderOpBar(); } });
   }
+}
+function opAddSite(name){
+  if(!ACC_BY_NAME.has(name)){ toast('Pick a site from your customer list'); return; }
+  const other = largeFor(name);
+  if(other && other.id !== OPP.id){ toast(name + ' is already in ' + (other.name || 'another large account')); return; }
+  OPP.sites = [...new Set((OPP.sites || []).concat([name]))].sort();
+  opBarAdding = '';
+  opEnsure(OPP);
+  oppSaveNow().catch(reportErr);
+  drawOpp();
+  const q = OPP.parties.find(x => x.site && x.acct === name);
+  toast(name + ' added as a site');
+  if(q) opSelect({t: 'party', id: q.id});
 }
 function opAddParty(kind, name){
   const q = {id: newId('pa'), kind, name};
@@ -12014,6 +12128,7 @@ $('opBar').addEventListener('click', e => {
   if(b.dataset.tg === 'links'){ opLinksOn = !opLinksOn; try { localStorage.setItem(LS('opLinks'), opLinksOn ? '1' : '0'); } catch(_){} drawOpp(); return; }
   if(b.dataset.desc){ osOpen('map', OPP.acct, '', ''); return; }
   if(b.dataset.addparty){ opBarAdding = opBarAdding === b.dataset.addparty ? '' : b.dataset.addparty; renderOpBar(); return; }
+  if(b.dataset.addsite){ opBarAdding = opBarAdding === 'site' ? '' : 'site'; if(opBarAdding) opBarOpen = true; renderOpBar(); return; }
   if(b.dataset.spec){ const q = opParty(b.dataset.spec); if(q){ q.spec = OP_SPEC_NEXT[q.spec || '']; oppSaveNow().catch(reportErr); drawOpp(); if(opSel && opSel.t === 'party' && opSel.id === q.id) opPanel(); } return; }
   if(b.dataset.eye){ const q = opParty(b.dataset.eye); if(q){ q.show = q.show === false; oppSaveNow().catch(reportErr); drawOpp(); } return; }
   if(b.dataset.tbl) return opTableOpen(b.dataset.tbl);
@@ -12032,31 +12147,40 @@ function opPartyPanel(q){
   const nLinks = (OPP.links || []).filter(l => ppl.some(({p}) => l.a === p.id || l.b === p.id)).length;
   const belts = opBelts();
   const siteOpps = q.site ? OPPS.filter(x => x.acct === q.acct) : [], sitePlan = q.site ? planFor(q.acct) : null;
+  const divsHere = OPP.kind === 'large' ? OPP.parties.filter(x => x.kind === 'div') : [];
   P.innerHTML = '<h2>' + esc(q.site ? 'Site' : K.one.charAt(0).toUpperCase() + K.one.slice(1)) + '</h2>' +
     '<label class="l" for="opQn">Name</label><input type="text" id="opQn" list="opAcctList" value="' + esc(q.name) + '"' + (q.kind === 'ilx' || q.site ? ' readonly' : '') + '>' + opAcctList() +
-    (q.site ? '<p class="hint">One of this large account\'s sites. Its contacts are offered for its people. Add or take out sites in the plan.</p>'
+    (q.site ? '<p class="hint">One of this large account\'s sites. Its contacts are offered for its people. Add more with + beside Sites in the list.</p>'
       : q.acct ? '<p class="hint">From the customer list: its contacts are offered for its people.</p>' : '') +
     // v129: a site's own plan and opportunities, one tap away
     // v131: corporate can sit at a site; a group function covers all the sites or some
     (q.site ? '<label class="chk"><input type="checkbox" id="opQhq"' + (q.hq ? ' checked' : '') + '> Head office here: it drives the other sites</label>' : '') +
-    (q.kind === 'grp' ? '<label class="l">Covers</label><div class="chips" id="opQcov"><button type="button" data-v=""' + (!(q.covers || []).length ? ' class="on"' : '') + '>All sites</button>' +
-      opSitesOf(OPP).map(s => '<button type="button" data-v="' + esc(s.id) + '"' + ((q.covers || []).includes(s.id) ? ' class="on"' : '') + '>' + esc(opQName(s)) + '</button>').join('') + '</div>' : '') +
+    // v136: group engineering at a site, and the sites it engineers for
+    (q.site ? '<label class="chk"><input type="checkbox" id="opQeng"' + (q.eng ? ' checked' : '') + '> Group engineering here: it engineers for other sites</label>' +
+      (q.eng ? '<label class="l">Engineers for</label><div class="chips" id="opQengFor">' + opSitesOf(OPP).filter(x => x.id !== q.id).map(x => '<button type="button" data-v="' + esc(x.id) + '"' + ((q.engFor || []).includes(x.id) ? ' class="on"' : '') + ' aria-pressed="' + (q.engFor || []).includes(x.id) + '">' + esc(opQName(x)) + '</button>').join('') + '</div>' +
+        opStatePick('opQengSt') : '') : '') +
+    (q.site && divsHere.length ? '<label class="l" for="opQdiv">Division</label><select id="opQdiv"><option value="">None</option>' + divsHere.map(d => '<option value="' + esc(d.id) + '"' + (q.div === d.id ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select>' : '') +
+    (q.kind === 'grp' && divsHere.length ? '<label class="l" for="opQunder">Reports to</label><select id="opQunder"><option value="">The top (corporate)</option>' + divsHere.map(d => '<option value="' + esc(d.id) + '"' + (q.under === d.id ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select>' : '') +
+    (q.kind === 'grp' ? '<label class="l">Covers</label><div class="chips" id="opQcov"><button type="button" data-v=""' + (!(q.covers || []).length ? ' class="on"' : '') + '>' + (opDivOk(OPP, q.under) ? 'All its division\'s sites' : 'All sites') + '</button>' +
+      opSitesOf(OPP).map(s => '<button type="button" data-v="' + esc(s.id) + '"' + ((q.covers || []).includes(s.id) ? ' class="on"' : '') + '>' + esc(opQName(s)) + '</button>').join('') + '</div>' + opStatePick('opQcovSt') : '') +
     (q.site ? '<div class="orow"><button type="button" class="btn act2" id="opQplan">' + (sitePlan ? 'Its account plan' : 'Start its account plan') + '</button></div>' +
       (siteOpps.length ? '<label class="l">Its opportunities</label><ul class="opitems good">' + siteOpps.map(x => '<li><span><button type="button" class="lnkbtn" data-qopp="' + esc(x.id) + '">' + esc(x.name || 'Untitled') + '</button>' +
         '<span class="pin">' + esc([x.value, x.close && 'close ' + oppMonth(x.close), x.outcome].filter(Boolean).join(' · ')) + '</span></span></li>').join('') + '</ul>' : '') : '') +
     (q.kind === 'ilx' ? '' :
       '<label class="l">Have they specified Intralox?</label><div class="seg opspecseg" id="opQspec">' + ['yes', 'unsure', 'no'].map(v => '<button type="button" data-v="' + v + '"' + ((q.spec || '') === v ? ' class="on"' : '') + '>' + {yes: 'Specced', unsure: 'Unsure', no: 'Not specced'}[v] + '</button>').join('') + '</div>' +
-      (q.site ? '' : '<label class="l">What they are</label>' + opChips('qkind', ['Corporate'].concat(OPP.kind === 'large' ? ['Group function'] : [], ['End user', 'Head contractor', 'OEM or integrator']),
-        {corp: 'Corporate', grp: 'Group function', end: 'End user', head: 'Head contractor', oem: 'OEM or integrator'}[q.kind], true))) +
+      (q.site ? '' : '<label class="l">What they are</label>' + opChips('qkind', ['Corporate'].concat(OPP.kind === 'large' ? ['Division', 'Group function'] : [], ['End user', 'Head contractor', 'OEM or integrator']),
+        {corp: 'Corporate', div: 'Division', grp: 'Group function', end: 'End user', head: 'Head contractor', oem: 'OEM or integrator'}[q.kind], true))) +
     (q.kind === 'head' ? '<label class="l">Where they stand on the project</label>' + opChips('qstatus', ['Bidding', 'Appointed', 'Out of it'], q.status || 'Bidding', true) : '') +
     (q.kind === 'oem' ? '<label class="l" for="opQvia">Who they work for</label><select id="opQvia"><option value="">The end user, directly</option>' +
         heads.map(x => '<option value="' + esc(x.id) + '"' + (q.via === x.id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select>' +
       '<label class="l">Belting they prefer</label><div class="chips" id="opQbelts">' + belts.map(v => '<button type="button" data-v="' + esc(v) + '"' + ((q.belts || []).includes(v) ? ' class="on"' : '') + ' aria-pressed="' + (q.belts || []).includes(v) + '">' + esc(v) + '</button>').join('') + '</div>' +
-      '<div class="opadd"><input type="text" id="opQbeltN" placeholder="Another supplier" aria-label="Another belting supplier"><button type="button" class="btn act2" id="opQbeltGo">Add</button></div>' : '') +
+      '<div class="opadd"><input type="text" id="opQbeltN" placeholder="Another supplier" aria-label="Another belting supplier"><button type="button" class="btn act2" id="opQbeltGo">Add</button></div>' +
+      (OPP.kind === 'large' ? opWorksHTML(q) : '') : '') +
     '<label class="l">People</label><ul class="opitems good">' + (ppl.length ? ppl.map(({p, d}) => '<li style="margin-left:' + d * 14 + 'px"><span><button type="button" class="lnkbtn" data-qp="' + esc(p.id) + '">' + esc(p.n) + '</button>' +
       '<span class="pin">' + esc([p.title, q.kind === 'ilx' ? '' : bsRoleCode(p)].filter(Boolean).join(' · ')) + '</span></span></li>').join('') : '<li class="none"><span class="pin">Nobody yet.</span></li>') + '</ul>' +
     '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Show people' : 'Hide people') + '</button>' +
-      '<button type="button" class="btn" id="opDone">Done</button>' + (q.kind !== 'ilx' && !q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQrm">Remove</button>' : '') + '</div>' +
+      '<button type="button" class="btn" id="opDone">Done</button>' + (q.kind !== 'ilx' && !q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQrm">Remove</button>' : '') +
+      (q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQout">Take out of the plan</button>' : '') + '</div>' +
     (opConfirm ? '<div class="opconfirm">Remove ' + esc(q.name) + ', its ' + ppl.length + (ppl.length === 1 ? ' person' : ' people') + ' and their ' + nLinks + (nLinks === 1 ? ' link' : ' links') +
       ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
       '<div class="orow"><button type="button" class="btn warnb" id="opQrmY">Remove</button><button type="button" class="btn" id="opQrmN">Cancel</button></div></div>' : '');
@@ -12064,8 +12188,9 @@ function opPartyPanel(q){
   $('opQn').addEventListener('input', e => { if(q.kind === 'ilx') return; q.name = e.target.value; q.acct = ACC_BY_NAME.has(q.name.trim()) ? q.name.trim() : ''; drawOpp(); oppSaveSoon(); });
   if($('opQspec')) $('opQspec').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q.spec = q.spec === b.dataset.v ? '' : b.dataset.v; redraw(); }));
   P.querySelectorAll('[data-opchips="qkind"] button').forEach(b => b.addEventListener('click', () => {
-    const k = {'Corporate': 'corp', 'Group function': 'grp', 'End user': 'end', 'Head contractor': 'head', 'OEM or integrator': 'oem'}[b.dataset.v];
+    const k = {'Corporate': 'corp', 'Division': 'div', 'Group function': 'grp', 'End user': 'end', 'Head contractor': 'head', 'OEM or integrator': 'oem'}[b.dataset.v];
     if(!k || k === q.kind) return;
+    if(q.kind === 'div') OPP.parties.forEach(x => { if(x.div === q.id) x.div = ''; if(x.under === q.id) x.under = ''; });
     q.kind = k; delete q.x; delete q.y;
     if(k === 'oem' && !q.belts) q.belts = ['Intralox'];
     if(k === 'head' && !q.status) q.status = 'Bidding';
@@ -12095,6 +12220,35 @@ function opPartyPanel(q){
     else { const c = new Set(q.covers || []); if(c.has(v)) c.delete(v); else c.add(v); q.covers = c.size === all.length ? [] : all.filter(id => c.has(id)); }
     redraw();
   }));
+  // v136: group engineering at a site
+  if($('opQeng')) $('opQeng').addEventListener('change', e => {
+    q.eng = e.target.checked; if(!q.eng) delete q.engFor;
+    OPP.parties.forEach(x => { if(x.site){ delete x.x; delete x.y; } });
+    redraw();
+  });
+  if($('opQengFor')) $('opQengFor').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.v, c = new Set(q.engFor || []); if(c.has(v)) c.delete(v); else c.add(v);
+    q.engFor = opSitesOf(OPP).map(x => x.id).filter(id => c.has(id));
+    redraw();
+  }));
+  // tick every site in a state at once
+  const stPick = (id, key) => { if($(id)) $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const add = opSitesOf(OPP).filter(x => x.id !== q.id && opState(x) === b.dataset.st).map(x => x.id);
+    q[key] = [...new Set((q[key] || []).concat(add))]; redraw();
+  })); };
+  stPick('opQengSt', 'engFor'); stPick('opQcovSt', 'covers');
+  if($('opQdiv')) $('opQdiv').addEventListener('change', e => { q.div = e.target.value; OPP.parties.forEach(x => { delete x.x; delete x.y; }); redraw(); });
+  if($('opQunder')) $('opQunder').addEventListener('change', e => { q.under = e.target.value; OPP.parties.forEach(x => { delete x.x; delete x.y; }); redraw(); });
+  opWorksWire(q, redraw);
+  if($('opQout')) $('opQout').addEventListener('click', () => {
+    const n = opPeopleOf(q).length;
+    if(!confirm('Take ' + q.acct + ' out of this large account plan?' + (n ? '\n\nIts box stays on the map with its ' + n + (n === 1 ? ' person' : ' people') + ', no longer as a site.' : '') + ' The site\'s own account and records are not changed.')) return;
+    OPP.sites = (OPP.sites || []).filter(x => x !== q.acct);
+    opForget(OPP, q.id); q.eng = false; delete q.engFor; delete q.div;
+    oppSaveNow().catch(reportErr);
+    opSelect(null);
+    toast(q.acct + ' taken out of the plan');
+  });
   if($('opQplan')) $('opQplan').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); openPlan(q.acct); });
   P.querySelectorAll('[data-qopp]').forEach(b => b.addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); openOpp(b.dataset.qopp); }));
   $('opQeye').addEventListener('click', () => { q.show = q.show === false; redraw(); });
@@ -12105,11 +12259,51 @@ function opPartyPanel(q){
       opDropPeople(opPeopleOf(q).map(p => p.id));
       OPP.parties = OPP.parties.filter(x => x !== q);
       OPP.parties.forEach(x => { if(x.via === q.id) x.via = ''; });
+      opForget(OPP, q.id);
       oppSaveNow().catch(reportErr);
       opSelect(null);
     });
     $('opQrmN').addEventListener('click', () => { opConfirm = false; opPartyPanel(q); });
   }
+}
+/* v136: a site's state, from its zone, for ticking a region's sites at once */
+function opState(q){
+  const a = ACC_BY_NAME.get(q.acct); if(!a) return '';
+  let cov = '';
+  try { const zz = ZONES[a.z]; cov = zz ? String(zz.cov || '') : ''; } catch(e){}
+  const m = cov.toUpperCase().match(/^(NSW|VIC|QLD|SA|WA|TAS|NT|ACT|NZ)/);   // 'NSW / VIC' reads as NSW
+  return m ? m[1] : '';
+}
+function opStatePick(id){
+  const st = [...new Set(opSitesOf(OPP).map(opState).filter(Boolean))].sort();
+  if(st.length < 2) return '';
+  return '<div class="chips opstates" id="' + id + '"><span class="hint">Tick every site in</span>' + st.map(x => '<button type="button" data-st="' + esc(x) + '">' + esc(x) + '</button>').join('') + '</div>';
+}
+// an OEM on a large account: which boxes it works with, and how each link works
+function opWorksHTML(q){
+  const targets = OPP.parties.filter(x => ['corp', 'div', 'grp', 'end'].includes(x.kind));
+  const w = id => (q.works || []).find(x => x.to === id);
+  return '<label class="l">Works with</label><p class="hint">Tick each one they deal with, then say how. Each draws its own line.</p><div class="opworks">' +
+    targets.map(t => { const x = w(t.id), ppl = opPeopleOf(t);
+      return '<div class="opwork"><label class="chk"><input type="checkbox" data-wk="' + esc(t.id) + '"' + (x ? ' checked' : '') + '> ' + esc(opQName(t)) + (t.eng ? ' <span class="tag">engineering</span>' : '') + '</label>' +
+        (x ? '<div class="chips" data-wkhow="' + esc(t.id) + '">' + Object.keys(OP_HOW).map(k => '<button type="button" data-v="' + k + '"' + (x.how === k ? ' class="on"' : '') + ' aria-pressed="' + (x.how === k) + '">' + esc(OP_HOW[k]) + '</button>').join('') + '</div>' +
+          (x.how === 'person' ? '<select data-wkwho="' + esc(t.id) + '" aria-label="Who at ' + esc(opQName(t)) + '"><option value="">' + (ppl.length ? 'Who?' : 'Add people to ' + esc(opQName(t)) + ' first') + '</option>' + ppl.map(p => '<option value="' + esc(p.id) + '"' + (x.who === p.id ? ' selected' : '') + '>' + esc(p.n) + '</option>').join('') + '</select>' : '') +
+          '<input type="text" data-wknote="' + esc(t.id) + '" value="' + esc(x.note || '') + '" placeholder="How it works, in a few words" aria-label="How it works with ' + esc(opQName(t)) + '">' : '') + '</div>'; }).join('') + '</div>';
+}
+function opWorksWire(q, redraw){
+  const P = $('opPanel'), find = id => (q.works || []).find(x => x.to === id);
+  P.querySelectorAll('[data-wk]').forEach(i => i.addEventListener('change', () => {
+    const id = i.dataset.wk;
+    q.works = (q.works || []).filter(x => x.to !== id);
+    if(i.checked) q.works.push({to: id, how: '', who: '', note: ''});
+    redraw();
+  }));
+  P.querySelectorAll('[data-wkhow] button').forEach(b => b.addEventListener('click', () => {
+    const x = find(b.closest('[data-wkhow]').dataset.wkhow); if(!x) return;
+    x.how = x.how === b.dataset.v ? '' : b.dataset.v; if(x.how !== 'person') x.who = ''; redraw();
+  }));
+  P.querySelectorAll('[data-wkwho]').forEach(sl => sl.addEventListener('change', () => { const x = find(sl.dataset.wkwho); if(x){ x.who = sl.value; redraw(); } }));
+  P.querySelectorAll('[data-wknote]').forEach(t => t.addEventListener('input', () => { const x = find(t.dataset.wknote); if(x){ x.note = t.value; drawOpp(); oppSaveSoon(); } }));
 }
 // people leave the map with their links; flags pinned to them move to the whole opportunity; whoever reported to them moves up
 function opDropPeople(ids){

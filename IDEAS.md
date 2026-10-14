@@ -856,13 +856,16 @@ for now. Reviewed a clickable mock first.*
   the status bar, install steps for Safari in Help. Limits on iPhone: no
   sharing a file into the app, the microphone button may not work (keyboard
   microphone does), text boxes don't grow. To be tried by a colleague.
-- **Next to propose (Ben, 2026-10-13):** large accounts with more than one
-  engineering group. Corporate on one side and group engineering on another,
-  each its own box; several regional engineering groups (a southern and a
-  northern one, say), each with its own set of sites; a division with its own
-  engineering; and a separate business line under the same corporate. The
-  links from each engineering group to the sites it serves need defining, on
-  the large account map, the account and the opportunity map.
+- **Built (v136):** large accounts with more than one engineering group. A +
+  beside Sites on the map adds a site; a site can be Group engineering here
+  and tick the sites it engineers for (a state at a time); Division boxes
+  with their own sites; group functions report to the top or a division; an
+  OEM's Works with says which boxes it deals with and how (a person, site
+  management, group engineering, procurement, other, and a note); the map
+  lays engineering above the sites it serves, in columns by division.
+- **Later:** the account screen saying where a site sits in its large account,
+  and an opportunity map offering the site's engineering and corporate as
+  parties.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
