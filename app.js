@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v146';
+const APP_BUILD = 'v148';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10969,6 +10969,43 @@ function planText(name){
   if(lines(p.strengths)) L.push('Strengths: ' + lines(p.strengths));
   return L.length ? 'Account plan, kept by the engineer:\n' + L.join('\n') : '';
 }
+/* v148: the large account plan a site belongs to, for the sales coach: the
+   plan's own words, where this site sits in it, and the people over it
+   (corporate, the division, group engineering and functions, OEMs), with
+   who of ours covers them - so the brief and the coaching see the account
+   as a whole, not one site on its own */
+function lapText(name){
+  const L = largeFor(name);
+  if(!L) return '';
+  const txt = v => Array.isArray(v) ? v.map(x => typeof x === 'string' ? x : x && (x.t || x.name)).filter(Boolean).map(t => String(t).trim()).filter(Boolean).join('; ')
+    : String(v || '').split('\n').map(x => x.trim()).filter(Boolean).join('; ');
+  const out = ['Large account plan for ' + (L.name || 'the customer group') + ', which this site is one of ' + (L.sites || []).length + ' sites in, kept by the engineer:'];
+  [['Intralox vision', L.vision], ['Their business goals', L.goals], ['Key insights', L.insights], ['Objectives', (L.objectives || []).map(o => [o.t, o.revenue && 'revenue ' + o.revenue, o.period].filter(Boolean).join(', '))],
+    ['Strategies', L.strategies], ['Open actions', (L.actions || []).filter(a => !a.done).map(a => [a.t, a.owner && 'owner ' + a.owner, a.due && 'due ' + a.due].filter(Boolean).join(', '))],
+    ['Strengths', L.strengths], ['Weaknesses', L.flags], ['Opportunities', L.swopps], ['Threats', L.threats], ['Critical success factors', L.csf]]
+    .forEach(([k, v]) => { const t = txt(v); if(t) out.push(k + ': ' + t); });
+  let S = null;
+  try { S = Array.isArray(L.parties) || L.people ? lapScope(L, name) : null; } catch(e){ S = null; }
+  if(S){
+    const q = S.site, by = id => L.parties.find(x => x.id === id), nm = x => x.site ? x.acct || x.name : x.name;
+    const place = [];
+    if(q.hq) place.push('this site is the head office');
+    if(q.eng) place.push('group engineering sits at this site' + ((q.engFor || []).length ? ', for ' + q.engFor.map(by).filter(Boolean).map(nm).join(', ') : ''));
+    S.ids.forEach(id => { const x = by(id); if(x) place.push(({corp: 'corporate', div: 'division', grp: 'group function', end: 'engineering site', oem: 'OEM'})[x.kind] + ': ' + nm(x)); });
+    if(L.atl) place.push('account team leader: ' + L.atl);
+    if(place.length) out.push('Where this site sits: ' + place.join('; '));
+    // the people over this site, from the large account's map, with who of ours covers them
+    const ours = id => (L.links || []).filter(l => l.kind === 'Our coverage' && (l.a === id || l.b === id) && l.str !== 'Unknown')
+      .map(l => { const o = (L.people || []).find(x => x.id === (l.a === id ? l.b : l.a)); return o && o.side === 'us' ? o.n + ' (' + String(l.str).toLowerCase() + ')' : ''; }).filter(Boolean);
+    const ppl = (L.people || []).filter(p => S.ids.has(p.party) && !p.hidden && p.side !== 'us').slice(0, 30).map(p => {
+      const x = by(p.party), cov = ours(p.id);
+      return '- ' + p.n + [p.title, x && nm(x), bsRoles(p).join(' and '), p.stance && p.stance !== 'unknown' ? OP_STANCE[p.stance].toLowerCase() : '', cov.length ? 'covered by ' + cov.join(', ') : 'not covered by anyone of ours yet']
+        .filter(Boolean).map(v => ', ' + v).join('');
+    });
+    if(ppl.length) out.push('People over this site:\n' + ppl.join('\n'));
+  }
+  return out.length > 1 ? out.join('\n') : '';
+}
 function renderPlanCard(){
   const a = viewAcct, el = $('avPlan');
   if(!a || !el) return;
@@ -14811,10 +14848,42 @@ function renderLapCard(){
   const n = (L.sites || []).length, no = lapOpps(L).length;
   el.innerHTML = '<div class="hd"><span class="t">Large account: ' + esc(L.name || custOf(a.a)) + '</span></div>' +
     '<p class="meta">' + esc([n + (n === 1 ? ' site' : ' sites'), no + (no === 1 ? ' opportunity' : ' opportunities'),
-      L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet'].join(' · ')) + '</p>';
+      L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet'].join(' · ')) + '</p>' +
+    lapPlaceHTML(L, a.a);
 }
-$('avLap').addEventListener('click', () => { const L = viewAcct && largeFor(viewAcct.a); if(L) openLap(L.id); });
-$('avLap').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); const L = viewAcct && largeFor(viewAcct.a); if(L) openLap(L.id); } });
+/* v147: where this site sits in its large account - who drives it, its
+   division, who engineers for it, the group functions over it, and the
+   account team leader - read from the large account's map, never kept twice */
+function lapPlaceHTML(L, acct){
+  let S = null;
+  try { S = Array.isArray(L.parties) || L.people ? lapScope(L, acct) : null; } catch(e){ S = null; }
+  if(!S) return '';
+  const q = S.site, by = id => L.parties.find(x => x.id === id), name = x => x.site ? x.acct || x.name : x.name;
+  const rows = [];
+  if(q.hq) rows.push(['Here', 'the head office']);
+  if(q.eng) rows.push(['Here', 'group engineering' + ((q.engFor || []).length ? ', for ' + q.engFor.map(by).filter(Boolean).map(name).join(', ') : '')]);
+  const tops = opTops(L).filter(x => x.id !== q.id);
+  if(tops.length) rows.push([tops.some(x => x.kind === 'corp') ? 'Corporate' : 'Head office', tops.map(name).join(', ')]);
+  if(opDivOk(L, q.div)) rows.push(['Division', name(by(q.div))]);
+  const engs = L.parties.filter(e => e.site && e.eng && e.id !== q.id && (e.engFor || []).includes(q.id));
+  if(engs.length) rows.push(['Engineered from', engs.map(name).join(', ')]);
+  const grps = L.parties.filter(g => g.kind === 'grp' && opCovers(g, q, L));
+  if(grps.length) rows.push(['Group functions', grps.map(name).join(', ')]);
+  const oems = L.parties.filter(x => x.kind === 'oem' && S.ids.has(x.id));
+  if(oems.length) rows.push(['OEMs', oems.map(name).join(', ')]);
+  if(L.atl) rows.push(['Account team leader', L.atl]);
+  if(!rows.length) return '<p class="meta">Its place in the account is not mapped yet: tap to open the map.</p>';
+  return '<dl class="lapplace">' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
+}
+// tap: the large account's map, with this site chosen
+function lapOpenAtSite(){
+  const L = viewAcct && largeFor(viewAcct.a); if(!L) return;
+  const acct = viewAcct.a;
+  openLap(L.id);
+  setTimeout(() => { const q = OPP && OPP.id === L.id && (OPP.parties || []).find(x => x.site && x.acct === acct); if(q) opSelect({t: 'party', id: q.id}); }, 60);
+}
+$('avLap').addEventListener('click', lapOpenAtSite);
+$('avLap').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); lapOpenAtSite(); } });
 
 /* the tick on the site's account plan: start or join the group's plan, or leave it */
 async function lapTick(site, want){
@@ -16846,7 +16915,8 @@ function accountHistory(name, skipId){
     if(c.coaching && c.coaching.text) L.push('Coaching after that call:\n' + coachMain(c.coaching.text).trim());
     return L.join('\n');
   });
-  const plan = planText(name);
+  const plan = planText(name), lap = lapText(name);
+  if(lap) parts.unshift(lap);                      // v148: the large account it belongs to
   if(plan) parts.unshift(plan);
   const tasks = (typeof TASKS !== 'undefined' ? TASKS : []).filter(t => t.acct === name && !t.done).map(t => t.title || t.type).filter(Boolean);
   if(tasks.length) parts.push('Open tasks: ' + tasks.join('; '));
