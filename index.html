@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v140">
+<meta name="build" content="v141">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -867,6 +867,7 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .opitems.good li{border-left-color:var(--ok)}
 /* v140: someone's relationships, by box, each strength one tap away */
 .oprelg{margin:0 0 8px}
+.oprtodo{margin:0 0 8px;padding:8px 10px;border-radius:var(--r-sm);background:var(--cyan-lt);color:var(--ink);font-size:14px;font-weight:700}
 .oprelg>summary{cursor:pointer;font-weight:700;font-size:14px;padding:8px 2px;min-height:40px;display:flex;align-items:center;gap:6px}
 .oprelg>summary small{font-weight:400;color:var(--ink-3)}
 .oprels li span .pin{display:block}
@@ -2540,12 +2541,12 @@ details.bsx > .msg{margin:8px 12px}
         <li>Under <b>Reports to</b>, pick their manager. People at the same site come first; people at the other sites are listed under each site's name.</li>
         <li>They stay under their own site, and a <b>Reports to</b> line runs across to their manager. You can also set it in the <b>Reports to</b> column of the people table.</li>
         <li>To see your relationships, tap yourself in the Intralox box.</li>
-        <li>Under <b>Their relationships</b>, each site is listed with how many. Tap a site's name to open it.</li>
-        <li>Tap <b>Strong</b>, <b>Neutral</b>, <b>Weak</b> or <b>Hostile</b> on a row to set that relationship.</li>
+        <li>Under <b>Their relationships</b>, the line at the top says how many are left to rate. Sites with some to rate come first, already open, with those relationships at the top. Tap any other site's name to open it.</li>
+        <li>Tap <b>Strong</b>, <b>Neutral</b>, <b>Weak</b> or <b>Hostile</b> on a row to set that relationship. If you know there is a relationship but not how strong, tap <b>Unknown</b>.</li>
         <li>To change its kind or add a note, tap the person's name. Tap <b>Back to</b> and your name to return to the list.</li>
         <li>To switch off the account manager's default links for a site, tap the site, then untick <b>covers everyone here</b>.</li>
       </ol>
-      <p>Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked <b>not rated yet</b> in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link.</p>
+      <p>Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked <b>not rated yet</b> in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated <b>Unknown</b> stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.</p>
     </div>
   </details>
   <details class="sx hx">

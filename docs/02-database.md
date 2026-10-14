@@ -126,7 +126,7 @@ as Dynamics' Large Account Plan:
 | `pos`, `posWord`, `posWhy`, `vsComp`, `funnel`, `timing`, `comp`, `volNow`, `volPot`, `rep`, `criteria` | The Blue Sheet: position, competition, funnel, timing, volumes, ideal customer criteria |
 | `parties` | The companies on the map: each `id`, `kind` (corp, div, grp, end, head, oem, ilx), `name`, `acct` (when it is one of our customers), `spec` (specified Intralox: yes / unsure / no), and by kind `status` (head contractor), `via` and `belts` (OEM), `covers` and `under` (group function: the sites it covers, the division it reports to), `site`, `hq`, `eng`, `engFor` and `div` (large account site: head office, group engineering there, the sites it engineers for, its division), and `works` (an OEM on a large account: each `to`, `how` (person, site, eng, proc, other), `who`, `note`) (v136) |
 | `people` | Buying influences: `n`, `title`, `party`, `side`, `boss` (reports to), `role`, `role2`, `infl`, `stance`, `mode`, `rate`, `win`, `result`, `evid`, `note`, and `est`/`estFrom` when filled in from another Blue Sheet |
-| `links` | Relationships between people: `a`, `b`, `kind`, `str`, `note` |
+| `links` | Relationships between people: `a`, `b`, `kind`, `str` (Strong, Neutral, Weak, Hostile, or Unknown since v141: linked, strength not known, not counted as coverage), `note` |
 | `flags`, `strengths`, `actions`, `notes` | Red flags (with information needed and from whom), strengths, possible actions (starred = best action plan), communication notes |
 | `coaching`, `test`, `created`, `updated` | The coach's view, a made-up test project, and edits |
 | `lap`, `lapPos` | The large account plan brought into this opportunity (its `id`), and where its boxes sit on this map (`{x, y, show}` by the plan's box id) (v139) |

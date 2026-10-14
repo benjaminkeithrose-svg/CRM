@@ -59,9 +59,13 @@ ok(g(`opCoverage(OPP.people.find(p => p.id === 'pp1')).length`) === 0, 'and not 
 g(`opSelect({t: 'p', id: '${ben()}'})`); await tick(80);
 ok([...$('opMap').querySelectorAll('.op-edge')].filter(e => /not rated/.test(e.getAttribute('aria-label'))).length === 3, 'tapping them draws all three');
 
+// v141: what is left to rate comes first, its sites open
+ok(($('opPanel').querySelector('.oprtodo') || {}).textContent === '3 to rate', 'the panel says how many are left to rate');
+ok([...$('opPanel').querySelectorAll('details.oprelg')].every(x => x.open), 'every site with some to rate is open');
+ok($('opPanel').querySelectorAll('[data-rs][data-v="Unknown"]').length === 3, 'each row offers Unknown too');
 // ---- their relationships, by site, each editable
 const groups = [...$('opPanel').querySelectorAll('details.oprelg > summary')].map(s => s.textContent);
-ok(groups.length === 2 && groups.some(t => t.startsWith(S.a) && /2$/.test(t)) && groups.some(t => t.startsWith(S.b) && /1$/.test(t)), 'their relationships are grouped by site, with how many', groups.join(' | '));
+ok(groups.length === 2 && groups.some(t => t.startsWith(S.a) && / 2, 2 to rate$/.test(t)) && groups.some(t => t.startsWith(S.b) && / 1, 1 to rate$/.test(t)), 'their relationships are grouped by site, with how many', groups.join(' | '));
 ok(/not rated yet/.test($('opPanel').textContent), 'marked not rated yet');
 $('opPanel').querySelector('[data-rs^="im:"][data-rs$=":pp1"][data-v="Strong"]').click(); await tick(150);
 ok(g(`OPP.links.some(l => l.a === '${ben()}' && l.b === 'pp1' && l.str === 'Strong' && l.kind === 'Our coverage')`), 'one tap on Strong makes it a real link');
@@ -81,6 +85,20 @@ im.click(); await tick(80);
 ok(/not counted on the Blue Sheet until you rate it/.test($('opPanel').textContent), 'a default one opened says it is not counted until rated');
 $('opSg').querySelector('[data-v="Weak"]').click(); await tick(120);
 ok(g(`OPP.links.filter(l => l.a === '${ben()}').length`) === 2 && !!$('opLback'), 'rating it there makes it real, and Back is still offered');
+
+// v141: Unknown - linked, strength not known: dotted, a gap, not coverage
+g(`opSelect({t: 'p', id: '${ben()}'})`); await tick(80);
+ok(/1 to rate/.test($('opPanel').querySelector('.oprtodo').textContent), 'one left to rate');
+const left = $('opPanel').querySelector('[data-rs^="im:"][data-v="Unknown"]');
+const leftP = left.dataset.rs.split(':')[2];
+left.click(); await tick(120);
+const ul = g(`OPP.links.find(l => l.b === '${leftP}')`);
+ok(ul && ul.str === 'Unknown' && ul.kind === 'Our coverage', 'Unknown makes it a link of unknown strength');
+ok(g(`opCoverage(OPP.people.find(p => p.id === '${leftP}')).length`) === 0, 'which is not coverage');
+const who = g(`OPP.people.find(p => p.id === '${leftP}').n`);
+ok(g(`opGaps().some(x => x.t === "Ben Example's relationship with ${who} is unknown")`), 'and is a gap on the Blue Sheet', g(`JSON.stringify(opGaps().map(x => x.t))`));
+ok(/1 to rate/.test($('opPanel').querySelector('.oprtodo').textContent) && /strength unknown/.test($('opPanel').textContent), 'it stays on the list to rate, marked strength unknown');
+ok([...$('opMap').querySelectorAll('.op-edge path.vis')].some(v => v.getAttribute('stroke-dasharray') === '2 5'), 'drawn dotted');
 
 // ---- someone reports to a person at another site
 g(`opSelect({t: 'p', id: 'pp1'})`); await tick(80);

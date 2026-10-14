@@ -176,10 +176,10 @@ ok(/Single sales objective/.test(sheet()) && /Line 3 upgrade/.test(sheet()) && /
 ok($('opSheet').querySelectorAll('details.bsp').length === 3, 'one entry for each of their people, none for ours');
 ok(/Covered by Ben \(strong\)/.test($('opSheet').querySelector('details.bsp').textContent), 'coverage is read from the map\'s links');
 const gaps = () => [...$('opSheet').querySelectorAll('.bsgaps li span')].map(x => x.textContent);
-ok(gaps().includes('Nobody identified who signs the order') && gaps().includes('No coach: nobody on their side is marked as on our side') && gaps().includes('Priya Nair is not covered by anyone on our team') && gaps().includes('Priya Nair: how they see it is unknown'), 'the gaps are found: ' + gaps().join(' / '));
+ok(gaps().includes('Nobody identified who signs the order') && gaps().includes('No coach: nobody on their side is marked as on our side') && gaps().includes("Ben's relationship with Priya Nair is unknown") && gaps().includes('Priya Nair: how they see it is unknown'), 'the gaps are found: ' + gaps().join(' / '));
 const nf = g(`OPP.flags.length`);
-[...$('opSheet').querySelectorAll('[data-bsgap]')].find(b => /Priya Nair is not covered/.test(b.parentNode.textContent)).click(); await tick(100);
-ok(g(`OPP.flags.length`) === nf + 1 && g(`OPP.flags[OPP.flags.length - 1].pin`) === 'p:pX' && !gaps().includes('Priya Nair is not covered by anyone on our team'), 'a gap becomes a red flag pinned to the person, and leaves the gaps');
+[...$('opSheet').querySelectorAll('[data-bsgap]')].find(b => /relationship with Priya Nair is unknown/.test(b.parentNode.textContent)).click(); await tick(100);   // v141: Ben, her account manager, covers her by default, not rated
+ok(g(`OPP.flags.length`) === nf + 1 && g(`OPP.flags[OPP.flags.length - 1].pin`) === 'p:pX' && !gaps().includes("Ben's relationship with Priya Nair is unknown"), 'a gap becomes a red flag pinned to the person, and leaves the gaps');
 const pri = [...$('opSheet').querySelectorAll('details.bsp')].find(x => /Priya/.test(x.textContent));
 pri.querySelector('[data-opchips] [data-v="Signs the order"]').click(); await tick(50);
 [...$('opSheet').querySelectorAll('details.bsp')].find(x => /Priya/.test(x.textContent)).querySelector('[data-bsinfl] [data-v="High"]').click(); await tick(50);
