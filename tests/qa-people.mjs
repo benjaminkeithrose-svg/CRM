@@ -127,15 +127,15 @@ ok(g(`accPlain()`).every(a => a.c.every(c => !c.added)) && added() === 'Lee New'
 
 // ---- Settings: the list to put into Dynamics
 g(`showScreen('settings')`); await tick();
-ok($('pplStat').textContent === '1 contact was added in the app and is not in Dynamics yet.' && !$('pplShare').hidden, 'Settings counts them and offers the list');
+ok($('pplStat').textContent === '1 new contact. 1 not sent to CAG yet.' && !$('pplShare').hidden, 'Settings counts them and offers the list (v144: Changes for Dynamics)');
 let sent = null;
 w.deliverFile = async (blob, name) => { sent = {blob, name}; };
 $('pplShare').click(); await tick(300);
-ok(sent && /^contacts_not_in_dynamics_\d{4}-\d{2}-\d{2}\.xlsx$/.test(sent.name), 'Share the list makes a spreadsheet: ' + (sent && sent.name));
+ok(sent && /^changes_for_dynamics_\d{4}-\d{2}-\d{2}\.xlsx$/.test(sent.name), 'Download for CAG makes a spreadsheet: ' + (sent && sent.name));
 if (sent) {
   const wb = w.XLSX.read(new Uint8Array(await sent.blob.arrayBuffer()), {type: 'array'});
-  const rows = w.XLSX.utils.sheet_to_json(wb.Sheets['Not in Dynamics'], {header: 1});
-  ok(rows[0].join() === 'Account,Full Name,Job Title,Added,Added by,From' && rows[1][0] === A && rows[1][1] === 'Lee New' && rows[1][5] === 'Boning room', 'one row per contact, with where they came from');
+  const rows = w.XLSX.utils.sheet_to_json(wb.Sheets['New contacts'], {header: 1});
+  ok(rows[0].join() === 'Account,Full Name,Job Title,Email,Mobile,Added,Added by,From,Status' && rows[1][0] === A && rows[1][1] === 'Lee New' && rows[1][7] === 'Boning room', 'one row per contact, with where they came from');
 }
 
 // ---- outcome

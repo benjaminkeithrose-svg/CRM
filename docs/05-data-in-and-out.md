@@ -23,7 +23,7 @@
 | **Blue Sheet** | Create and share | PDF (the print screen's Save as PDF) or Excel in Miller Heiman's template layout |
 | **Large account plan** | Create and share | A4 HTML in Dynamics' order |
 | **Copy for Dynamics** | The large account plan | Each Dynamics field with its own Copy button |
-| **Contacts not in Dynamics yet** | Settings | .xlsx to enter into Dynamics |
+| **Changes for Dynamics** (v144) | Settings | .xlsx for CAG: new contacts, moved contacts, changed details and account owners (account managers, ATL), a sheet each, then marked sent |
 | **Visits to Outlook** | The calendar | .ics calendar file: subject "Type: Account", location, agenda, invitees, focus and zone as categories |
 | **Email tasks to Outlook** | Open in Outlook | A new email (mailto): To, Subject (or the title), Body |
 | **Planning weeks** | The planner | .ics calendar file of week markers |
