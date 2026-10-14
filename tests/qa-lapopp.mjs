@@ -85,7 +85,7 @@ ok(/3 of its boxes|4 of its boxes/.test($('opPanel').textContent) && !!$('opLapO
 await tick(300);
 const stored = await g(`oppsAll()`);
 const rec = stored.find(r => r.id === 'o1');
-ok(rec.lap === 'L1' && rec.parties.length === 2 && rec.people.length === 1 && !rec.links.length, 'the opportunity keeps only the link, never the plan\'s boxes', JSON.stringify(rec).slice(0, 300));
+ok(rec.lap === 'L1' && rec.parties.length === 2 && rec.people.filter(p => p.side !== 'us').length === 1 && !rec.links.length, 'the opportunity keeps only the link, never the plan\'s boxes', JSON.stringify(rec).slice(0, 300));
 
 // ---- a change here goes back to the plan
 const corp = 'lk-pc';

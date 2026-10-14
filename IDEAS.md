@@ -876,6 +876,12 @@ for now. Reviewed a clickable mock first.*
   site that engineers for it and their OEMs, with their people, live from the
   plan (Ben chose a live link over a copy, knowing spec and stance are then
   shared across the account's opportunities). Unlink takes them off.
+- **Built (v140):** relationships across a large account. Reports to can pick
+  someone at another site (a Reports to line across, the person stays under
+  their site); each site's account manager joins Intralox and covers everyone
+  there by default, shown only when tapped, counted on the Blue Sheet only once
+  rated, switchable off per site; someone's relationships are listed by site,
+  with strength chips on each row and a tap through to the link (Back to them).
 - **Later:** the account screen saying where a site sits in its large account.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.

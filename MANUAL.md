@@ -531,6 +531,19 @@ To take a site out, untick the box on its account plan. To delete the whole plan
 
 The boxes with a chain stay on the large account plan. Their people, the links between them and whether they have specified Intralox are kept there, so a change on the opportunity shows on the large account's map and on its other opportunities, and a change there shows here the next time the map opens. Where you put a box on this map is this opportunity's own. Links you draw between this opportunity's people and theirs stay with the opportunity. The Blue Sheet, the coach and Create and share include them. Unlink deletes nothing.
 
+### Relationships across sites
+
+1. To show someone reporting to a person at another site, tap them on the map.
+2. Under **Reports to**, pick their manager. People at the same site come first; people at the other sites are listed under each site's name.
+3. They stay under their own site, and a **Reports to** line runs across to their manager. You can also set it in the **Reports to** column of the people table.
+4. To see your relationships, tap yourself in the Intralox box.
+5. Under **Their relationships**, each site is listed with how many. Tap a site's name to open it.
+6. Tap **Strong**, **Neutral**, **Weak** or **Hostile** on a row to set that relationship.
+7. To change its kind or add a note, tap the person's name. Tap **Back to** and your name to return to the list.
+8. To switch off the account manager's default links for a site, tap the site, then untick **covers everyone here**.
+
+Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link.
+
 ### Prepare for a visit, and get coaching after it
 
 Keep an account plan:
