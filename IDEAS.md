@@ -913,8 +913,8 @@ for now. Reviewed a clickable mock first.*
 - **Built (v147):** the account screen's Large account card says where the site sits (corporate, division, who engineers for it, group functions, OEMs, ATL); tapping it opens the map with the site chosen.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
-- **Later:** the coach reading the large account plan; the group column's
-  real name once Ben has checked the export.
+- **Built (v148):** the coach reads the large account plan with a site's records (brief, coaching, opportunity coaching).
+- **Later:** the group column's real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
   opportunities import (needs the column headings).
 

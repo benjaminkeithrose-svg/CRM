@@ -1,7 +1,7 @@
 # Field CRM documentation
 
 How Field CRM is built and how its data is kept. Written from the code as it
-stands, version v147 (2026-10-14). No customer data and no keys appear here.
+stands, version v148 (2026-10-14). No customer data and no keys appear here.
 
 | Document | What it covers | Mainly for |
 |---|---|---|

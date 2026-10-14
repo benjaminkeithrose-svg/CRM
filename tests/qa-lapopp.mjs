@@ -156,6 +156,15 @@ ok(/Here: group engineering, for Sample Foods - Northside/.test(place2), 'and fo
 $('avLap').click(); await tick(200);
 ok(g(`OPP && OPP.id`) === 'L1' && g(`opSel && opSel.t`) === 'party' && g(`opParty(opSel.id).acct`) === S.b, 'tapping it opens the map with this site chosen');
 
+// ---- v148: the coach reads the large account plan with a site's records
+g(`(() => { const L = PLANS.find(p => p.id === 'L1'); L.vision = 'Their belting partner across every site'; L.objectives = [{t: 'Standardise the chicken lines', revenue: '200k', period: 'FY27'}]; L.atl = 'Ada Lead'; })()`);
+const hist = g(`accountHistory('${S.a}')`);
+ok(/^Large account plan for Sample Foods, which this site is one of 3 sites in/m.test(hist) && /Intralox vision: Their belting partner across every site/.test(hist) && /Objectives: Standardise the chicken lines, revenue 200k, FY27/.test(hist),
+  'the coach is given the large account plan with the site\'s records');
+ok(/Where this site sits:.*corporate: Sample Foods Corporate.*division: Chicken division.*engineering site: Sample Foods - Southside/.test(hist) && /account team leader: Ada Lead/.test(hist), 'with where the site sits');
+ok(/- Corin Chief, Chief Operating Officer, Sample Foods Corporate/.test(hist) && /not covered by anyone of ours yet/.test(hist), 'and the people over it, with who covers them');
+ok(!g(`accountHistory('Other Customer')`).includes('Large account plan'), 'a customer in no large account gets none');
+
 await tick(700);
 ok(errs.length === 0, 'no errors', errs.join(' | '));
 console.log(`PASS ${pass}` + (fail ? `  FAIL ${fail}` : ''));

@@ -637,7 +637,7 @@ After the call:
 
 Nothing in the plan changes until you tick it, and a suggestion never replaces something already in the plan. The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.
 
-The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records and plan to Anthropic, and counts towards the 200 a day; Prepare tomorrow counts one for each brief it writes.
+The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records and plan to Anthropic (and, for a site in a large account, the large account plan: where the site sits in it and the people over it), and counts towards the 200 a day; Prepare tomorrow counts one for each brief it writes.
 
 ### Add photos
 
