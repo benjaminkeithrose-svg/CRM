@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v146';
+const APP_BUILD = 'v147';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -14811,10 +14811,42 @@ function renderLapCard(){
   const n = (L.sites || []).length, no = lapOpps(L).length;
   el.innerHTML = '<div class="hd"><span class="t">Large account: ' + esc(L.name || custOf(a.a)) + '</span></div>' +
     '<p class="meta">' + esc([n + (n === 1 ? ' site' : ' sites'), no + (no === 1 ? ' opportunity' : ' opportunities'),
-      L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet'].join(' · ')) + '</p>';
+      L.reviewed ? 'reviewed ' + new Date(L.reviewed).toLocaleDateString() : 'not reviewed yet'].join(' · ')) + '</p>' +
+    lapPlaceHTML(L, a.a);
 }
-$('avLap').addEventListener('click', () => { const L = viewAcct && largeFor(viewAcct.a); if(L) openLap(L.id); });
-$('avLap').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); const L = viewAcct && largeFor(viewAcct.a); if(L) openLap(L.id); } });
+/* v147: where this site sits in its large account - who drives it, its
+   division, who engineers for it, the group functions over it, and the
+   account team leader - read from the large account's map, never kept twice */
+function lapPlaceHTML(L, acct){
+  let S = null;
+  try { S = Array.isArray(L.parties) || L.people ? lapScope(L, acct) : null; } catch(e){ S = null; }
+  if(!S) return '';
+  const q = S.site, by = id => L.parties.find(x => x.id === id), name = x => x.site ? x.acct || x.name : x.name;
+  const rows = [];
+  if(q.hq) rows.push(['Here', 'the head office']);
+  if(q.eng) rows.push(['Here', 'group engineering' + ((q.engFor || []).length ? ', for ' + q.engFor.map(by).filter(Boolean).map(name).join(', ') : '')]);
+  const tops = opTops(L).filter(x => x.id !== q.id);
+  if(tops.length) rows.push([tops.some(x => x.kind === 'corp') ? 'Corporate' : 'Head office', tops.map(name).join(', ')]);
+  if(opDivOk(L, q.div)) rows.push(['Division', name(by(q.div))]);
+  const engs = L.parties.filter(e => e.site && e.eng && e.id !== q.id && (e.engFor || []).includes(q.id));
+  if(engs.length) rows.push(['Engineered from', engs.map(name).join(', ')]);
+  const grps = L.parties.filter(g => g.kind === 'grp' && opCovers(g, q, L));
+  if(grps.length) rows.push(['Group functions', grps.map(name).join(', ')]);
+  const oems = L.parties.filter(x => x.kind === 'oem' && S.ids.has(x.id));
+  if(oems.length) rows.push(['OEMs', oems.map(name).join(', ')]);
+  if(L.atl) rows.push(['Account team leader', L.atl]);
+  if(!rows.length) return '<p class="meta">Its place in the account is not mapped yet: tap to open the map.</p>';
+  return '<dl class="lapplace">' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
+}
+// tap: the large account's map, with this site chosen
+function lapOpenAtSite(){
+  const L = viewAcct && largeFor(viewAcct.a); if(!L) return;
+  const acct = viewAcct.a;
+  openLap(L.id);
+  setTimeout(() => { const q = OPP && OPP.id === L.id && (OPP.parties || []).find(x => x.site && x.acct === acct); if(q) opSelect({t: 'party', id: q.id}); }, 60);
+}
+$('avLap').addEventListener('click', lapOpenAtSite);
+$('avLap').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); lapOpenAtSite(); } });
 
 /* the tick on the site's account plan: start or join the group's plan, or leave it */
 async function lapTick(site, want){

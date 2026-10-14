@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v146">
+<meta name="build" content="v147">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -871,6 +871,10 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .opitems.good li{border-left-color:var(--ok)}
 /* v140: someone's relationships, by box, each strength one tap away */
 .oprelg{margin:0 0 8px}
+/* v147: a site's place in its large account */
+.lapplace{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:6px 0 0;font-size:13.5px}
+.lapplace dt{color:var(--ink-3);font-weight:700}
+.lapplace dd{margin:0;min-width:0}
 /* v144: changes for Dynamics */
 .cagl>summary{cursor:pointer;font-weight:700;padding:8px 0;min-height:40px}
 .cagg{margin:6px 0 10px}
@@ -2534,7 +2538,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>To put it into Dynamics, tap <b>Copy for Dynamics</b> on the PC. Tap <b>Copy</b> beside each field, then paste it into the same field in Dynamics.</li>
         <li>To send the plan, tap <b>Create and share</b>.</li>
       </ol>
-      <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
+      <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card on its account screen. It says where the site sits: the corporate account or head office over it, its division, the site that engineers for it (or the sites it engineers for), the group functions over it, its OEMs and the account team leader. Tap the card to open the map with that site chosen. Ticking the box on another site of the same customer adds that site to the same plan.</p>
       <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's <b>Works with</b> is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A new map has no corporate box until you add one, so nothing appears that isn't a real account or site. Each site starts with every contact the CRM export has for it, and a later import adds anyone new. A site that had nobody on it shows them in the list beside the map but not on the map itself; tap the eye next to the site to draw them. OEMs, head contractors and any other box that is one of your customers fill the same way; a box whose name you typed can be tied to the customer list with <b>Match to a customer</b> in its panel. Taking a site out of the plan takes its contacts from Dynamics with it, unless you have worked on them. A map made before this change keeps its group box as the corporate account, with its people; if that box was never used, it is taken away. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
       <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
     </div>
