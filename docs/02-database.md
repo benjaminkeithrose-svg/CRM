@@ -142,6 +142,8 @@ A large account's sites fill from the CRM export (v143): each contact for the si
 
 **people**, kind `chg` (v144): changes for Dynamics, for CAG, shared with the team in the same store. `type` is `move` (`n`, `cid`, `from`, `to`, and the contact's `t`, `e`, `p`), `edit` (`n`, `cid`, `acct`, only the changed `t` / `e` / `p`, and `was`), `atl` (`plan`, `acct` the large account's name, `sites`, `to`, `from`) or `owner` (an account manager change, made when it is marked sent: `acct`, `to`, `from`). Each has `at`, `by`, `updated`, and `sent` and `done` once those happen. A move or edit is laid over the contact list in memory until a CRM import has it (`moved`, `movedFrom`, `changed` on the contact; the export's own values kept in `_crm`, never stored). Account manager changes themselves are the reassignments in `mgrOf`. A large account plan's `atl` is its account team leader; a party's `atlOff` switches off the ATL's default links there.
 
+Since v145 a change can also be `left` (`n`, `cid`, `acct`): the contact left the company, to remove from Dynamics, done once the export no longer has them. A person on a map with `hidden: true` was hidden as not relevant: kept, but not drawn, not rated and not on the Blue Sheet. Any box with an `acct` on a large account's map (an OEM, a contractor, corporate) fills from the CRM like a site.
+
 **cip**: three records. `me` holds your CIP periods (goals, strengths, gaps,
 reviews) and the four pillars; `mbo` your MBO list and claims by year and
 quarter; `ref` the reference you import (job indicants, LCI principles, BU

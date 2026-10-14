@@ -57,21 +57,17 @@ await tick(900);
 const saved = (await g(`plansAll()`)).find(r => r.id === 'L1');
 ok(saved.people.length >= 5, 'and it is saved');
 
-// ---- one tap takes someone off, for good
+// ---- one tap hides someone who is not relevant (v145: the cross became Hide)
 g(`opBarExp.add('pa'), renderOpBar()`); await tick(50);
-const x = d.querySelector('#opBar [data-out="' + g(`OPP.people.find(p => p.n === 'Lee Line').id`) + '"]');
-ok(!!x && x.getAttribute('aria-label') === 'Take Lee Line off this map', 'a cross beside each name in the list');
+const lee = g(`OPP.people.find(p => p.n === 'Lee Line').id`);
+const x = d.querySelector('#opBar [data-out="' + lee + '"]');
+ok(!!x && x.getAttribute('aria-label') === 'Hide Lee Line: not relevant', 'a Hide button beside each name in the list');
 let asked = 0; w.confirm = () => { asked++; return true; };
 x.click(); await tick(150);
-ok(!g(`OPP.people.some(p => p.n === 'Lee Line')`) && asked === 0, 'one tap takes them off, with nothing to confirm when they have no relationships');
-ok(g(`OPP.parties.find(q => q.id === 'pa').crmOut.includes('lee line')`), 'remembered');
+ok(g(`OPP.people.find(p => p.n === 'Lee Line').hidden`) === true && asked === 0, 'one tap hides them, nothing to confirm');
+ok(!g(`opPeopleOf(OPP.parties.find(q => q.id === 'pa')).some(p => p.n === 'Lee Line')`) && !g(`opImplied(OPP).some(l => l.b === '${lee}')`), 'they are not listed, drawn or left to rate');
 g(`renderOpp()`); await tick(150);
-ok(!g(`OPP.people.some(p => p.n === 'Lee Line')`), 'so they are not brought back');
-// someone with a relationship asks first
-g(`(() => { const s = OPP.people.find(p => p.n === 'Sam Store'); const b = OPP.people.find(p => p.n === 'Ben Example'); OPP.links.push({id: 'l1', a: b.id, b: s.id, kind: 'Our coverage', str: 'Strong', note: ''}); opBarExp.add('pa'); renderOpBar(); })()`);
-w.confirm = () => { asked++; return false; };
-d.querySelector('#opBar [data-out="' + g(`OPP.people.find(p => p.n === 'Sam Store').id`) + '"]').click(); await tick(100);
-ok(asked === 1 && g(`OPP.people.some(p => p.n === 'Sam Store')`), 'someone with relationships is asked about first, and Cancel keeps them');
+ok(g(`OPP.people.filter(p => p.n === 'Lee Line').length`) === 1 && g(`OPP.people.find(p => p.n === 'Lee Line').hidden`), 'the next fill does not bring them back twice or unhide them');
 w.confirm = () => true;
 
 // ---- a later import brings new contacts in

@@ -136,7 +136,7 @@ ok(g(`OPP.strengths.length`) === 0 && /Remove this strength/.test(confirms[0]), 
 // ---- removing a person takes their links, and unpins their flags
 tapCard(0); await tick();
 $('opRm').click(); await tick();
-ok(/Remove Tom Ward Jr and 1 link/.test($('opPanel').textContent), 'remove names the person and their links');
+ok(/Take Tom Ward Jr and 1 link/.test($('opPanel').textContent), 'Take off this map (v145) names the person and their links');
 $('opRmY').click(); await tick(100);
 ok(g(`OPP.people.length`) === 3 && g(`OPP.links.length`) === 2 && g(`OPP.flags[0].pin`) === '', 'gone, with their link; the flag stays on the whole opportunity');
 

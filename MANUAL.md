@@ -510,7 +510,7 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
 
-The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's **Works with** is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A new map has no corporate box until you add one, so nothing appears that isn't a real account or site. Each site starts with every contact the CRM export has for it, and a later import adds anyone new. A site that had nobody on it shows them in the list beside the map but not on the map itself; tap the eye next to the site to draw them. To take someone off, tap the cross next to their name in the list. They stay off, even when the next import has them. If they have relationships on the map, you are asked first. Taking a site out of the plan takes its contacts from Dynamics with it, unless you have worked on them. A map made before this change keeps its group box as the corporate account, with its people; if that box was never used, it is taken away. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
+The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's **Works with** is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A new map has no corporate box until you add one, so nothing appears that isn't a real account or site. Each site starts with every contact the CRM export has for it, and a later import adds anyone new. A site that had nobody on it shows them in the list beside the map but not on the map itself; tap the eye next to the site to draw them. OEMs, head contractors and any other box that is one of your customers fill the same way; a box whose name you typed can be tied to the customer list with **Match to a customer** in its panel. Taking a site out of the plan takes its contacts from Dynamics with it, unless you have worked on them. A map made before this change keeps its group box as the corporate account, with its people; if that box was never used, it is taken away. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
 
 To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
 
@@ -536,6 +536,7 @@ The boxes with a chain stay on the large account plan. Their people, the links b
 6. Tap **Strong**, **Neutral**, **Weak** or **Hostile** on a row to set that relationship. If you know there is a relationship but not how strong, tap **Unknown**.
 7. To change its kind or add a note, tap the person's name. Tap **Back to** and your name to return to the list.
 8. To switch off the account manager's default links for a site, tap the site, then untick **covers everyone here**.
+9. To record who of ours knows someone, tap them, then under **Known by** tap each of our people who does. The relationship is made with strength **Unknown**; rate it under **Their relationships**.
 
 Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated **Unknown** stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.
 
@@ -550,9 +551,13 @@ To change a site's account manager:
 
 To change every site of a large account at once, tap the map's background so nothing is selected, then under **Owners** tap **Change every site**. To set the account team leader, tap **Change** under **Account team leader** there. The ATL joins the Intralox box at the top, with a default link to everyone at corporate, the head office and group engineering; untick it on any of those boxes to switch it off.
 
+Each person in a box's **People** list, and in their own panel, has three actions:
+
+**Take off this map**, at the bottom of a person's panel, is for someone added by mistake.
+
 When a contact moves, or their details change:
 
-1. Tap them on a map, then tap **Moved or details changed**. In the Directory, search for them and tap **Change**.
+1. Tap them on a map, then tap **Moved site** or **Details changed**. In the Directory, search for them and tap **Change**.
 2. Correct their job title, email or mobile.
 3. If they work somewhere else now, type the account under **Moved to another account** and pick it from the list.
 4. Tap **Done**.
@@ -566,7 +571,7 @@ To send the changes to CAG:
 3. Under **Changes for Dynamics**, tap **Download for CAG** and send the spreadsheet to CAG.
 4. When asked, tap **OK** to mark them as sent.
 
-The spreadsheet has a sheet each for new contacts, moved contacts, changed details and account owners, with Dynamics' contact ID where there is one. Next time, only changes not sent yet are included; tick **Include ones already sent** to send them all again. Tap **Show them** to see each change and whether it is sent or done. A change is done once a CRM import shows Dynamics has it, and drops off 30 days later. A team member's account manager changes go through the team's admin.
+The spreadsheet has a sheet each for new contacts, moved contacts, changed details, people who left the company and account owners, with Dynamics' contact ID where there is one. Next time, only changes not sent yet are included; tick **Include ones already sent** to send them all again. Tap **Show them** to see each change and whether it is sent or done. A change is done once a CRM import shows Dynamics has it, and drops off 30 days later. A team member's account manager changes go through the team's admin.
 
 ### Intralox people
 

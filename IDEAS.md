@@ -903,6 +903,13 @@ for now. Reviewed a clickable mock first.*
   corporate, the head office and group engineering; contacts marked moved or
   changed from a map or the Directory; Settings lists it all for CAG
   (download, mark sent, done once an import shows it).
+- **Built (v145):** clear actions on each person (Ben: "remove" is ambiguous):
+  Hide: not relevant (kept, not drawn, rated or on the Blue Sheet; Show
+  again), Moved site, Left the company (on the CAG list to remove from
+  Dynamics); the side-list cross became Hide; Remove became Take off this
+  map. OEMs and contractors that are customers fill from the CRM; Match to
+  a customer for a typed box; Known by makes one of ours' relationship in
+  one tap.
 - **Later:** the account screen saying where a site sits in its large account.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
