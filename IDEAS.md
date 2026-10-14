@@ -882,6 +882,16 @@ for now. Reviewed a clickable mock first.*
   there by default, shown only when tapped, counted on the Blue Sheet only once
   rated, switchable off per site; someone's relationships are listed by site,
   with strength chips on each row and a tap through to the link (Back to them).
+- **Built (v141):** rating relationships quickly. Someone's relationships
+  list what is left to rate first (default account manager links and those
+  rated Unknown), their sites open, with a count; Unknown is a fifth
+  strength, drawn dotted, not coverage, and a Blue Sheet gap ("X's
+  relationship with Y is unknown").
+- **Proposed, not built yet:** site owners (AM per site, ATL that could be
+  responsible for the group, with default links to corporate and group
+  engineering, above the AMs without a reporting line), contacts moved to
+  another site or account, edited contact details, and a Changes for Dynamics
+  download for CAG marked sent and cleared once Dynamics has them.
 - **Later:** the account screen saying where a site sits in its large account.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.

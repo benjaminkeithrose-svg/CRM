@@ -537,12 +537,12 @@ The boxes with a chain stay on the large account plan. Their people, the links b
 2. Under **Reports to**, pick their manager. People at the same site come first; people at the other sites are listed under each site's name.
 3. They stay under their own site, and a **Reports to** line runs across to their manager. You can also set it in the **Reports to** column of the people table.
 4. To see your relationships, tap yourself in the Intralox box.
-5. Under **Their relationships**, each site is listed with how many. Tap a site's name to open it.
-6. Tap **Strong**, **Neutral**, **Weak** or **Hostile** on a row to set that relationship.
+5. Under **Their relationships**, the line at the top says how many are left to rate. Sites with some to rate come first, already open, with those relationships at the top. Tap any other site's name to open it.
+6. Tap **Strong**, **Neutral**, **Weak** or **Hostile** on a row to set that relationship. If you know there is a relationship but not how strong, tap **Unknown**.
 7. To change its kind or add a note, tap the person's name. Tap **Back to** and your name to return to the list.
 8. To switch off the account manager's default links for a site, tap the site, then untick **covers everyone here**.
 
-Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link.
+Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated **Unknown** stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.
 
 ### Prepare for a visit, and get coaching after it
 

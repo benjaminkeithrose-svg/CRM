@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v140';
+const APP_BUILD = 'v141';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -11106,7 +11106,9 @@ const bsRoles = p => [p.role, p.role2].filter((r, i, a) => r && a.indexOf(r) ===
 const bsRoleCode = p => bsRoles(p).map(r => OP_BADGE[r]).filter(Boolean).join('/');
 const bsCritTotal = o => (o.criteria || []).reduce((a, c) => a + (typeof c.r === 'number' ? c.r : 0), 0);
 const OP_KINDS = ['Reports to', 'Influences', 'Our coverage', 'Supplies'];
-const OP_STRS = ['Strong', 'Neutral', 'Weak', 'Hostile'];
+// v141: Unknown - there is a relationship, but not how strong; it stays dotted and is a gap, not coverage
+const OP_STRS = ['Strong', 'Neutral', 'Weak', 'Hostile', 'Unknown'];
+const opUnrated = l => !!l.implied || l.str === 'Unknown';
 const OP_LANES = [{k: 'cust', t: 'Customer', x: 0}, {k: 'oem', t: 'OEMs and integrators', x: 380}, {k: 'us', t: 'Our team', x: 760}];
 const OP_LW = 360, OP_H = 760, OP_CW = 184, OP_CH = 70, OP_OW = 200, OP_OH = 74;
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -11261,7 +11263,7 @@ function opRateColor(r){
 function opStrStyle(s){
   const c = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   return s === 'Strong' ? {c: c('--act'), w: 3, d: ''} : s === 'Weak' ? {c: c('--ink-3'), w: 1.6, d: '5 5'}
-    : s === 'Hostile' ? {c: c('--warn'), w: 2.4, d: '7 4'} : {c: c('--ink-3'), w: 1.6, d: ''};
+    : s === 'Hostile' ? {c: c('--warn'), w: 2.4, d: '7 4'} : s === 'Unknown' ? {c: c('--ink-3'), w: 1.6, d: '2 5'} : {c: c('--ink-3'), w: 1.6, d: ''};
 }
 /* ---------- the layered map (v124) ----------
    Ben, 2026-10-12: the opportunity in the middle; around it the parties - the
@@ -11847,7 +11849,7 @@ function drawOppIn(svg, live){
     const p1 = opExit(A, B.x + B.w / 2, B.y + B.h / 2), p2 = opExit(B, A.x + A.w / 2, A.y + A.h / 2);
     const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1;
     const cx = mx - dy / len * 28, cy = my + dx / len * 28;
-    const st = l.implied ? {c: c('--ink-3'), w: 1.6, d: '3 5'} : opStrStyle(l.str);
+    const st = opStrStyle(l.implied ? 'Unknown' : l.str);
     const g = opEl('g', {class: 'op-edge' + (chosen ? ' sel' : '') + (bright ? '' : selP ? ' op-ghost' : ' op-faint'), tabindex: '0', role: 'button',
       'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + (l.implied ? 'account manager, not rated yet' : String(l.str).toLowerCase())}, svg);
     const d = 'M' + p1.x + ',' + p1.y + ' Q' + cx + ',' + cy + ' ' + p2.x + ',' + p2.y;
@@ -12254,16 +12256,22 @@ function opRelsHTML(p){
     if(!groups.has(key)) groups.set(key, {name: q ? opQName(q) : (OPP.kind === 'large' ? 'The account' : 'The opportunity'), rows: []});
     groups.get(key).rows.push({l, o, op});
   });
-  const one = groups.size === 1;
-  return [...groups].map(([key, G]) => '<details class="oprelg" data-g="' + esc(key) + '"' + (one || opRelOpen.has(key) ? ' open' : '') + '><summary>' + esc(G.name) + ' <small>' + G.rows.length + '</small></summary><ul class="opitems good oprels">' +
+  // v141 - Ben: the dotted ones did not show (their sites were folded): what is left to rate comes first, open
+  const one = groups.size === 1, todo = rl.filter(opUnrated).length;
+  groups.forEach(G => { G.todo = G.rows.filter(r => opUnrated(r.l)).length; G.rows.sort((a, b) => opUnrated(b.l) - opUnrated(a.l)); });
+  const list = [...groups].sort((a, b) => (b[1].todo > 0) - (a[1].todo > 0));
+  return (todo ? '<p class="oprtodo">' + todo + ' to rate</p>' : '') + list.map(([key, G]) => '<details class="oprelg" data-g="' + esc(key) + '"' +
+    (one || opRelOpen.has(key) || (G.todo && !opRelShut.has(key)) ? ' open' : '') + '><summary>' + esc(G.name) + ' <small>' + G.rows.length + (G.todo ? ', ' + G.todo + ' to rate' : '') + '</small></summary><ul class="opitems good oprels">' +
     G.rows.map(({l, o, op}) => '<li><span><button type="button" class="lnkbtn" data-rl="' + esc(l.id) + '">' + esc(op ? op.n || 'Someone' : opName(o)) + '</button>' +
-      '<span class="pin">' + esc((l.a === p.id ? l.kind : OP_THEM[l.kind] || l.kind) + (l.implied ? ' · account manager, not rated yet' : '')) + '</span>' +
+      '<span class="pin">' + esc((l.a === p.id ? l.kind : OP_THEM[l.kind] || l.kind) + (l.implied ? ' · account manager, not rated yet' : l.str === 'Unknown' ? ' · strength unknown' : '')) + '</span>' +
       '<span class="seg oprs" role="group" aria-label="Strength">' + OP_STRS.map(v => '<button type="button" data-rs="' + esc(l.id) + '" data-v="' + v + '"' + (l.str === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</span></span></li>').join('') +
     '</ul></details>').join('');
 }
 function opRelsWire(p){
   const P = $('opPanel');
-  P.querySelectorAll('details.oprelg').forEach(d => d.addEventListener('toggle', () => { if(d.open) opRelOpen.add(d.dataset.g); else opRelOpen.delete(d.dataset.g); }));
+  P.querySelectorAll('details.oprelg').forEach(d => d.addEventListener('toggle', () => {
+    if(d.open){ opRelOpen.add(d.dataset.g); opRelShut.delete(d.dataset.g); } else { opRelOpen.delete(d.dataset.g); opRelShut.add(d.dataset.g); }
+  }));
   P.querySelectorAll('[data-rl]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.rl; opSelect({t: 'l', id}); opLinkBack = p.id; opPanel(); }));
   P.querySelectorAll('[data-rs]').forEach(b => b.addEventListener('click', () => {
     const l = opLinkById(b.dataset.rs); if(!l) return;
@@ -12272,6 +12280,7 @@ function opRelsWire(p){
   }));
 }
 const opRelOpen = new Set();      // which boxes are folded open in someone's relationships
+const opRelShut = new Set();      // v141: and which were folded shut by hand, though they have some to rate
 function opPersonPanel(p){
   const P = $('opPanel'), q = opParty(p.party) || {kind: 'end', name: ''}, ours = q.kind === 'ilx';
   const nLinks = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
@@ -13351,7 +13360,7 @@ $('opView').querySelectorAll('button').forEach(b => b.addEventListener('click', 
 }));
 // who of ours covers this person, from the map's links
 function opCoverage(p){
-  return (OPP.links || []).filter(l => l.kind === 'Our coverage' && (l.a === p.id || l.b === p.id))
+  return (OPP.links || []).filter(l => l.kind === 'Our coverage' && l.str !== 'Unknown' && (l.a === p.id || l.b === p.id))
     .map(l => { const o = opPerson(l.a === p.id ? l.b : l.a); return o && o.side === 'us' ? {n: o.n, str: l.str} : null; }).filter(Boolean);
 }
 const opTheirs = () => (OPP.people || []).filter(p => p.side !== 'us');
@@ -13363,7 +13372,12 @@ function opGaps(){
   if(!theirs.some(p => bsRoles(p).includes('On our side'))) out.push({t: 'No coach: nobody on their side is marked as on our side', pin: ''});
   theirs.forEach(p => {
     if(!p.role) out.push({t: (p.n || 'Someone') + ': their part in the decision is unknown', pin: 'p:' + p.id});
-    if(p.side === 'cust' && !opCoverage(p).length) out.push({t: (p.n || 'Someone') + ' is not covered by anyone on our team', pin: 'p:' + p.id});
+    if(p.side === 'cust' && !opCoverage(p).length){
+      // v141: someone of ours is linked but how well is unknown (rated Unknown, or the account manager's default)
+      const u = (OPP.links || []).concat(opImplied(OPP)).find(l => l.kind === 'Our coverage' && opUnrated(l) && (l.a === p.id || l.b === p.id));
+      if(u){ const us = opPerson(u.a === p.id ? u.b : u.a); out.push({t: (us && us.n || 'Our') + '\'s relationship with ' + (p.n || 'them') + ' is unknown', pin: u.implied ? 'p:' + p.id : 'l:' + u.id}); }
+      else out.push({t: (p.n || 'Someone') + ' is not covered by anyone on our team', pin: 'p:' + p.id});
+    }
     if(p.role && !p.mode) out.push({t: (p.n || 'Someone') + ': how they see it is unknown', pin: 'p:' + p.id});
   });
   // already a red flag: not offered again
