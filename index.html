@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v137">
+<meta name="build" content="v138">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -795,6 +795,11 @@ body.planning #s-opp{padding:0}
 .opbar-party{display:flex;align-items:center;gap:2px}
 .opbar-party .nm{flex:1;min-width:0;text-align:left;border:0;background:transparent;cursor:pointer;padding:6px 4px;font:inherit;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .opbar-party .nm small{font-weight:400;color:var(--ink-3)}
+/* v138: the fold button leads each row; the people fold away under their box */
+.opfold{flex:none;width:30px;height:30px;border:0;background:transparent;color:var(--ink-2);cursor:pointer;padding:5px;display:inline-flex;align-items:center;justify-content:center}
+.opfold .ic{width:18px;height:18px;transform:rotate(180deg);transition:transform .12s}
+.opfold.open .ic{transform:rotate(-90deg)}
+.opfold:disabled{opacity:.3;cursor:default}
 .opbar-ppl{list-style:none;margin:0 0 4px 12px;padding:0 0 0 8px;border-left:1px solid var(--line-2)}
 .opbar-ppl button{width:100%;display:flex;align-items:center;gap:6px;text-align:left;border:0;background:transparent;cursor:pointer;padding:5px 4px;border-radius:var(--r-sm);font:inherit;font-size:13px;color:var(--ink);min-height:32px}
 .opbar-ppl button.on{background:var(--cyan-lt);font-weight:700}
@@ -2355,14 +2360,14 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap the table icon next to a party to add its people.</li>
         <li>Type one person per row. Only the name is needed. Add their title, who they report to, their part (E, U, T or C) and whether they are helping us if you know them.</li>
         <li>Tap <b>Done</b>.</li>
-        <li>Tap the circle next to each party to say whether it has specified Intralox: once for <b>Specced</b>, again for <b>Unsure</b>, again for <b>Not specced</b>.</li>
+        <li>Tap the circle to the right of each party's name to say whether it has specified Intralox: once for <b>Specced</b>, again for <b>Unsure</b>, again for <b>Not specced</b>.</li>
         <li>To link two people, tap one, tap <b>Link to&hellip;</b>, then tap the other, or the opportunity.</li>
         <li>Add red flags and strengths in the panel, and pin each to a person or a link.</li>
       </ol>
       <p>Each party has its own colour: the end user dark blue, head contractors dark cyan, OEMs and integrators grey, and Intralox red, around the opportunity in orange. People hang under their party as an organisation chart, each under who they report to. A party that has not specified Intralox, or is unsure, has a dashed orange edge, so it stands out.</p>
       <p>Tap a party to say where a head contractor stands (Bidding, Appointed or Out of it), who an OEM works for, and which belting an OEM prefers. Intralox is ticked to start; tap a supplier to add or take it off, or type another and tap <b>Add</b>.</p>
       <p>Tap a person to see their relationships on their own: everything else fades. Their role, view, rating, win and evidence are under <b>More detail</b>. Tap the opportunity to see everyone again.</p>
-      <p>At the top of the list, <b>People shown</b> hides everyone's people, and <b>Links on</b> hides the relationships between people. The eye next to a party hides just its people.</p>
+      <p>At the top of the list, <b>People shown</b> hides everyone's people, and <b>Links on</b> hides the relationships between people. The eye next to a party hides just its people. The list keeps each party's people folded away: tap the arrow at the left of a party to show them, and again to fold them away. On a large account's map the list names a site without the account's own name, so <b>Sample Foods - Northside</b> reads <b>Northside</b> there; the map shows the full name.</p>
       <p>On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap <b>Parties and people</b> to open it. Drag the background to move around, and use &minus; and + to zoom.</p>
       <p>Everything saves as you go, and the team shares it. To add the objective, value and close date, change the name, or record how it ended, tap <b>Details</b>. A map made before this change is sorted into parties the first time it opens.</p>
       <p>Every text box on the map and the Blue Sheet has a microphone beside it. Tap it, talk, then tap <b>Finish</b>: Claude tidies what you said, and you check it before it goes in.</p>
@@ -2498,7 +2503,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>To send the plan, tap <b>Create and share</b>.</li>
       </ol>
       <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
-      <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's <b>Works with</b> is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
+      <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's <b>Works with</b> is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A new map has no corporate box until you add one, so nothing appears that isn't a real account or site. A map made before this change keeps its group box as the corporate account, with its people; if that box was never used, it is taken away. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
       <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
     </div>
   </details>

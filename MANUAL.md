@@ -374,7 +374,7 @@ Your MBOs, initiatives and ticks are private. They are kept with your MBO list, 
 6. Tap the table icon next to a party to add its people.
 7. Type one person per row. Only the name is needed. Add their title, who they report to, their part (E, U, T or C) and whether they are helping us if you know them.
 8. Tap **Done**.
-9. Tap the circle next to each party to say whether it has specified Intralox: once for **Specced**, again for **Unsure**, again for **Not specced**.
+9. Tap the circle to the right of each party's name to say whether it has specified Intralox: once for **Specced**, again for **Unsure**, again for **Not specced**.
 10. To link two people, tap one, tap **Link to…**, then tap the other, or the opportunity.
 11. Add red flags and strengths in the panel, and pin each to a person or a link.
 
@@ -384,7 +384,7 @@ Tap a party to say where a head contractor stands (Bidding, Appointed or Out of 
 
 Tap a person to see their relationships on their own: everything else fades. Their role, view, rating, win and evidence are under **More detail**. Tap the opportunity to see everyone again.
 
-At the top of the list, **People shown** hides everyone's people, and **Links on** hides the relationships between people. The eye next to a party hides just its people.
+At the top of the list, **People shown** hides everyone's people, and **Links on** hides the relationships between people. The eye next to a party hides just its people. The list keeps each party's people folded away: tap the arrow at the left of a party to show them, and again to fold them away. On a large account's map the list names a site without the account's own name, so **Sample Foods - Northside** reads **Northside** there; the map shows the full name.
 
 On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap **Parties and people** to open it. Drag the background to move around, and use − and + to zoom.
 
@@ -515,7 +515,7 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.
 
-The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's **Works with** is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A map made before this change keeps its group box as the corporate account, with its people. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
+The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's **Works with** is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A new map has no corporate box until you add one, so nothing appears that isn't a real account or site. A map made before this change keeps its group box as the corporate account, with its people; if that box was never used, it is taken away. Tap **Map** at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. **Create and share** puts the account's map in the document.
 
 To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
 

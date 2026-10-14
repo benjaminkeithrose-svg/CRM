@@ -56,7 +56,8 @@ const links = g(`JSON.stringify(opPartyLinks(OPP))`);
 ok((links.match(/"a":"pe","b":"ps[^"]+"/g) || []).length === 2 && !/OPP/.test(links), 'Corporate drives each site; nothing hangs off a box for the account itself (v131)');
 ok($('opMap').querySelectorAll('.op-party').length === 4, 'drawn: four boxes');
 ok(g(`opPartySuggest(OPP.parties.find(q => q.id === 'pe')).map(x => x.n).join()`) === 'Kim Site', 'Corporate\'s people are offered from the sites\' contacts, not the OEMs\'');
-ok([...$('opMap').querySelectorAll('.op-pname')].map(t => t.textContent).includes('Tamworth') && /Site · 1 opportunity/.test($('opMap').textContent), 'a site is named by its place, with how many opportunities it has');
+ok([...$('opMap').querySelectorAll('.op-pname')].some(t => /^Sample Poultry - Tamwor/.test(t.textContent)) && /Site · 1 opportunity/.test($('opMap').textContent), 'a site is named by its account name (v138), with how many opportunities it has');
+ok([...d.querySelectorAll('#opBar .nm')].some(b => /^Tamworth\b/.test(b.textContent) && b.title === S[0]), 'the narrow side list drops the group name from a site: Tamworth, full name on hover (v138)');
 ok(/Sites/.test(d.querySelector('#opBar').textContent) && !d.querySelector('#opBar [data-addparty="end"]') && d.querySelector('#opBar [data-addparty="corp"]'), 'the list calls them Sites, from the plan; Corporate can be added');
 // a site's panel
 const han = g(`OPP.parties.find(q => q.acct === '${S[1]}').id`);
@@ -103,8 +104,19 @@ ok(!/Group functions/.test(d.querySelector('#opBar').textContent), 'but not on a
 
 // ---- a new map: people from the sites' opportunities go under their site
 g(`openLap('L2')`); await tick(200);
-ok(g(`OPP.parties.map(q => q.kind).join()`) === 'corp,end,ilx' && g(`OPP.people.find(p => p.n === 'Pat Plant').party`) === g(`OPP.parties.find(q => q.site).id`),
-  'Pat, from the Hanwood opportunity, sits under Hanwood');
+ok(g(`OPP.parties.map(q => q.kind).join()`) === 'end,ilx' && g(`OPP.people.find(p => p.n === 'Pat Plant').party`) === g(`OPP.parties.find(q => q.site).id`),
+  'Pat, from the Hanwood opportunity, sits under Hanwood; a new map has no made-up Corporate box (v138)');
+// v138: a map saved by v137 with that made-up, unused box loses it once
+await g(`(async () => { await plansPut({id: 'L3', kind: 'large', name: 'Sample Poultry West', sites: ['${S[2]}'], objectives: [], actions: [], updated: 1, sitesOn: true,
+  parties: [{id: 'pe', kind: 'corp', name: 'Sample Poultry West', acct: ''}, {id: 'pz', kind: 'end', name: '${S[2]}', acct: '${S[2]}', site: true}, {id: 'pi', kind: 'ilx', name: 'Intralox'}], people: [], links: []}); await loadLists(); })()`);
+g(`openLap('L3')`); await tick(200);
+ok(g(`OPP.parties.map(q => q.kind).join()`) === 'end,ilx', 'an unused made-up Corporate box from before is taken away');
+// one somebody used (people under it) stays
+await g(`(async () => { await plansPut({id: 'L4', kind: 'large', name: 'Sample Poultry East', sites: ['${S[2]}'], objectives: [], actions: [], updated: 1, sitesOn: true,
+  parties: [{id: 'pe', kind: 'corp', name: 'Sample Poultry East', acct: ''}, {id: 'pz', kind: 'end', name: '${S[2]}', acct: '${S[2]}', site: true}, {id: 'pi', kind: 'ilx', name: 'Intralox'}],
+  people: [{id: 'u1', party: 'pe', side: 'cust', n: 'Group CEO', title: ''}], links: []}); await loadLists(); })()`);
+g(`openLap('L4')`); await tick(200);
+ok(g(`OPP.parties.some(q => q.id === 'pe' && q.kind === 'corp')`), 'one with people under it stays');
 
 // ---- on an ordinary opportunity, a corporate account drives the end user
 await g(`(async () => { openAccount('${S[0]}'); OPPS.push({id: 'o2', acct: '${S[0]}', name: 'Hygiene upgrade', people: [], links: [], flags: [], strengths: []}); openOpp('o2'); })()`); await tick(200);

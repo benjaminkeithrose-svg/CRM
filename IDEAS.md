@@ -867,6 +867,9 @@ for now. Reviewed a clickable mock first.*
   next year's MBOs (⋯ on the MBO screen) rolls this year's list over without
   values, marked Planning until 1 January; an initiative can become one of
   next year's MBOs, staying an initiative this year.
+- **Fixed (v138):** a new large account map no longer makes a Corporate box
+  named after the customer group (it was no account at all); an unused one
+  left from before is taken away.
 - **Later:** the account screen saying where a site sits in its large account,
   and an opportunity map offering the site's engineering and corporate as
   parties.
