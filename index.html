@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v138">
+<meta name="build" content="v139">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v135: iPhones. Safari reads its home-screen icon and name from these, not
@@ -800,6 +800,7 @@ body.planning #s-opp{padding:0}
 .opfold .ic{width:18px;height:18px;transform:rotate(180deg);transition:transform .12s}
 .opfold.open .ic{transform:rotate(-90deg)}
 .opfold:disabled{opacity:.3;cursor:default}
+.opbar-party .nm .ic{display:inline-block;width:13px;height:13px;margin-right:4px;vertical-align:-2px;color:var(--ink-3)}
 .opbar-ppl{list-style:none;margin:0 0 4px 12px;padding:0 0 0 8px;border-left:1px solid var(--line-2)}
 .opbar-ppl button{width:100%;display:flex;align-items:center;gap:6px;text-align:left;border:0;background:transparent;cursor:pointer;padding:5px 4px;border-radius:var(--r-sm);font:inherit;font-size:13px;color:var(--ink);min-height:32px}
 .opbar-ppl button.on{background:var(--cyan-lt);font-weight:700}
@@ -2505,6 +2506,21 @@ details.bsx > .msg{margin:8px 12px}
       <p>Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a <b>Large account</b> card that opens it. Ticking the box on another site of the same customer adds that site to the same plan.</p>
       <p>The large account's map is its own, kept with the plan. The sites on it follow the plan's site list: add a site to the plan and its box appears; take one out and its box goes, unless you added people under it. The map reads top-down: corporate or the head office at the top, with the functions that report to it; then the divisions; then each engineering group with the sites it serves stacked under it; then the OEMs and head contractors, and Intralox at the bottom. A site nobody engineers for hangs from its division, or from the top. Once an OEM's <b>Works with</b> is set, its lines go to those boxes, labelled with how it works. The account's own name is the title at the top of the screen. The first time the map opens it starts with everyone from the sites' opportunities, once each, under their own site; after that, people added to it stay on it and not on the opportunities. A new map has no corporate box until you add one, so nothing appears that isn't a real account or site. A map made before this change keeps its group box as the corporate account, with its people; if that box was never used, it is taken away. Tap <b>Map</b> at the top of the plan to go back to it. Open opportunities are listed from the sites' opportunities. <b>Create and share</b> puts the account's map in the document.</p>
       <p>To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Bring a large account into an opportunity</b><span class="sxs">Corporate, engineering and OEMs on the map</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the opportunity at one of the large account's sites.</li>
+        <li>Make sure <b>Map</b> is selected at the top.</li>
+        <li>In the panel beside the map, under <b>Large account</b>, tap <b>Bring in the large account</b>.</li>
+        <li>The large account's boxes over this site come onto the map, each with a chain: corporate or the head office, the site's division, the group functions over it, the site that engineers for it, and the OEMs that work with any of them. Their people come with them.</li>
+        <li>Tap one of them to set whether it has specified Intralox, or tap <b>Add or change people</b>.</li>
+        <li>To change what a box is, who it covers or which sites it engineers for, tap <b>Open the large account map</b> and change it there.</li>
+        <li>To take them off this map, tap <b>Unlink</b> under <b>Large account</b>, then tap <b>OK</b>.</li>
+      </ol>
+      <p>The boxes with a chain stay on the large account plan. Their people, the links between them and whether they have specified Intralox are kept there, so a change on the opportunity shows on the large account's map and on its other opportunities, and a change there shows here the next time the map opens. Where you put a box on this map is this opportunity's own. Links you draw between this opportunity's people and theirs stay with the opportunity. The Blue Sheet, the coach and Create and share include them. Unlink deletes nothing.</p>
     </div>
   </details>
   <details class="sx hx">

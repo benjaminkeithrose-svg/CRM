@@ -129,6 +129,9 @@ as Dynamics' Large Account Plan:
 | `links` | Relationships between people: `a`, `b`, `kind`, `str`, `note` |
 | `flags`, `strengths`, `actions`, `notes` | Red flags (with information needed and from whom), strengths, possible actions (starred = best action plan), communication notes |
 | `coaching`, `test`, `created`, `updated` | The coach's view, a made-up test project, and edits |
+| `lap`, `lapPos` | The large account plan brought into this opportunity (its `id`), and where its boxes sit on this map (`{x, y, show}` by the plan's box id) (v139) |
+
+An opportunity at a large account's site can bring that account in (v139). Its boxes over the site (corporate or the head office, the site's division, the group functions over it, the site that engineers for it, the OEMs working with any of them), their people and the links between those people are copied onto the map each time it is shown, under ids starting `lk-`. They are never saved in the opportunity: a change to their people, links or spec is written back to the plan when the opportunity saves, so the plan and every linked opportunity show it. Only where they sit is the opportunity's own (`lapPos`).
 
 **cip**: three records. `me` holds your CIP periods (goals, strengths, gaps,
 reviews) and the four pillars; `mbo` your MBO list and claims by year and

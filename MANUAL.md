@@ -519,6 +519,18 @@ The large account's map is its own, kept with the plan. The sites on it follow t
 
 To take a site out, untick the box on its account plan. To delete the whole plan, tap the bin at the top of the plan. The sites, their own plans and their opportunities stay.
 
+### Bring a large account into an opportunity
+
+1. Open the opportunity at one of the large account's sites.
+2. Make sure **Map** is selected at the top.
+3. In the panel beside the map, under **Large account**, tap **Bring in the large account**.
+4. The large account's boxes over this site come onto the map, each with a chain: corporate or the head office, the site's division, the group functions over it, the site that engineers for it, and the OEMs that work with any of them. Their people come with them.
+5. Tap one of them to set whether it has specified Intralox, or tap **Add or change people**.
+6. To change what a box is, who it covers or which sites it engineers for, tap **Open the large account map** and change it there.
+7. To take them off this map, tap **Unlink** under **Large account**, then tap **OK**.
+
+The boxes with a chain stay on the large account plan. Their people, the links between them and whether they have specified Intralox are kept there, so a change on the opportunity shows on the large account's map and on its other opportunities, and a change there shows here the next time the map opens. Where you put a box on this map is this opportunity's own. Links you draw between this opportunity's people and theirs stay with the opportunity. The Blue Sheet, the coach and Create and share include them. Unlink deletes nothing.
+
 ### Prepare for a visit, and get coaching after it
 
 Keep an account plan:

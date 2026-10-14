@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v138';
+const APP_BUILD = 'v139';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1023,8 +1023,10 @@ const ICONS = {
   plusc:  '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   eye:    '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M17.9 17.9A10 10 0 0 1 12 19C5 19 1 12 1 12a18 18 0 0 1 5.1-5.9M9.9 5.2A9 9 0 0 1 12 5c7 0 11 7 11 7a18 18 0 0 1-2.2 3.2M1 1l22 22"/>',
-  table:  '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>'
+  table:  '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>',
+  link:   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
 };
+const LINK_PATH = 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71';
 function icon(k){
   return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
     'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -11189,7 +11191,7 @@ async function odFinish(){
   ['name', 'obj', 'value', 'close'].forEach(k => { base[k] = r[k]; });
   if(!wasNew) base.outcome = r.outcome === 'Open' ? '' : r.outcome;
   base.updated = Date.now();
-  await oppsPut(JSON.parse(JSON.stringify(base)));
+  await oppsPut(oppPlain(base));
   OPPS = OPPS.filter(x => x.id !== base.id).concat([base]);
   if(wasNew){ toast('Opportunity started'); if(screen === 'strategy') stOpened = 'opp'; openOpp(base.id); return; }
   toast('Opportunity saved');
@@ -11242,8 +11244,10 @@ async function oppSaveNow(){
     PLANS = PLANS.filter(x => x.id !== OPP.id).concat([OPP]);
     return;
   }
-  await oppsPut(JSON.parse(JSON.stringify(OPP)));
+  const w = lapWriteBack(OPP);                   // v139: the large account's boxes go back to its plan
+  await oppsPut(oppPlain(OPP));
   OPPS = OPPS.filter(x => x.id !== OPP.id).concat([OPP]);
+  if(w) await w;
 }
 // typing saves a moment after it stops; anything else saves straight away
 function oppSaveSoon(){ clearTimeout(opSaveTimer); opSaveTimer = setTimeout(() => oppSaveNow().catch(reportErr), 700); }
@@ -11371,7 +11375,7 @@ function opEnsure(o){
 // The side list is narrow: a site there drops the large account's own name
 // ("Sample Foods - Northside" under Sample Foods reads "Northside"); the map keeps the full name.
 function opBarName(q){
-  const n = opQName(q), g = (OPP && OPP.kind === 'large' && OPP.name || '').trim();
+  const n = opQName(q), g = (OPP && (OPP.kind === 'large' ? OPP.name : q.lk && (lapPlanOf(OPP) || {}).name) || '').trim();
   if(!q.site || !g || n.length <= g.length || n.slice(0, g.length).toLowerCase() !== g.toLowerCase()) return n;
   const rest = n.slice(g.length).replace(/^[\s\-\u2013\u2014:,|/]+/, '');
   return rest || n;
@@ -11383,20 +11387,21 @@ function opQName(q){
 // how the parties hang together: drawn from what each party is, never kept twice
 function opPartyLinks(o){
   if(o.kind === 'large') return opLargeLinks(o);
-  const out = [], firstEnd = o.parties.find(q => q.kind === 'end');
+  const out = [], firstEnd = o.parties.find(q => q.kind === 'end' && !q.lk);
   for(const q of o.parties){
+    if(q.lk) continue;                          // v139: the large account's boxes hang together below
     if(q.kind === 'end') out.push({a: 'OPP', b: q.id, t: o.kind === 'large' ? '' : 'Owns it'});
     else if(q.kind === 'ilx') out.push({a: 'OPP', b: q.id, t: ''});
     else if(q.kind === 'corp'){
       // the corporate account drives every end user (a large account's sites); with none, it hangs off the middle
-      const ends = o.parties.filter(x => x.kind === 'end');
+      const ends = o.parties.filter(x => x.kind === 'end' && !x.lk);
       if(o.kind === 'large' || !ends.length) out.push({a: 'OPP', b: q.id, t: ''});
       ends.forEach(x => out.push({a: q.id, b: x.id, t: ends.length > 2 ? '' : 'Drives'}));   // many sites: the lines say it
     }
     else if(q.kind === 'head') out.push({a: firstEnd ? firstEnd.id : 'OPP', b: q.id, t: q.status === 'Appointed' ? 'Engaged' : q.status === 'Out of it' ? 'Out' : 'Bidding', out: q.status === 'Out of it'});
     else { const via = q.via && o.parties.find(x => x.id === q.via); out.push({a: via ? via.id : firstEnd ? firstEnd.id : 'OPP', b: q.id, t: via ? 'Subcontracts' : 'Direct'}); }
   }
-  return out;
+  return out.concat(lapLinks(o));
 }
 /* v131: a large account is a tree, not a hub - Ben, 2026-10-12: "the group
    of accounts is tied together generally by corporate, or the corporate is
@@ -11457,6 +11462,170 @@ function opForget(o, id){
     if(q.div === id) q.div = '';
     if(q.under === id) q.under = '';
   }
+}
+/* v139: an opportunity at one of a large account's sites can bring in that
+   account's boxes over the site, live - Ben, 2026-10-14: "import the large
+   account plan into the opportunities to then navigate how those sites
+   interact with that opportunity". Corporate (or the head office), the site's
+   division, the group functions over it, the site that engineers for it and
+   the OEMs that work with any of those come in with their people. They stay
+   the plan's: they are copied onto the map each time it is shown (ids under
+   LK, marked lk), drawn with a chain, and a change to their people, links or
+   spec goes back to the plan when the opportunity saves, so both maps show
+   it. Where they sit and whether their people show is this map's own
+   (lapPos). The opportunity's own record never carries them (oppPlain). */
+const LK = 'lk-';
+const lapSnaps = new Map();       // opportunity id -> what was brought in, to send back only what changed
+const lapUnId = id => String(id || '').startsWith(LK) ? String(id).slice(LK.length) : id;
+const lapPersonIn = p => String(p.party || '').startsWith(LK);
+function lapPlanOf(o){ return o && o.lap ? PLANS.find(p => p.id === o.lap && p.kind === 'large') || null : null; }
+// which of the plan's boxes bear on this site
+function lapScope(L, acct){
+  opEnsure(L);
+  const site = L.parties.find(q => q.site && q.acct === acct);
+  if(!site) return null;
+  const ids = new Set();
+  opTops(L).forEach(q => { if(q.id !== site.id) ids.add(q.id); });
+  if(opDivOk(L, site.div)) ids.add(site.div);
+  L.parties.filter(g => g.kind === 'grp' && opCovers(g, site, L)).forEach(g => { ids.add(g.id); if(opDivOk(L, g.under)) ids.add(g.under); });
+  L.parties.filter(e => e.site && e.eng && e.id !== site.id && (e.engFor || []).includes(site.id)).forEach(e => { ids.add(e.id); if(opDivOk(L, e.div)) ids.add(e.div); });
+  const near = new Set([site.id, ...ids]);
+  L.parties.filter(q => q.kind === 'oem' && (q.works || []).some(w => near.has(w.to))).forEach(q => ids.add(q.id));
+  return {site, ids};
+}
+// the opportunity as it is kept: without the large account's boxes
+function oppPlain(o){
+  const r = JSON.parse(JSON.stringify(o));
+  if(Array.isArray(r.parties)){
+    r.parties = r.parties.filter(q => !q.lk);
+    r.people = (r.people || []).filter(p => !lapPersonIn(p));
+    r.links = (r.links || []).filter(l => !l.lk);
+  }
+  return r;
+}
+function lapStrip(o){
+  if(!Array.isArray(o.parties)) return;
+  o.parties = o.parties.filter(q => !q.lk);
+  o.people = (o.people || []).filter(p => !lapPersonIn(p));
+  o.links = (o.links || []).filter(l => !l.lk);
+}
+const lapPartyKey = q => JSON.stringify({spec: q.spec || '', belts: q.kind === 'oem' ? q.belts || [] : null});
+const lapItemKey = x => { const c = JSON.parse(JSON.stringify(x)); delete c.lk; if(c.party) c.party = lapUnId(c.party); return JSON.stringify(c); };
+// lay the plan's boxes over the site onto the opportunity's map
+function lapMerge(o){
+  if(!o || o.kind === 'large') return;
+  opEnsure(o);
+  lapStrip(o);
+  lapSnaps.delete(o.id);
+  const L = lapPlanOf(o), S = L && lapScope(L, o.acct);
+  if(!S) return;
+  const nm = q => String(opQName(q) || '').trim().toLowerCase();
+  const own = new Set(o.parties.map(nm)), ownPeople = new Set((o.people || []).map(p => p.id)), ownLinks = new Set((o.links || []).map(l => l.id));
+  const at = o.lapPos || {};
+  const qs = L.parties.filter(q => S.ids.has(q.id) && !own.has(nm(q)));
+  const ids = new Set(qs.map(q => q.id));
+  const copies = qs.map(q => {
+    const c = JSON.parse(JSON.stringify(q));
+    c.id = LK + q.id; c.lk = 1;
+    delete c.x; delete c.y; delete c.show;
+    const a = at[q.id];
+    if(a){ if(a.x != null){ c.x = a.x; c.y = a.y; } if(a.show === false) c.show = false; }
+    return c;
+  });
+  const people = (L.people || []).filter(p => ids.has(p.party) && !ownPeople.has(p.id)).map(p => Object.assign(JSON.parse(JSON.stringify(p)), {party: LK + p.party}));
+  const pids = new Set(people.map(p => p.id));
+  const links = (L.links || []).filter(l => pids.has(l.a) && pids.has(l.b) && !ownLinks.has(l.id)).map(l => Object.assign(JSON.parse(JSON.stringify(l)), {lk: 1}));
+  o.parties.splice(o.parties.findIndex(x => x.kind === 'ilx'), 0, ...copies);
+  o.people = (o.people || []).concat(people);
+  o.links = (o.links || []).concat(links);
+  opEnsure(o);
+  const snap = {obj: o, plan: L.id, at: L.updated || 0, site: S.site.id, parties: {}, people: {}, links: {}};
+  copies.forEach(q => { snap.parties[lapUnId(q.id)] = lapPartyKey(q); });
+  people.forEach(p => { snap.people[p.id] = lapItemKey(p); });
+  links.forEach(l => { snap.links[l.id] = lapItemKey(l); });
+  lapSnaps.set(o.id, snap);
+}
+// send what changed on the plan's boxes back to the plan; keep where they sit here
+function lapWriteBack(o){
+  const S = o && lapSnaps.get(o.id);
+  // only the copy the boxes were laid onto: a fresh one from the cloud has none, and must not read as all of them taken off
+  if(!S || S.obj !== o || !Array.isArray(o.parties)) return null;
+  const pos = {};
+  o.parties.filter(q => q.lk).forEach(q => {
+    const a = {};
+    if(q.x != null){ a.x = Math.round(q.x); a.y = Math.round(q.y); }
+    if(q.show === false) a.show = false;
+    if(Object.keys(a).length) pos[lapUnId(q.id)] = a;
+  });
+  if(Object.keys(pos).length) o.lapPos = pos; else delete o.lapPos;
+  const L = PLANS.find(p => p.id === S.plan);
+  if(!L) return null;
+  L.people = L.people || []; L.links = L.links || [];
+  let changed = false;
+  o.parties.filter(q => q.lk).forEach(q => {
+    const id = lapUnId(q.id), k = lapPartyKey(q);
+    if(k === S.parties[id]) return;
+    const t = L.parties.find(x => x.id === id);
+    if(t){ t.spec = q.spec || ''; if(q.kind === 'oem') t.belts = (q.belts || []).slice(); changed = true; }
+    S.parties[id] = k;
+  });
+  const seen = new Set();
+  (o.people || []).filter(lapPersonIn).forEach(p => {
+    seen.add(p.id);
+    const k = lapItemKey(p);
+    if(k === S.people[p.id]) return;
+    const c = JSON.parse(k), i = L.people.findIndex(x => x.id === p.id);
+    if(i >= 0) L.people[i] = c; else L.people.push(c);
+    S.people[p.id] = k; changed = true;
+  });
+  for(const id of Object.keys(S.people)) if(!seen.has(id)){
+    L.people = L.people.filter(x => x.id !== id);
+    L.links = L.links.filter(l => l.a !== id && l.b !== id);
+    (L.flags || []).concat(L.strengths || []).forEach(f => { if(f.pin === 'p:' + id) f.pin = ''; });
+    delete S.people[id]; changed = true;
+  }
+  const lseen = new Set();
+  (o.links || []).filter(l => l.lk).forEach(l => {
+    lseen.add(l.id);
+    const k = lapItemKey(l);
+    if(k === S.links[l.id]) return;
+    const c = JSON.parse(k), i = L.links.findIndex(x => x.id === l.id);
+    if(i >= 0) L.links[i] = c; else L.links.push(c);
+    S.links[l.id] = k; changed = true;
+  });
+  for(const id of Object.keys(S.links)) if(!lseen.has(id)){ L.links = L.links.filter(x => x.id !== id); delete S.links[id]; changed = true; }
+  if(!changed) return null;
+  L.updated = S.at = Date.now();
+  return plansPut(JSON.parse(JSON.stringify(L)));
+}
+// before the map is shown: anything changed here goes back, then the plan's boxes come in fresh
+function lapRefresh(o){
+  if(!o || o.kind === 'large') return;
+  const w = lapWriteBack(o);
+  if(w) w.catch(reportErr);
+  if(o.lap) lapMerge(o);
+  else lapSnaps.delete(o.id);
+}
+// how the plan's boxes hang together on the opportunity's map
+function lapLinks(o){
+  const S = lapSnaps.get(o.id), lk = o.parties.filter(q => q.lk);
+  if(!S || S.obj !== o || !lk.length) return [];
+  const end = o.parties.find(q => q.kind === 'end' && !q.lk), here = end ? end.id : 'OPP';
+  const has = id => lk.some(q => q.id === LK + id), to = id => id === S.site ? here : has(id) ? LK + id : '';
+  const tops = lk.filter(q => q.kind === 'corp' || (q.kind === 'end' && q.hq)), top = tops[0];
+  const divs = lk.filter(q => q.kind === 'div'), grps = lk.filter(q => q.kind === 'grp'), engs = lk.filter(q => q.kind === 'end' && !q.hq);
+  const out = [], up = (q, div) => div && has(div) ? LK + div : top && top.id !== q.id ? top.id : '';
+  tops.slice(1).forEach(t => out.push({a: top.id, b: t.id, t: ''}));
+  divs.forEach(d => { if(top) out.push({a: top.id, b: d.id, t: ''}); });
+  grps.forEach(g => { const u = up(g, g.under); if(u) out.push({a: u, b: g.id, t: ''}); out.push({a: g.id, b: here, t: ''}); });
+  engs.forEach(e => { if(!grps.length){ const u = up(e, e.div); if(u) out.push({a: u, b: e.id, t: ''}); } out.push({a: e.id, b: here, t: 'Engineers for it'}); });
+  if(!grps.length && !engs.length){
+    const d = divs[0];
+    if(d) out.push({a: d.id, b: here, t: ''});
+    else tops.forEach(t => out.push({a: t.id, b: here, t: ''}));
+  }
+  lk.filter(q => q.kind === 'oem').forEach(q => (q.works || []).forEach(w => { const a = to(w.to); if(a) out.push({a, b: q.id, t: opHowLabel(w)}); }));
+  return out;
 }
 // a party's people in organisation chart order: each person, then whoever reports to them
 function opTreeOrder(q){
@@ -11550,17 +11719,23 @@ function opLayout(){
       if(q.y == null) y += blockH(q) + 22;
     }
   };
-  const ends = o.parties.filter(q => q.kind === 'end'), oems = o.parties.filter(q => q.kind === 'oem');
+  const ends = o.parties.filter(q => q.kind === 'end' && !q.lk), oems = o.parties.filter(q => q.kind === 'oem');
   // a large account's sites, down both sides when nothing else needs the right (v129)
   if(o.kind === 'large' && !oems.length){ stack(ends.filter((_, i) => i % 2 === 0), 24, 140); stack(ends.filter((_, i) => i % 2 === 1), OPW - OPPW - 24, 140); }
   else stack(ends, 24, 140);
   stack(oems, OPW - OPPW - 24, 24);
   // the corporate accounts and the head contractors share the top row
-  const heads = o.parties.filter(q => q.kind === 'corp').concat(o.parties.filter(q => q.kind === 'head'));
+  const heads = o.parties.filter(q => q.kind === 'corp' || (q.kind === 'end' && q.lk && q.hq)).concat(o.parties.filter(q => q.kind === 'head'));
   heads.forEach((q, i) => { pos[q.id] = {x: q.x != null ? q.x : OPW / 2 - (heads.length * (OPPW + 30) - 30) / 2 + i * (OPPW + 30), y: q.y != null ? q.y : 24, w: OPPW, h: OPPH}; });
+  // v139: a large account's division, group functions and engineering site, in a row under the top one
+  const mids = o.parties.filter(q => q.kind === 'end' && q.lk && !q.hq).concat(o.parties.filter(q => q.kind === 'div' || q.kind === 'grp'));
+  if(mids.length){
+    const y2 = 24 + Math.max(OPPH, ...heads.map(blockH)) + 40;
+    mids.forEach((q, i) => { pos[q.id] = {x: q.x != null ? q.x : OPW / 2 - (mids.length * (OPPW + 30) - 30) / 2 + i * (OPPW + 30), y: q.y != null ? q.y : y2, w: OPPW, h: OPPH}; });
+  }
   o.parties.filter(q => q.kind === 'ilx').forEach((q, i) => { pos[q.id] = {x: q.x != null ? q.x : OPW / 2 - OPPW / 2 + i * 240, y: q.y != null ? q.y : o.oy + OPOH + 170, w: OPPW, h: OPPH + 10}; });
   for(const q of o.parties){
-    if(!opShows(q)) continue;
+    if(!opShows(q) || !pos[q.id]) continue;
     const b = pos[q.id];
     if(q.kind === 'ilx') opPeopleOf(q).forEach((p, i, a) => { pos[p.id] = {x: b.x + b.w / 2 - (a.length * (OPCW + 16) - 16) / 2 + i * (OPCW + 16), y: b.y + b.h + 34, w: OPCW, h: OPCH, d: 0}; });
     else opTreeOrder(q).forEach(({p, d}, i) => { pos[p.id] = {x: b.x + 14 + d * OPIND, y: b.y + OPPH + 8 + i * (OPCH + OPCG), w: OPCW, h: OPCH, d}; });
@@ -11706,7 +11881,7 @@ function drawOppIn(svg, live){
   for(const q of OPP.parties){
     const b = pos[q.id], K = opKind(q.kind), sel = live && opSel && opSel.t === 'party' && opSel.id === q.id;
     const g = opEl('g', {class: 'op-party' + (sel ? ' sel' : '') + (faded(q.id) ? ' op-faded' : '') + (q.kind !== 'ilx' && q.spec !== 'yes' ? ' spec-' + (q.spec || 'none') : ''), tabindex: '0', role: 'button',
-      'aria-label': K.one + ': ' + q.name + (q.kind !== 'ilx' ? ', ' + OP_SPEC[q.spec || ''] : '')}, svg);
+      'aria-label': K.one + ': ' + opQName(q) + (q.kind !== 'ilx' ? ', ' + OP_SPEC[q.spec || ''] : '') + (q.lk ? ', from the large account plan' : '')}, svg);
     opEl('rect', {class: 'bg', x: b.x, y: b.y, width: b.w, height: b.h, rx: 8, fill: c(K.col)}, g);
     if(q.kind === 'ilx') opEl('image', {href: NOTES_LOGO, x: b.x + 50, y: b.y + 9, width: 110, height: 110 * 132 / 321}, g);
     else {
@@ -11721,6 +11896,11 @@ function drawOppIn(svg, live){
       const sp = q.spec || '', tick = {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp];
       opEl('circle', {cx: b.x + b.w - 15, cy: b.y + 15, r: 10, class: 'op-spec ' + (sp || 'none')}, g);
       opText(g, {x: b.x + b.w - 15, y: b.y + 19, 'text-anchor': 'middle', class: 'op-spect'}, tick);
+      // v139: a chain on the large account's boxes: they are its plan's, shown here
+      if(q.lk){
+        const ch = opEl('g', {transform: 'translate(' + (b.x + b.w - 22) + ',' + (b.y + 28) + ') scale(.6)', class: 'op-chain'}, g);
+        opEl('path', {d: LINK_PATH, fill: 'none', stroke: '#fff', 'stroke-width': 2.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'}, ch);
+      }
     }
     if(live){
       g.addEventListener('pointerdown', e => {
@@ -11917,6 +12097,7 @@ function opPanel(){
     : '<h2>Opportunity</h2><div class="opsum"><b>' + esc(OPP.name || 'Untitled') + '</b>' +
       (OPP.obj ? '<div>' + esc(OPP.obj) + '</div>' : '<div class="meta">No objective yet. Tap Details to add one.</div>') +
       ([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).length ? '<div class="meta">' + esc([OPP.value, OPP.close && 'close ' + oppMonth(OPP.close)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div>' +
+    lapPanelHTML() +
     '<h2>Where we stand</h2>' +
       '<label class="l">Against the competition</label>' + opChips('vsComp', BS_COMP, OPP.vsComp || '') +
       '<label class="l">Place in their funnel</label>' + opChips('funnel', BS_FUNNEL, OPP.funnel || '') +
@@ -11943,6 +12124,7 @@ function opPanel(){
   };
   if(lap) $('opToPlan').addEventListener('click', () => lapShowPlan());
   else {
+    lapPanelWire();
     opWireChips('vsComp', v => { OPP.vsComp = v; });
     opWireChips('funnel', v => { OPP.funnel = v; });
     opWireChips('timing', v => { OPP.timing = v; });
@@ -11977,7 +12159,8 @@ function opPersonPanel(p){
   const hist = ours ? [] : opHistory(p.n, opCompany(OPP, q), OPP.id);
   const confirmed = k => { if(p.est){ p.est = p.est.filter(x => x !== k); if(!p.est.length){ delete p.est; delete p.estFrom; } } };
   const rels = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).map(l => l.a === p.id ? l.kind + ' → ' + opName(l.b) : opName(l.a) + ' → ' + l.kind.toLowerCase() + ' → them');
-  P.innerHTML = '<h2>' + esc(q.name || 'Person') + '</h2>' +
+  P.innerHTML = '<h2>' + esc(opQName(q) || 'Person') + '</h2>' +
+    (q.lk ? '<p class="hint">On the large account plan: a change here shows there too.</p>' : '') +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
     '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
     (mates.length ? '<label class="l" for="opPboss">Reports to</label><select id="opPboss"><option value="">Nobody at ' + esc(q.name) + '</option>' +
@@ -11999,6 +12182,7 @@ function opPersonPanel(p){
     '<div class="orow"><button type="button" class="btn go" id="opLink">Link to…</button><button type="button" class="btn" id="opDone">Done</button>' +
       '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Remove</button></div>' +
     (opConfirm ? '<div class="opconfirm">Remove ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
+      (lapPersonIn(p) ? ' They are on the large account plan: this takes them off it, and off its other opportunities, too.' : '') +
       '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Remove</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
   const typed = (id, key, redraw) => $(id) && $(id).addEventListener('input', e => { p[key] = e.target.value; if(redraw) drawOpp(); oppSaveSoon(); });
   typed('opPn', 'n', true); typed('opPt', 'title', true); typed('opPw', 'win'); typed('opPres', 'result'); typed('opPe', 'evid'); typed('opPnote', 'note');
@@ -12063,6 +12247,41 @@ function opSuggest(side){
   return [...seen.values()];
 }
 /* ---- the list down the side (v124): build from it, find things in it ---- */
+/* v139: on an opportunity at a large account's site, the account's boxes can be
+   brought onto the map, and taken off again */
+function lapPanelHTML(){
+  const o = OPP, L = lapPlanOf(o), cand = !o.lap && largeFor(o.acct);
+  if(o.lap){
+    const n = o.parties.filter(q => q.lk).length;
+    return '<h2>Large account</h2><div class="opsum"><b>' + esc(L ? L.name || 'Large account' : 'A plan no longer here') + '</b><div class="meta">' +
+      (!L ? 'The large account plan this was linked to has been deleted.'
+        : !n ? 'Nothing in it bears on ' + esc(o.acct) + ' yet, or ' + esc(o.acct) + ' is no longer one of its sites. Add corporate, group engineering or OEMs on its map.'
+        : n + (n === 1 ? ' of its boxes is' : ' of its boxes are') + ' on this map, with a chain. Their people are kept on the plan: a change here shows there too.') + '</div>' +
+      '<div class="orow">' + (L ? '<button type="button" class="btn act2" id="opLapOpen">Open the large account map</button>' : '') + '<button type="button" class="btn" id="opLapOff">Unlink</button></div></div>';
+  }
+  if(!cand) return '';
+  return '<h2>Large account</h2><div class="opsum"><b>' + esc(cand.name || 'Large account') + '</b><div class="meta">' + esc(o.acct) + ' is one of its sites. Bring in its corporate, divisions, group functions, engineering and OEMs over this site, with their people.</div>' +
+    '<button type="button" class="btn act2" id="opLapIn" data-plan="' + esc(cand.id) + '">Bring in the large account</button></div>';
+}
+function lapPanelWire(){
+  if($('opLapIn')) $('opLapIn').addEventListener('click', e => {
+    OPP.lap = e.currentTarget.dataset.plan;
+    lapMerge(OPP);
+    const n = OPP.parties.filter(q => q.lk).length;
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+    toast(n ? n + (n === 1 ? ' box' : ' boxes') + ' brought in from the large account' : 'Linked. Nothing on its map bears on this site yet');
+  });
+  if($('opLapOpen')) $('opLapOpen').addEventListener('click', () => lapOpenFromOpp());
+  if($('opLapOff')) $('opLapOff').addEventListener('click', () => {
+    if(!confirm('Unlink the large account from this opportunity?\n\nIts boxes come off this map. Nothing is deleted: they and their people stay on the large account plan.')) return;
+    const w = lapWriteBack(OPP); if(w) w.catch(reportErr);
+    lapStrip(OPP); lapSnaps.delete(OPP.id);
+    delete OPP.lap; delete OPP.lapPos;
+    if(opSel && opSel.t !== 'l' && !opParty(opSel.id) && !opPerson(opSel.id)) opSel = null;
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+    toast('Unlinked from the large account');
+  });
+}
 let opBarAdding = '', opBarOpen = false;
 const opBarExp = new Set();   // v138: boxes whose people are showing in the list
 function renderOpBar(){
@@ -12077,12 +12296,13 @@ function renderOpBar(){
     (lap ? '' : '<button type="button" class="btn act2 opbar-desc" data-desc="1">Add from a description</button>') +
     '<button type="button" class="opbar-opp" data-pick="OPP"><span class="sw" style="background:var(--c-opp)"></span><b>' + esc(o.name || (lap ? 'Large account' : 'Untitled')) + '</b></button>'];
   for(const K of OP_PKINDS){
-    if((K.k === 'grp' || K.k === 'div') && !lap) continue;   // group functions and divisions: a large account's only (v131, v136)
     const qs = o.parties.filter(q => q.kind === K.k);
+    // group functions and divisions: a large account's only (v131, v136), or brought in from one (v139)
+    if((K.k === 'grp' || K.k === 'div') && !lap && !qs.length) continue;
     // a large account's end users are its sites, from the plan (v129)
     const sitesHere = lap && K.k === 'end';
     h.push('<div class="opbar-grp"><div class="opbar-gh"><span class="sw" style="background:var(' + K.col + ')"></span>' + esc(sitesHere ? 'Sites' : K.t) + '<span class="spacer"></span>' +
-      (K.k === 'ilx' ? '' : sitesHere ? '<button type="button" class="ib" data-addsite="1" aria-label="Add a site" title="Add a site">' + icon('plusc') + '</button>'
+      (K.k === 'ilx' || ((K.k === 'grp' || K.k === 'div') && !lap) ? '' : sitesHere ? '<button type="button" class="ib" data-addsite="1" aria-label="Add a site" title="Add a site">' + icon('plusc') + '</button>'
         : '<button type="button" class="ib" data-addparty="' + K.k + '" aria-label="Add a ' + esc(K.one) + '" title="Add a ' + esc(K.one) + '">' + icon('plusc') + '</button>') + '</div>');
     // v136: a site added from here joins the plan straight away
     if(sitesHere && opBarAdding === 'site') h.push('<div class="opadd"><input type="text" id="opNewSite" list="opSiteList" placeholder="Pick a customer" aria-label="The site to add" autocomplete="off"><button type="button" class="btn act2" id="opNewSiteGo">Add</button></div>' +
@@ -12096,7 +12316,7 @@ function renderOpBar(){
       const exp = opBarExp.has(q.id);
       h.push('<div class="opbar-party">' +
         '<button type="button" class="opfold' + (exp ? ' open' : '') + '" data-fold="' + esc(q.id) + '"' + (tree.length ? '' : ' disabled') + ' aria-expanded="' + exp + '" aria-label="' + (exp ? 'Hide' : 'Show') + ' the people at ' + esc(opQName(q)) + ' in this list" title="' + (tree.length ? (exp ? 'Fold away' : 'Show the people') : 'Nobody yet') + '">' + icon('chev') + '</button>' +
-        '<button type="button" class="nm" data-pick="party:' + esc(q.id) + '" title="' + esc(opQName(q)) + '">' + esc(opBarName(q)) + ' <small>' + tree.length + '</small></button>' +
+        '<button type="button" class="nm" data-pick="party:' + esc(q.id) + '" title="' + esc(opQName(q) + (q.lk ? ', from the large account plan' : '')) + '">' + (q.lk ? icon('link') : '') + esc(opBarName(q)) + ' <small>' + tree.length + '</small></button>' +
         (q.kind === 'ilx' ? '' : '<button type="button" class="opspec ' + (sp || 'none') + '" data-spec="' + esc(q.id) + '" aria-label="' + esc(opQName(q)) + ': ' + esc(OP_SPEC[sp]) + '. Tap to change." title="' + esc(OP_SPEC[sp]) + ' (tap to change)">' + {yes: '✓', unsure: '?', no: '✗', '': '–'}[sp] + '</button>') +
         '<button type="button" class="ib mute" data-eye="' + esc(q.id) + '" aria-label="' + (q.show === false ? 'Show' : 'Hide') + ' the people at ' + esc(opQName(q)) + '" title="' + (q.show === false ? 'Show' : 'Hide') + ' people">' + icon(q.show === false ? 'eyeoff' : 'eye') + '</button>' +
         '<button type="button" class="ib" data-tbl="' + esc(q.id) + '" aria-label="People at ' + esc(opQName(q)) + '" title="Add or change people">' + icon('table') + '</button></div>');
@@ -12169,7 +12389,33 @@ $('opBar').addEventListener('click', e => {
 });
 
 /* ---- a party: what it is, where it stands, its people ---- */
+// v139: one of the large account's boxes, brought in: its spec and people are shared with the plan
+function opLapPartyPanel(q){
+  const P = $('opPanel'), K = opKind(q.kind), ppl = opTreeOrder(q), L = lapPlanOf(OPP);
+  P.innerHTML = '<h2>' + esc(q.site ? (q.hq ? 'Head office' : 'Group engineering') : K.one.charAt(0).toUpperCase() + K.one.slice(1)) + '</h2>' +
+    '<div class="opsum"><b>' + esc(opQName(q)) + '</b><div class="meta">From the large account plan ' + esc(L ? L.name || 'Large account' : '') + '. Its people, their links and its spec are kept on that plan: a change here shows there too, and on its other opportunities.</div>' +
+      '<button type="button" class="btn act2" id="opQlap">Open the large account map</button></div>' +
+    '<label class="l">Have they specified Intralox?</label><div class="seg opspecseg" id="opQspec">' + ['yes', 'unsure', 'no'].map(v => '<button type="button" data-v="' + v + '"' + ((q.spec || '') === v ? ' class="on"' : '') + '>' + {yes: 'Specced', unsure: 'Unsure', no: 'Not specced'}[v] + '</button>').join('') + '</div>' +
+    '<label class="l">People</label><ul class="opitems good">' + (ppl.length ? ppl.map(({p, d}) => '<li style="margin-left:' + d * 14 + 'px"><span><button type="button" class="lnkbtn" data-qp="' + esc(p.id) + '">' + esc(p.n) + '</button>' +
+      '<span class="pin">' + esc([p.title, bsRoleCode(p)].filter(Boolean).join(' · ')) + '</span></span></li>').join('') : '<li class="none"><span class="pin">Nobody yet.</span></li>') + '</ul>' +
+    '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Show people' : 'Hide people') + '</button>' +
+      '<button type="button" class="btn" id="opDone">Done</button></div>';
+  const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opLapPartyPanel(q); };
+  $('opQspec').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q.spec = q.spec === b.dataset.v ? '' : b.dataset.v; redraw(); }));
+  P.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => opSelect({t: 'p', id: b.dataset.qp})));
+  $('opQtbl').addEventListener('click', () => opTableOpen(q.id));
+  $('opQeye').addEventListener('click', () => { q.show = q.show === false; redraw(); });
+  $('opDone').addEventListener('click', () => opSelect(null));
+  $('opQlap').addEventListener('click', () => lapOpenFromOpp());
+}
+async function lapOpenFromOpp(){
+  const L = lapPlanOf(OPP);
+  if(!L){ toast('That large account plan could not be found'); return; }
+  await oppSaveNow();
+  openLap(L.id);
+}
 function opPartyPanel(q){
+  if(q.lk) return opLapPartyPanel(q);
   const P = $('opPanel'), K = opKind(q.kind), ppl = opTreeOrder(q), heads = OPP.parties.filter(x => x.kind === 'head');
   const nLinks = (OPP.links || []).filter(l => ppl.some(({p}) => l.a === p.id || l.b === p.id)).length;
   const belts = opBelts();
@@ -12907,6 +13153,7 @@ async function startTestProject(){
 function renderOpp(){
   if(!OPP){ go('acct', true); return; }
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
+  if(!lap) lapRefresh(OPP);                     // v139: the large account's boxes, fresh from its plan
   $('title').textContent = OPP.name || (lap ? 'Large account' : 'Opportunity');
   $('subtitle').textContent = lap ? ns + (ns === 1 ? ' site' : ' sites') : OPP.acct;
   $('opView').querySelector('[data-v="sheet"]').textContent = lap ? 'Plan' : 'Blue Sheet';
@@ -13287,7 +13534,7 @@ function showOppCoaching(o, text){
     }
     o.coaching.applied = [...new Set((o.coaching.applied || []).concat(idx))];
     if(OPP && OPP.id === o.id) await oppSaveNow();
-    else { o.updated = Date.now(); await oppsPut(JSON.parse(JSON.stringify(o))); OPPS = OPPS.filter(x => x.id !== o.id).concat([o]); }
+    else { o.updated = Date.now(); await oppsPut(oppPlain(o)); OPPS = OPPS.filter(x => x.id !== o.id).concat([o]); }
     toast(idx.length === 1 ? 'Added to the Blue Sheet' : idx.length + ' added to the Blue Sheet');
     showOppCoaching(o, o.coaching.text);
     if(screen === 'opp' && OPP && OPP.id === o.id) renderOpp();
@@ -13870,13 +14117,13 @@ function lapShareLine(L){
 function lapMapData(L){
   const opps = lapOpps(L), people = [], idOf = {}, links = [], seen = new Set();
   const key = p => p.side + '|' + String(p.n || '').trim().toLowerCase();
-  opps.forEach(o => (o.people || []).forEach(p => {
+  opps.forEach(o => (o.people || []).filter(p => !lapPersonIn(p)).forEach(p => {   // v139: not the plan's own, brought in
     const k = key(p);
     let c = people.find(x => x.k === k);
     if(!c){ c = Object.assign({}, p, {id: 'c' + people.length, k}); if(p.side === 'cust') c.siteAcct = o.acct; people.push(c); }   // v129: under their site
     idOf[o.id + ':' + p.id] = c.id;
   }));
-  opps.forEach(o => (o.links || []).forEach(l => {
+  opps.forEach(o => (o.links || []).filter(l => !l.lk).forEach(l => {
     const a = idOf[o.id + ':' + l.a], b = l.b === 'OPP' ? 'OPP' : idOf[o.id + ':' + l.b];
     if(!a || !b) return;
     const k = [a, b].sort().join('|') + '|' + l.kind;
@@ -14345,6 +14592,11 @@ function lapCloudIn(){
 // a newer copy from the cloud replaces the one on screen, unless something is being moved or typed
 function oppCloudIn(){
   if(screen !== 'opp' || !OPP) return;
+  // v139: the large account's plan changed elsewhere: its boxes here are drawn again from it
+  if(OPP.kind !== 'large' && OPP.lap && !opGesture && !opSaveTimer){
+    const S = lapSnaps.get(OPP.id), L = lapPlanOf(OPP);
+    if(S && L && (L.updated || 0) > S.at && !(document.activeElement && $('opPanel').contains(document.activeElement))) renderOpp();
+  }
   const fresh = (OPP.kind === 'large' ? PLANS : OPPS).find(x => x.id === OPP.id);
   if(!fresh){ toast((OPP.kind === 'large' ? 'This plan' : 'This opportunity') + ' was deleted on another device'); OPP = null; go('acct'); return; }
   if(OPP.kind === 'large' && fresh !== OPP && (fresh.updated || 0) > (OPP.updated || 0) && !opGesture && !opSaveTimer) LAP = fresh;

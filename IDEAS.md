@@ -870,9 +870,13 @@ for now. Reviewed a clickable mock first.*
 - **Fixed (v138):** a new large account map no longer makes a Corporate box
   named after the customer group (it was no account at all); an unused one
   left from before is taken away.
-- **Later:** the account screen saying where a site sits in its large account,
-  and an opportunity map offering the site's engineering and corporate as
-  parties.
+- **Built (v139):** an opportunity at a large account's site can bring the
+  account in (Bring in the large account, under Large account beside the
+  map): corporate, the site's division, the group functions over it, the
+  site that engineers for it and their OEMs, with their people, live from the
+  plan (Ben chose a live link over a copy, knowing spec and stance are then
+  shared across the account's opportunities). Unlink takes them off.
+- **Later:** the account screen saying where a site sits in its large account.
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Later:** the coach reading the large account plan; the group column's
