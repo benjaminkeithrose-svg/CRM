@@ -289,7 +289,11 @@ function zoneOf(acctName, sub){
   if(OVERRIDES.acctZone[acctName]) return OVERRIDES.acctZone[acctName];   // overrides win outright
   if(!sub) return 'Z12';
   const canon = (OVERRIDES.spelling[sub] || titleCase(sub)).toUpperCase();
-  return SUB2ZONE[canon] || SUB2ZONE[sub] || 'Z12';
+  if(SUB2ZONE[canon] || SUB2ZONE[sub]) return SUB2ZONE[canon] || SUB2ZONE[sub];
+  // v146: a suburb with something after it ("BERESFIELD PLANT 2") falls back to its leading words
+  const w = canon.split(/\s+/);
+  for(let k = w.length - 1; k > 0; k--){ const z = SUB2ZONE[w.slice(0, k).join(' ')]; if(z) return z; }
+  return 'Z12';
 }
 function zoneName(z){ return ZONES[z] ? (z + ' ' + ZONES[z].name) : (z || 'unzoned'); }
 /* CAMBRIDGE NZ resolves to Z24 Tasmania and PICTON NZ to Z1 Sydney, because the
@@ -990,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v145';
+const APP_BUILD = 'v146';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {

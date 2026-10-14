@@ -137,7 +137,7 @@ const rows = async (view) => {
     contacts:[], entries:[{type:'belt', asset:'CV-9', photos:[]}], loose:[], status:'in progress'
   }) + ')');
   await w.eval('callsPut(' + JSON.stringify({
-    id:'r2', rectype:'call', customer:'Baiada', date:'11-09-2026', type:'Site call',
+    id:'r2', rectype:'call', customer:'Sample Poultry', date:'11-09-2026', type:'Site call',
     contacts:[], entries:[], loose:[], closed:true, status:'done'
   }) + ')');
   w.eval('rpView = "' + view + '"');
@@ -223,6 +223,10 @@ w.confirm = () => true;
 await w.deleteCallRecord(r2);
 t('confirming the delete removes the call',
   !(await w.callsAll()).find(c => c.id === 'r2'));
+
+// v146: a suburb with something after it falls back to its leading words; nothing found is Unconfirmed
+t('a suburb with a word after it finds its zone by the leading words', g(`zoneOf('Sample Poultry - Beresfield Plant 2', 'BERESFIELD PLANT 2')`) === g(`zoneOf('X - Beresfield', 'BERESFIELD')`) && g(`zoneOf('X - Beresfield', 'BERESFIELD')`) === 'Z2');
+t('and a suburb that matches nothing is still Unconfirmed', g(`zoneOf('X - Nowhereville', 'NOWHEREVILLE')`) === 'Z12');
 
 const errs = [];
 w.addEventListener('error', e => errs.push(e.message));
