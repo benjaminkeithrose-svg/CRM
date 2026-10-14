@@ -58,7 +58,7 @@ ok(tile && /Lists/.test(tile.textContent) && tile.querySelector('svg'), 'Lists t
 tile.click(); await tick();
 ok(g('screen') === 'lists', 'the tile opens Lists');
 const tabs = [...$('lsTabs').querySelectorAll('button[data-pane]')].map(b => b.textContent);
-ok(tabs.join('|') === 'Saved notes|Products', 'two tabs: ' + tabs.join('|'));
+ok(tabs.join('|') === 'Saved notes|Products|Intralox', 'three tabs (v142: Intralox people): ' + tabs.join('|'));
 ok($('snNew').closest('.ptab').querySelector('[data-pane="notes"]') && $('prNew').closest('.ptab').querySelector('[data-pane="prods"]') && $('snNew').querySelector('svg') && !d.querySelector('#s-lists button.big'), 'each tab carries its circle-plus; no big buttons (v123)');
 ok(shown($('paneNotes')) && !shown($('paneProds')) && /No saved notes yet/.test($('snRes').textContent), 'starts on Saved notes, empty');
 ok(g('PARENT.lists') === 'home', 'back goes Home');

@@ -887,6 +887,11 @@ for now. Reviewed a clickable mock first.*
   rated Unknown), their sites open, with a count; Unknown is a fifth
   strength, drawn dotted, not coverage, and a Blue Sheet gap ("X's
   relationship with Y is unknown").
+- **Built (v142):** Intralox people, a shared list on the Lists screen (name,
+  position AM/ATL/ITL/SS/AE/TSG or other, reports to, email, phone), offered
+  for the Intralox box on every map and tied to it there; their manager in
+  the box is who they report to; their record lists their relationships on
+  every map, each rated in one tap.
 - **Proposed, not built yet:** site owners (AM per site, ATL that could be
   responsible for the group, with default links to corporate and group
   engineering, above the AMs without a reporting line), contacts moved to
