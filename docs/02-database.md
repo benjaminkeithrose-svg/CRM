@@ -130,8 +130,11 @@ as Dynamics' Large Account Plan:
 | `flags`, `strengths`, `actions`, `notes` | Red flags (with information needed and from whom), strengths, possible actions (starred = best action plan), communication notes |
 | `coaching`, `test`, `created`, `updated` | The coach's view, a made-up test project, and edits |
 | `lap`, `lapPos` | The large account plan brought into this opportunity (its `id`), and where its boxes sit on this map (`{x, y, show}` by the plan's box id) (v139) |
+| `amGone` | Account managers taken off this map, by name in lower case, so they are not added back (v140). A large account plan's map keeps the same field |
 
 An opportunity at a large account's site can bring that account in (v139). Its boxes over the site (corporate or the head office, the site's division, the group functions over it, the site that engineers for it, the OEMs working with any of them), their people and the links between those people are copied onto the map each time it is shown, under ids starting `lk-`. They are never saved in the opportunity: a change to their people, links or spec is written back to the plan when the opportunity saves, so the plan and every linked opportunity show it. Only where they sit is the opportunity's own (`lapPos`).
+
+Relationships across sites (v140). A person can report to someone in another box: within a box it is `boss`; across boxes it is a `links` entry of kind `Reports to` from them to their manager. Each site's account manager (`effMgr`, the CRM export or the reassignment) is added to the Intralox box as a person with `am: true`. Between them and each person at a site there is an implied Our coverage link, worked out when the map is drawn and never stored; rating it stores it as an ordinary link, which is when the Blue Sheet counts it as coverage. A party with `amOff: true` has no implied links.
 
 **cip**: three records. `me` holds your CIP periods (goals, strengths, gaps,
 reviews) and the four pillars; `mbo` your MBO list and claims by year and

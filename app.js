@@ -990,7 +990,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v139';
+const APP_BUILD = 'v140';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -11767,7 +11767,7 @@ function opRelated(){
     const p = opPerson(opSel.id); if(!p) return null;
     on.add(p.id); on.add(p.party); if(p.boss) on.add(p.boss);
     (OPP.people || []).filter(x => x.boss === p.id).forEach(x => on.add(x.id));
-    (OPP.links || []).forEach(l => { if(l.a === p.id || l.b === p.id){ const o = l.a === p.id ? l.b : l.a; on.add(o); const op = opPerson(o); if(op) on.add(op.party); } });
+    (OPP.links || []).concat(opImplied(OPP)).forEach(l => { if(l.a === p.id || l.b === p.id){ const o = l.a === p.id ? l.b : l.a; on.add(o); const op = opPerson(o); if(op) on.add(op.party); } });
     return on;
   }
   if(opSel.t === 'party'){
@@ -11836,7 +11836,10 @@ function drawOppIn(svg, live){
   }
   // relationships between people: faint unless they are what you are looking at
   const selP = live && opSel && opSel.t === 'p' ? opSel.id : null;
-  (OPP.links || []).forEach(l => {
+  // v140: the account manager's implied cover shows only when one of the two is tapped, or the link itself
+  const selL = live && opSel && opSel.t === 'l' ? opSel.id : null;
+  const implied = live && (selP || selL) ? opImplied(OPP).filter(l => l.a === selP || l.b === selP || l.id === selL) : [];
+  (OPP.links || []).concat(implied).forEach(l => {
     const A = pos[l.a], B = pos[l.b]; if(!A || !B) return;
     const mine = selP && (l.a === selP || l.b === selP), chosen = live && opSel && opSel.t === 'l' && opSel.id === l.id;
     if(!opLinksOn && !mine && !chosen) return;
@@ -11844,14 +11847,14 @@ function drawOppIn(svg, live){
     const p1 = opExit(A, B.x + B.w / 2, B.y + B.h / 2), p2 = opExit(B, A.x + A.w / 2, A.y + A.h / 2);
     const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1;
     const cx = mx - dy / len * 28, cy = my + dx / len * 28;
-    const st = opStrStyle(l.str);
+    const st = l.implied ? {c: c('--ink-3'), w: 1.6, d: '3 5'} : opStrStyle(l.str);
     const g = opEl('g', {class: 'op-edge' + (chosen ? ' sel' : '') + (bright ? '' : selP ? ' op-ghost' : ' op-faint'), tabindex: '0', role: 'button',
-      'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + String(l.str).toLowerCase()}, svg);
+      'aria-label': opName(l.a) + ' ' + String(l.kind).toLowerCase() + ' ' + opName(l.b) + ', ' + (l.implied ? 'account manager, not rated yet' : String(l.str).toLowerCase())}, svg);
     const d = 'M' + p1.x + ',' + p1.y + ' Q' + cx + ',' + cy + ' ' + p2.x + ',' + p2.y;
     opEl('path', {d, class: 'hit'}, g);
     const v = opEl('path', {d, class: 'vis', fill: 'none', stroke: st.c, 'stroke-width': st.w, 'stroke-dasharray': st.d, 'stroke-linecap': 'round'}, g);
     if(l.kind !== 'Our coverage') v.setAttribute('marker-end', 'url(#opar-' + (l.str === 'Hostile' ? 'warn' : l.str === 'Strong' ? 'act' : 'ink') + ')');
-    if(bright) opText(g, {x: (mx + cx) / 2, y: (my + cy) / 2 - 4, 'text-anchor': 'middle', class: 'op-elbl'}, l.kind);
+    if(bright) opText(g, {x: (mx + cx) / 2, y: (my + cy) / 2 - 4, 'text-anchor': 'middle', class: 'op-elbl'}, l.implied ? 'Account manager' : l.kind);
     if(bright && opPinned('l:' + l.id)) opFlag(g, (mx + cx) / 2 - 8, (my + cy) / 2 + 2);
     if(live){
       g.addEventListener('pointerdown', e => e.stopPropagation());
@@ -12047,6 +12050,7 @@ $('opHintX').addEventListener('click', () => { opLinkFrom = null; $('opHint').hi
 function opSelect(s){
   if(opSaveTimer) oppSaveNow().catch(reportErr);
   opSel = s; opConfirm = false;
+  opLinkBack = null;
   drawOpp(); opPanel();
 }
 function opMakeLink(to){
@@ -12088,7 +12092,7 @@ function opPanel(){
   const P = $('opPanel');
   if(!P || !OPP) return;
   if(opSel && opSel.t === 'p' && opPerson(opSel.id)) return opPersonPanel(opPerson(opSel.id));
-  if(opSel && opSel.t === 'l'){ const l = (OPP.links || []).find(x => x.id === opSel.id); if(l) return opLinkPanel(l); }
+  if(opSel && opSel.t === 'l'){ const l = opLinkById(opSel.id); if(l) return opLinkPanel(l); }
   if(opSel && opSel.t === 'party' && opParty(opSel.id)) return opPartyPanel(opParty(opSel.id));
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   P.innerHTML = (lap
@@ -12151,6 +12155,123 @@ function opWireChips(name, set, keepOne){
     oppSaveNow().catch(reportErr); drawOpp(); opPanel();
   }));
 }
+/* v140 - Ben, 2026-10-14: in a large multi-site account, engineering and
+   purchasing people report to people who are not at their site (an
+   engineering manager at one site to the group engineering manager at
+   another). Reports to can now pick someone in another box: the person stays
+   under their own site, and a Reports to link is drawn across to their
+   manager. Inside one box it is the organisation chart (boss) as before. */
+const opCrossBosses = p => (OPP.links || []).filter(l => l.kind === 'Reports to' && l.a === p.id && opPerson(l.b) && opPerson(l.b).party !== p.party);
+const opBossVal = p => p.boss || (opCrossBosses(p)[0] ? 'x:' + opCrossBosses(p)[0].b : '');
+function opSetBoss(p, v){
+  const cross = opCrossBosses(p), keep = v && v.startsWith('x:') ? v.slice(2) : '';
+  const drop = cross.filter(l => l.b !== keep);
+  if(drop.length){
+    OPP.links = OPP.links.filter(l => !drop.includes(l));
+    ['flags', 'strengths'].forEach(k => (OPP[k] || []).forEach(f => { if(drop.some(l => f.pin === 'l:' + l.id)) f.pin = ''; }));
+  }
+  if(keep){
+    p.boss = '';
+    if(!cross.some(l => l.b === keep)) OPP.links = (OPP.links || []).concat([{id: newId('lk'), a: p.id, b: keep, kind: 'Reports to', str: 'Neutral', note: ''}]);
+  } else p.boss = v || '';
+}
+// the people in other boxes someone could report to, by box
+function opBossElsewhere(p){
+  const q = opParty(p.party);
+  if(!q || q.kind === 'ilx') return '';
+  const groups = OPP.parties.filter(x => x.id !== q.id && x.kind !== 'ilx').map(x => [x, opPeopleOf(x)]).filter(([, ps]) => ps.length);
+  if(!groups.length) return '';
+  const cur = opBossVal(p);
+  return groups.map(([x, ps]) => '<optgroup label="' + esc(opQName(x)) + '">' + ps.map(o => '<option value="x:' + esc(o.id) + '"' + (cur === 'x:' + o.id ? ' selected' : '') + '>' + esc(o.n || 'Someone') + '</option>').join('') + '</optgroup>').join('');
+}
+
+/* v140: the account manager covers everyone at their sites by default - Ben:
+   "default but not visible, so I can show my relationships to the individual
+   sites as we go through them". Each site's account manager (from the CRM, or
+   as reassigned here) joins the Intralox box once; one taken off stays off
+   (amGone). Between them and each person at the site there is an implied
+   Our coverage link, never stored and only drawn when one of the two is
+   tapped. It counts on the Blue Sheet only once it is rated: rating it makes
+   it a real link. Each site can switch it off (amOff). */
+const opAmKey = n => String(n || '').trim().toLowerCase();
+function opSiteAcct(o, q){
+  if(!q || q.kind !== 'end') return '';
+  const a = q.acct || (o.kind !== 'large' && !q.lk ? o.acct : '');
+  return a && ACC_BY_NAME.has(a) ? a : '';
+}
+function opAmOf(o, q){
+  const a = opSiteAcct(o, q), acc = a && ACC_BY_NAME.get(a);
+  return acc ? String(effMgr(acc) || '').trim() : '';
+}
+function opAmEnsure(o){
+  if(!o || !Array.isArray(o.parties) || o.test) return false;
+  const ilx = o.parties.find(q => q.kind === 'ilx'); if(!ilx) return false;
+  const gone = new Set(o.amGone || []);
+  let added = false;
+  for(const q of o.parties){
+    if(q.amOff || q.lk) continue;
+    const m = opAmOf(o, q);
+    if(!m || gone.has(opAmKey(m)) || !(o.people || []).some(p => p.party === q.id)) continue;
+    if((o.people || []).some(p => p.side === 'us' && opAmKey(p.n) === opAmKey(m))) continue;
+    o.people = (o.people || []).concat([{id: newId('pp'), party: ilx.id, side: 'us', n: m, title: 'Account Manager', am: true, mode: '', rate: 0, note: '', win: '', result: '', evid: ''}]);
+    added = true;
+  }
+  return added;
+}
+function opImplied(o){
+  const out = [];
+  if(!o || !Array.isArray(o.parties)) return out;
+  const us = (o.people || []).filter(p => p.side === 'us');
+  for(const q of o.parties){
+    if(q.amOff) continue;
+    const m = opAmOf(o, q); if(!m) continue;
+    const am = us.find(p => opAmKey(p.n) === opAmKey(m)); if(!am) continue;
+    (o.people || []).filter(p => p.party === q.id).forEach(p => {
+      if((o.links || []).some(l => (l.a === am.id && l.b === p.id) || (l.a === p.id && l.b === am.id))) return;
+      out.push({id: 'im:' + am.id + ':' + p.id, a: am.id, b: p.id, kind: 'Our coverage', str: '', note: '', implied: true});
+    });
+  }
+  return out;
+}
+// rating an implied link makes it a real one
+function opRealise(l, str){
+  const r = {id: newId('lk'), a: l.a, b: l.b, kind: l.kind, str: str || 'Neutral', note: ''};
+  OPP.links = (OPP.links || []).concat([r]);
+  return r;
+}
+const opLinkById = id => (OPP.links || []).find(x => x.id === id) || (String(id).startsWith('im:') ? opImplied(OPP).find(x => x.id === id) : null);
+let opLinkBack = null;            // the person whose list a link was opened from
+const OP_THEM = {'Reports to': 'Reports to them', 'Influences': 'Influences them', 'Our coverage': 'Covers them', 'Supplies': 'Supplies them'};
+/* v140: someone's relationships, grouped by the box the other person is in,
+   each with its strength to change in one tap, or tap the name for the rest */
+function opRelsHTML(p){
+  const rl = (OPP.links || []).concat(opImplied(OPP)).filter(l => l.a === p.id || l.b === p.id);
+  if(!rl.length) return '<ul class="opitems good"><li class="none"><span class="pin">None yet. Tap Link to…, then the other person.</span></li></ul>';
+  const groups = new Map();
+  rl.forEach(l => {
+    const o = l.a === p.id ? l.b : l.a, op = o === 'OPP' ? null : opPerson(o), q = op && opParty(op.party);
+    const key = q ? q.id : 'OPP';
+    if(!groups.has(key)) groups.set(key, {name: q ? opQName(q) : (OPP.kind === 'large' ? 'The account' : 'The opportunity'), rows: []});
+    groups.get(key).rows.push({l, o, op});
+  });
+  const one = groups.size === 1;
+  return [...groups].map(([key, G]) => '<details class="oprelg" data-g="' + esc(key) + '"' + (one || opRelOpen.has(key) ? ' open' : '') + '><summary>' + esc(G.name) + ' <small>' + G.rows.length + '</small></summary><ul class="opitems good oprels">' +
+    G.rows.map(({l, o, op}) => '<li><span><button type="button" class="lnkbtn" data-rl="' + esc(l.id) + '">' + esc(op ? op.n || 'Someone' : opName(o)) + '</button>' +
+      '<span class="pin">' + esc((l.a === p.id ? l.kind : OP_THEM[l.kind] || l.kind) + (l.implied ? ' · account manager, not rated yet' : '')) + '</span>' +
+      '<span class="seg oprs" role="group" aria-label="Strength">' + OP_STRS.map(v => '<button type="button" data-rs="' + esc(l.id) + '" data-v="' + v + '"' + (l.str === v ? ' class="on"' : '') + '>' + v + '</button>').join('') + '</span></span></li>').join('') +
+    '</ul></details>').join('');
+}
+function opRelsWire(p){
+  const P = $('opPanel');
+  P.querySelectorAll('details.oprelg').forEach(d => d.addEventListener('toggle', () => { if(d.open) opRelOpen.add(d.dataset.g); else opRelOpen.delete(d.dataset.g); }));
+  P.querySelectorAll('[data-rl]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.rl; opSelect({t: 'l', id}); opLinkBack = p.id; opPanel(); }));
+  P.querySelectorAll('[data-rs]').forEach(b => b.addEventListener('click', () => {
+    const l = opLinkById(b.dataset.rs); if(!l) return;
+    if(l.implied) opRealise(l, b.dataset.v); else l.str = b.dataset.v;
+    oppSaveNow().catch(reportErr); drawOpp(); opPersonPanel(p);
+  }));
+}
+const opRelOpen = new Set();      // which boxes are folded open in someone's relationships
 function opPersonPanel(p){
   const P = $('opPanel'), q = opParty(p.party) || {kind: 'end', name: ''}, ours = q.kind === 'ilx';
   const nLinks = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
@@ -12158,19 +12279,20 @@ function opPersonPanel(p){
   const stanceLbl = OP_STANCE[p.stance || 'unknown'];
   const hist = ours ? [] : opHistory(p.n, opCompany(OPP, q), OPP.id);
   const confirmed = k => { if(p.est){ p.est = p.est.filter(x => x !== k); if(!p.est.length){ delete p.est; delete p.estFrom; } } };
-  const rels = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).map(l => l.a === p.id ? l.kind + ' → ' + opName(l.b) : opName(l.a) + ' → ' + l.kind.toLowerCase() + ' → them');
+  const away = opBossElsewhere(p), bv = opBossVal(p);
   P.innerHTML = '<h2>' + esc(opQName(q) || 'Person') + '</h2>' +
     (q.lk ? '<p class="hint">On the large account plan: a change here shows there too.</p>' : '') +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
     '<label class="l" for="opPt">Title</label><input type="text" id="opPt" value="' + esc(p.title || '') + '">' +
-    (mates.length ? '<label class="l" for="opPboss">Reports to</label><select id="opPboss"><option value="">Nobody at ' + esc(q.name) + '</option>' +
-      mates.map(x => '<option value="' + esc(x.id) + '"' + (p.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select>' : '') +
+    (mates.length || away ? '<label class="l" for="opPboss">Reports to</label><select id="opPboss"><option value="">Nobody</option>' +
+      (mates.length ? '<optgroup label="' + esc('At ' + opQName(q)) + '">' + mates.map(x => '<option value="' + esc(x.id) + '"' + (bv === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</optgroup>' : '') +
+      away + '</select>' : '') +
     (ours ? '' :
       '<label class="l">Their part in the decision' + (p.est && p.est.includes('role') ? ' <span class="esttag">estimate, from ' + esc(p.estFrom || 'another Blue Sheet') + '</span>' : '') + '</label>' + opChips('role', OP_ROLES, p.role || '') +
       (p.role ? '<label class="l">A second part, if they have one</label>' + opChips('role2', OP_ROLES.filter(r => r !== p.role), p.role2 || '') : '') +
       '<label class="l">Are they helping us?' + (p.est && p.est.includes('stance') ? ' <span class="esttag">estimate, from ' + esc(p.estFrom || 'another Blue Sheet') + '</span>' : '') + '</label>' + opChips('stance', Object.values(OP_STANCE), stanceLbl)) +
     (hist.length ? '<h2>On other Blue Sheets</h2><ul class="opitems good">' + hist.slice(0, 5).map(h => '<li><span>' + esc(opHistLine(h)) + '</span></li>').join('') + '</ul>' : '') +
-    '<h2>Their relationships</h2><ul class="opitems good">' + (rels.length ? rels.map(t => '<li><span>' + esc(t) + '</span></li>').join('') : '<li class="none"><span class="pin">None yet. Tap Link to…, then the other person.</span></li>') + '</ul>' +
+    '<h2>Their relationships</h2>' + opRelsHTML(p) +
     (ours ? '' : '<details class="opmore"' + (opMoreOpen ? ' open' : '') + '><summary>More detail</summary>' +
       '<label class="l">How they see it</label>' + opChips('mode', OP_MODES, p.mode || '') +
       '<label class="l" for="opPr">How well our base is covered with them</label><div class="oprate"><input type="range" id="opPr" min="-5" max="5" step="1" value="' + (p.rate || 0) + '"><output id="opPrv">' + (p.rate > 0 ? '+' : '') + (p.rate || 0) + '</output></div>' +
@@ -12186,7 +12308,8 @@ function opPersonPanel(p){
       '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Remove</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
   const typed = (id, key, redraw) => $(id) && $(id).addEventListener('input', e => { p[key] = e.target.value; if(redraw) drawOpp(); oppSaveSoon(); });
   typed('opPn', 'n', true); typed('opPt', 'title', true); typed('opPw', 'win'); typed('opPres', 'result'); typed('opPe', 'evid'); typed('opPnote', 'note');
-  if($('opPboss')) $('opPboss').addEventListener('change', e => { p.boss = e.target.value; oppSaveNow().catch(reportErr); drawOpp(); });
+  if($('opPboss')) $('opPboss').addEventListener('change', e => { opSetBoss(p, e.target.value); oppSaveNow().catch(reportErr); drawOpp(); opPersonPanel(p); });
+  opRelsWire(p);
   if(!ours){
     opWireChips('role', v => { p.role = v; if(!v || p.role2 === v) p.role2 = ''; confirmed('role'); });
     if(p.role) opWireChips('role2', v => { p.role2 = v; confirmed('role'); });
@@ -12209,13 +12332,31 @@ function opPersonPanel(p){
 }
 let opMoreOpen = false;
 function opLinkPanel(l){
-  const P = $('opPanel'), edit = true;
-  P.innerHTML = '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b></div>' +
+  const P = $('opPanel'), edit = true, back = opLinkBack && (l.a === opLinkBack || l.b === opLinkBack) && opPerson(opLinkBack);
+  const backBtn = back ? '<button type="button" class="btn act2 opback" id="opLback">' + icon('chev') + ' Back to ' + esc(back.n || 'them') + '</button>' : '';
+  // v140: the account manager's cover, not rated yet: a strength makes it a real link
+  if(l.implied){
+    const pb = opPerson(l.b), site = pb && opParty(pb.party);
+    P.innerHTML = backBtn + '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b><div class="meta">Account manager for ' + esc(site ? opQName(site) : 'this site') +
+      ', so this is there by default. It is not counted on the Blue Sheet until you rate it. To switch it off for everyone at the site, tap the site.</div></div>' +
+      '<label class="l">How strong is it?</label><div class="seg" id="opSg">' + OP_STRS.map(v => '<button type="button" data-v="' + v + '">' + v + '</button>').join('') + '</div>' +
+      '<div class="orow"><button type="button" class="btn" id="opDone">Done</button></div>';
+    if($('opLback')) $('opLback').addEventListener('click', () => opSelect({t: 'p', id: back.id}));
+    $('opSg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      const r = opRealise(l, b.dataset.v), bk = opLinkBack;
+      oppSaveNow().catch(reportErr);
+      opSelect({t: 'l', id: r.id}); opLinkBack = bk; opPanel();
+    }));
+    $('opDone').addEventListener('click', () => opSelect(null));
+    return;
+  }
+  P.innerHTML = backBtn + '<h2>Link</h2><div class="opsum"><b>' + esc(opName(l.a)) + ' → ' + esc(opName(l.b)) + '</b></div>' +
     '<label class="l">Kind</label>' + opChips('kind', OP_KINDS, l.kind) +
     '<label class="l">Strength</label><div class="seg" id="opSg">' + OP_STRS.map(s => '<button type="button" data-v="' + s + '"' + (l.str === s ? ' class="on"' : '') + '>' + s + '</button>').join('') + '</div>' +
     '<label class="l" for="opLnote">Note</label><textarea id="opLnote" data-talk="sales" rows="3">' + esc(l.note || '') + '</textarea>' +
     '<div class="orow"><button type="button" class="btn" id="opDone">Done</button>' + (edit ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRmL">Remove link</button>' : '') + '</div>';
   opWireChips('kind', v => { l.kind = v; }, true);
+  if($('opLback')) $('opLback').addEventListener('click', () => opSelect({t: 'p', id: back.id}));
   $('opSg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { l.str = b.dataset.v; oppSaveNow().catch(reportErr); drawOpp(); opPanel(); }));
   $('opLnote').addEventListener('input', e => { l.note = e.target.value; oppSaveSoon(); });
   $('opDone').addEventListener('click', () => opSelect(null));
@@ -12425,6 +12566,9 @@ function opPartyPanel(q){
     '<label class="l" for="opQn">Name</label><input type="text" id="opQn" list="opAcctList" value="' + esc(q.name) + '"' + (q.kind === 'ilx' || q.site ? ' readonly' : '') + '>' + opAcctList() +
     (q.site ? '<p class="hint">One of this large account\'s sites. Its contacts are offered for its people. Add more with + beside Sites in the list.</p>'
       : q.acct ? '<p class="hint">From the customer list: its contacts are offered for its people.</p>' : '') +
+    // v140: the account manager covers everyone here, unless switched off for this site
+    (opAmOf(OPP, q) ? '<label class="chk"><input type="checkbox" id="opQam"' + (q.amOff ? '' : ' checked') + '> ' + esc(opAmOf(OPP, q)) + ', the account manager, covers everyone here</label>' +
+      '<p class="hint">Shown when you tap them or someone here. It counts on the Blue Sheet once you rate it.</p>' : '') +
     // v129: a site's own plan and opportunities, one tap away
     // v131: corporate can sit at a site; a group function covers all the sites or some
     (q.site ? '<label class="chk"><input type="checkbox" id="opQhq"' + (q.hq ? ' checked' : '') + '> Head office here: it drives the other sites</label>' : '') +
@@ -12458,6 +12602,7 @@ function opPartyPanel(q){
       ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
       '<div class="orow"><button type="button" class="btn warnb" id="opQrmY">Remove</button><button type="button" class="btn" id="opQrmN">Cancel</button></div></div>' : '');
   const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); };
+  if($('opQam')) $('opQam').addEventListener('change', e => { if(e.target.checked) delete q.amOff; else q.amOff = true; if(e.target.checked && opAmEnsure(OPP)) toast(opAmOf(OPP, q) + ' added to Intralox'); redraw(); });
   $('opQn').addEventListener('input', e => { if(q.kind === 'ilx') return; q.name = e.target.value; q.acct = ACC_BY_NAME.has(q.name.trim()) ? q.name.trim() : ''; drawOpp(); oppSaveSoon(); });
   if($('opQspec')) $('opQspec').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q.spec = q.spec === b.dataset.v ? '' : b.dataset.v; redraw(); }));
   P.querySelectorAll('[data-opchips="qkind"] button').forEach(b => b.addEventListener('click', () => {
@@ -12581,6 +12726,7 @@ function opWorksWire(q, redraw){
 // people leave the map with their links; flags pinned to them move to the whole opportunity; whoever reported to them moves up
 function opDropPeople(ids){
   const gone = new Set(ids), pins = new Set(ids.map(id => 'p:' + id));
+  (OPP.people || []).filter(p => gone.has(p.id) && p.am).forEach(p => { OPP.amGone = [...new Set((OPP.amGone || []).concat([opAmKey(p.n)]))]; });   // v140
   (OPP.links || []).filter(l => gone.has(l.a) || gone.has(l.b)).forEach(l => pins.add('l:' + l.id));
   for(const p of OPP.people || []) if(!gone.has(p.id) && gone.has(p.boss)){ const b = opPerson(p.boss); p.boss = b && b.boss && !gone.has(b.boss) ? b.boss : ''; }
   OPP.people = (OPP.people || []).filter(p => !gone.has(p.id));
@@ -12594,7 +12740,7 @@ const OP_CODE_ROLE = {E: 'Signs the order', U: 'Uses it', T: 'Checks the spec', 
 let opTbl = null;
 function opTableOpen(qid){
   const q = opParty(qid); if(!q) return;
-  opTbl = {q, rows: opTreeOrder(q).map(({p}) => ({id: p.id, n: p.n || '', title: p.title || '', boss: p.boss || '', code: bsRoleCode(p), stance: p.stance || 'unknown', old: true}))};
+  opTbl = {q, rows: opTreeOrder(q).map(({p}) => ({id: p.id, n: p.n || '', title: p.title || '', boss: opBossVal(p), code: bsRoleCode(p), stance: p.stance || 'unknown', old: true}))};
   opTbl.rows.push(opTblBlank());
   $('otHead').textContent = 'People at ' + q.name;
   opTblDraw();
@@ -12617,13 +12763,17 @@ function opTblDraw(){
   const T = opTbl; if(!T) return;
   const ours = T.q.kind === 'ilx', named = T.rows.filter(r => r.n.trim());
   const sug = opPartySuggest(T.q);
+  // v140: or someone in another box
+  const away = ours ? [] : OPP.parties.filter(x => x.id !== T.q.id && x.kind !== 'ilx').map(x => [x, opPeopleOf(x)]).filter(([, ps]) => ps.length);
+  const awayOpts = r => away.map(([x, ps]) => '<optgroup label="' + esc(opQName(x)) + '">' + ps.map(o => '<option value="x:' + esc(o.id) + '"' + (r.boss === 'x:' + o.id ? ' selected' : '') + '>' + esc(o.n || 'Someone') + '</option>').join('') + '</optgroup>').join('');
   $('otBody').innerHTML = '<table class="optable"><thead><tr><th>Name</th><th>Title</th>' + (ours ? '' : '<th>Reports to</th><th>Part</th><th>Helping us?</th>') + '<th></th></tr></thead><tbody>' +
     T.rows.map((r, i) => {
       const last = i === T.rows.length - 1 && !r.n.trim();
       return '<tr><td><input type="text" data-r="' + i + '" data-k="n" value="' + esc(r.n) + '" list="otNames" aria-label="Name"' + (last ? ' placeholder="Add a person"' : '') + '></td>' +
         '<td><input type="text" data-r="' + i + '" data-k="title" value="' + esc(r.title) + '" aria-label="Title"></td>' +
         (ours ? '' : '<td><select data-r="' + i + '" data-k="boss" aria-label="Reports to"><option value="">—</option>' +
-          named.filter(x => x !== r && x.boss !== r.id).map(x => '<option value="' + esc(x.id) + '"' + (r.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select></td>' +
+          (away.length ? '<optgroup label="' + esc('At ' + opQName(T.q)) + '">' : '') +
+          named.filter(x => x !== r && x.boss !== r.id).map(x => '<option value="' + esc(x.id) + '"' + (r.boss === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + (away.length ? '</optgroup>' : '') + awayOpts(r) + '</select></td>' +
           '<td><select data-r="' + i + '" data-k="code" aria-label="Part in the decision"' + (r.est && r.est.code ? ' class="est" title="Estimate, from ' + esc(r.est.from) + '"' : '') + '>' + OP_CODES.map(v => '<option value="' + v + '"' + (r.code === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td>' +
           '<td><select data-r="' + i + '" data-k="stance" aria-label="Helping us?"' + (r.est && r.est.stance ? ' class="est" title="Estimate, from ' + esc(r.est.from) + '"' : '') + '>' + Object.entries(OP_STANCE).map(([k, t]) => '<option value="' + k + '"' + (r.stance === k ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>') +
         '<td>' + (last ? '' : '<button type="button" class="opx" data-rm="' + i + '" aria-label="Remove ' + esc(r.n || 'this row') + '">' + icon('trash') + '</button>') + '</td></tr>';
@@ -12693,6 +12843,14 @@ function opTblFinish(){
       OPP.people = (OPP.people || []).concat([p]);
       changed = true;
     } else if(Object.keys(vals).some(k => (p[k] || '') !== (vals[k] || ''))){ Object.assign(p, vals); changed = true; }
+  }
+  // v140: someone reporting to a person in another box
+  for(const r of keep){
+    const p = opPerson(r.id); if(!p) continue;
+    const want = String(r.boss || '').startsWith('x:') ? r.boss : (keepIds.has(r.boss) ? r.boss : '');
+    const cross = opCrossBosses(p).map(l => 'x:' + l.b);
+    const off = want.startsWith('x:') ? p.boss || cross.length !== 1 || cross[0] !== want : cross.length || (p.boss || '') !== want;
+    if(off){ opSetBoss(p, want); changed = true; }
   }
   // the table's order is the order on the map
   const order = keep.map(r => r.id);
@@ -13154,6 +13312,7 @@ function renderOpp(){
   if(!OPP){ go('acct', true); return; }
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   if(!lap) lapRefresh(OPP);                     // v139: the large account's boxes, fresh from its plan
+  if(opAmEnsure(OPP)) oppSaveSoon();            // v140: the sites' account managers join Intralox
   $('title').textContent = OPP.name || (lap ? 'Large account' : 'Opportunity');
   $('subtitle').textContent = lap ? ns + (ns === 1 ? ' site' : ' sites') : OPP.acct;
   $('opView').querySelector('[data-v="sheet"]').textContent = lap ? 'Plan' : 'Blue Sheet';

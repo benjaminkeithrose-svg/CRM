@@ -135,8 +135,8 @@ g(`(() => { opMode = 'map'; renderOpp(); })()`); await tick();
 ok(!$('opDelBtn').hidden && $('opDelBtn').getAttribute('aria-label') === 'Delete this opportunity', 'the bin is on the toolbar');
 g(`oppSaveSoon()`);                                       // a change still waiting to be saved
 confirms = [];
-$('opDelBtn').click(); await tick(1000);
-ok(/^Delete the opportunity Line 3 build at Example Meats - Dandenong\?/.test(confirms[0] || '') && /6 people/.test(confirms[0] || ''), 'it names what goes: ' + (confirms[0] || '').split('\n')[0]);
+$('opDelBtn').click(); await tick(1000);   // v140: 7 people - the account manager joins Intralox when the map opens
+ok(/^Delete the opportunity Line 3 build at Example Meats - Dandenong\?/.test(confirms[0] || '') && /7 people/.test(confirms[0] || ''), 'it names what goes: ' + (confirms[0] || '').split('\n')[0]);
 ok(!g(`OPPS.some(o => o.id === '${oid}')`) && !(await g(`oppsAll()`)).some(o => o.id === oid) && g(`screen`) === 'acct', 'deleted, and the waiting save did not bring it back; back on the account');
 
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/.test(e));
