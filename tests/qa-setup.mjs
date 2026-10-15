@@ -92,7 +92,8 @@ ok(g(`OPP.people.find(p => p.n === 'Greta Holm').title`) === 'Design Engineer' &
 ok(g(`OPP.comp`) === 'Another supplier quoted on modular belting', 'the competition goes on the Blue Sheet');
 await tick(200); ok((await g(`oppsAll()`)).find(o => o.id === g(`OPP.id`)).people.length === 5, 'saved');
 await tick(200);
-const added = (await g(`peopleAll()`)).map(r => r.acct + ':' + r.n).sort().join('|');
+const added = (await g(`peopleAll()`)).filter(r => !r.kind).map(   // v154: companies share the store
+  r => r.acct + ':' + r.n).sort().join('|');
 ok(added === A + ':Kim Site|' + A + ':Lee Planner|' + O + ':Sam New', 'new names at customers join the customer list, marked Not in Dynamics yet: ' + added);
 
 // ---- on the map: add from a description
