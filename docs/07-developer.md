@@ -32,7 +32,7 @@ the banner text. In order:
 | Screens and the back button: `TITLES`, `go(name)`, `PARENT`, `DIALOGS`, `pushDialog` | `navigation`, `back goes up, not backwards` |
 | Accounts, the planner, calendar, visits, ICS | `the account record` to `ICS export` |
 | Today, the device exchange, incoming files, Task Slaughterer import, tasks, email tasks | `Today and This Week` to `Write email tasks` |
-| Lists: saved notes and products | `Lists: saved notes and products` |
+| Saved notes (no screen since v155) and product ideas | `Saved notes and products`, `Product ideas (v155)` |
 | Cloud sync: sign-in, passphrase, team, datasets, live updates, records, photos, push, pull | `cloud sync (Supabase)` to `pull` |
 | Reports, PC folder, photo archive | `reports` to `photo archive` |
 | Home, New, the call dashboard, search, photos, test call | `home` to `Test call` |

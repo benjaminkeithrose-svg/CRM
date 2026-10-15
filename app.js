@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v154';
+const APP_BUILD = 'v155';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1366,7 +1366,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['Performance','CIP'], mbo:['Performance','MBOs'],
-  note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity',''], tasks:['Tasks','']
+  note:['General note',''], health:['Health check',''], opp:['Opportunity',''], tasks:['Plan','Tasks'], products:['Plan','Products']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1381,7 +1381,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','snipdlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1480,7 +1480,7 @@ function showScreen(name){
   if(name==='directory') renderDirPane();
   if(name==='reference') renderRefPane();
   if(name==='ccontacts') renderCallContacts();
-  if(name==='settings'){ renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); renderPeopleStat();
+  if(name==='settings'){ renderStaff(); renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); renderPeopleStat();
     if($('setImgMode')) $('setImgMode').value = defaultImgMode();
     renderSettingsSummary(); }
   if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
@@ -1553,7 +1553,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', lists:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home'
+  today:'home', settings:'home', help:'home', products:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home'
 };
 function parentOf(name){
   if(name === 'opp' && OPP && OPP.kind === 'large') name = 'lap';      // a large account's own map (v123)
@@ -2385,7 +2385,7 @@ function afterCardDelete(){
   if(screen === 'plan') renderPlan();
   if(screen === 'today') renderToday();
   if(screen === 'reports') renderReports().catch(e => console.error('reports', e));
-  if(screen === 'lists') renderLists();
+  if(screen === 'products') renderProducts();
   if(screen === 'strategy') renderStrategy().catch(e => console.error('strategy', e));
   if(screen === 'acct'){ renderOppsCard(); renderPlanCard(); }
   renderHomeCounts();
@@ -4569,11 +4569,11 @@ async function tsImportLists(data){
     pr++;
   }
   await loadLists();
-  if(screen === 'lists') renderLists();
+  if(screen === 'products') renderProducts();
   const n = (k, w) => k + ' ' + w + (k === 1 ? '' : 's');
   const total = tpls.length + prods.length;
   const line = !total ? '' : (sn + pr)
-    ? n(sn, 'saved note') + ' and ' + n(pr, 'product') + ' brought in to Lists' +
+    ? n(sn, 'saved note') + ' (kept in the backup) and ' + n(pr, 'product') + ' brought in to Plan, Products' +   // v155: Lists is gone
       (skipped ? ' (' + skipped + ' already here)' : '') +
       (kept.size ? '. Product account' + (kept.size === 1 ? '' : 's') + ' not in the CRM, kept as typed: ' + [...kept].join(', ') : '')
     : 'Saved notes and products: all ' + skipped + ' already here';
@@ -5039,7 +5039,7 @@ $('tkDel').addEventListener('click', () => taskDelete().catch(e => { console.err
 $('taskdlg').addEventListener('cancel', e => { e.preventDefault(); taskFinish().catch(console.error); });
 $('taskdlg').addEventListener('close', () => { if(taskEdit) taskFinish().catch(console.error); });
 
-/* ================= Lists: saved notes and products (v97) =================
+/* ================= Saved notes and products (v97; v155: Lists is gone - products are a tab of Plan, saved notes stay only in the store and the backup) =================
    The last two Task Slaughterer lists, on a Lists tile on Home (Ben's choice,
    2026-10-10) with a tab each.
 
@@ -5058,8 +5058,7 @@ $('taskdlg').addEventListener('close', () => { if(taskEdit) taskFinish().catch(c
    copy. Both sync through the cloud as their own record stores. */
 let SNIPS = [], PRODS = [], PLANS = [], OPPS = [];
 const SN_REASONS = ['Won', 'Lost', 'Not Qualified', 'Other'];
-const PR_STATUS = ['Not stocked', 'New product', 'Requested to stock'];
-let listsPane = 'notes', prView = 'open';
+const PR_STATUS = ['Not stocked', 'New product', 'Requested to stock'];   // before v155; kept to read older products and imports
 async function loadLists(){
   try { SNIPS = await snippetsAll(); PRODS = await productsAll(); PLANS = await plansAll(); OPPS = await oppsAll(); }
   catch(e){ console.error('lists', e); }
@@ -5075,87 +5074,92 @@ async function loadLists(){
   } catch(e){ console.error('people', e); }
   try { await orgMigrate(); } catch(e){ console.error('companies', e); }
 }
-function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
 const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const snTitle = r => (r.label || '').trim() || (r.text || '').trim().split('\n')[0].slice(0, 60) || 'Saved note';
 const prTitle = r => (r.name || '').trim() || (r.part || '').trim() || 'Product';
-function snSorted(list){ return list.slice().sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0) || (b.created || 0) - (a.created || 0)); }
+/* ---------- Product ideas (v155) ----------
+   Ben, 2026-10-15: "make new product ideas like a task as they are things we
+   need to track and output. They dont have a due date really." Each moves
+   through Idea -> Requested -> Approved -> Stocked, or Not going ahead, one
+   tab each. The demand is the customers who want it, picked from the CRM,
+   counted. A dated follow-up is a task made from it. Older products read as
+   before: stocked is Stocked, Requested to stock is Requested, the rest Ideas;
+   their one account is the first customer. A tab of Plan, with Tasks. */
+const PR_STAGES = [['idea', 'Idea'], ['requested', 'Requested'], ['approved', 'Approved'], ['stocked', 'Stocked'], ['no', 'Not going ahead']];
+const PR_KINDS = ['Belt', 'Sprocket', 'Other'];
+const prStageName = k => (PR_STAGES.find(x => x[0] === k) || PR_STAGES[0])[1];
+const prStage = r => PR_STAGES.some(x => x[0] === r.stage) ? r.stage : r.stocked ? 'stocked' : r.status === 'Requested to stock' ? 'requested' : 'idea';
+const prAccts = r => Array.isArray(r.accts) ? r.accts : r.acct ? [r.acct] : [];
+const prOpen = r => !['stocked', 'no'].includes(prStage(r));
+let prTab = 'idea';
 function prSorted(list){
-  return list.slice().sort((a, b) => a.stocked ? (b.stockedAt || 0) - (a.stockedAt || 0) : (b.created || 0) - (a.created || 0));
-}
-function snRow(r){
-  const meta = [r.reason, (r.text || '').replace(/\s+/g, ' ').trim().slice(0, 90)].filter(Boolean).join(' · ');
-  return '<div class="rprow">' +
-    '<button class="rpt" data-snopen="' + esc(r.id) + '">' +
-    '<div class="rn">' + esc(snTitle(r)) + '</div>' +
-    '<div class="rm">' + esc(meta || 'No text yet') + '</div></button>' +
-    '<button class="rpmore" data-snmenu="' + esc(r.id) + '" aria-label="More for ' + esc(snTitle(r)) + '">&#8943;</button>' + binBtn('data-sndel', r.id, snTitle(r)) + '</div>';
+  return list.slice().sort((a, b) => prAccts(b).length - prAccts(a).length || (b.updated || b.created || 0) - (a.updated || a.created || 0));
 }
 function prRow(r){
-  const meta = [r.part, r.acct, r.stocked && r.stockedAt ? 'stocked ' + new Date(r.stockedAt).toLocaleDateString() : ''].filter(Boolean).join(' · ');
+  const n = prAccts(r).length;
+  const meta = [r.kind, r.part, n ? n + (n === 1 ? ' customer: ' : ' customers: ') + prAccts(r).slice(0, 3).join(', ') + (n > 3 ? '…' : '') : 'no customers yet', r.by ? 'raised by ' + r.by : ''].filter(Boolean).join(' · ');
   return '<div class="rprow">' +
     '<button class="rpt" data-propen="' + esc(r.id) + '">' +
-    (r.status ? '<div class="rt"><span class="rd"></span><span class="st ' + (r.stocked ? 'done' : 'open') + '">' + esc(r.stocked ? 'stocked' : r.status) + '</span></div>' : '') +
     '<div class="rn">' + esc(prTitle(r)) + '</div>' +
-    '<div class="rm">' + esc(meta || 'No details yet') + '</div></button>' +
+    '<div class="rm">' + esc(meta) + '</div></button>' +
     '<button class="rpmore" data-prmenu="' + esc(r.id) + '" aria-label="More for ' + esc(prTitle(r)) + '">&#8943;</button>' + binBtn('data-prdel', r.id, prTitle(r)) + '</div>';
 }
 function wireListRows(el, before){
-  el.querySelectorAll('[data-snopen]').forEach(b => b.addEventListener('click', () => { if(before) before(); openSnip(b.dataset.snopen); }));
-  el.querySelectorAll('[data-snmenu]').forEach(b => b.addEventListener('click', () => snMenu(b.dataset.snmenu)));
   el.querySelectorAll('[data-propen]').forEach(b => b.addEventListener('click', () => { if(before) before(); openProd(b.dataset.propen); }));
   el.querySelectorAll('[data-prmenu]').forEach(b => b.addEventListener('click', () => prMenu(b.dataset.prmenu)));
-  el.querySelectorAll('[data-sndel]').forEach(b => b.addEventListener('click', () => { const r = SNIPS.find(x => x.id === b.dataset.sndel); if(r) snDelete(r).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr); }));
   el.querySelectorAll('[data-prdel]').forEach(b => b.addEventListener('click', () => { const r = PRODS.find(x => x.id === b.dataset.prdel); if(r) prDelete(r).then(ok => { if(ok) afterCardDelete(); }).catch(reportErr); }));
 }
-function renderLists(){
-  const notes = listsPane === 'notes';
-  $('paneNotes').hidden = !notes;
-  $('paneProds').hidden = listsPane !== 'prods';
-  $('paneStaff').hidden = listsPane !== 'staff';
-  document.querySelectorAll('#lsTabs button[data-pane]').forEach(b => { b.classList.toggle('on', b.dataset.pane === listsPane); b.parentNode.classList.toggle('on', b.dataset.pane === listsPane); });
-  if(listsPane === 'staff') renderStaff();
-  else if(notes){
-    $('snHint').textContent = SNIPS.length ? SNIPS.length + ' saved note' + (SNIPS.length === 1 ? '' : 's') : '';
-    $('snRes').innerHTML = SNIPS.length ? snSorted(SNIPS).map(snRow).join('') : '<p class="empty">No saved notes yet.</p>';
-    wireListRows($('snRes'));
-  } else {
-    const open = PRODS.filter(r => !r.stocked), stocked = PRODS.filter(r => r.stocked);
-    $('prHint').textContent = PRODS.length ? open.length + ' open, ' + stocked.length + ' stocked' : '';
-    document.querySelectorAll('#prView button').forEach(b => b.classList.toggle('on', b.dataset.v === prView));
-    const list = prSorted(prView === 'open' ? open : stocked);
-    $('prRes').innerHTML = list.length ? list.map(prRow).join('')
-      : '<p class="empty">' + (PRODS.length ? 'Nothing here.' : 'No products yet.') + '</p>';
-    wireListRows($('prRes'));
-  }
+function showProducts(){ go('products'); renderProducts(); }
+function renderProducts(){
+  document.querySelectorAll('#prTabs button[data-st]').forEach(b => { const on = b.dataset.st === prTab; b.classList.toggle('on', on); b.parentNode.classList.toggle('on', on);
+    const n = PRODS.filter(r => prStage(r) === b.dataset.st).length; b.textContent = prStageName(b.dataset.st).replace('Idea', 'Ideas') + (n ? ' ' + n : ''); });
+  const list = prSorted(PRODS.filter(r => prStage(r) === prTab));
+  const open = PRODS.filter(prOpen).length;
+  $('prHint').textContent = PRODS.length ? open + ' still going' : '';
+  $('prRes').innerHTML = list.length ? list.map(prRow).join('')
+    : '<p class="empty">' + (PRODS.length ? 'Nothing here.' : 'No product ideas yet.') + '</p>';
+  wireListRows($('prRes'));
 }
-document.querySelectorAll('#lsTabs button[data-pane]').forEach(b => b.addEventListener('click', () => { listsPane = b.dataset.pane; renderLists(); }));
-document.querySelectorAll('#prView button').forEach(b => b.addEventListener('click', () => { prView = b.dataset.v; renderLists(); }));
-const snHay = r => [r.label, r.reason, r.text].filter(Boolean).join(' ').toLowerCase();
-const prHay = r => [r.name, r.part, r.status, r.acct, r.notes, r.stocked ? 'stocked' : ''].filter(Boolean).join(' ').toLowerCase();
-function listSearch(kind){
-  const isSn = kind === 'sn';
+document.querySelectorAll('#prTabs button[data-st]').forEach(b => b.addEventListener('click', () => { prTab = b.dataset.st; renderProducts(); }));
+const prHay = r => [r.name, r.part, r.kind, prStageName(prStage(r)), prAccts(r).join(' '), r.by, r.notes].filter(Boolean).join(' ').toLowerCase();
+function listSearch(){
   openSearch({
-    placeholder: isSn ? 'Label, reason or any word in the text' : 'Product, part number, account or status',
+    placeholder: 'Product, part number, customer or who raised it',
     render(q, el, hint){
       const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
       if(!terms.length){ el.innerHTML = ''; hint.textContent = ''; return; }
-      const all = isSn ? snSorted(SNIPS) : prSorted(PRODS);
-      const hits = all.filter(r => terms.every(t => (isSn ? snHay(r) : prHay(r)).includes(t)));
+      const all = prSorted(PRODS);
+      const hits = all.filter(r => terms.every(t => prHay(r).includes(t)));
       hint.textContent = hits.length ? hits.length + ' of ' + all.length : 'Nothing matches that.';
-      el.innerHTML = hits.slice(0, 100).map(isSn ? snRow : prRow).join('');
+      el.innerHTML = hits.slice(0, 100).map(prRow).join('');
       wireListRows(el, closeSearch);
     }
   });
 }
-$('snSearch').innerHTML = icon('search');
 $('prSearch').innerHTML = icon('search');
-$('snSearch').addEventListener('click', () => listSearch('sn'));
-$('prSearch').addEventListener('click', () => listSearch('pr'));
-// the circle-plus on each tab (v123): opens that tab and starts a new one
-$('snNew').innerHTML = icon('plusc'); $('prNew').innerHTML = icon('plusc');
-$('snNew').addEventListener('click', () => { listsPane = 'notes'; renderLists(); openSnip(null); });
-$('prNew').addEventListener('click', () => { listsPane = 'prods'; renderLists(); openProd(null); });
+$('prSearch').addEventListener('click', () => listSearch());
+$('prNew').innerHTML = icon('plusc');
+$('prNew').addEventListener('click', () => { prTab = 'idea'; renderProducts(); openProd(null); });
+// the list to share: what is still going, by step, the most wanted first; Stocked and Not going ahead after
+function prListHTML(){
+  const rows = list => '<table><tr><th>Product</th><th>Part number</th><th>Customers who want it</th><th>Raised by</th><th>Notes</th></tr>' + list.map(r =>
+    '<tr><td><b>' + esc(prTitle(r)) + '</b>' + (r.kind ? '<br>' + esc(r.kind) : '') + '</td><td>' + (esc(r.part || '') || '—') + '</td><td>' +
+    (prAccts(r).length ? prAccts(r).length + ': ' + prAccts(r).map(esc).join(', ') : '—') + '</td><td>' + (esc(r.by || '') || '—') + '</td><td>' + (esc(r.notes || '').replace(/\n/g, '<br>') || '—') + '</td></tr>').join('') + '</table>';
+  const p = ['<!DOCTYPE html><html><head><meta charset="utf-8"><title>Product ideas ' + DASH_CH + ' ' + esc(todayISOdate()) + '</title>' +
+    '<link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>',
+    '<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">', '<p class="eyebrow">Intralox</p>',
+    '<h1>Product ideas</h1>', '<p class="sub">' + esc(new Date().toLocaleDateString(undefined, {day: 'numeric', month: 'long', year: 'numeric'})) + '</p>'];
+  for(const [k, t] of PR_STAGES){
+    const list = prSorted(PRODS.filter(r => prStage(r) === k));
+    if(list.length) p.push('<h2>' + esc(t) + ' (' + list.length + ')</h2>' + rows(list));
+  }
+  p.push('</div></body></html>');
+  return p.join('');
+}
+$('prShare').addEventListener('click', () => {
+  if(!PRODS.length){ toast('There are no product ideas to share yet'); return; }
+  deliverDoc(prListHTML(), 'Product_ideas_' + todayISOdate() + '.html', 'Product ideas').catch(reportErr);
+});
 
 /* ---- chips, tap again to deselect ---- */
 function chipRow(el, opts, on){
@@ -5172,124 +5176,31 @@ function chipTap(el, after){
   });
 }
 
-/* ---- a saved note ---- */
-let snEdit = null, snIsNew = false, snBefore = '';
-function openSnip(id, copyOf){
-  const r = id ? SNIPS.find(x => x.id === id) : null;
-  if(id && !r){ toast('That saved note could not be found'); return; }
-  snIsNew = !r;
-  snEdit = r ? Object.assign({}, r) : Object.assign({id: newId('sn'), label: '', reason: '', text: '', created: Date.now(), lastUsed: 0},
-    copyOf ? {label: copyOf.label ? copyOf.label + ' (copy)' : '', reason: copyOf.reason || '', text: copyOf.text || ''} : {});
-  const e = snEdit;
-  $('snHead').textContent = snIsNew ? (copyOf ? 'Copy of saved note' : 'New saved note') : 'Saved note';
-  $('snLabel').value = e.label || '';
-  const known = SN_REASONS.slice(0, -1).includes(e.reason);
-  chipRow($('snReason'), SN_REASONS, !e.reason ? '' : known ? e.reason : 'Other');
-  $('snOther').value = e.reason && !known ? e.reason : '';
-  $('snOther').hidden = chipVal($('snReason')) !== 'Other';
-  $('snText').value = e.text || '';
-  $('snDel').hidden = snIsNew;
-  snBefore = JSON.stringify(snRead());
-  const d = $('snipdlg');
-  if(!d.open){
-    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
-    pushDialog('snipdlg');               // so the back gesture closes the form (v105)
-  }
-  if(snIsNew && !copyOf) setTimeout(() => { try { $('snLabel').focus(); } catch(_){} }, 50);
-}
-function snRead(){
-  const pick = chipVal($('snReason'));
-  return Object.assign({}, snEdit, {label: $('snLabel').value.trim(),
-    reason: pick === 'Other' ? ($('snOther').value.trim() || 'Other') : pick, text: $('snText').value});
-}
-async function snFinish(){
-  if(!snEdit) return;
-  // Done, or Escape: go back off the form's entry, and let that close it (which comes back here)
-  if($('snipdlg').open && history.state && history.state.dialog === 'snipdlg'){ history.back(); return; }
-  const r = snRead();
-  snEdit = null;
-  const d = $('snipdlg');
-  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
-  if(snIsNew && !r.label && !r.text.trim()) return;               // nothing entered: nothing kept
-  if(!snIsNew && JSON.stringify(r) === snBefore) return;
-  r.updated = Date.now();
-  await snippetsPut(r);
-  SNIPS = SNIPS.filter(x => x.id !== r.id).concat([r]);
-  toast(!r.label ? 'Saved — it has no label yet' : 'Saved note saved');
-  if(screen === 'lists') renderLists();
-}
-async function snCopy(r){
-  if(!(r.text || '').trim()){ toast('There is no text to copy'); return; }
-  await copyText(r.text, 'Saved note');
-  const cur = SNIPS.find(x => x.id === r.id);
-  if(cur){ cur.lastUsed = Date.now(); cur.updated = Date.now(); await snippetsPut(cur); }
-  if(screen === 'lists') renderLists();
-}
-async function snDelete(r){
-  if(!confirm('Delete the saved note "' + snTitle(r) + '"?\n\nIt is gone from this device' +
-      (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return false;
-  await snippetsDel(r.id);
-  SNIPS = SNIPS.filter(x => x.id !== r.id);
-  toast('Saved note deleted');
-  if(screen === 'lists') renderLists();
-  return true;
-}
-function snMenu(id){
-  const r = SNIPS.find(x => x.id === id);
-  if(!r) return;
-  openCardMenu(snTitle(r), r.reason || '', [
-    {label: 'Copy the text', icon: 'copy', run: () => snCopy(r).catch(reportErr)},
-    {label: 'Duplicate', icon: 'plus', run: () => openSnip(null, r)},
-    {label: 'Delete', icon: 'trash', danger: true, run: () => snDelete(r).catch(reportErr)}
-  ]);
-}
-chipTap($('snReason'), () => {
-  const other = chipVal($('snReason')) === 'Other';
-  $('snOther').hidden = !other;
-  if(other) setTimeout(() => { try { $('snOther').focus(); } catch(_){} }, 30);
-});
-$('snCopy').addEventListener('click', () => {
-  const r = snRead();
-  if(!r.text.trim()){ toast('There is no text to copy'); return; }
-  copyText(r.text, 'Saved note');
-  if(snEdit) snEdit.lastUsed = Date.now();
-});
-$('snOk').addEventListener('click', () => snFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
-$('snDel').addEventListener('click', async () => {
-  const r = snEdit;
-  if(!r) return;
-  snEdit = null;                                    // the close handler must not save it back
-  const d = $('snipdlg');
-  if(!await snDelete(r).catch(e => { reportErr(e); return false; })){ snEdit = r; return; }
-  if(history.state && history.state.dialog === 'snipdlg') history.back();
-  else if(d.close) d.close(); else d.removeAttribute('open');
-});
-$('snipdlg').addEventListener('cancel', e => { e.preventDefault(); snFinish().catch(console.error); });
-$('snipdlg').addEventListener('close', () => { if(snEdit) snFinish().catch(console.error); });
-
-/* ---- a product ---- */
+/* ---- a product idea (v155) ---- */
 let prEdit = null, prIsNew = false, prBefore = '';
+const myName = () => localStorage.getItem(LS('mgr')) || '';
 function openProd(id, copyOf){
   const r = id ? PRODS.find(x => x.id === id) : null;
   if(id && !r){ toast('That product could not be found'); return; }
   prIsNew = !r;
-  prEdit = r ? Object.assign({}, r) : Object.assign({id: newId('pr'), name: '', part: '', status: 'Not stocked', acct: '', notes: '',
-    stocked: false, stockedAt: null, created: Date.now()},
-    copyOf ? {name: copyOf.name || '', part: copyOf.part || '', status: copyOf.status || 'Not stocked', acct: copyOf.acct || '', notes: copyOf.notes || ''} : {});
+  prEdit = r ? Object.assign({}, r, {stage: prStage(r), accts: prAccts(r).slice()})
+    : Object.assign({id: newId('pr'), name: '', part: '', kind: '', stage: 'idea', accts: [], by: myName(), notes: '', stageAt: {idea: Date.now()}, created: Date.now()},
+      copyOf ? {name: copyOf.name || '', part: copyOf.part || '', kind: copyOf.kind || '', accts: prAccts(copyOf).slice(), notes: copyOf.notes || ''} : {});
   const e = prEdit;
-  $('prHead').textContent = prIsNew ? (copyOf ? 'Copy of product' : 'New product') : 'Product';
+  $('prHead').textContent = prIsNew ? (copyOf ? 'Copy of product idea' : 'New product idea') : 'Product idea';
   $('prName').value = e.name || '';
   $('prPart').value = e.part || '';
-  chipRow($('prStatus'), PR_STATUS, e.status || '');
+  chipRow($('prKind'), PR_KINDS, e.kind || '');
+  $('prStage').innerHTML = PR_STAGES.map(([k, t]) => '<button type="button" data-v="' + k + '"' + (k === e.stage ? ' class="on"' : '') + '>' + esc(t) + '</button>').join('');
   const dl = $('prAcctList');
   if(dl.childElementCount !== ACCOUNTS.length){
     dl.innerHTML = '';
     for(const a of ACCOUNTS){ const o = document.createElement('option'); o.value = a.a; dl.appendChild(o); }
   }
-  $('prAcct').value = e.acct || '';
+  $('prAcct').value = '';
+  $('prBy').value = e.by || '';
   $('prNotes').value = e.notes || '';
-  $('prStocked').checked = !!e.stocked;
-  prStockedLine();
+  prAcctsDraw(); prStageLine();
   $('prDel').hidden = prIsNew;
   prBefore = JSON.stringify(prRead());
   const d = $('proddlg');
@@ -5299,65 +5210,99 @@ function openProd(id, copyOf){
   }
   if(prIsNew && !copyOf) setTimeout(() => { try { $('prName').focus(); } catch(_){} }, 50);
 }
-function prStockedLine(){
-  const on = $('prStocked').checked, at = prEdit && prEdit.stocked && prEdit.stockedAt;
-  $('prStockedAt').textContent = on ? (at ? 'Stocked ' + new Date(at).toLocaleDateString() + '.' : 'Stocked today, once you tap Done.')
-    : 'Tick it when it’s on the shelf. It moves to the Stocked tab.';
+function prAcctsDraw(){
+  const A = prEdit.accts;
+  $('prCount').textContent = A.length ? '(' + A.length + ')' : '';
+  $('prAccts').innerHTML = A.map((n, i) => '<span class="prc">' + esc(n) + '<button type="button" data-prx="' + i + '" aria-label="Take ' + esc(n) + ' off">&times;</button></span>').join('');
+}
+function prStageLine(){
+  const k = chipVal($('prStage')) || 'idea', at = prEdit && prEdit.stageAt && prEdit.stageAt[k];
+  $('prStageAt').textContent = k === prEdit.stage && at ? prStageName(k) + ' since ' + new Date(at).toLocaleDateString() + '.' : '';
+}
+function prAcctAdd(){
+  const v = $('prAcct').value.trim();
+  if(!v) return;
+  if(!ACC_BY_NAME.has(v)){ toast('Pick the customer from the list'); return; }
+  if(!prEdit.accts.includes(v)) prEdit.accts.push(v);
+  $('prAcct').value = '';
+  prAcctsDraw();
 }
 function prRead(){
-  const stocked = $('prStocked').checked;
-  return Object.assign({}, prEdit, {name: $('prName').value.trim(), part: $('prPart').value.trim(), status: chipVal($('prStatus')),
-    acct: $('prAcct').value.trim(), notes: $('prNotes').value, stocked,
-    stockedAt: stocked ? (prEdit.stocked && prEdit.stockedAt) || Date.now() : null});
+  const stage = chipVal($('prStage')) || prEdit.stage || 'idea', accts = prEdit.accts.slice();
+  const stageAt = Object.assign({}, prEdit.stageAt || {});
+  if(stage !== prEdit.stage || !stageAt[stage]) stageAt[stage] = stageAt[stage] && stage === prEdit.stage ? stageAt[stage] : Date.now();
+  // older readers: one account, stocked, and the old status
+  return Object.assign({}, prEdit, {name: $('prName').value.trim(), part: $('prPart').value.trim(), kind: chipVal($('prKind')), stage, stageAt,
+    accts, acct: accts[0] || '', by: $('prBy').value.trim(), notes: $('prNotes').value,
+    stocked: stage === 'stocked', stockedAt: stage === 'stocked' ? stageAt.stocked : null,
+    status: stage === 'requested' ? 'Requested to stock' : stage === 'idea' ? 'New product' : prEdit.status || ''});
 }
 async function prFinish(){
   if(!prEdit) return;
   // Done, or Escape: go back off the form's entry, and let that close it (which comes back here)
   if($('proddlg').open && history.state && history.state.dialog === 'proddlg'){ history.back(); return; }
+  prAcctAdd();
   const r = prRead();
   const was = prEdit;
   prEdit = null;
   const d = $('proddlg');
   if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
-  if(prIsNew && !r.name && !r.part && !r.acct && !r.notes.trim()) return;
-  // the stocked date is filled in on reading, so it is left out of the comparison; the tick is not
-  const strip = x => JSON.stringify(Object.assign({}, x, {stockedAt: null}));
+  if(prIsNew && !r.name && !r.part && !r.accts.length && !r.notes.trim()) return;
+  // the step's date is filled in on reading, so it is left out of the comparison
+  const strip = x => JSON.stringify(Object.assign({}, x, {stageAt: null, stockedAt: null}));
   if(!prIsNew && strip(r) === strip(JSON.parse(prBefore))) return;
   r.updated = Date.now();
   await productsPut(r);
   PRODS = PRODS.filter(x => x.id !== r.id).concat([r]);
-  toast(!r.name ? 'Saved — it has no product name yet' : r.stocked && !was.stocked ? 'Marked stocked' : 'Product saved');
-  if(screen === 'lists') renderLists();
+  toast(!r.name ? 'Saved: it has no product name yet' : r.stage !== was.stage && !prIsNew ? prTitle(r) + ': ' + prStageName(r.stage) : 'Product idea saved');
+  if(screen === 'products'){ if(r.stage !== prTab && prIsNew) prTab = r.stage; renderProducts(); }
 }
-async function prSetStocked(r, on){
+// on to the next step, from the card's menu
+async function prSetStage(r, k){
   const cur = PRODS.find(x => x.id === r.id);
   if(!cur) return;
-  cur.stocked = on; cur.stockedAt = on ? Date.now() : null; cur.updated = Date.now();
+  cur.accts = prAccts(cur); cur.stage = k;
+  cur.stageAt = Object.assign({}, cur.stageAt || {}, {[k]: Date.now()});
+  cur.stocked = k === 'stocked'; cur.stockedAt = cur.stocked ? cur.stageAt.stocked : null;
+  cur.updated = Date.now();
   await productsPut(cur);
-  toast(on ? 'Marked stocked' : 'Back on the open list');
-  if(screen === 'lists') renderLists();
+  toast(prTitle(cur) + ': ' + prStageName(k));
+  if(screen === 'products') renderProducts();
 }
 async function prDelete(r){
-  if(!confirm('Delete "' + prTitle(r) + '"' + (r.acct ? ' for ' + r.acct : '') + ' from the products list?\n\nIt is gone from this device' +
+  const n = prAccts(r).length;
+  if(!confirm('Delete "' + prTitle(r) + '"' + (n ? ', wanted by ' + n + (n === 1 ? ' customer' : ' customers') : '') + ', from the product ideas?\n\nIt is gone from this device' +
       (sbUser ? ' and from your other devices when they next sync' : '') + '. This cannot be undone.')) return false;
   await productsDel(r.id);
   PRODS = PRODS.filter(x => x.id !== r.id);
-  toast('Product deleted');
-  if(screen === 'lists') renderLists();
+  toast('Product idea deleted');
+  if(screen === 'products') renderProducts();
   return true;
+}
+// a follow-up with a date: a task, named for the product
+function prTask(r){
+  const accts = prAccts(r);
+  openTask(null, {title: 'Follow up: ' + prTitle(r), acct: accts[0] || '', notes: [r.part && 'Part number: ' + r.part, accts.length ? 'Wanted by: ' + accts.join(', ') : '', prStageName(prStage(r))].filter(Boolean).join('\n')});
 }
 function prMenu(id){
   const r = PRODS.find(x => x.id === id);
   if(!r) return;
-  openCardMenu(prTitle(r), [r.part, r.acct].filter(Boolean).join(' · '), [
-    r.stocked ? {label: 'Not stocked after all', icon: 'close', run: () => prSetStocked(r, false).catch(reportErr)}
-              : {label: 'Mark stocked', icon: 'check', run: () => prSetStocked(r, true).catch(reportErr)},
+  const st = prStage(r), i = PR_STAGES.findIndex(x => x[0] === st), next = i < 3 ? PR_STAGES[i + 1] : null;
+  openCardMenu(prTitle(r), [r.part, prStageName(st)].filter(Boolean).join(' · '), [
+    next ? {label: 'Move to ' + next[1], icon: 'check', run: () => prSetStage(r, next[0]).catch(reportErr)} : null,
+    st !== 'no' && st !== 'stocked' ? {label: 'Not going ahead', icon: 'close', run: () => prSetStage(r, 'no').catch(reportErr)} : {label: 'Back to Ideas', icon: 'close', run: () => prSetStage(r, 'idea').catch(reportErr)},
+    {label: 'Make a task', icon: 'check', run: () => prTask(r)},
     {label: 'Duplicate', icon: 'plus', run: () => openProd(null, r)},
     {label: 'Delete', icon: 'trash', danger: true, run: () => prDelete(r).catch(reportErr)}
-  ]);
+  ].filter(Boolean));
 }
-chipTap($('prStatus'));
-$('prStocked').addEventListener('change', prStockedLine);
+chipTap($('prKind'));
+chipTap($('prStage'), prStageLine);
+$('prAcctGo').addEventListener('click', prAcctAdd);
+$('prAcct').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); prAcctAdd(); } });
+$('prAcct').addEventListener('change', () => { if(ACC_BY_NAME.has($('prAcct').value.trim())) prAcctAdd(); });
+$('prAccts').addEventListener('click', e => { const b = e.target.closest('[data-prx]'); if(!b || !prEdit) return; prEdit.accts.splice(+b.dataset.prx, 1); prAcctsDraw(); });
+$('prTask').addEventListener('click', () => { if(!prEdit) return; const r = prRead(); prFinish().then(() => prTask(r)).catch(reportErr); });
 $('prOk').addEventListener('click', () => prFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
 $('prDel').addEventListener('click', async () => {
   const r = prEdit;
@@ -6699,7 +6644,8 @@ async function cloudSyncRecs(){
     TASKS = await tasksAll();
     await loadQuotes();
     await loadLists();
-    if(screen === 'lists') try { renderLists(); } catch(e){ console.error('lists', e); }
+    if(screen === 'products') try { renderProducts(); } catch(e){ console.error('products', e); }
+    if(screen === 'settings') try { renderStaff(); } catch(e){ console.error('people', e); }
     if(screen === 'acct') try { renderPlanCard(); renderOppsCard(); renderLapCard(); } catch(e){ console.error('plan card', e); }
     try { oppCloudIn(); lapCloudIn(); } catch(e){ console.error('opportunity', e); }
     try { await cipCloudIn(); } catch(e){ console.error('cip', e); }
@@ -7646,8 +7592,6 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
   } else if(t==='tasks'){
     showTasks();
-  } else if(t==='lists'){
-    showLists();
   } else if(t==='strategy'){
     go('strategy');
   } else if(t==='cip' || t==='mbo'){
@@ -7663,6 +7607,10 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     if(!window.HealthLib){ toast('healthlib.js did not load'); return; }
     showRef('flt');
   } else if(t==='plan'){
+    // v155: Plan holds Calendar, Tasks and Products; it opens on the one used last
+    const pt = planLast();
+    if(pt === 'tasks'){ showTasks(); return; }
+    if(pt === 'products'){ showProducts(); return; }
     if(!ACCOUNTS.length){ toast('Import the CRM export first'); return; }
     if(!plan.mgr && $('cMgr').value) plan.mgr = $('cMgr').value;
     // the phone gets the read-and-act list, the desktop gets the planning surface
@@ -14004,7 +13952,7 @@ async function staffFinish(){
   await peoplePut(r);
   STAFF = STAFF.filter(x => x.id !== r.id).concat([r]);
   toast(sfIsNew ? r.n + ' added to Intralox people' : r.n + ' saved');
-  if(screen === 'lists') renderLists();
+  if(screen === 'settings') renderStaff();
   if(screen === 'opp' && OPP){ renderOpp(); }
 }
 async function staffDelete(s){
@@ -14016,7 +13964,7 @@ async function staffDelete(s){
   STAFF = STAFF.filter(x => x.id !== s.id);
   for(const x of STAFF.filter(y => y.boss === s.id)){ x.boss = ''; x.updated = Date.now(); await peoplePut(x); }
   toast((s.n || 'They') + ' deleted from Intralox people');
-  if(screen === 'lists') renderLists();
+  if(screen === 'settings') renderStaff();
   return true;
 }
 // in a map's Intralox box: tie people to their records, and their manager there is who they report to
@@ -14035,8 +13983,7 @@ function staffOnMap(o){
   return changed;
 }
 const opUnderIn = (box, x, p) => { for(let b = x.boss, n = 0; b && n < 50; n++){ if(b === p.id) return true; const m = box.find(y => y.id === b); b = m && m.boss; } return false; };
-$('sfNew').innerHTML = icon('plusc');
-$('sfNew').addEventListener('click', () => { listsPane = 'staff'; renderLists(); openStaff(null); });
+$('sfNew').addEventListener('click', () => openStaff(null));
 chipTap($('sfPos'), () => {
   const other = chipVal($('sfPos')) === 'Other';
   $('sfPosOther').hidden = !other;
@@ -17355,7 +17302,7 @@ function accountHistory(name, skipId){
   if(plan) parts.unshift(plan);
   const tasks = (typeof TASKS !== 'undefined' ? TASKS : []).filter(t => t.acct === name && !t.done).map(t => t.title || t.type).filter(Boolean);
   if(tasks.length) parts.push('Open tasks: ' + tasks.join('; '));
-  const prods = (typeof PRODS !== 'undefined' ? PRODS : []).filter(p => p.acct === name && !p.stocked).map(p => [p.name, p.status].filter(Boolean).join(' - '));
+  const prods = (typeof PRODS !== 'undefined' ? PRODS : []).filter(p => prAccts(p).includes(name) && prOpen(p)).map(p => [p.name, prStageName(prStage(p))].filter(Boolean).join(' - '));   // v155
   if(prods.length) parts.push('Products not yet stocked: ' + prods.join('; '));
   let out = parts.join('\n\n');
   if(out.length > 22000) out = out.slice(0, 22000);
@@ -17844,7 +17791,7 @@ function micAuto(root){
   });
 }
 if(SPEECH){
-  ['opPanel', 'opSheet', 'oppdlg', 'snipdlg', 'proddlg', 'plandlg', 'dlg', 'cipbubdlg', 'cipBody'].forEach(id => {
+  ['opPanel', 'opSheet', 'oppdlg', 'proddlg', 'plandlg', 'dlg', 'cipbubdlg', 'cipBody'].forEach(id => {
     const el = $(id); if(!el) return;
     micAuto(el);
     new MutationObserver(() => micAuto(el)).observe(el, {childList: true, subtree: true});
@@ -18545,7 +18492,7 @@ function cxAccountHead(name, o, st){
     if(lines(p.strengths)) P.push('strengths: ' + lines(p.strengths));
     if(P.length) L.push('Account plan: ' + P.join(' | '));
   }
-  const prods = PRODS.filter(x => x.acct === name && !x.stocked).map(x => [x.name, x.status].filter(Boolean).join(' - ')).filter(Boolean);
+  const prods = PRODS.filter(x => prAccts(x).includes(name) && prOpen(x)).map(x => [x.name, prStageName(prStage(x))].filter(Boolean).join(' - ')).filter(Boolean);   // v155
   if(prods.length) L.push('Products not yet stocked: ' + prods.join('; '));
   if(st.quotes.length) L.push('Quote requests: ' + st.quotes.map(cxQuoteLine).join(' | '));
   return L.join('\n');
@@ -19647,6 +19594,23 @@ function homeArrFinish(quiet){
 $('homeArrDone').addEventListener('click', () => homeArrFinish());
 homeLayoutApply();
 
+/* ---------- Calendar, Tasks and Products under one tile: Plan (v155) ----------
+   Ben, 2026-10-15: "Tasks should be rolled into the plan section", and
+   product ideas tracked like tasks. One tab strip across the three screens. */
+const planLast = () => { try { const v = localStorage.getItem(LS('planTab')); return v === 'tasks' || v === 'products' ? v : 'cal'; } catch(e){ return 'cal'; } };
+document.querySelectorAll('[data-ptab]').forEach(b => b.addEventListener('click', () => {
+  const v = b.dataset.ptab;
+  if(v === 'cal' && !ACCOUNTS.length){ toast('Import the CRM export first'); return; }
+  try { localStorage.setItem(LS('planTab'), v); } catch(e){}
+  if(v === 'tasks'){ if(screen !== 'tasks'){ go('tasks', true); renderTasks(); } }
+  else if(v === 'products'){ if(screen !== 'products'){ go('products', true); renderProducts(); } }
+  else {
+    if(!plan.mgr && $('cMgr').value) plan.mgr = $('cMgr').value;
+    const to = isPhone() ? 'today' : 'plan';
+    if(screen !== to) go(to, true);
+  }
+}));
+
 /* ---------- CIP and MBO under one tile: Performance (v152) ---------- */
 const perfLast = () => { try { return localStorage.getItem(LS('perfTab')) === 'mbo' ? 'mbo' : 'cip'; } catch(e){ return 'cip'; } };
 document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click', () => {
@@ -19660,6 +19624,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v155', 'Plan has three tabs: Calendar, Tasks and Products; the Tasks and Lists tiles are gone. Product ideas move from Idea to Requested, Approved and Stocked, with the customers who want each, Make a task, and Share the list. Intralox people are in Settings. Saved notes are kept in the backup.'],
   ['v154', 'The same OEM, integrator, head contractor or consultant is one company on every large account and Blue Sheet: its people, who they report to and our relationships with them are the same everywhere. Their part in each deal stays with each map.'],
   ['v153', 'Any of our people can own a site. A box on a large account with no account of its own, such as group engineering, has an Owner, in place of the account team leader.'],
   ['v152', 'Arrange Home: ⋯ on Home, then Arrange Home, to move or hide tiles. CIP and MBO share one Performance tile. This list of what\'s new.'],

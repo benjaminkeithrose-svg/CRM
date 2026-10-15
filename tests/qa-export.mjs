@@ -85,7 +85,7 @@ ok(aSec.indexOf('Site call') < aSec.indexOf('Phone call'), 'each account\'s call
 ok(/Focus High \(.+\) · Tier A · Manager Ben · Zone Z1/.test(aSec), 'the account\'s CRM details head it');
 ok(/visits 1 done, 1 missed; next visit booked/.test(aSec), 'with its visit record: ' + (aSec.match(/In this period: .*/) || [''])[0]);
 ok(/Account plan: goal: Win Line 3 \| person: Tom Ward \(economic, sees it as growth, signs orders\) \| red flags: Purchasing not met/.test(aSec), 'its account plan');
-ok(/Products not yet stocked: Sprocket kit - Quoted/.test(aSec) && /Quote requests: .* 1 belt · done · S800 Flat Top qty 12/.test(aSec), 'its products and quote requests');
+ok(/Products not yet stocked: Sprocket kit - Idea/.test(aSec) && /Quote requests: .* 1 belt · done · S800 Flat Top qty 12/.test(aSec), 'its products and quote requests');
 ok(/Summary: Line 2 belt stretched/.test(aSec) && /Belt 1 \(61-201\): .*S800 Flat Top.*Worn hinge rods/.test(aSec) && /Health check 1 \(61-202\): Sprocket wear; severity High/.test(aSec), 'every entry, as the coach reads them');
 ok(/Project Line 3 upgrade: status Quoting; next action Send layout; owner Tom Ward/.test(aSec) && /Coaching after the call: .*Send Tom the cost per year/.test(aSec), 'projects and the coaching after the call');
 ok(/People seen: Sam Lee, Maintenance Manager/.test(aSec) && !/Hidden Person|Cleaner/.test(all()), 'someone ticked out of documents is not in it');

@@ -90,7 +90,10 @@ ok(kim && kim.side === 'cust' && kim.role === 'Checks the spec' && kim.stance ==
   'Kim brings what the last Blue Sheet knew, as estimates');
 ok(g(`OPP.people.find(p => p.n === 'Greta Holm').title`) === 'Design Engineer' && g(`OPP.people.find(p => p.n === 'Sam New').org`) === O, 'a CRM contact brings their title; everyone under their company');
 ok(g(`OPP.comp`) === 'Another supplier quoted on modular belting', 'the competition goes on the Blue Sheet');
-await tick(200); ok((await g(`oppsAll()`)).find(o => o.id === g(`OPP.id`)).people.length === 5, 'saved');
+// v154: opening the map also writes its companies, so wait for the save rather than a fixed time
+let savedOpp = null;
+for (let i = 0; i < 30 && !(savedOpp && savedOpp.people.length === 5); i++) { await tick(100); savedOpp = (await g(`oppsAll()`)).find(o => o.id === g(`OPP.id`)); }
+ok(savedOpp && savedOpp.people.length === 5, 'saved');
 await tick(200);
 const added = (await g(`peopleAll()`)).filter(r => !r.kind).map(   // v154: companies share the store
   r => r.acct + ':' + r.n).sort().join('|');

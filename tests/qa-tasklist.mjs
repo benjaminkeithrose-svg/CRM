@@ -43,10 +43,12 @@ await g(`(async () => {
 })()`);
 
 // ---- the Home tile
-const tile = d.querySelector('#s-home [data-go="tasks"]');
-ok(tile && /Tasks/.test(tile.textContent) && tile.previousElementSibling.dataset.go === 'plan', 'Home has a Tasks tile, after Plan');
-tile.click(); await tick(100);
-ok(g(`screen`) === 'tasks' && $('title').textContent === 'Tasks', 'it opens Tasks');
+// v155: Tasks is a tab of Plan, not a tile of its own
+ok(!d.querySelector('#s-home [data-go="tasks"]'), 'no Tasks tile on Home');
+d.querySelector('#s-plan [data-ptab="tasks"]').click(); await tick(100);
+ok(g(`screen`) === 'tasks' && $('title').textContent === 'Plan' && d.querySelector('#s-tasks [data-ptab="tasks"]').classList.contains('on'), 'the Tasks tab of Plan opens Tasks');
+d.querySelector('#s-home [data-go="plan"]').click(); await tick(100);
+ok(g(`screen`) === 'tasks', 'and the Plan tile goes back to it');
 const heads = () => [...$('tkRes').querySelectorAll('h2.tkh')].map(h => h.textContent).join();
 const titles = () => [...$('tkRes').querySelectorAll('.tkrow .rn')].map(x => x.textContent.replace(' Email', '')).join();
 ok(heads() === 'Overdue,Today,Coming up' && titles() === 'Call Tom back,Send the quote,Book travel', 'Open: overdue first, then today, then coming up: ' + titles());

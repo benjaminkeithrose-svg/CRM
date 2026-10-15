@@ -147,9 +147,8 @@ g(`openTask(null, {})`); await tick();
 await back(); await tick(150);
 ok(st().open === '' && st().screen === 'plan' && g(`TASKS.length`) === n, 'an empty form closed by back keeps nothing');
 
-// ---- v105: Saved notes and Products, the same way
+// ---- v105: Products, the same way (v155: on the Products tab of Plan; saved notes have no screen now)
 for (const [name, open, field, ok_, del, list] of [
-  ['saved note', `openSnip(null)`, 'snLabel', 'snOk', 'snDel', 'SNIPS'],
   ['product', `openProd(null)`, 'prName', 'prOk', 'prDel', 'PRODS']]) {
   const key = list === 'SNIPS' ? 'label' : 'name';
   g(`(() => { closeDialogsNow(); go('home'); })()`); await tick();
@@ -159,14 +158,14 @@ for (const [name, open, field, ok_, del, list] of [
   await back(); await tick(150);
   ok(st().screen === 'home' && st().open === '', name + ': back on Home closes it and stays in the app: ' + JSON.stringify(st()));
   ok(g(`${list}.some(x => x.${key} === 'Back ${name}')`), name + ': and the back counted as Done');
-  g(`go('lists')`); await tick();
+  g(`go('products')`); await tick();
   g(open); await tick();
   $(field).value = 'Done ' + name;
   $(ok_).click(); await tick(150);
-  ok(st().open === '' && st().screen === 'lists' && !st().dialog, name + ': Done takes its entry with it: ' + JSON.stringify(st()));
+  ok(st().open === '' && st().screen === 'products' && !st().dialog, name + ': Done takes its entry with it: ' + JSON.stringify(st()));
   await back();
   ok(st().screen === 'home', name + ': then one back goes home');
-  g(`go('lists')`); await tick();
+  g(`go('products')`); await tick();
   const id = g(`${list}.find(x => x.${key} === 'Done ${name}').id`);
   g(list === 'SNIPS' ? `openSnip('${id}')` : `openProd('${id}')`); await tick();
   $(del).click(); await tick(150);

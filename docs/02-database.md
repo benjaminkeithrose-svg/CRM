@@ -94,10 +94,17 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `mbo` | The MBO (`m:` and its id) or initiative (`i:` and its id) the task counts towards when done (v134) |
 
 **snippets** (saved notes): `id`, `label`, `text`, `reason` (Won, Lost, Not
-Qualified, Other), `created`, `lastUsed`, `updated`.
+Qualified, Other), `created`, `lastUsed`, `updated`. Since v155 they have no
+screen: the store, its sync and the backup keep them.
 
-**products**: `id`, `name`, `part` (part number), `acct`, `status` (Not stocked,
-New product, Requested to stock), `notes`, `stocked`, `stockedAt`, `created`.
+**products** (product ideas, v155): `id`, `name`, `part` (part number), `kind`
+(Belt, Sprocket or Other), `stage` (`idea`, `requested`, `approved`, `stocked`
+or `no` for not going ahead), `stageAt` (when it reached each step), `accts`
+(the customers who want it, by account name), `by` (who raised it), `notes`,
+`created`, `updated`. Older readers' fields are kept in step: `acct` (the first
+customer), `stocked` and `stockedAt`, and `status`. A product from before v155
+reads as Stocked if `stocked`, Requested if its `status` was Requested to stock,
+otherwise an Idea; its `acct` is its one customer.
 
 **plans** holds two kinds of record.
 
