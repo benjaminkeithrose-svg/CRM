@@ -1015,4 +1015,23 @@ beside the change, and only Dynamics' own job roles.
 
 ---
 
+## Built (v159): Quote request and belt form, streamlined
+*Asked and built 2026-10-16*
+
+- Bug: a belt with no asset number stayed a draft and never reached the quote.
+  A belt now saves with anything on it; it is named by its line description,
+  else "No asset no.". Log a fault works without one too.
+- Quote request: Required by and Your reference gone (notes go on the quote);
+  one account box: pick from the CRM, or "Use ... , not in the CRM".
+- Belt form: Belt description off the form (still filled behind the scenes by
+  the register and spec sheet photos); Log a fault and Read a spec sheet are
+  smaller, side by side.
+- Create and share: buttons instead of dropdowns; Copy for email on the PC
+  (formatted text and tables on the clipboard, no photos: Outlook blocks them).
+- Open question from Ben: when logging a fault, whether to capture full belt
+  details or just the asset and line description. Today: whatever is filled
+  in is saved, details can be added later.
+
+---
+
 <!-- Add new ideas above this line. -->

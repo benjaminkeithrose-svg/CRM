@@ -20,7 +20,8 @@
 | What | How | Format |
 |---|---|---|
 | **Call notes**, health check, belt requirements | Create and share on a call | Self-contained A4 HTML for the share sheet or a new tab; survives Outlook's renderer. In the summary, comments, a note's text and a project's notes, a blank line starts a paragraph and lines starting with a bullet or - print as a list (v156: notes and project notes too) |
-| **Quote request (RFQ)** | Create and share on a quote | A4 HTML |
+| **Copy for email** (v159) | Create and share on the PC, Send to: Copy for email | The same document on the clipboard as formatted text and plain text, each element styled in place (Outlook drops stylesheets), with no pictures or logo (Outlook on the PC blocks pictures held in the document); marks the call issued like a download |
+| **Quote request (RFQ)** | Create and share on a quote | A4 HTML. Since v159 there is no Required by or Your reference (an older quote that has them still prints them), a belt needs no asset number (it is named by its line description, else "No asset no."), and an account not in the CRM is typed in the same box as the search |
 | **Blue Sheet** | Create and share | PDF (the print screen's Save as PDF) or Excel in Miller Heiman's template layout |
 | **Large account plan** | Create and share | A4 HTML in Dynamics' order |
 | **Copy for Dynamics** | The large account plan | Each Dynamics field with its own Copy button |

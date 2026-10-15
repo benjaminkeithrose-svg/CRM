@@ -804,18 +804,28 @@ Tap a product to change it. **Duplicate** on the **⋯** opens a copy to change 
 
 1. Tap **New** on Home.
 2. Tap **Quote request**.
-3. Fill in when it's **Required by**, then pick the account and the people.
-4. Log the belts the same way as on a call.
-5. Tap **Create and share** to send it.
+3. Under **Account**, type part of the customer's name and tap the account. If it is not in the CRM, type its name and tap **Use** it **, not in the CRM**.
+4. Pick the people.
+5. Log the belts the same way as on a call. The asset number is not needed: type the line description, or leave it blank.
+6. Tap **Create and share** to send it.
 
-It shows on the calendar, in orange, on the day you made it. Tap it there to open it again. It never goes to Outlook.
+Put when it is needed by, and any reference, in the quote's notes. It shows on the calendar, in orange, on the day you made it. Tap it there to open it again. It never goes to Outlook.
 
 ### Send the notes out
 
 1. In the call, tap **Create and share** at the top.
-2. Choose what to include, the photo size, and where to send it.
+2. Tap what to include, the photo size, and where to send it.
 3. Tap **Create and share**.
 4. Pick Outlook, Teams or OneDrive from the list.
+
+On the PC, to put the notes straight into an email:
+
+1. In the call, tap **Create and share** at the top.
+2. Under **Send to**, tap **Copy for email**.
+3. Tap **Copy for email**.
+4. In Outlook, start the email and press **Ctrl** and **V**.
+
+The copy has the text and tables, laid out. Photos are not in it, because Outlook on the PC blocks pictures held inside pasted text. To send photos, tap **Download to this PC** instead and attach the file.
 
 Only the people ticked for customer documents are named in it. Tap the card at the top of the call to change who.
 

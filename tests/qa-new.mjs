@@ -67,7 +67,7 @@ ok($('cType').value === 'Phone' && !g('quoteMode'), 'Phone call');
 d.querySelector('#newPick [data-new="teams"]').click(); await tick();
 ok($('cType').value === 'Teams', 'Teams call');
 d.querySelector('#newPick [data-new="quote"]').click(); await tick();
-ok($('cType').value === 'Quote request' && g('quoteMode') && shown($('cReqBy')), 'Quote request shows required-by');
+ok($('cType').value === 'Quote request' && g('quoteMode') && !$('cReqBy'), 'Quote request: v159 no Required by any more');
 
 // ---- Task and Book a visit
 d.querySelector('[data-go="newcall"]').click(); await tick();

@@ -190,13 +190,19 @@ t('headings back for a call', $('dashAddHead').textContent === 'Add to call');
 d.querySelector('#newPick [data-new="quote"]').click();
 t('the chooser sets quote mode', $('cType').value === 'Quote request' && w.eval('quoteMode') === true);
 t('Quote request highlighted in the chooser', d.querySelector('#newPick [data-new="quote"]').classList.contains('on'));
-t('required-by shown in quote mode', $('cReqByRow').hidden === false);
+t('v159: no Required by or Your reference on a quote request', !$('cReqByRow') && !$('cRefRow') && !$('cReqBy') && !$('cRef'));
 t('date still visible in quote mode', $('cDate').closest('.fld').hidden !== true);
 t('date relabelled', $('cDateLbl').textContent === 'Date raised');
 t('button verb changes', $('openCall').textContent === 'Start the quote request');
 $('cType').value = 'Site call'; w.syncQuoteMode();
 t('quote mode off for a site call', g('quoteMode') === false);
-t('required-by hidden for a call', $('cReqByRow').hidden === true);
+t('one account box: no separate Not in the list', !$('accManual'));
+$('accQ').value = 'Brand New Foods'; $('accQ').dispatchEvent(new w.Event('input'));
+t('a name not in the CRM is offered as typed', $('accManualGo').hidden === false && /Use \u201cBrand New Foods\u201d, not in the CRM/.test($('accManualGo').textContent));
+$('accManualGo').click();
+t('and picking it uses it as a manual account', w.eval('pendingAcct && pendingAcct.name') === 'Brand New Foods' && w.eval('pendingAcct.manual') === true);
+$('accQ').value = ''; $('accQ').dispatchEvent(new w.Event('input'));
+t('an empty box offers nothing', $('accManualGo').hidden === true);
 t('Quote request is offered as a call type',
   [...$('cType').options].some(o => o.value === 'Quote request'));
 t('the separate tiles are gone',

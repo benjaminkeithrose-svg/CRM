@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v158';
+const APP_BUILD = 'v159';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -3057,7 +3057,7 @@ function notesText(s){
     if(s.contacts.length) L.push('Seen: ' + s.contacts.map(c =>
       c.n + (c.r ? ' (' + c.r + ')' : '') + (c.crm ? '' : ' [not in CRM]')).join(', '));
     s.belts.forEach((b,i)=>{
-      L.push('', 'BELT ' + (i+1) + ' \u2014 ' + D(b.asset));
+      L.push('', 'BELT ' + (i+1) + ' \u2014 ' + beltName(b));
       L.push('  Belt: ' + D(b.desc) + '   Width: ' + D(b.width) + ' mm   Centre line: ' + D(b.clen) + ' m');
       L.push('  Belt material: ' + D(b.mat) + '   Rod: ' + D(b.rod) + '   Retrofit: ' + D(b.retro));
       L.push('  Sprockets: ' + D(b.sprk));
@@ -3109,7 +3109,7 @@ function notesHtml(s){
       s.contacts.map(c => esc(c.n) + (c.r ? ' ('+esc(c.r)+')' : '') +
         (c.crm ? '' : ' <span style="color:#B2232F">[not in CRM]</span>')).join(', ')+'</p>';
     s.belts.forEach((b,i)=>{
-      h += H('BELT '+(i+1)+' \u2014 '+(b.asset||''));
+      h += H('BELT '+(i+1)+' \u2014 '+beltName(b));
       h += tbl([['Belt', b.desc], ['Width (mm)', b.width], ['Centre line (m)', b.clen],
                 ['Belt material', b.mat], ['Rod material', b.rod], ['Retrofit', b.retro],
                 ['Sprockets', b.sprk]].concat(b.flights)
@@ -7302,8 +7302,11 @@ async function renderReportsCount(){
    Every one of these paths runs the form's own save handler, so validation, the
    series cascade, the frequency bumps and the photo buffer all behave exactly as
    they did when a button triggered them. */
+/* v159 - Ben: "quite often we don't have asset numbers ... it will just not
+   save the form". A belt needs nothing in particular: anything on the form
+   saves it, and it is named by its asset number, else its description. */
 const ENTRY_REQUIRED = {
-  belt:    ['bAsset'],
+  belt:    [],
   project: ['pName'],
   note:    ['nText'],
   health:  ['hFault']
@@ -7327,7 +7330,7 @@ function entryIsEmpty(kind){
    the save handlers navigate to the dashboard when they succeed. */
 function leaveEntry(kind){
   if(!call || !ENTRY_SAVE_BTN[kind]) return false;
-  if(entryHasRequired(kind)){
+  if(ENTRY_REQUIRED[kind].length ? entryHasRequired(kind) : !entryIsEmpty(kind)){
     if(kind === 'belt') beltSaveSilent = false;
     $(ENTRY_SAVE_BTN[kind]).click();
     return true;
@@ -7573,8 +7576,6 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     // nothing chosen yet: the screen shows only "What would you like to do?"
     cameFromAcct = false; bookingMode = false;
     $('cDate').value = todayISO();
-    $('cReqBy').value = '';
-    $('cRef').value = '';
     $('cType').value = 'Site call';
     syncQuoteMode();
     newMark('');
@@ -7696,7 +7697,7 @@ $('ovBtn').addEventListener('click', async ()=>{
    have to call on them. The chosen manager's own accounts sort to the top; the rest
    carry a tag naming whose they are. Do not scope this to the manager. */
 function renderAccSearch(){
-  $('accQ').value=''; $('accRes').innerHTML='';
+  $('accQ').value=''; $('accRes').innerHTML=''; $('accManualGo').hidden = true;
   $('accHint').textContent = META ? META.counts.accounts+' accounts loaded' : 'Import contact data first';
   renderNewSummary();
 }
@@ -7744,9 +7745,17 @@ $('newPick').addEventListener('click', e => {
 $('cDate').addEventListener('change', renderNewSummary);
 $('cMgr').addEventListener('change', renderNewSummary);
 $('cMgr').addEventListener('change', ()=>{ localStorage.setItem(LS('mgr'), $('cMgr').value); updateMgrHint(); });
+// v159 - Ben: one box for the account: pick one from the CRM, or use the name as typed
+function accManualShow(){
+  const raw = $('accQ').value.trim(), b = $('accManualGo');
+  const exact = raw && ACCOUNTS.some(a => a.a.toLowerCase() === raw.toLowerCase());
+  b.hidden = !raw || exact;
+  b.textContent = 'Use \u201c' + raw + '\u201d, not in the CRM';
+}
 $('accQ').addEventListener('input', ()=>{
   const q = $('accQ').value.trim().toLowerCase();
   const res = $('accRes'); res.innerHTML='';
+  accManualShow();
   if(!ACCOUNTS.length || !q){
     $('accHint').textContent = META ? META.counts.accounts+' accounts loaded' : '';
     return;
@@ -7774,7 +7783,7 @@ $('accQ').addEventListener('input', ()=>{
 });
 const FOC_CLS = {'High':'high','Medium':'med','Low':'low','No Focus':'none'};
 $('accManualGo').addEventListener('click', ()=>{
-  const m = $('accManual').value.trim();
+  const m = $('accQ').value.trim();
   if(!m){ toast('Enter an account name'); return; }
   if(bookingMode){
     bookingMode = false;
@@ -7800,9 +7809,6 @@ function syncQuoteMode(){
 function applyQuoteMode(){
   const q = quoteMode;
   // cTypeRow stays: it is the control that sets the mode
-  [['cReqByRow', q], ['cRefRow', q]].forEach(([id, show]) => {
-    const el = $(id); if(el) el.hidden = !show;
-  });
   const dl = $('cDateLbl');
   if(dl) dl.textContent = q ? 'Date raised' : 'Date';
   const t = $('acctHead');
@@ -7884,8 +7890,7 @@ $('openCall').addEventListener('click', async ()=>{
       suburb: acc ? acc.sub : '',
       focus: acc ? acc.foc : '',
       site: site,
-      reqby: $('cReqBy').value.trim(),
-      ref: $('cRef').value.trim(),
+      // v159: no Required by or Your reference: notes go on the quote itself
       contacts: chosen,
       entries: [],
       loose: [],
@@ -7986,7 +7991,7 @@ function renderDash(){
   el.innerHTML = c.entries.map((e,i)=>{
     let head='', body='';
     const line = parts => parts.filter(Boolean).map(esc).join(' &middot; ');
-    if(e.type==='belt'){ head='Belt - '+e.asset; body=line([e.beltdesc,e.width?e.width+' mm':'',e.beltmat,e.rodmat,e.retrofit?'retrofit '+e.retrofit:'',e.sprocket]); }
+    if(e.type==='belt'){ head='Belt - '+beltName(e); body=line([e.beltdesc,e.width?e.width+' mm':'',e.beltmat,e.rodmat,e.retrofit?'retrofit '+e.retrofit:'',e.sprocket]); }
     if(e.type==='project'){ head='Project - '+e.project; body=line([e.status,e.next,e.target]); }
     if(e.type==='note'){ head='Note - '+e.topic; body=esc(e.text); }
     if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=line([e.fault,e.severity]); }
@@ -8036,7 +8041,7 @@ function renderDash(){
   }));
 }
 function entryHead(e){
-  if(e.type==='belt') return 'Belt - ' + e.asset;
+  if(e.type==='belt') return 'Belt - ' + beltName(e);
   if(e.type==='project') return 'Project - ' + e.project;
   if(e.type==='note') return 'Note - ' + e.topic;
   if(e.type==='health') return 'Health - ' + (e.asset || 'unspecified');
@@ -8594,6 +8599,7 @@ $('outCancel').addEventListener('click', closeOutDlg);
 $('outGo').addEventListener('click', ()=>{
   if(!call) return;
   closeOutDlg();
+  if($('outDest').value === 'copy'){ copyNotes(currentOutScope()); return; }   // v159: from the tap itself
   sendNotes(currentOutScope(), $('outDest').value, $('outImg').value);
 });
 $('outScope').addEventListener('change', renderOutHint);
@@ -9484,7 +9490,8 @@ let beltSaveSilent = false;
 $('bSave').addEventListener('click', async () => {
   const silent = beltSaveSilent; beltSaveSilent = false;
   const a = $('bAsset').value.trim();
-  if(!a){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
+  if(!a && entryIsEmpty('belt')){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
+  $('bErr').classList.remove('show');
   const skipSpr = $('bSkipSpr').checked, skipAcc = $('bSkipAcc').checked;
   const v = id => $(id).value.trim();
 
@@ -10200,6 +10207,8 @@ const byWorkOrder = (a,b) => {
 
 /* ---------- compile ---------- */
 const DASH_CH = '\u2014';
+// v159: a belt is named by its asset number, else its line description
+const beltName = e => String(e && e.asset || '').trim() || String(e && e.beltdesc || '').trim() || 'No asset no.';
 const V = v => { v = (v==null?'':String(v)).trim(); return (v===''||v==='N/A') ? DASH_CH : esc(v); };
 // v156: a long box keeps its paragraphs, and its bullet lines print as a list
 const VL = v => { const t = (v==null?'':String(v)).trim(); return (t===''||t==='N/A') ? DASH_CH : commentBodyHTML(t); };
@@ -18176,7 +18185,7 @@ async function buildNotesHTML(scope, mode, c){
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
       if(i) p.push('<hr class="sep">');
-      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3>');
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+esc(beltName(b))+'</h3>');
       p.push(beltSpecTableHTML(beltSpecGroups(b, {qcontact: scope === 'full'})));
       p.push(commentHTML(b));
       if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos, mode))+'</div>');
@@ -18284,6 +18293,8 @@ async function buildRFQHTML(mode, c){
   p.push('<h2>Request</h2><table>');
   [['Customer', c.customer], ['Site or area', c.site], ['Date raised', c.date],
    ['Required by', c.reqby], ['Account manager', c.mgr], ['Your reference', c.ref]]
+    // v159: Required by and Your reference are gone from the form; an older quote that has them still prints them
+    .filter(([l,v]) => !(l === 'Required by' || l === 'Your reference') || String(v || '').trim())
     .forEach(([l,v]) => p.push('<tr><td class="l">'+l+'</td><td>'+V(v)+'</td></tr>'));
   if(c.manualAccount) p.push('<tr><td class="l">Account status</td><td>'+
     '<span class="flag">Not in CRM &mdash; needs adding to Dynamics</span></td></tr>');
@@ -18305,7 +18316,7 @@ async function buildRFQHTML(mode, c){
     for(let i=0;i<belts.length;i++){
       const b = belts[i];
       if(i) p.push('<hr class="sep">');
-      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+V(b.asset)+'</h3>');
+      p.push('<div class="blk"><h3>Belt '+(i+1)+' '+DASH_CH+' '+esc(beltName(b))+'</h3>');
       /* Quantity is asked for here and nowhere else, and prints even when blank:
          customer service needs to see it was not given rather than guess. */
       p.push(beltSpecTableHTML(beltSpecGroups(b, {qty: true, qcontact: true})));
@@ -18496,8 +18507,11 @@ function outDestOptions(){
   const open = ['open', phone ? 'Open in a new tab' : 'Open in a new tab'];
   const save = ['download', phone ? 'Save to this phone' : 'Download to this PC'];
   const share = ['share', 'Share sheet'];
+  // v159 - Ben: "on the PC ... I more or less am going to email lots of them so I need a copy for email button"
+  const copy = ['copy', 'Copy for email'];
+  const canCopy = !!(navigator.clipboard && (navigator.clipboard.write || navigator.clipboard.writeText));
   if(phone) return canShare ? [share, save, open] : [save, open];
-  return canShare ? [open, save, share] : [open, save];
+  return (canCopy ? [copy] : []).concat(canShare ? [open, save, share] : [open, save]);
 }
 function renderOutDest(){
   const sel = $('outDest');
@@ -18506,6 +18520,20 @@ function renderOutDest(){
   sel.innerHTML = opts.map(([v,l]) => '<option value="'+v+'">'+l+'</option>').join('');
   if(opts.some(o => o[0] === prev)) sel.value = prev;
 }
+/* v159 - Ben: "instead of having the drop-down menus in that section we could
+   go to just buttons ... like the rest of the app". Each picker stays, out of
+   sight, as the value; a row of buttons stands in for it. */
+function outSegs(){
+  [['outScope', 'outScopeSeg'], ['outImg', 'outImgSeg'], ['outDest', 'outDestSeg']].forEach(([sid, gid]) => {
+    const sel = $(sid), seg = $(gid); if(!sel || !seg) return;
+    seg.innerHTML = [...sel.options].map(o => '<button type="button" data-v="' + esc(o.value) + '"' + (o.value === sel.value ? ' class="on"' : '') + '>' + esc(o.textContent) + '</button>').join('');
+  });
+}
+['outScopeSeg', 'outImgSeg', 'outDestSeg'].forEach(gid => { const seg = $(gid); if(seg) seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const sel = $(gid.replace('Seg', '')); sel.value = b.dataset.v;
+  sel.dispatchEvent(new Event('change'));
+}); });
 function renderOutControls(){
   const sel = $('outScope');
   if(!sel) return;
@@ -18519,6 +18547,65 @@ function renderOutControls(){
   const img = $('outImg');
   if(img && !IMG_MODES.includes(img.value)) img.value = defaultImgMode();
   renderOutHint();
+}
+/* ---------- Copy for email (v159) ----------
+   The document as Outlook can take it: Word's renderer drops the stylesheet,
+   so each element carries its own style; and Outlook on the PC blocks pictures
+   held inside the document, so the copy has the text and tables, not the
+   photos or the logo - for those, save the file and attach it. Built in a
+   frame off screen so the browser works the styles out exactly. The clipboard
+   is written straight from the tap, with the document still being built: a
+   browser only lets a page write to it from a tap. */
+const EMAIL_PROPS = ['color', 'background-color', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-align', 'vertical-align', 'line-height',
+  'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin-top', 'margin-bottom',
+  'border-top', 'border-right', 'border-bottom', 'border-left', 'border-collapse', 'white-space'];
+function emailHTML(doc){
+  return new Promise(resolve => {
+    const f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+    f.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;visibility:hidden';
+    document.body.appendChild(f);
+    const d = f.contentDocument;
+    d.open(); d.write(doc.replace(/<img\b[^>]*>/gi, '')); d.close();
+    setTimeout(() => {
+      try {
+        d.querySelectorAll('script,.mast,.ph,.imgtog,.sent,.toggle,noscript').forEach(x => x.remove());
+        const win = f.contentWindow, root = d.querySelector('.pg') || d.body;
+        root.querySelectorAll('*').forEach(el => {
+          const cs = win.getComputedStyle(el), st = [];
+          for(const k of EMAIL_PROPS){
+            const v = cs.getPropertyValue(k);
+            if(!v || /^(normal|none|auto|start|baseline|separate|0px)$/.test(v) || /^0px( none)?/.test(v) && k.startsWith('border') || (k === 'background-color' && /rgba\(0, 0, 0, 0\)|transparent/.test(v))) continue;
+            st.push(k + ':' + v);
+          }
+          if(el.tagName === 'TABLE') st.push('width:100%');
+          el.setAttribute('style', st.join(';'));
+          el.removeAttribute('class');
+        });
+        const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#222222">' + root.innerHTML + '</div>';
+        const text = (root.innerText || root.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+        resolve({html, text});
+      } catch(e){ console.error('email copy', e); resolve({html: '', text: ''}); }
+      finally { f.remove(); }
+    }, 60);
+  });
+}
+function copyNotes(scope){
+  const marks = (scope === 'full' || scope === 'rfq');
+  const ph = call ? call.entries.reduce((a, e) => a + (e.photos ? e.photos.length : 0), 0) + (call.loose ? call.loose.length : 0) : 0;
+  const built = (async () => emailHTML(scope === 'rfq' ? await buildRFQHTML('thumbonly') : await buildNotesHTML(scope, 'thumbonly')))();
+  const done = async () => {
+    toast('Copied: paste it into the email with Ctrl+V' + (ph ? '. Photos are not in the copy; to send them, download the file and attach it' : ''));
+    if(marks) await markShared(fileName(scope));
+  };
+  try {
+    if(navigator.clipboard && navigator.clipboard.write && window.ClipboardItem){
+      const item = new ClipboardItem({'text/html': built.then(x => new Blob([x.html], {type: 'text/html'})), 'text/plain': built.then(x => new Blob([x.text], {type: 'text/plain'}))});
+      return navigator.clipboard.write([item]).then(done).catch(e => { console.error(e); toast('Could not copy: ' + (e.message || e) + '. Try Download instead'); });
+    }
+  } catch(e){ console.error(e); }
+  // no rich clipboard here: the text only
+  return built.then(x => navigator.clipboard.writeText(x.text)).then(done).catch(e => { console.error(e); toast('Could not copy. Try Download instead'); });
 }
 /* The one line under the button on the dashboard. It says what state the call is
    in, not what the pickers are set to - those are not on this screen any more. */
@@ -18541,13 +18628,17 @@ function renderOutHint(){
   const btn = $('outGo'), hint = $('outDlgHint');
   if(!btn) return;
   const dest = $('outDest') ? $('outDest').value : 'share';
-  btn.textContent = dest === 'open' ? 'Create and open'
+  outSegs();
+  btn.textContent = dest === 'copy' ? 'Copy for email'
+                  : dest === 'open' ? 'Create and open'
                   : dest === 'download' ? 'Create and save'
                   : 'Create and share';
   if(!hint) return;
   const scope = currentOutScope();
   const bits = [];
-  bits.push(dest === 'open'
+  bits.push(dest === 'copy'
+    ? 'Copies the notes, laid out, to paste into an email in Outlook with Ctrl+V. The text and tables only: photos stay out of the copy, so download the file and attach it if they are needed.'
+    : dest === 'open'
     ? 'Renders the file in a new tab so you can read it or print it to PDF. Nothing leaves this device, and the call is not marked issued.'
     : dest === 'download'
     ? (isPhone() ? 'Saves the file to this phone.' : 'Saves the file to your Downloads folder.')
@@ -18557,7 +18648,7 @@ function renderOutHint(){
       'project discovery and the visit history'+
       (scope === 'health' ? ', and prints one fault per page so it can go straight to a fitter' : '')+
       '. It does not mark the call as issued.');
-  } else if(scope === 'full' && dest !== 'open'){
+  } else if((scope === 'full' || scope === 'rfq') && dest !== 'open'){
     bits.push('Marks the call as issued.');
   }
   const mode = $('outImg') ? $('outImg').value : 'full';
@@ -19153,7 +19244,7 @@ document.addEventListener('DOMContentLoaded', () => {
        and photos get added later, so demanding a completed save first was wrong.
        Only the asset is required, because the fault needs something to hang on. */
     const asset = $('bAsset').value.trim();
-    if(!asset){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }
+    if(!asset && entryIsEmpty('belt')){ $('bErr').classList.add('show'); $('bAsset').focus(); return; }   // v159: no asset number needed
     let idx = beltJustSaved, belt = (idx != null && call && call.entries) ? call.entries[idx] : null;
     if(!belt || belt.asset !== asset){
       beltSaveSilent = true;
@@ -19912,6 +20003,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v159', 'A belt saves without an asset number. Quote requests: Required by and Your reference are gone; the account box takes a name not in the CRM. The belt form drops Belt description, and its two buttons are smaller. Create and share uses buttons, not dropdowns, and on the PC has Copy for email, to paste the notes into Outlook.'],
   ['v158', 'Changes for CAG has its own section at the bottom of Settings, with To send, Sent and Done: each change shows what Dynamics has now and what it changes to, when and by whom. An account manager change is on it as soon as you make it. Job roles and titles pick from what Dynamics holds; anything else is flagged.'],
   ['v157', 'The Intralox people list fills itself from the CRM export\'s account managers and representatives, and your team; positions are added by hand. In the Intralox box on a map, Add our people ticks them in, grouped by position, with the sites\' account managers ticked.'],
   ['v156', 'On the PC, paste a copied picture into a call with Ctrl+V, or drag one in: it goes with the entry open, or into Loose photos. A Bullets button under the summary, notes and other long boxes puts bullet points on and takes them off; Enter carries on the list.'],
