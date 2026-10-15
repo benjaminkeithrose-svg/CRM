@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v149">
+<meta name="build" content="v150">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -875,6 +875,9 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 /* v140: someone's relationships, by box, each strength one tap away */
 .oprelg{margin:0 0 8px}
 /* v147: a site's place in its large account */
+.pllap{background:var(--sunk);border-radius:var(--r-sm);padding:10px 12px;margin:8px 0}
+.pllap .meta{margin-top:4px}
+.lapobjunder{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 0}
 .lapplace{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:6px 0 0;font-size:13.5px}
 .lapplace dt{color:var(--ink-3);font-weight:700}
 .lapplace dd{margin:0;min-width:0}
@@ -2301,15 +2304,15 @@ details.bsx > .msg{margin:8px 12px}
     <div class="fld help">
       <ol>
         <li>Tap <b>Strategy</b> on Home.</li>
-        <li>Tap <b>Opportunities</b>, <b>Large accounts</b> or <b>Account plans</b>.</li>
+        <li>Tap <b>Large accounts</b>, <b>Blue Sheets</b> or <b>Account plans</b>.</li>
         <li>Tap one to open it.</li>
         <li>Tap the back arrow to come back to the list.</li>
       </ol>
-      <p>Opportunities are listed by close date, nearest first, with their position and red flags. Large accounts show their sites and when they were last reviewed. Account plans show their goal, last changed first.</p>
+      <p>The tabs follow the order the work goes in: the large account plan leads, its Blue Sheets are the opportunities that need particular relationships to reach an outcome, and the sites' account plans take their lead from it. Large accounts show their sites, Blue Sheets and site plans, and when they were last reviewed. Blue Sheets are listed by close date, nearest first, with their position and red flags. Account plans show their goal, last changed first.</p>
       <p>In a team, <b>Mine</b> shows your own and <b>Team</b> your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.</p>
       <p>To start a new one from here:</p>
       <ol>
-        <li>On <b>Opportunities</b>, <b>Large accounts</b> or <b>Account plans</b>, tap the circle-plus on the tab.</li>
+        <li>On <b>Large accounts</b>, <b>Blue Sheets</b> or <b>Account plans</b>, tap the circle-plus on the tab.</li>
         <li>Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.</li>
         <li>Fill it in, then tap <b>Done</b>. Back comes to Strategy.</li>
       </ol>
@@ -2550,13 +2553,13 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Bring a large account into an opportunity</b><span class="sxs">Corporate, engineering and OEMs on the map</span></summary>
     <div class="fld help">
       <ol>
-        <li>Open the opportunity at one of the large account's sites.</li>
+        <li>Open the opportunity at one of the large account's sites. It is linked to the large account from the start; to start one there, tap the site on the large account's map, then <b>New Blue Sheet here</b>.</li>
         <li>Make sure <b>Map</b> is selected at the top.</li>
-        <li>In the panel beside the map, under <b>Large account</b>, tap <b>Bring in the large account</b>.</li>
+        <li>In the panel beside the map, under <b>Large account</b>, pick the plan's objective it delivers under <b>Delivers the objective</b>.</li>
         <li>The large account's boxes over this site come onto the map, each with a chain: corporate or the head office, the site's division, the group functions over it, the site that engineers for it, and the OEMs that work with any of them. Their people come with them.</li>
         <li>Tap one of them to set whether it has specified Intralox, or tap <b>Add or change people</b>.</li>
         <li>To change what a box is, who it covers or which sites it engineers for, tap <b>Open the large account map</b> and change it there.</li>
-        <li>To take them off this map, tap <b>Unlink</b> under <b>Large account</b>, then tap <b>OK</b>.</li>
+        <li>To take them off this map, tap <b>Unlink</b> under <b>Large account</b>, then tap <b>OK</b>. It stays unlinked; <b>Bring in the large account</b> links it again.</li>
       </ol>
       <p>The boxes with a chain stay on the large account plan. Their people, the links between them and whether they have specified Intralox are kept there, so a change on the opportunity shows on the large account's map and on its other opportunities, and a change there shows here the next time the map opens. Where you put a box on this map is this opportunity's own. Links you draw between this opportunity's people and theirs stay with the opportunity. The Blue Sheet, the coach and Create and share include them. Unlink deletes nothing.</p>
     </div>
@@ -2638,8 +2641,9 @@ details.bsx > .msg{margin:8px 12px}
         <li>Open the account.</li>
         <li>Tap the <b>Account plan</b> card.</li>
         <li>Type the goal for this account.</li>
+        <li>If the site is in a large account, the plan shows the large account's objectives, strategies and weaknesses at the top. Under <b>Supports the objective</b>, pick the one this site's plan works towards.</li>
         <li>Tap <b>Add a person</b>.</li>
-        <li>Type their name, or pick it from the account's contacts.</li>
+        <li>Type their name, or pick it from the account's contacts. People from the large account's map come first; picking one fills in their role and how they see it.</li>
         <li>Tap their role: <b>Signs the order</b>, <b>Uses it</b>, <b>Checks the spec</b> or <b>On our side</b>.</li>
         <li>Under <b>How they see it</b>, tap <b>Growth</b>, <b>Trouble</b>, <b>Steady</b> or <b>Overconfident</b>.</li>
         <li>Add a short note if it helps.</li>
@@ -2961,7 +2965,7 @@ details.bsx > .msg{margin:8px 12px}
       <p>To try the opportunity map on a made-up project:</p>
       <ol>
         <li>Tap <b>Strategy</b> on Home.</li>
-        <li>Tap the circle-plus on the <b>Opportunities</b> tab.</li>
+        <li>Tap the circle-plus on the <b>Blue Sheets</b> tab.</li>
         <li>Tap <b>Start a test project</b>.</li>
       </ol>
       <p>It has one head contractor and three OEMs with four people each, and an engineering manager with engineers under him at the end user. It's marked <b>TEST</b>.</p>
@@ -3613,6 +3617,8 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint" id="plSub"></p>
     <!-- v117: a multi-site customer gets one large account plan across its sites -->
     <label class="chk"><input type="checkbox" id="plLarge"> Large account: several sites under one plan</label>
+    <!-- v150: a site's plan takes its lead from the large account's -->
+    <div id="plLap" hidden></div>
     <div class="f"><label for="plGoal">Goal for this account</label><input type="text" id="plGoal" data-talk="line" autocomplete="off" placeholder="e.g. Replace the Line 2 belt and sprockets before the December shutdown"></div>
     <div class="f"><label>People</label><div id="plPeople"></div>
       <button type="button" class="btn act2" id="plAdd">Add a person</button></div>
@@ -4298,8 +4304,9 @@ details.bsx > .msg{margin:8px 12px}
 <section class="scr" id="s-strategy">
   <!-- v123: each tab has its own circle-plus to start a new one -->
   <div class="seg tabs ptabs" id="stTabs">
-    <span class="ptab on"><button type="button" data-v="opps" class="on">Opportunities</button><button type="button" class="tplus" data-new="opps" aria-label="New opportunity" title="New opportunity"></button></span>
-    <span class="ptab"><button type="button" data-v="laps">Large accounts</button><button type="button" class="tplus" data-new="laps" aria-label="New large account plan" title="New large account plan"></button></span>
+    <!-- v150: the large account leads, then its Blue Sheets, then the sites' account plans (Ben, 2026-10-15) -->
+    <span class="ptab on"><button type="button" data-v="laps" class="on">Large accounts</button><button type="button" class="tplus" data-new="laps" aria-label="New large account plan" title="New large account plan"></button></span>
+    <span class="ptab"><button type="button" data-v="opps">Blue Sheets</button><button type="button" class="tplus" data-new="opps" aria-label="New Blue Sheet" title="New Blue Sheet"></button></span>
     <span class="ptab"><button type="button" data-v="plans">Account plans</button><button type="button" class="tplus" data-new="plans" aria-label="New account plan" title="New account plan"></button></span>
   </div>
   <div class="seg" id="stWho" hidden>

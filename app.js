@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v149';
+const APP_BUILD = 'v150';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10963,6 +10963,9 @@ function planText(name){
   if(!p) return '';
   const L = [];
   if((p.goal || '').trim()) L.push('Goal: ' + p.goal.trim());
+  // v150: the large account objective this site's plan supports
+  const lp = largeFor(name), lo = lp && (lp.objectives || []).find(x => x.id === p.lapObj);
+  if(lo) L.push('Supports the large account objective: ' + lo.t + '. Check that the goal works towards it.');
   for(const x of p.people || []) if(x.n) L.push('Person: ' + x.n + (plPersonLine(x) ? ' - ' + plPersonLine(x) : ''));
   const lines = t => String(t || '').split('\n').map(s => s.trim()).filter(Boolean).join('; ');
   if(lines(p.flags)) L.push('Red flags: ' + lines(p.flags));
@@ -10980,7 +10983,9 @@ function lapText(name){
   const txt = v => Array.isArray(v) ? v.map(x => typeof x === 'string' ? x : x && (x.t || x.name)).filter(Boolean).map(t => String(t).trim()).filter(Boolean).join('; ')
     : String(v || '').split('\n').map(x => x.trim()).filter(Boolean).join('; ');
   const out = ['Large account plan for ' + (L.name || 'the customer group') + ', which this site is one of ' + (L.sites || []).length + ' sites in, kept by the engineer:'];
-  [['Intralox vision', L.vision], ['Their business goals', L.goals], ['Key insights', L.insights], ['Objectives', (L.objectives || []).map(o => [o.t, o.revenue && 'revenue ' + o.revenue, o.period].filter(Boolean).join(', '))],
+  [['Intralox vision', L.vision], ['Their business goals', L.goals], ['Key insights', L.insights], ['Objectives', (L.objectives || []).map(o => [o.t, o.revenue && 'revenue ' + o.revenue, o.period,
+      // v150: the Blue Sheets and site plans tied to it
+      [].concat(lapOpps(L).filter(x => x.lapObj && x.lapObj === o.id).map(x => 'Blue Sheet ' + (x.name || 'Untitled')), (L.sites || []).map(planFor).filter(x => x && x.lapObj && x.lapObj === o.id).map(x => 'site plan for ' + x.acct)).join(' and ')].filter(Boolean).join(', '))],
     ['Strategies', L.strategies], ['Open actions', (L.actions || []).filter(a => !a.done).map(a => [a.t, a.owner && 'owner ' + a.owner, a.due && 'due ' + a.due].filter(Boolean).join(', '))],
     ['Strengths', L.strengths], ['Weaknesses', L.flags], ['Opportunities', L.swopps], ['Threats', L.threats], ['Critical success factors', L.csf]]
     .forEach(([k, v]) => { const t = txt(v); if(t) out.push(k + ': ' + t); });
@@ -11046,9 +11051,49 @@ function plPeopleRead(keepBlank){
   })).filter(x => keepBlank || x.n || x.role || x.mode || x.note);
 }
 function plRead(){
-  return Object.assign({}, plEdit, {goal: $('plGoal').value.trim(), people: plPeopleRead(),
+  const r = Object.assign({}, plEdit, {goal: $('plGoal').value.trim(), people: plPeopleRead(),
     flags: $('plFlags').value, strengths: $('plStrengths').value});
+  const o = $('plLapObj');                        // v150: the large account objective it supports
+  if(o){ if(o.value) r.lapObj = o.value; else delete r.lapObj; }
+  return r;
 }
+/* v150 - Ben, 2026-10-15: "the account plan should be influenced by the large
+   account plan". A site's plan shows the large account's objectives,
+   strategies and vulnerabilities above its own, says which objective it
+   supports, and offers the people the large account's map has over the site,
+   with their part and how they see it filled in when a name is picked. */
+function plLapPeople(name){
+  const L = largeFor(name); if(!L || !Array.isArray(L.parties)) return [];
+  let S = null; try { S = lapScope(L, name); } catch(e){ S = null; }
+  if(!S) return [];
+  const boxes = new Set([S.site.id, ...S.ids]);
+  return (L.people || []).filter(p => boxes.has(p.party) && p.side !== 'us' && !p.hidden && p.n);
+}
+function plLapDraw(name){
+  const el = $('plLap'), L = largeFor(name);
+  if(!el) return;
+  el.hidden = !L;
+  if(!L){ el.innerHTML = ''; return; }
+  const txt = v => Array.isArray(v) ? v.map(x => typeof x === 'string' ? x : x && x.t).filter(Boolean) : String(v || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const objs = lapObjs(L), strat = txt(L.strategies), vul = txt(L.flags);
+  el.innerHTML = '<div class="pllap"><b>From the large account plan ' + esc(L.name || '') + '</b>' +
+    (objs.length ? '<div class="meta">Objectives: ' + esc(objs.map(o => o.t).join('; ')) + '</div>' : '') +
+    (strat.length ? '<div class="meta">Strategies: ' + esc(strat.join('; ')) + '</div>' : '') +
+    (vul.length ? '<div class="meta">Weaknesses: ' + esc(vul.join('; ')) + '</div>' : '') +
+    (objs.length ? '<label class="l" for="plLapObj">Supports the objective</label><select id="plLapObj"><option value="">Not tied to one yet</option>' +
+      objs.map(o => '<option value="' + esc(o.id) + '"' + (plEdit && plEdit.lapObj === o.id ? ' selected' : '') + '>' + esc(o.t) + '</option>').join('') + '</select>' : '<p class="hint">The large account plan has no objectives yet.</p>') + '</div>';
+  // the large account map's people over this site are offered for the plan, first
+  const have = new Set([...$('plNames').querySelectorAll('option')].map(o => pKey(o.value)));
+  $('plNames').innerHTML = plLapPeople(name).filter(p => !have.has(pKey(p.n))).map(p => '<option value="' + esc(p.n) + '">' + esc(p.title || '') + '</option>').join('') + $('plNames').innerHTML;
+}
+// a name picked from the large account's map brings its part and how they see it, where none is chosen yet
+$('plPeople').addEventListener('change', e => {
+  const inp = e.target.closest && e.target.closest('.plname'); if(!inp || !plEdit) return;
+  const m = plLapPeople(plEdit.acct).find(p => pKey(p.n) === pKey(inp.value)); if(!m) return;
+  const row = inp.closest('.plp'), role = row.querySelector('.plrole'), mode = row.querySelector('.plmode');
+  if(m.role && !chipVal(role)){ const b = role.querySelector('[data-v="' + m.role + '"]'); if(b) b.classList.add('on'); }
+  if(m.mode && !chipVal(mode)){ const b = mode.querySelector('[data-v="' + m.mode + '"]'); if(b) b.classList.add('on'); }
+});
 function openPlan(name){
   if(!name) return;
   const p = planFor(name);
@@ -11065,6 +11110,7 @@ function openPlan(name){
     .map(c => '<option value="' + esc(c.n) + '">' + esc(c.t || c.r || '') + '</option>').join('');
   $('plDel').hidden = plIsNew;
   $('plLarge').checked = !!largeFor(name);
+  plLapDraw(name);
   plBefore = JSON.stringify(plRead());
   const d = $('plandlg');
   if(!d.open){
@@ -11285,7 +11331,11 @@ function openOpp(id){
   if(!o){ toast('That opportunity could not be found'); return; }
   OPP = o; opSel = null; opLinkFrom = null; opConfirm = false; opSheetOpen.clear();
   opFitPending = true;
+  // v150: a Blue Sheet at one of a large account's sites starts from that account (Unlink keeps it apart)
+  const L = o.kind !== 'large' && !o.lap && !o.lapOff && largeFor(o.acct);
+  if(L) o.lap = L.id;
   go('opp');
+  if(L) oppSaveSoon();
 }
 let opFitPending = false;       // a map shown from the Blue Sheet fits itself once it has a size
 async function oppSaveNow(){
@@ -11538,6 +11588,8 @@ const lapPersonIn = p => String(p.party || '').startsWith(LK);
 function lapPlanOf(o){ return o && o.lap ? PLANS.find(p => p.id === o.lap && p.kind === 'large') || null : null; }
 // which of the plan's boxes bear on this site
 function lapScope(L, acct){
+  // v150: a plan whose map was never opened is set up as opening it would (people from its sites' Blue Sheets), first
+  if(!Array.isArray(L.parties) && !Array.isArray(L.people)) lapMapSeed(L);
   opEnsure(L);
   const site = L.parties.find(q => q.site && q.acct === acct);
   if(!site) return null;
@@ -12575,6 +12627,13 @@ function opSuggest(side){
 /* ---- the list down the side (v124): build from it, find things in it ---- */
 /* v139: on an opportunity at a large account's site, the account's boxes can be
    brought onto the map, and taken off again */
+// v150: a large account's objectives, each with an id that Blue Sheets and site plans point at
+function lapObjs(L){
+  let changed = false;
+  (L.objectives || []).forEach(o => { if(!o.id){ o.id = newId('li'); changed = true; } });
+  if(changed){ L.updated = Date.now(); plansPut(JSON.parse(JSON.stringify(L))).catch(reportErr); }
+  return (L.objectives || []).filter(o => (o.t || '').trim());
+}
 function lapPanelHTML(){
   const o = OPP, L = lapPlanOf(o), cand = !o.lap && largeFor(o.acct);
   if(o.lap){
@@ -12583,6 +12642,9 @@ function lapPanelHTML(){
       (!L ? 'The large account plan this was linked to has been deleted.'
         : !n ? 'Nothing in it bears on ' + esc(o.acct) + ' yet, or ' + esc(o.acct) + ' is no longer one of its sites. Add corporate, group engineering or OEMs on its map.'
         : n + (n === 1 ? ' of its boxes is' : ' of its boxes are') + ' on this map, with a chain. Their people are kept on the plan: a change here shows there too.') + '</div>' +
+      // v150: which of the large account's objectives this Blue Sheet delivers
+      (L && (L.objectives || []).some(x => x.t) ? '<label class="l" for="opLapObj">Delivers the objective</label><select id="opLapObj"><option value="">Not tied to one yet</option>' +
+        lapObjs(L).map(x => '<option value="' + esc(x.id) + '"' + (o.lapObj === x.id ? ' selected' : '') + '>' + esc(x.t) + '</option>').join('') + '</select>' : '') +
       '<div class="orow">' + (L ? '<button type="button" class="btn act2" id="opLapOpen">Open the large account map</button>' : '') + '<button type="button" class="btn" id="opLapOff">Unlink</button></div></div>';
   }
   if(!cand) return '';
@@ -12591,18 +12653,19 @@ function lapPanelHTML(){
 }
 function lapPanelWire(){
   if($('opLapIn')) $('opLapIn').addEventListener('click', e => {
-    OPP.lap = e.currentTarget.dataset.plan;
+    OPP.lap = e.currentTarget.dataset.plan; delete OPP.lapOff;
     lapMerge(OPP);
     const n = OPP.parties.filter(q => q.lk).length;
     oppSaveNow().catch(reportErr); drawOpp(); opPanel();
     toast(n ? n + (n === 1 ? ' box' : ' boxes') + ' brought in from the large account' : 'Linked. Nothing on its map bears on this site yet');
   });
   if($('opLapOpen')) $('opLapOpen').addEventListener('click', () => lapOpenFromOpp());
+  if($('opLapObj')) $('opLapObj').addEventListener('change', e => { if(e.target.value) OPP.lapObj = e.target.value; else delete OPP.lapObj; oppSaveNow().catch(reportErr); });
   if($('opLapOff')) $('opLapOff').addEventListener('click', () => {
     if(!confirm('Unlink the large account from this opportunity?\n\nIts boxes come off this map. Nothing is deleted: they and their people stay on the large account plan.')) return;
     const w = lapWriteBack(OPP); if(w) w.catch(reportErr);
     lapStrip(OPP); lapSnaps.delete(OPP.id);
-    delete OPP.lap; delete OPP.lapPos;
+    delete OPP.lap; delete OPP.lapPos; delete OPP.lapObj; OPP.lapOff = true;   // v150: stays apart
     if(opSel && opSel.t !== 'l' && !opParty(opSel.id) && !opPerson(opSel.id)) opSel = null;
     oppSaveNow().catch(reportErr); drawOpp(); opPanel();
     toast('Unlinked from the large account');
@@ -12773,7 +12836,7 @@ function opPartyPanel(q){
     (q.kind === 'grp' && divsHere.length ? '<label class="l" for="opQunder">Reports to</label><select id="opQunder"><option value="">The top (corporate)</option>' + divsHere.map(d => '<option value="' + esc(d.id) + '"' + (q.under === d.id ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('') + '</select>' : '') +
     (q.kind === 'grp' ? '<label class="l">Covers</label><div class="chips" id="opQcov"><button type="button" data-v=""' + (!(q.covers || []).length ? ' class="on"' : '') + '>' + (opDivOk(OPP, q.under) ? 'All its division\'s sites' : 'All sites') + '</button>' +
       opSitesOf(OPP).map(s => '<button type="button" data-v="' + esc(s.id) + '"' + ((q.covers || []).includes(s.id) ? ' class="on"' : '') + '>' + esc(opQName(s)) + '</button>').join('') + '</div>' + opStatePick('opQcovSt') : '') +
-    (q.site ? '<div class="orow"><button type="button" class="btn act2" id="opQplan">' + (sitePlan ? 'Its account plan' : 'Start its account plan') + '</button></div>' +
+    (q.site ? '<div class="orow"><button type="button" class="btn act2" id="opQplan">' + (sitePlan ? 'Its account plan' : 'Start its account plan') + '</button><button type="button" class="btn act2" id="opQnewBs">New Blue Sheet here</button></div>' +
       (siteOpps.length ? '<label class="l">Its opportunities</label><ul class="opitems good">' + siteOpps.map(x => '<li><span><button type="button" class="lnkbtn" data-qopp="' + esc(x.id) + '">' + esc(x.name || 'Untitled') + '</button>' +
         '<span class="pin">' + esc([x.value, x.close && 'close ' + oppMonth(x.close), x.outcome].filter(Boolean).join(' · ')) + '</span></span></li>').join('') + '</ul>' : '') : '') +
     (q.kind === 'ilx' ? '' :
@@ -12874,6 +12937,8 @@ function opPartyPanel(q){
     toast(q.acct + ' taken out of the plan');
   });
   if($('opQplan')) $('opQplan').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); openPlan(q.acct); });
+  // v150: a Blue Sheet starts from its large account's map
+  if($('opQnewBs')) $('opQnewBs').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); const a = ACC_BY_NAME.get(q.acct); if(!a){ toast('That site is not in the customer list'); return; } viewAcct = a; openOppDetails(null); });
   P.querySelectorAll('[data-qopp]').forEach(b => b.addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); openOpp(b.dataset.qopp); }));
   $('opQeye').addEventListener('click', () => { q.show = q.show === false; redraw(); });
   $('opDone').addEventListener('click', () => opSelect(null));
@@ -14274,6 +14339,9 @@ function oppText(o){
     const v = x => (x == null ? '' : String(x)).trim();
     const L = ['Opportunity: ' + (o.name || 'Untitled') + ' at ' + o.acct];
     if(v(o.obj)) L.push('Objective: ' + o.obj);
+    // v150: the large account objective this Blue Sheet is meant to deliver
+    const lp = o.lap && PLANS.find(p => p.id === o.lap), lo = lp && (lp.objectives || []).find(x => x.id === o.lapObj);
+    if(lp) L.push('Part of the large account plan for ' + (lp.name || 'the group') + (lo ? ', delivering its objective: ' + lo.t + '. Check that the Blue Sheet works towards it.' : ', not yet tied to one of its objectives.'));
     if(v(o.value) || o.close) L.push('Value and close: ' + [o.value, o.close && oppMonth(o.close)].filter(Boolean).join(', '));
     if(o.outcome) L.push('Outcome: ' + o.outcome);
     if(v(o.volNow) || v(o.volPot)) L.push('Volume: current ' + (v(o.volNow) || 'unknown') + ', total potential ' + (v(o.volPot) || 'unknown'));
@@ -15094,13 +15162,21 @@ function renderLap(){
       '<p class="lapshare" id="lapShareLine">' + esc(lapShareLine(L)) + '</p>' +
       '<label class="l" for="lapComp">Competition</label>' + ta('lapComp', L.comp, 'Who else is in there, and where', 2);
   } else if(lapTab === 'obj'){
+    lapObjs(L);                                    // v150: every objective has an id
     const objs = L.objectives || [];
+    // v150: the Blue Sheets delivering each objective, and the site plans supporting it
+    const under = o => {
+      const bs = lapOpps(L).filter(x => x.lapObj === o.id), sp = (L.sites || []).map(planFor).filter(x => x && x.lapObj === o.id);
+      return bs.length || sp.length ? '<div class="lapobjunder">' + bs.map(x => '<button type="button" class="lnkbtn" data-lapopp="' + esc(x.id) + '">Blue Sheet: ' + esc(x.name || 'Untitled') + '</button>').join('') +
+        sp.map(x => '<button type="button" class="lnkbtn" data-lapsp="' + esc(x.acct) + '">Site plan: ' + esc(lapShort(x.acct)) + '</button>').join('') + '</div>'
+        : '<p class="hint">No Blue Sheet or site plan is tied to this yet.</p>';
+    };
     h = '<h2>Objectives</h2>' + (objs.length ? objs.map((o, i) =>
       '<div class="lapobj"><div class="lapobjh"><input type="text" data-lapo="t:' + i + '" value="' + esc(o.t || '') + '" placeholder="Name" aria-label="Objective name"><button type="button" class="opx" data-laprm="objectives:' + i + '" aria-label="Remove">' + icon('trash') + '</button></div>' +
       '<label class="lapf"><span>Description</span><textarea data-lapo="desc:' + i + '" rows="2">' + esc(o.desc || '') + '</textarea></label>' +
       '<div class="row3"><label class="lapf"><span>Revenue</span><input type="text" data-lapo="revenue:' + i + '" value="' + esc(lapObjRev(o)) + '" placeholder="e.g. $400,000"></label>' +
       '<label class="lapf"><span>Period</span><input type="text" data-lapo="period:' + i + '" value="' + esc(lapObjPeriod(L, o)) + '"></label>' +
-      '<label class="lapf"><span>Owner</span><input type="text" data-lapo="owner:' + i + '" list="lapOwners" value="' + esc(o.owner || '') + '"></label></div></div>').join('') : '<p class="hint">None yet.</p>') +
+      '<label class="lapf"><span>Owner</span><input type="text" data-lapo="owner:' + i + '" list="lapOwners" value="' + esc(o.owner || '') + '"></label></div>' + under(o) + '</div>').join('') : '<p class="hint">None yet.</p>') +
       '<button type="button" class="btn act2" id="lapObjNew">Add an objective</button>' +
       '<h2>Opportunities on these sites</h2>' +
       (opps.length ? opps.map(o => '<button type="button" class="opprow lapopp" data-lapopp="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled') + '</b>' +
@@ -15208,6 +15284,7 @@ function renderLap(){
     if(ACC_BY_NAME.has(o.acct)){ viewAcct = ACC_BY_NAME.get(o.acct); renderAccount(); renderPlanCard(); }
     openOpp(o.id);
   }));
+  el.querySelectorAll('[data-lapsp]').forEach(b => b.addEventListener('click', () => { if(lapSaveTimer) lapSaveNow().catch(reportErr); openPlan(b.dataset.lapsp); }));
   micAuto(el);
   if(lapTab === 'act') lapActivities(L).then(list => {
     const box = $('lapActs'); if(!box || LAP !== L || lapTab !== 'act') return;
@@ -15330,7 +15407,7 @@ $('lapDel').addEventListener('click', async () => {
    opportunities with their Blue Sheets, the large account plans and the
    account plans. A Home tile; three tabs; Mine and Team in a team, as in
    Reports. Each opens where it lives; back comes here. */
-let stTab = 'opps', stWho = 'mine', stOpened = '';
+let stTab = 'laps', stWho = 'mine', stOpened = '';   // v150: the large account leads
 const stStore = {opps: 'opps', laps: 'plans', plans: 'plans'};
 function stItems(tab){
   const team = inTeam(), mine = (store, id) => !team || (stWho === 'team') !== isMine(store, id);
@@ -15358,18 +15435,18 @@ function stRowBtn(tab, x){
       (flags ? ' · <span class="st-flag">' + flags + (flags === 1 ? ' red flag' : ' red flags') + '</span>' : '') + '</div></button>';
   }
   if(tab === 'laps'){
-    const ns = (x.sites || []).length, no = lapOpps(x).length;
+    const ns = (x.sites || []).length, no = lapOpps(x).length, np = (x.sites || []).filter(n => planFor(n)).length;   // v150: what sits under it
     return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.reviewed ? 'reviewed ' + new Date(x.reviewed).toLocaleDateString() : 'not reviewed yet') + '</span></div>' +
       '<div class="rn">' + esc(x.name || 'Large account') + '</div>' +
-      '<div class="rm">' + esc([by, ns + (ns === 1 ? ' site' : ' sites'), no + (no === 1 ? ' opportunity' : ' opportunities'), x.vision ? opCut(x.vision, 60) : ''].filter(Boolean).join(' · ')) + '</div></button>';
+      '<div class="rm">' + esc([by, ns + (ns === 1 ? ' site' : ' sites'), no + (no === 1 ? ' Blue Sheet' : ' Blue Sheets'), np + (np === 1 ? ' site plan' : ' site plans'), x.vision ? opCut(x.vision, 60) : ''].filter(Boolean).join(' · ')) + '</div></button>';
   }
   const np = (x.people || []).length;
   return '<button type="button" class="rpt" data-st="' + esc(x.id) + '"><div class="rt"><span class="rd">' + esc(x.updated ? 'changed ' + new Date(x.updated).toLocaleDateString() : '') + '</span></div>' +
     '<div class="rn">' + esc(x.acct || '') + '</div>' +
     '<div class="rm">' + esc([by, x.goal ? opCut(x.goal, 70) : 'No goal yet', np + (np === 1 ? ' person' : ' people')].filter(Boolean).join(' · ')) + '</div></button>';
 }
-const STEMPTY = {opps: 'No opportunities yet.', laps: 'No large account plans yet.', plans: 'No account plans yet.'};
-const STWORD = {opps: ['opportunity', 'opportunities'], laps: ['large account plan', 'large account plans'], plans: ['account plan', 'account plans']};
+const STEMPTY = {opps: 'No Blue Sheets yet.', laps: 'No large account plans yet.', plans: 'No account plans yet.'};
+const STWORD = {opps: ['Blue Sheet', 'Blue Sheets'], laps: ['large account plan', 'large account plans'], plans: ['account plan', 'account plans']};
 function stWire(el, tab, before){
   el.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => {
     if(before) before();
@@ -15453,11 +15530,11 @@ $('stSearch').addEventListener('click', () => openSearch({
       .filter(Boolean).join(' ').toLowerCase();
     // every tab, all of the team's: a search is for finding, wherever it is
     const keep = stWho; stWho = 'team';
-    const hits = ['opps', 'laps', 'plans'].map(tab => [tab, (inTeam() ? stItems(tab).concat(stWhoMine(tab)) : stItems(tab)).filter(x => terms.every(t => hay(tab, x).includes(t)))]);
+    const hits = ['laps', 'opps', 'plans'].map(tab => [tab, (inTeam() ? stItems(tab).concat(stWhoMine(tab)) : stItems(tab)).filter(x => terms.every(t => hay(tab, x).includes(t)))]);
     stWho = keep;
     const n = hits.reduce((a, [, xs]) => a + xs.length, 0);
     hint.textContent = n ? n + ' found' : 'Nothing matches that.';
-    el.innerHTML = hits.filter(([, xs]) => xs.length).map(([tab, xs]) => '<p class="hint">' + {opps: 'Opportunities', laps: 'Large accounts', plans: 'Account plans'}[tab] + '</p>' +
+    el.innerHTML = hits.filter(([, xs]) => xs.length).map(([tab, xs]) => '<p class="hint">' + {opps: 'Blue Sheets', laps: 'Large accounts', plans: 'Account plans'}[tab] + '</p>' +
       '<div data-sttab="' + tab + '">' + xs.map(x => stRow(tab, x)).join('') + '</div>').join('');
     el.querySelectorAll('[data-sttab]').forEach(box => stWire(box, box.dataset.sttab, closeSearch));
   }

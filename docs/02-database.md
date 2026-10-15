@@ -102,7 +102,7 @@ New product, Requested to stock), `notes`, `stocked`, `stockedAt`, `created`.
 **plans** holds two kinds of record.
 
 *An account plan* (one per account): `id`, `acct`, `goal`, `people` (each `n`,
-`role`, `mode`, `note`), `flags`, `strengths`, `updated`.
+`role`, `mode`, `note`), `flags`, `strengths`, `updated`. Since v150, `lapObj`: the large account objective a site's plan supports.
 
 *A large account plan* (`kind: 'large'`, across a customer's sites), laid out
 as Dynamics' Large Account Plan:
@@ -111,7 +111,7 @@ as Dynamics' Large Account Plan:
 |---|---|
 | `name`, `revenue`, `year`, `sharepoint`, `reviewed` | Key Plan Information |
 | `vision`, `business`, `goals`, `insights`, `ladder`, `today`, `spendUs`, `spendAll`, `comp` | Key Plan Information: the Description's five parts (vision, account overview, business goals, key insights, Intralox position) |
-| `objectives` (each `t`, `desc`, `revenue`, `period`, `owner`) | Objectives |
+| `objectives` (each `id`, `t`, `desc`, `revenue`, `period`, `owner`; v150: every one has an `id` that Blue Sheets and site plans point at) | Objectives |
 | `strategies`, `invest`, `actions` (each `t`, `owner`, `due`, `done`) | Our own working, under Objectives |
 | `sites` | Accounts |
 | `strengths`, `flags`, `swopps`, `threats` | SWOT (strengths, weaknesses, opportunities, threats) |
@@ -130,6 +130,7 @@ as Dynamics' Large Account Plan:
 | `flags`, `strengths`, `actions`, `notes` | Red flags (with information needed and from whom), strengths, possible actions (starred = best action plan), communication notes |
 | `coaching`, `test`, `created`, `updated` | The coach's view, a made-up test project, and edits |
 | `lap`, `lapPos` | The large account plan brought into this opportunity (its `id`), and where its boxes sit on this map (`{x, y, show}` by the plan's box id) (v139) |
+| `lapObj`, `lapOff` | The large account objective this Blue Sheet delivers (the objective's `id`), and that it was unlinked and must not link itself again (v150) |
 | `amGone` | Account managers taken off this map, by name in lower case, so they are not added back (v140). A large account plan's map keeps the same field |
 
 An opportunity at a large account's site can bring that account in (v139). Its boxes over the site (corporate or the head office, the site's division, the group functions over it, the site that engineers for it, the OEMs working with any of them), their people and the links between those people are copied onto the map each time it is shown, under ids starting `lk-`. They are never saved in the opportunity: a change to their people, links or spec is written back to the plan when the opportunity saves, so the plan and every linked opportunity show it. Only where they sit is the opportunity's own (`lapPos`).
