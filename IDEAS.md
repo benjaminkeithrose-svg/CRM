@@ -921,6 +921,13 @@ for now. Reviewed a clickable mock first.*
   by themselves and say which objective they deliver; site plans show the
   large account above them and say which objective they support; the
   Objectives tab lists both; the coach is told.
+- **Built (v151):** how relationships flow: a Consultants kind (works with the
+  end user and OEMs, Specifies for / Advises, knows us); an OEM through a head
+  contractor or another OEM or integrator (chains), and Works with on any map;
+  head contractors pick their sites on a large account; an OEM, contractor
+  or consultant that is a customer is covered by its account manager by
+  default; the Blue Sheet flags anyone with a part in the decision whom
+  nobody of ours covers. No distributor box (not asked for).
 - **Later:** the group column's real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
   opportunities import (needs the column headings).

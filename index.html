@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v150">
+<meta name="build" content="v151">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -55,7 +55,7 @@
   --warn:#B2232F;           /* $error-color                          */
   --act:#00287B;            /* primary action - brand colours never  */
   /* v124: the layered map. The opportunity bright; each kind of party its own colour. */
-  --c-opp:#FFA400; --c-corp:#3E64B0; --c-div:#2F7FA8; --c-grp:#52679F; --c-end:#00287B; --c-head:#00708D; --c-oem:#4D4D4F; --c-ilx:#ED1C24;
+  --c-opp:#FFA400; --c-corp:#3E64B0; --c-div:#2F7FA8; --c-grp:#52679F; --c-end:#00287B; --c-head:#00708D; --c-oem:#4D4D4F; --c-cons:#5E7A8A; --c-ilx:#ED1C24;
   --act-dk:#001A52;         /* carry action meaning, so not red      */
 
   /* Account focus. High reads in Intralox red; the rest step down through
@@ -2403,7 +2403,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Open the account: tap <b>Directory</b> on Home, then the account.</li>
         <li>On the <b>Opportunities</b> card, tap <b>New opportunity</b>.</li>
         <li>Type its name, then tap <b>Done</b>. The map opens with the end user (the account) and Intralox already on it. Or describe it instead: see <b>Set up an opportunity by describing it</b>.</li>
-        <li>In the list beside the map, tap the circle-plus next to <b>Head contractors</b> or <b>OEMs and integrators</b>.</li>
+        <li>In the list beside the map, tap the circle-plus next to <b>Head contractors</b>, <b>OEMs and integrators</b> or <b>Consultants</b>.</li>
         <li>Type the company's name, or pick it from your customer list, then tap <b>Add</b>.</li>
         <li>Tap the table icon next to a party to add its people.</li>
         <li>Type one person per row. Only the name is needed. Add their title, who they report to, their part (E, U, T or C) and whether they are helping us if you know them.</li>
@@ -2413,7 +2413,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Add red flags and strengths in the panel, and pin each to a person or a link.</li>
       </ol>
       <p>Each party has its own colour: the end user dark blue, head contractors dark cyan, OEMs and integrators grey, and Intralox red, around the opportunity in orange. People hang under their party as an organisation chart, each under who they report to. A party that has not specified Intralox, or is unsure, has a dashed orange edge, so it stands out.</p>
-      <p>Tap a party to say where a head contractor stands (Bidding, Appointed or Out of it), who an OEM works for, and which belting an OEM prefers. Intralox is ticked to start; tap a supplier to add or take it off, or type another and tap <b>Add</b>.</p>
+      <p>Tap a party to say where a head contractor stands (Bidding, Appointed or Out of it), who an OEM works for, and which belting an OEM prefers. An OEM can work for a head contractor or for another OEM or integrator, so a conveyor builder under a line integrator under the head contractor draws as a chain. Under <b>Works with</b>, an OEM or a consultant ticks the other parties it deals with and how (for a consultant, <b>Specifies for</b> or <b>Advises</b>); each draws its own line. A consultant is an engineering firm or designer working with the end user and the OEMs. An OEM, contractor or consultant that is one of your customers in the CRM shows its account manager, who covers its people by default as at a site. On the Blue Sheet, anyone with a part in the decision whom nobody of ours covers is listed as a gap, wherever they work. Intralox is ticked to start; tap a supplier to add or take it off, or type another and tap <b>Add</b>.</p>
       <p>Tap a person to see their relationships on their own: everything else fades. Their role, view, rating, win and evidence are under <b>More detail</b>. Tap the opportunity to see everyone again.</p>
       <p>At the top of the list, <b>People shown</b> hides everyone's people, and <b>Links on</b> hides the relationships between people. The eye next to a party hides just its people. The list keeps each party's people folded away: tap the arrow at the left of a party to show them, and again to fold them away. On a large account's map the list names a site without the account's own name, so <b>Sample Foods - Northside</b> reads <b>Northside</b> there; the map shows the full name.</p>
       <p>On the PC, drag a party, or the opportunity, to move it; its people move with it. On the phone the list folds above the map; tap <b>Parties and people</b> to open it. Drag the background to move around, and use &minus; and + to zoom.</p>
@@ -2528,7 +2528,8 @@ details.bsx > .msg{margin:8px 12px}
         <li>For a division with its own sites and engineering, tap the circle-plus next to <b>Divisions</b> and type its name.</li>
         <li>Tap each of the division's sites, then pick the division under <b>Division</b>.</li>
         <li>For group engineering that isn't at a site, tap the circle-plus next to <b>Group functions</b> and type its name. Tap it, then pick who it reports to under <b>Reports to</b>, and under <b>Covers</b> tap the sites it looks after.</li>
-        <li>For an OEM, tap it, then under <b>Works with</b> tick each site or engineering group it deals with. For each, tap how: <b>A person</b> (then pick who), <b>Site management</b>, <b>Group engineering</b>, <b>Procurement</b> or <b>Other</b>, and type how it works.</li>
+        <li>For an OEM, tap it, then under <b>Works with</b> tick each site or engineering group it deals with. For each, tap how: <b>A person</b> (then pick who), <b>Site management</b>, <b>Group engineering</b>, <b>Procurement</b>, <b>Specifies for</b>, <b>Advises</b> or <b>Other</b>, and type how it works.</li>
+        <li>For a head contractor, tap it, then under <b>Works with</b> tick the sites it works at. For a consultant, tick the sites, group engineering and OEMs it works with, and how. An OEM that sells through a head contractor keeps both lines: tick its sites, then pick the head contractor under <b>Who they work for</b>.</li>
         <li>Tap the table icon next to a site or the corporate account to add its people. Link people across sites with <b>Link to&hellip;</b>.</li>
         <li>Tap a site to open its account plan or one of its opportunities.</li>
         <li>Tap <b>Plan</b> at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.</li>
