@@ -76,6 +76,28 @@ ok(!!$('opQatl') && $('opQatl').checked, 'group engineering can switch it off');
 $('opQatl').checked = false; $('opQatl').dispatchEvent(new w.Event('change')); await tick(80);
 ok(!g(`opImplied(OPP).some(l => l.by === 'atl')`), 'and then has none');
 
+// ---- v153: any box can be owned by any of our people - Ben: group engineering fell under the ATL and could not be changed
+$('opQatl').checked = true; $('opQatl').dispatchEvent(new w.Event('change')); await tick(80);
+await g(`(async () => { const r = {id: 'sfR', kind: 'staff', n: 'Ray Engineer', pos: 'AE', boss: '', e: '', p: '', added: 1}; await peoplePut(r); STAFF = STAFF.concat([r]);
+  OPP.parties.splice(OPP.parties.length - 1, 0, {id: 'pg', kind: 'grp', name: 'Group engineering'});
+  OPP.people.push({id: 'gq', n: 'Lou Group', title: 'Engineer', party: 'pg', side: 'cust', stance: 'unknown'}); })()`);
+g(`opSelect({t: 'party', id: 'pb'})`); await tick(80);
+ok([...$('opOwnPick').querySelectorAll('option')].some(o => o.value === 'Ray Engineer'), 'a site\'s account manager can be any of our people, not only account managers', [...$('opOwnPick').querySelectorAll('option')].map(o => o.value).join());
+g(`opSelect({t: 'party', id: 'pg'})`); await tick(80);
+ok(/Owner/.test($('opPanel').textContent) && /Ada Lead \(account team leader\)/.test($('opPanel').querySelector('.ownrow').textContent), 'a group function with no account shows its owner: the account team leader until one is picked');
+ok(g(`opImplied(OPP).some(l => l.by === 'atl' && l.b === 'gq')`), 'who covers them by default');
+$('opOwnCh').click(); await tick(20);
+pick('opOwnPick', 'Ray Engineer'); await tick(200);
+ok(g(`OPP.parties.find(q => q.id === 'pg').owner`) === 'Ray Engineer', 'Change makes any of our people its owner');
+ok(!g(`opImplied(OPP).some(l => l.by === 'atl' && l.b === 'gq')`) && g(`opImplied(OPP).some(l => l.by === 'am' && l.b === 'gq' && OPP.people.find(p => p.id === l.a).n === 'Ray Engineer')`), 'the owner covers them instead of the account team leader');
+ok(g(`OPP.people.some(p => p.side === 'us' && p.n === 'Ray Engineer' && p.sid === 'sfR')`), 'and joins Intralox, tied to their record');
+ok(/Ray Engineer, the owner, covers everyone here/.test($('opPanel').textContent) && !$('opQatl'), 'the panel says the owner covers them');
+$('opOwnCh').click(); await tick(20);
+$('opOwnClr').click(); await tick(200);
+ok(!g(`OPP.parties.find(q => q.id === 'pg').owner`) && g(`opImplied(OPP).some(l => l.by === 'atl' && l.b === 'gq')`), 'Back to the account team leader undoes it');
+g(`opSelect({t: 'party', id: 'pb'})`); await tick(80);
+$('opQatl').checked = false; $('opQatl').dispatchEvent(new w.Event('change')); await tick(80);
+
 // ---- a contact whose details changed, and one who moved, from the map
 const pid = n => g(`OPP.people.find(p => p.n === '${n}').id`);
 g(`opSelect({t: 'p', id: '${pid('Pat Plant')}'})`); await tick(80);
