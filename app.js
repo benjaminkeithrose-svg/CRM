@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v155';
+const APP_BUILD = 'v156';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10116,6 +10116,46 @@ async function addPhotos(files){
   if(screen==='dash') renderDash();
 }
 $('camInput').addEventListener('change', e => addPhotos([...e.target.files]));
+/* v156 - Ben, 2026-10-15: "when using the PC version of the app, and I'm in a
+   call, I need to be able to add cut and pasted pictures from various things
+   in there rather than relying on files". Ctrl+V with a picture on the
+   clipboard, or a picture dragged onto the screen: on a belt, project, note or
+   health check it joins that entry's photos, as if picked from a file; on the
+   call itself it goes to the loose photos. Text pastes as before. */
+const pictureFiles = list => [...(list || [])].filter(f => f && /^image\//.test(f.type || ''));
+function clipPictures(dt){
+  if(!dt) return [];
+  const out = [];
+  for(const it of [...(dt.items || [])]) if(it.kind === 'file' && /^image\//.test(it.type)){ const f = it.getAsFile(); if(f) out.push(f); }
+  return out.length ? out : pictureFiles(dt.files);
+}
+async function picturesIn(files, how){
+  if(!files.length) return;
+  if(!call || !CALL_SCREENS.includes(screen)){ toast('Open a call first'); return; }
+  const n = files.length, what = n === 1 ? 'Picture' : n + ' pictures';
+  if(screen === 'dash'){ photoTarget = 'loose'; await addPhotos(files); return; }
+  await addShots(screen, files);
+  toast(what + ' ' + how + ': saved with this ' + ({belt: 'belt', project: 'project', note: 'note', health: 'health check'}[screen] || 'entry') + ' when you tap Done');
+}
+document.addEventListener('paste', e => {
+  if(!call || !CALL_SCREENS.includes(screen)) return;
+  const files = clipPictures(e.clipboardData);
+  if(!files.length) return;                        // text: paste as usual
+  e.preventDefault();
+  picturesIn(files, 'pasted').catch(reportErr);
+});
+document.addEventListener('dragover', e => {
+  if(!call || !CALL_SCREENS.includes(screen) || !e.dataTransfer || ![...(e.dataTransfer.types || [])].includes('Files')) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+document.addEventListener('drop', e => {
+  if(!call || !CALL_SCREENS.includes(screen) || !e.dataTransfer) return;
+  const files = pictureFiles(e.dataTransfer.files);
+  if(!files.length) return;
+  e.preventDefault();
+  picturesIn(files, 'added').catch(reportErr);
+});
 $('galInput').addEventListener('change', e => addPhotos([...e.target.files]));
 function shrink(file, max=1400, q=0.72){
   return new Promise((res,rej)=>{
@@ -10158,6 +10198,8 @@ const byWorkOrder = (a,b) => {
 /* ---------- compile ---------- */
 const DASH_CH = '\u2014';
 const V = v => { v = (v==null?'':String(v)).trim(); return (v===''||v==='N/A') ? DASH_CH : esc(v); };
+// v156: a long box keeps its paragraphs, and its bullet lines print as a list
+const VL = v => { const t = (v==null?'':String(v)).trim(); return (t===''||t==='N/A') ? DASH_CH : commentBodyHTML(t); };
 // Blobs become base64 here and nowhere else, so the output file is byte-for-byte
 // what it was when photos were stored as data URIs.
 /* ---------- image mode ----------
@@ -10578,20 +10620,61 @@ function commentBodyHTML(text){
     ).join('');
   }).join('');
 }
-/* Typing "* " or "- " for a bullet is easy enough at a keyboard but fiddly on
-   a phone's on-screen one, so a button inserts the actual bullet character
-   commentHTML() looks for at the cursor, on its own line. */
-function insertCommentBullet(id){
-  const el = $(id);
-  const pos = el.selectionStart ?? el.value.length;
-  const before = el.value.slice(0, pos), after = el.value.slice(pos);
-  const needsNL = before.length && !before.endsWith('\n');
-  const insert = (needsNL ? '\n' : '') + '• ';
-  el.value = before + insert + after;
-  const newPos = pos + insert.length;
-  el.focus();
-  el.setSelectionRange(newPos, newPos);
+/* ---------- Bullet points (v156) ----------
+   Ben, 2026-10-15: "I do really need a bullet point button in the report
+   summary and in the other free text fields that are for long paragraphs ...
+   so that I can add more bullet points or take them away so it's easier to
+   edit rather than pulling them out into Word". One button under each long
+   box puts a bullet on the line the cursor is on, or every line selected, and
+   takes them off again; Enter on a bulleted line starts the next bullet, and
+   Enter on an empty one ends the list. The documents already print lines
+   starting with a bullet as a list (commentBodyHTML). Not on the belt's spec
+   or description fields. */
+const BULLET_BOXES = ['vSummary', 'nText', 'pNotes', 'bComment', 'hComment', 'hAction', 'tkNotes', 'dAgenda', 'odDesc'];
+function bulletToggle(el){
+  const v = el.value, s0 = el.selectionStart ?? v.length, e0 = el.selectionEnd ?? s0;
+  const a = v.lastIndexOf('\n', s0 - 1) + 1;
+  const endAt = e0 > s0 && v[e0 - 1] === '\n' ? e0 - 1 : e0;
+  let b = v.indexOf('\n', Math.max(endAt, s0)); if(b < 0) b = v.length;
+  const lines = v.slice(a, b).split('\n'), filled = lines.filter(l => l.trim());
+  const allOn = filled.length > 0 && filled.every(l => COMMENT_BULLET_RE.test(l.trim()));
+  const seg = lines.map(l => allOn ? l.replace(/^(\s*)[-*•]\s+/, '$1')
+    : !l.trim() && lines.length > 1 ? l : COMMENT_BULLET_RE.test(l.trim()) ? l : '• ' + l.replace(/^\s+/, '')).join('\n');
+  el.value = v.slice(0, a) + seg + v.slice(b);
+  try { el.focus(); } catch(_){}
+  if(lines.length === 1 && s0 === e0){ const pos = Math.max(a, s0 + seg.length - (b - a)); el.setSelectionRange(pos, pos); }
+  else el.setSelectionRange(a, a + seg.length);
+  el.dispatchEvent(new Event('input', {bubbles: true}));
 }
+function bulletEnter(e){
+  const el = e.target;
+  if(e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.isComposing) return;
+  const v = el.value, s = el.selectionStart, en = el.selectionEnd;
+  if(s == null || s !== en) return;
+  const a = v.lastIndexOf('\n', s - 1) + 1, line = v.slice(a, s), m = line.match(/^(\s*)([-*•])\s+/);
+  if(!m) return;
+  e.preventDefault();
+  if(!line.slice(m[0].length).trim() && !v.slice(s, (v.indexOf('\n', s) + 1 || v.length + 1) - 1).trim()){
+    el.value = v.slice(0, a) + v.slice(s); el.setSelectionRange(a, a);            // an empty bullet: the list ends
+  } else {
+    const ins = '\n' + m[1] + m[2] + ' ';
+    el.value = v.slice(0, s) + ins + v.slice(en); el.setSelectionRange(s + ins.length, s + ins.length);
+  }
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+}
+BULLET_BOXES.forEach(id => {
+  const el = $(id); if(!el) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'bullet-btn bulbtn'; b.dataset.bul = id;
+  b.innerHTML = '&bull; Bullets'; b.title = 'Bullet points on or off'; b.setAttribute('aria-label', 'Bullet points on or off');
+  // keep the cursor and selection in the box: the press must not take focus away
+  b.addEventListener('mousedown', e => e.preventDefault());
+  b.addEventListener('click', () => bulletToggle(el));
+  let row = el.nextElementSibling;
+  if(!(row && row.classList.contains('txtacts'))){ row = document.createElement('div'); row.className = 'txtacts'; el.after(row); }
+  row.insertBefore(b, row.firstChild);
+  el.addEventListener('keydown', bulletEnter);
+});
 /* ================= AI tidy-up and Draft it (v95) =================
    BACKEND-PLAN.md Step 8. The Anthropic key lives in the Supabase project's
    secrets and the ai-tidy function uses it; the app never sees it. Tidy sends
@@ -17815,8 +17898,6 @@ $('aiUse').addEventListener('click', () => {
 });
 $('aidlg').addEventListener('cancel', () => { aiSeq++; aiApply = null; });   // Esc on the PC
 
-$('bCommentBullet').addEventListener('click', () => insertCommentBullet('bComment'));
-$('hCommentBullet').addEventListener('click', () => insertCommentBullet('hComment'));
 // c is the open call unless one is passed - the PC folder save passes each one
 async function buildNotesHTML(scope, mode, c){
   c = c || call;
@@ -17870,7 +17951,7 @@ async function buildNotesHTML(scope, mode, c){
   const notes = wantNotes ? c.entries.filter(e=>e.type==='note') : [];
   if(notes.length){
     p.push('<h2>General notes</h2><table><tr><th>Topic</th><th>Note</th></tr>');
-    notes.forEach(n=>p.push('<tr><td>'+V(n.topic)+'</td><td>'+V(n.text)+'</td></tr>'));
+    notes.forEach(n=>p.push('<tr><td>'+V(n.topic)+'</td><td>'+VL(n.text)+'</td></tr>'));
     p.push('</table>');
   }
 
@@ -17878,7 +17959,7 @@ async function buildNotesHTML(scope, mode, c){
   if(projects.length){
     p.push('<h2>Project discovery</h2><table><tr><th>Project or site</th><th>Status</th><th>Next action</th><th>Target</th><th>Owner</th><th>Notes</th></tr>');
     projects.forEach(x=>p.push('<tr><td>'+V(x.project)+'</td><td>'+V(x.status)+'</td><td>'+V(x.next)+
-      '</td><td>'+V(x.target)+'</td><td>'+V(x.owner)+'</td><td>'+V(x.notes)+'</td></tr>'));
+      '</td><td>'+V(x.target)+'</td><td>'+V(x.owner)+'</td><td>'+VL(x.notes)+'</td></tr>'));
     p.push('</table>');
   }
 
@@ -19624,6 +19705,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v156', 'On the PC, paste a copied picture into a call with Ctrl+V, or drag one in: it goes with the entry open, or into Loose photos. A Bullets button under the summary, notes and other long boxes puts bullet points on and takes them off; Enter carries on the list.'],
   ['v155', 'Plan has three tabs: Calendar, Tasks and Products; the Tasks and Lists tiles are gone. Product ideas move from Idea to Requested, Approved and Stocked, with the customers who want each, Make a task, and Share the list. Intralox people are in Settings. Saved notes are kept in the backup.'],
   ['v154', 'The same OEM, integrator, head contractor or consultant is one company on every large account and Blue Sheet: its people, who they report to and our relationships with them are the same everywhere. Their part in each deal stays with each map.'],
   ['v153', 'Any of our people can own a site. A box on a large account with no account of its own, such as group engineering, has an Owner, in place of the account team leader.'],

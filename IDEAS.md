@@ -974,4 +974,16 @@ works with). Existing duplicates were folded together, newest edit winning.
 
 ---
 
+## Built (v156): Paste pictures on the PC; a Bullets button
+*Asked and built 2026-10-15*
+
+- In a call on the PC, Ctrl+V with a picture on the clipboard (or a picture
+  dragged in) goes to the open entry's photos, or the call's loose photos.
+- A Bullets button under the long text boxes (summary, note, project notes,
+  belt and health comments, health action, task notes, agenda, opportunity
+  description) puts bullets on and takes them off; Enter continues the list.
+  Notes and project notes now print their paragraphs and bullets too.
+
+---
+
 <!-- Add new ideas above this line. -->
