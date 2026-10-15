@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v153';
+const APP_BUILD = 'v154';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -5070,8 +5070,10 @@ async function loadLists(){
     const all = await peopleAll();
     PEOPLE = all.filter(r => !r.kind); STAFF = all.filter(r => r.kind === 'staff');   // v142: Intralox people share the store
     CHG = all.filter(r => r.kind === 'chg');                                           // v144: and changes for Dynamics
+    ORGS = all.filter(r => r.kind === 'org' && !r.merged);                                          // v154: and the OEMs, contractors and consultants
     peopleMerge();
   } catch(e){ console.error('people', e); }
+  try { await orgMigrate(); } catch(e){ console.error('companies', e); }
 }
 function showLists(p){ listsPane = p || listsPane; go('lists'); renderLists(); }
 const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -11347,15 +11349,24 @@ async function oppSaveNow(){
   if(!OPP) return;
   clearTimeout(opSaveTimer); opSaveTimer = null;
   OPP.updated = Date.now();
-  if(OPP.kind === 'large'){                     // a large account's own map is saved with its plan (v123)
-    await plansPut(JSON.parse(JSON.stringify(OPP)));
-    PLANS = PLANS.filter(x => x.id !== OPP.id).concat([OPP]);
+  const o = OPP, os = orgSyncNow(o);             // v154: what changed on a company goes to its other maps
+  if(os.changed && screen === 'opp' && OPP === o){ opEnsure(o); drawOpp(); }
+  if(o.kind === 'large'){                        // a large account's own map is saved with its plan (v123)
+    await plansPut(JSON.parse(JSON.stringify(o)));
+    PLANS = PLANS.filter(x => x.id !== o.id).concat([o]);
+    await os.later;
     return;
   }
-  const w = lapWriteBack(OPP);                   // v139: the large account's boxes go back to its plan
-  await oppsPut(oppPlain(OPP));
-  OPPS = OPPS.filter(x => x.id !== OPP.id).concat([OPP]);
-  if(w) await w;
+  const w = lapWriteBack(o);                     // v139: the large account's boxes go back to its plan
+  await oppsPut(oppPlain(o));
+  OPPS = OPPS.filter(x => x.id !== o.id).concat([o]);
+  if(w){
+    await w;
+    // and from the plan, what changed on its companies goes to theirs
+    const L = lapPlanOf(o), ls = L && orgSyncNow(L);
+    if(ls){ if(ls.changed) await orgSave(L); await ls.later; }
+  }
+  await os.later;
 }
 // typing saves a moment after it stops; anything else saves straight away
 function oppSaveSoon(){ clearTimeout(opSaveTimer); opSaveTimer = setTimeout(() => oppSaveNow().catch(reportErr), 700); }
@@ -11652,9 +11663,9 @@ function lapMerge(o){
   const L = lapPlanOf(o), S = L && lapScope(L, o.acct);
   if(!S) return;
   const nm = q => String(opQName(q) || '').trim().toLowerCase();
-  const own = new Set(o.parties.map(nm)), ownPeople = new Set((o.people || []).map(p => p.id)), ownLinks = new Set((o.links || []).map(l => l.id));
+  const own = new Set(o.parties.map(nm)), ownOrg = new Set(o.parties.map(q => q.org).filter(Boolean)), ownPeople = new Set((o.people || []).map(p => p.id)), ownLinks = new Set((o.links || []).map(l => l.id));
   const at = o.lapPos || {};
-  const qs = L.parties.filter(q => S.ids.has(q.id) && !own.has(nm(q)));
+  const qs = L.parties.filter(q => S.ids.has(q.id) && !own.has(nm(q)) && !(q.org && ownOrg.has(q.org)));   // v154: the same company, by its record
   const ids = new Set(qs.map(q => q.id));
   const copies = qs.map(q => {
     const c = JSON.parse(JSON.stringify(q));
@@ -11739,6 +11750,294 @@ function lapRefresh(o){
   if(o.lap) lapMerge(o);
   else lapSnaps.delete(o.id);
 }
+/* ================= The same company on every map (v154) =================
+   Ben, 2026-10-15: "if we have the same OEMs, integrators, consultants, etc.,
+   involved with a customer or intralox the relationships going to be the same
+   no matter which large account plan it is". One record per OEM or
+   integrator, head contractor and consultant, in store 'people' as kind
+   'org' (shared with the team like the Intralox people, so no new store and
+   no new cloud rule): its people (name, title, Reports to, Dynamics contact),
+   the links among them and their links with our own people, and the belting
+   an OEM prefers. Every large account plan and Blue Sheet with a box for
+   that company shows the same. What belongs to the deal stays on the map:
+   their part in the decision, whether they are helping, the ratings, wins and
+   evidence, Hide, the spec, who they work with, and links to the customer's
+   people. A box is matched by its customer account, else by its name; our
+   people by their Intralox people record, else by name ('us:sf:id' or
+   'us:nm:name' at one end of a link).
+   Opening a map sends anything newer on it to the companies and takes theirs
+   back; a save does the same and passes the change to every other map with
+   that company. Where two copies differ before they meet, the newer edit wins
+   ('at' on each person and link). Taking someone off a company's box takes
+   them off it everywhere; taking the box off a map does not. */
+const ORG_KINDS = ['oem', 'head', 'cons'];
+let ORGS = [];
+const orgSeen = new Map();       // map id -> Map(org id -> {people, links, belts}) as last taken from the company this session
+const orgUsKey = p => { const s = staffOf(p); return 'us:' + (s ? 'sf:' + s.id : 'nm:' + pKey(p.n)); };
+const orgMaps = () => OPPS.concat(PLANS.filter(p => p.kind === 'large')).filter(o => Array.isArray(o.parties) && !o.test);
+function orgFor(q){
+  if(!q || q.lk || !ORG_KINDS.includes(q.kind)) return null;
+  const nm = pKey(opQName(q)), ac = pKey(q.acct);
+  if(!nm && !ac) return null;
+  const fits = r => (ac && pKey(r.acct) === ac) || (nm && pKey(r.n) === nm);
+  const r = q.org && ORGS.find(x => x.id === q.org);
+  if(r && fits(r)) return r;
+  return (ac && ORGS.find(x => pKey(x.acct) === ac)) || (nm && ORGS.find(x => pKey(x.n) === nm)) || null;
+}
+// each company once per map: a second box for it stays the map's own
+function orgBoxes(o){
+  const used = new Set(), out = [];
+  for(const q of o.parties || []){
+    const r = orgFor(q);
+    if(r && !used.has(r.id)){ used.add(r.id); out.push([q, r]); }
+  }
+  return out;
+}
+// one of the company's people takes the id they have everywhere else
+function orgRemap(o, old, nw, touched){
+  if(old === nw) return;
+  const fix = m => {
+    (m.people || []).forEach(p => { if(p.id === old) p.id = nw; if(p.boss === old) p.boss = nw; });
+    (m.links || []).forEach(l => { if(l.a === old) l.a = nw; if(l.b === old) l.b = nw; });
+    ['flags', 'strengths'].forEach(k => (m[k] || []).forEach(f => { if(f.pin === 'p:' + old) f.pin = 'p:' + nw; }));
+    (m.parties || []).forEach(q => (q.works || []).forEach(w => { if(w.who === old) w.who = nw; }));
+  };
+  fix(o);
+  // a large account's people are on its Blue Sheets too
+  if(o.kind === 'large') OPPS.filter(x => x.lap === o.id).forEach(x => { fix(x); lapSnaps.delete(x.id); if(touched) touched.add(x); });
+}
+function orgRemapLink(o, old, nw){
+  (o.links || []).forEach(l => { if(l.id === old) l.id = nw; });
+  ['flags', 'strengths'].forEach(k => (o[k] || []).forEach(f => { if(f.pin === 'l:' + old) f.pin = 'l:' + nw; }));
+}
+const orgSame = (x, v) => Object.keys(v).every(k => (x[k] || '') === (v[k] || ''));
+const orgEnds = (x, a, b) => (x.a === a && x.b === b) || (x.a === b && x.b === a);
+const orgPv = p => JSON.stringify({n: p.n || '', title: p.title || '', boss: p.boss || '', cid: p.cid || ''});
+const orgLv = l => JSON.stringify({kind: l.kind || '', str: l.str || '', note: l.note || ''});
+/* what the map has that the company should. Opened here this session, only
+   what was changed here since goes (the map may be behind the company on the
+   rest); otherwise the newer of the map's last edit and the company's wins.
+   Returns the companies changed, and their writes. */
+function orgPush(o, touched){
+  const ids = new Set(), puts = [];
+  if(!o || o.test || !Array.isArray(o.parties)) return {ids, puts};
+  const seenAll = orgSeen.get(o.id) || new Map();
+  const pairs = orgBoxes(o), done = new Set(pairs.map(([q]) => q));
+  // a company met for the first time: made from this box, if it has anyone in it
+  for(const q of o.parties){
+    if(done.has(q) || q.lk || !ORG_KINDS.includes(q.kind) || !pKey(opQName(q))) continue;
+    if(!(o.people || []).some(p => p.party === q.id)) continue;
+    if(pairs.some(([, r]) => pKey(r.n) === pKey(opQName(q)))) continue;
+    const r = {id: newId('og'), kind: 'org', pk: q.kind, n: opQName(q), acct: q.acct || '', people: [], links: [], added: Date.now()};
+    if(q.kind === 'oem' && q.belts){ r.belts = q.belts.slice(); r.beltsAt = o.updated || 0; }
+    ORGS.push(r); pairs.push([q, r]);
+  }
+  for(const [q, r] of pairs){
+    const seen = seenAll.get(r.id), now = Date.now(), when = o.updated || 0;
+    const before = JSON.stringify(r);
+    r.people = r.people || []; r.links = r.links || [];
+    q.org = r.id;
+    if(q.acct && !r.acct) r.acct = q.acct;
+    if(q.kind === 'oem'){
+      const b = JSON.stringify(q.belts || []);
+      if(b !== JSON.stringify(r.belts || []) && (seen ? b !== seen.belts : !r.belts || when > (r.beltsAt || 0))){ r.belts = (q.belts || []).slice(); r.beltsAt = seen ? now : when; }
+    }
+    const ppl = (o.people || []).filter(p => p.party === q.id);
+    // the same person under another id here takes the company's
+    for(const p of ppl){
+      const op = r.people.find(x => x.id === p.id) || r.people.find(x => (p.cid && x.cid === p.cid) || pKey(x.n) === pKey(p.n));
+      if(op && op.id !== p.id && !(o.people || []).some(x => x.id === op.id)) orgRemap(o, p.id, op.id, touched);
+    }
+    const here = new Set(ppl.map(p => p.id));
+    for(const p of ppl){
+      const vals = {n: p.n || '', title: p.title || '', boss: here.has(p.boss) ? p.boss : '', cid: p.cid || ''}, k = orgPv(vals);
+      const op = r.people.find(x => x.id === p.id);
+      p.og = r.id;
+      if(!op){ r.people.push(Object.assign({id: p.id}, vals, {at: seen ? now : when})); continue; }
+      if(orgPv(op) === k) continue;
+      if(seen ? seen.people.has(p.id) && seen.people.get(p.id) !== k : when > (op.at || 0)) Object.assign(op, vals, {at: seen ? now : when});
+    }
+    // taken off this company's box here since it was opened: off the company
+    if(seen) for(const id of seen.people.keys()) if(!here.has(id) && r.people.some(x => x.id === id)){
+      r.people = r.people.filter(x => x.id !== id);
+      r.people.forEach(x => { if(x.boss === id) x.boss = ''; });
+      r.links = r.links.filter(l => l.a !== id && l.b !== id);
+    }
+    // links among their people, and with ours
+    const ref = p => !p ? '' : p.party === q.id ? p.id : p.side === 'us' ? orgUsKey(p) : '';
+    const linked = new Set();
+    for(const l of o.links || []){
+      if(l.lk || l.implied) continue;
+      const pa = (o.people || []).find(p => p.id === l.a), pb = (o.people || []).find(p => p.id === l.b);
+      if(!pa || !pb || !(pa.party === q.id || pb.party === q.id)) continue;
+      const A = ref(pa), B = ref(pb);
+      if(!A || !B || (A.startsWith('us:') && B.startsWith('us:'))) continue;
+      let ol = r.links.find(x => x.id === l.id) || r.links.find(x => x.kind === l.kind && orgEnds(x, A, B));
+      if(ol && ol.id !== l.id && !(o.links || []).some(x => x.id === ol.id)) orgRemapLink(o, l.id, ol.id);
+      const un = A.startsWith('us:') ? pa.n : B.startsWith('us:') ? pb.n : '';
+      const vals = {a: A, b: B, kind: l.kind || '', str: l.str || '', note: l.note || '', un}, k = orgLv(vals);
+      ol = r.links.find(x => x.id === l.id);
+      l.og = r.id; linked.add(l.id);
+      if(!ol){ r.links.push(Object.assign({id: l.id}, vals, {at: seen ? now : when})); continue; }
+      if(orgLv(ol) === k){ if(ol.a !== A || ol.b !== B) Object.assign(ol, {a: A, b: B, un}); continue; }
+      if(seen ? seen.links.has(l.id) && seen.links.get(l.id) !== k : when > (ol.at || 0)) Object.assign(ol, vals, {at: seen ? now : when});
+    }
+    if(seen) for(const id of seen.links.keys()) if(!linked.has(id)) r.links = r.links.filter(x => x.id !== id);
+    if(JSON.stringify(r) !== before){ r.updated = now; ids.add(r.id); puts.push(peoplePut(JSON.parse(JSON.stringify(r)))); }
+  }
+  return {ids, puts};
+}
+// one of our people for a link the company has: the one on this map, or added to Intralox
+function orgUsOn(o, ref, name){
+  const key = ref.slice(3), st = key.startsWith('sf:') ? STAFF.find(s => s.id === key.slice(3)) : null;
+  const n = st ? st.n : name, us = (o.people || []).filter(p => p.side === 'us');
+  const want = st ? pKey(st.n) : key.startsWith('nm:') ? key.slice(3) : pKey(n);
+  let p = us.find(x => orgUsKey(x) === ref) || us.find(x => pKey(x.n) === want);
+  if(p) return p.id;
+  const ilx = o.parties.find(q => q.kind === 'ilx');
+  if(!ilx || !n) return '';
+  p = {id: newId('pp'), n, title: st && st.pos ? staffPosName(st.pos) : '', party: ilx.id, side: 'us', stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: ''};
+  if(st) p.sid = st.id;
+  o.people.push(p);
+  return p.id;
+}
+// what the companies have, onto the map: returns whether it changed
+function orgPull(o, touched){
+  if(!o || o.test || !Array.isArray(o.parties)) return false;
+  const before = JSON.stringify([o.parties, o.people, o.links]);
+  o.people = o.people || []; o.links = o.links || [];
+  const seenAll = new Map();
+  for(const [q, r] of orgBoxes(o)){
+    q.org = r.id;
+    if(q.kind === 'oem' && r.belts) q.belts = r.belts.slice();
+    const side = opKind(q.kind).side, mine = () => o.people.filter(p => p.party === q.id);
+    const seen = {people: new Map(), links: new Map(), belts: JSON.stringify(q.belts || [])};
+    const got = new Set();
+    for(const op of r.people || []){
+      let p = mine().find(x => x.id === op.id) || mine().find(x => (op.cid && x.cid === op.cid) || pKey(x.n) === pKey(op.n));
+      if(p && p.id !== op.id){ if(o.people.some(x => x.id === op.id)) continue; orgRemap(o, p.id, op.id, touched); }
+      if(!p){ p = {id: op.id, party: q.id, side, org: q.name, stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: ''}; o.people.push(p); }
+      p.n = op.n; p.title = op.title || ''; p.og = r.id;
+      if(op.cid) p.cid = op.cid;
+      got.add(op.id);
+    }
+    for(const op of r.people || []){
+      const p = got.has(op.id) && o.people.find(x => x.id === op.id); if(!p) continue;
+      p.boss = op.boss && got.has(op.boss) ? op.boss : '';
+      seen.people.set(p.id, orgPv(p));
+    }
+    // taken off the company somewhere else: off here too
+    const gone = mine().filter(p => p.og === r.id && !got.has(p.id)).map(p => p.id);
+    if(gone.length) opDropPeople(gone, o);
+    for(const L of r.links || []){
+      const end = x => x.startsWith('us:') ? orgUsOn(o, x, L.un) : got.has(x) ? x : '';
+      const a = end(L.a), b = end(L.b);
+      if(!a || !b) continue;
+      let l = o.links.find(x => x.id === L.id) || o.links.find(x => !x.lk && !x.implied && x.kind === L.kind && orgEnds(x, a, b));
+      if(l && l.id !== L.id){ if(o.links.some(x => x.id === L.id)) continue; orgRemapLink(o, l.id, L.id); }
+      if(!l){ l = {id: L.id}; o.links.push(l); }
+      Object.assign(l, {a, b, kind: L.kind, str: L.str || '', note: L.note || '', og: r.id});
+      seen.links.set(L.id, orgLv(l));
+    }
+    const lgone = o.links.filter(l => l.og === r.id && !seen.links.has(l.id)).map(l => 'l:' + l.id);
+    if(lgone.length){
+      o.links = o.links.filter(l => !(l.og === r.id && !seen.links.has(l.id)));
+      ['flags', 'strengths'].forEach(k => (o[k] || []).forEach(f => { if(lgone.includes(f.pin)) f.pin = ''; }));
+    }
+    seenAll.set(r.id, seen);
+  }
+  orgSeen.set(o.id, seenAll);
+  return JSON.stringify([o.parties, o.people, o.links]) !== before;
+}
+async function orgSave(m){
+  m.updated = Date.now();
+  if(m.kind === 'large') await plansPut(JSON.parse(JSON.stringify(m)));
+  else await oppsPut(oppPlain(m));
+}
+// a change to a company, onto every other map it is on
+async function orgSpread(ids, skip){
+  if(!ids.size) return;
+  const touched = new Set();
+  for(const m of orgMaps()){
+    if(m === skip || m === OPP || !(m.parties || []).some(q => { const r = orgFor(q); return r && ids.has(r.id); })) continue;
+    if(orgPull(m, touched)) touched.add(m);
+  }
+  touched.delete(skip);
+  for(const m of touched) await orgSave(m);
+  // the map on screen takes it the next time it is drawn
+}
+/* on opening a map and on every save: what was changed here goes to the
+   companies, theirs comes back (at once); the companies' other maps follow
+   (later, a promise) */
+function orgSyncNow(o){
+  if(!o || o.test || !Array.isArray(o.parties)) return {changed: false, later: Promise.resolve()};
+  const touched = new Set();
+  const {ids, puts} = orgPush(o, touched);
+  const changed = orgPull(o, touched);
+  touched.delete(o);
+  const later = (async () => { await Promise.all(puts); for(const m of touched) await orgSave(m); await orgSpread(ids, o); })();
+  return {changed, later};
+}
+// v154: any map whose companies are not tied to their records yet (from before v154, or from a device that has not
+// had v154) is made one with them, oldest first so the newer edits win; then every map with those companies takes them
+async function orgMigrate(){
+  orgDedupe();
+  const loose = m => m.parties.some(q => !q.lk && ORG_KINDS.includes(q.kind) && (m.people || []).some(p => p.party === q.id && (!q.org || p.og !== q.org)));
+  const maps = orgMaps().filter(loose).sort((a, b) => (a.updated || 0) - (b.updated || 0));
+  if(!maps.length) return;
+  const touched = new Set(), ids = new Set();
+  for(const m of maps){
+    const was = JSON.stringify([m.parties, m.people, m.links]), r = orgPush(m, touched);
+    r.ids.forEach(x => ids.add(x)); await Promise.all(r.puts);
+    if(JSON.stringify([m.parties, m.people, m.links]) !== was) touched.add(m);
+    orgSeen.delete(m.id);
+  }
+  for(const m of orgMaps()){
+    if(m === OPP || !(maps.includes(m) || m.parties.some(q => { const r = orgFor(q); return r && ids.has(r.id); }))) continue;
+    if(orgPull(m, touched)) touched.add(m);
+    orgSeen.delete(m.id);
+  }
+  touched.delete(OPP);
+  for(const m of touched) await orgSave(m);
+}
+// two devices that met the same company before syncing made two records of it: one is kept
+function orgDedupe(){
+  const byKey = new Map();
+  for(const r of ORGS.slice().sort((a, b) => (a.added || 0) - (b.added || 0) || String(a.id).localeCompare(String(b.id)))){
+    const k = pKey(r.acct) || pKey(r.n), keep = byKey.get(k);
+    if(!keep){ byKey.set(k, r); continue; }
+    const ids = {};
+    for(const p of r.people || []){
+      const m = keep.people.find(x => x.id === p.id || (p.cid && x.cid === p.cid) || pKey(x.n) === pKey(p.n));
+      if(!m) keep.people.push(p);
+      else { ids[p.id] = m.id; if((p.at || 0) > (m.at || 0)) Object.assign(m, p, {id: m.id}); }
+    }
+    for(const l of r.links || []){
+      const c = Object.assign({}, l, {a: ids[l.a] || l.a, b: ids[l.b] || l.b});
+      const m = keep.links.find(x => x.id === c.id || (x.kind === c.kind && orgEnds(x, c.a, c.b)));
+      if(!m) keep.links.push(c); else if((c.at || 0) > (m.at || 0)) Object.assign(m, c, {id: m.id});
+    }
+    keep.updated = Date.now();
+    ORGS = ORGS.filter(x => x !== r);
+    peoplePut(JSON.parse(JSON.stringify(keep))).catch(reportErr);
+    // marked, not deleted: a team member may change a colleague's record but not delete it
+    peoplePut({id: r.id, kind: 'org', n: r.n, acct: r.acct || '', merged: keep.id, people: [], links: [], added: r.added || 0, updated: Date.now()}).catch(reportErr);
+  }
+}
+function orgHereHTML(q){
+  const m = orgElsewhere(q);
+  if(!m.length) return '';
+  const names = m.map(x => x.kind === 'large' ? (x.name || 'Large account') + ' (large account)' : (x.name || 'Untitled') + (x.acct ? ', ' + x.acct : ''));
+  return '<p class="hint orghere">Also on ' + m.length + (m.length === 1 ? ' other map' : ' other maps') + ': ' + esc(names.slice(0, 4).join('; ') + (names.length > 4 ? ' and ' + (names.length - 4) + ' more' : '')) +
+    '. Its people, who they report to, and their relationships with ours are the same on all of them. Their part in each decision stays with each map.</p>';
+}
+// the other maps a company is on, for the box's panel
+function orgElsewhere(q){
+  const r = q && !q.lk && orgFor(q);
+  if(!r) return [];
+  return orgMaps().filter(m => m !== OPP && (m.parties || []).some(x => !x.lk && x.org === r.id));
+}
+
 // how the plan's boxes hang together on the opportunity's map
 function lapLinks(o){
   const S = lapSnaps.get(o.id), lk = o.parties.filter(q => q.lk);
@@ -12567,6 +12866,7 @@ function opPersonPanel(p){
       '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opRm">Take off this map</button></div>' +
     (opConfirm ? '<div class="opconfirm">Take ' + esc(p.n) + ' and ' + nLinks + (nLinks === 1 ? ' link' : ' links') + ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
       (lapPersonIn(p) ? ' They are on the large account plan: this takes them off it, and off its other opportunities, too.' : '') +
+      (p.og && orgElsewhere(opParty(p.party)).length ? ' They are one of ' + esc(opParty(p.party).name) + '\'s people, and it is on ' + orgElsewhere(opParty(p.party)).length + ' other ' + (orgElsewhere(opParty(p.party)).length === 1 ? 'map' : 'maps') + ': this takes them off those too. To keep them there, use Hide: not relevant instead.' : '') +
       '<div class="orow"><button type="button" class="btn warnb" id="opRmY">Take off this map</button><button type="button" class="btn" id="opRmN">Cancel</button></div></div>' : '');
   const typed = (id, key, redraw) => $(id) && $(id).addEventListener('input', e => { p[key] = e.target.value; if(redraw) drawOpp(); oppSaveSoon(); });
   typed('opPn', 'n', true); typed('opPt', 'title', true); typed('opPw', 'win'); typed('opPres', 'result'); typed('opPe', 'evid'); typed('opPnote', 'note');
@@ -12859,6 +13159,7 @@ function opPartyPanel(q){
     // v145: a box typed by name, tied to the customer list so its contacts come in
     (!q.site && !q.lk && q.kind !== 'ilx' && !(q.acct && ACC_BY_NAME.has(q.acct)) ? '<label class="l" for="opQmatch">Match to a customer</label><div class="opadd"><input type="text" id="opQmatch" list="opAcctList" placeholder="Pick their account" autocomplete="off"><button type="button" class="btn act2" id="opQmatchGo">Match</button></div>'
       : !q.site && q.acct && q.acct !== q.name ? '<p class="hint">Matched to ' + esc(q.acct) + ' in the customer list.</p>' : '') +
+    orgHereHTML(q) +                                   // v154: the same company on other maps
     siteOwnerHTML(q) +                                 // v144
     (OPP.kind === 'large' && OPP.atl && atlCovers(q) && !q.lk && !q.owner ? '<label class="chk"><input type="checkbox" id="opQatl"' + (q.atlOff ? '' : ' checked') + '> ' + esc(OPP.atl) + ', the account team leader, covers everyone here</label>' : '') +
     // v140: the account manager covers everyone here, unless switched off for this site
@@ -12897,6 +13198,7 @@ function opPartyPanel(q){
       (q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQout">Take out of the plan</button>' : '') + '</div>' +
     (opConfirm ? '<div class="opconfirm">Remove ' + esc(q.name) + ', its ' + ppl.length + (ppl.length === 1 ? ' person' : ' people') + ' and their ' + nLinks + (nLinks === 1 ? ' link' : ' links') +
       ' from this map? Red flags pinned to them stay, on the whole ' + (OPP.kind === 'large' ? 'account' : 'opportunity') + '.' +
+      (orgElsewhere(q).length ? ' ' + esc(q.name) + ' stays as it is on its other maps.' : '') +
       '<div class="orow"><button type="button" class="btn warnb" id="opQrmY">Remove</button><button type="button" class="btn" id="opQrmN">Cancel</button></div></div>' : '');
   const redraw = () => { oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); };
   siteOwnerWire(q);
@@ -13041,16 +13343,16 @@ function opWorksWire(q, redraw){
   P.querySelectorAll('[data-wknote]').forEach(t => t.addEventListener('input', () => { const x = find(t.dataset.wknote); if(x){ x.note = t.value; drawOpp(); oppSaveSoon(); } }));
 }
 // people leave the map with their links; flags pinned to them move to the whole opportunity; whoever reported to them moves up
-function opDropPeople(ids){
+function opDropPeople(ids, o = OPP){
   const gone = new Set(ids), pins = new Set(ids.map(id => 'p:' + id));
-  (OPP.people || []).filter(p => gone.has(p.id) && p.am).forEach(p => { OPP.amGone = [...new Set((OPP.amGone || []).concat([opAmKey(p.n)]))]; });   // v140
+  (o.people || []).filter(p => gone.has(p.id) && p.am).forEach(p => { o.amGone = [...new Set((o.amGone || []).concat([opAmKey(p.n)]))]; });   // v140
   // v143: someone taken off a site is not brought back by the next import
-  (OPP.people || []).filter(p => gone.has(p.id)).forEach(p => { const q = opParty(p.party); if(q && q.acct && !q.lk && OPP.kind === 'large') q.crmOut = [...new Set((q.crmOut || []).concat([pKey(p.n)]))]; });
-  (OPP.links || []).filter(l => gone.has(l.a) || gone.has(l.b)).forEach(l => pins.add('l:' + l.id));
-  for(const p of OPP.people || []) if(!gone.has(p.id) && gone.has(p.boss)){ const b = opPerson(p.boss); p.boss = b && b.boss && !gone.has(b.boss) ? b.boss : ''; }
-  OPP.people = (OPP.people || []).filter(p => !gone.has(p.id));
-  OPP.links = (OPP.links || []).filter(l => !gone.has(l.a) && !gone.has(l.b));
-  ['flags', 'strengths'].forEach(k => (OPP[k] || []).forEach(f => { if(pins.has(f.pin)) f.pin = ''; }));
+  (o.people || []).filter(p => gone.has(p.id)).forEach(p => { const q = o.parties.find(x => x.id === p.party); if(q && q.acct && !q.lk && o.kind === 'large') q.crmOut = [...new Set((q.crmOut || []).concat([pKey(p.n)]))]; });
+  (o.links || []).filter(l => gone.has(l.a) || gone.has(l.b)).forEach(l => pins.add('l:' + l.id));
+  for(const p of o.people || []) if(!gone.has(p.id) && gone.has(p.boss)){ const b = (o.people || []).find(x => x.id === p.boss); p.boss = b && b.boss && !gone.has(b.boss) ? b.boss : ''; }
+  o.people = (o.people || []).filter(p => !gone.has(p.id));
+  o.links = (o.links || []).filter(l => !gone.has(l.a) && !gone.has(l.b));
+  ['flags', 'strengths'].forEach(k => (o[k] || []).forEach(f => { if(pins.has(f.pin)) f.pin = ''; }));
 }
 
 /* ---- people, as a table: one row each, only the name needed ---- */
@@ -13674,6 +13976,9 @@ async function staffRate(rid, lid, v){
     o.updated = Date.now();
     if(o.kind === 'large'){ await plansPut(JSON.parse(JSON.stringify(o))); PLANS = PLANS.filter(x => x.id !== o.id).concat([o]); }
     else { await oppsPut(oppPlain(o)); OPPS = OPPS.filter(x => x.id !== o.id).concat([o]); }
+    const os = orgSyncNow(o);                    // v154: the same relationship on the company's other maps
+    if(os.changed) await orgSave(o);
+    await os.later;
   }
   staffRelsDraw();
   if(screen === 'opp' && OPP && OPP.id === o.id){ drawOpp(); opPanel(); }
@@ -14085,6 +14390,9 @@ function renderOpp(){
   const lap = OPP.kind === 'large', ns = (OPP.sites || []).length;
   if(!lap) lapRefresh(OPP);                     // v139: the large account's boxes, fresh from its plan
   opEnsure(OPP);
+  const osync = orgSyncNow(OPP);                 // v154: the same OEMs, contractors and consultants as every other map
+  osync.later.catch(reportErr);
+  if(osync.changed){ opEnsure(OPP); oppSaveSoon(); }
   if(lapCrmFill(OPP) | opAmEnsure(OPP) | staffOnMap(OPP)) oppSaveSoon();   // v143: a large account's sites fill from Dynamics   // v140: the sites' account managers join Intralox; v142: tied to their records
   $('title').textContent = OPP.name || (lap ? 'Large account' : 'Opportunity');
   $('subtitle').textContent = lap ? ns + (ns === 1 ? ' site' : ' sites') : OPP.acct;
@@ -18508,7 +18816,7 @@ async function doRestore(file){
   for(const r of (Array.isArray(data.plans) ? data.plans : [])) if(r && r.id) await plansPut(r);   // v106
   for(const r of (Array.isArray(data.opps) ? data.opps : [])) if(r && r.id) await oppsPut(r);      // v115
   for(const r of (Array.isArray(data.cip) ? data.cip : [])) if(r && /^(me|mbo|ref)$/.test(r.id)) await cipPut(r);   // v121
-  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && (r.kind === 'chg' || ((r.acct || r.kind === 'staff') && r.n))) await peoplePut(r);   // v125; v142 Intralox people; v144 changes
+  for(const r of (Array.isArray(data.people) ? data.people : [])) if(r && r.id && (r.kind === 'chg' || (r.kind === 'org' && r.n) || ((r.acct || r.kind === 'staff') && r.n))) await peoplePut(r);   // v154 companies   // v125; v142 Intralox people; v144 changes
   await loadLists();
   await loadQuotes();   // restored quote requests go back on the calendar
   if(data.weeks){ WEEKS = data.weeks; await kvSet('weeks', WEEKS); }
@@ -19352,6 +19660,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v154', 'The same OEM, integrator, head contractor or consultant is one company on every large account and Blue Sheet: its people, who they report to and our relationships with them are the same everywhere. Their part in each deal stays with each map.'],
   ['v153', 'Any of our people can own a site. A box on a large account with no account of its own, such as group engineering, has an Owner, in place of the account team leader.'],
   ['v152', 'Arrange Home: ⋯ on Home, then Arrange Home, to move or hide tiles. CIP and MBO share one Performance tile. This list of what\'s new.'],
   ['v151', 'Consultants on Blue Sheets and large accounts. OEMs can sell through a head contractor or an integrator. Head contractors pick their sites. An OEM\'s own account manager covers its people. The Blue Sheet flags anyone with a part in the decision whom nobody of ours covers.'],

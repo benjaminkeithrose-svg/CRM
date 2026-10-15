@@ -541,6 +541,19 @@ The boxes with a chain stay on the large account plan. Their people, the links b
 
 Each site's account manager, from the CRM export or as reassigned in the app, joins the Intralox box when a map opens and has people at that site. If you take them off the map, they stay off. They have a default link to everyone at their sites, shown as a dashed line only when you tap them or one of those people, and marked **not rated yet** in the list. A default link is not counted as coverage on the Blue Sheet until you rate it; rating it makes it an ordinary link. A relationship rated **Unknown** stays dotted and stays on the list to rate. Neither an Unknown one nor a default one counts as coverage: the Blue Sheet lists it as a gap, for example "Ben Rose's relationship with Pat Plant is unknown", which you can make a red flag.
 
+### The same OEM on every map
+
+An OEM, integrator, head contractor or consultant is one company, whichever large account or Blue Sheet it is on. Its people, who they report to, and their relationships with our people are kept once and shown the same on every map.
+
+1. On a map, add the company by its name, or match it to its account in the customer list.
+2. If it is already on another map, its people come in with it, with our relationships with them.
+3. Add or change its people, or rate a relationship, on any map. The change shows on every other map with that company.
+4. To see where else it is, tap its box. The panel says **Also on** and names the other maps.
+
+What belongs to the deal stays with each map: their part in the decision, whether they are helping us, the ratings, wins and evidence on the Blue Sheet, the spec, who they work with, and their links to the customer's people. **Hide: not relevant** is for this map only.
+
+**Take off this map** on one of the company's people takes them off the company, so off every map; the panel says so first. Removing the company's box from a map leaves it as it is everywhere else. Where two maps had the same person before, they become one, and the most recent edit or rating is kept.
+
 ### Owners, moved contacts and changes for Dynamics
 
 To change a site's account manager:

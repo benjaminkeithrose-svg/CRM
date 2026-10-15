@@ -80,7 +80,7 @@ in the cloud can be read or written at all.
 | Account plans, large account plans | Read, change, delete | Read and change | Read, change, delete | Scrambled only |
 | Opportunities and Blue Sheets | Read, change, delete | Read and change | Read, change, delete | Scrambled only |
 | Saved notes, products | Read, change, delete | Read and change | Read, change, delete | Scrambled only |
-| Contacts added on maps | Read, change, delete | Read and change | Read, change, delete | Scrambled only |
+| Contacts added on maps; Intralox people; OEMs, contractors and consultants with their people | Read, change, delete | Read and change | Read, change, delete | Scrambled only |
 | CRM export, belt reference, audit register, overrides, reassignments | Read (admin writes) | Read | Read and write | Scrambled only |
 | Tasks and emails | Yours only | — | — | Scrambled only |
 | Planning weeks | Yours only | — | — | Scrambled only |

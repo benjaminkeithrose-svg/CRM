@@ -104,7 +104,7 @@ ok(/Not in Dynamics yet/.test($('dirTmp').innerHTML), 'the Directory marks Lee N
 g(`opTableOpen('h3')`); await tick();
 await type('Alex Design');
 $('otDone').click(); await tick(300);
-ok((await g(`peopleAll()`)).length === 2, 'a head contractor that is not a customer adds nobody to the contacts');
+ok((await g(`peopleAll()`)).filter(r => !r.kind).length === 2, 'a head contractor that is not a customer adds nobody to the contacts');
 
 // ---- the person panel
 g(`(() => { opSel = {t: 'p', id: '${kim.id}'}; opPanel(); })()`); await tick();
@@ -117,7 +117,7 @@ ok(!g(`OPP.people.find(p => p.n === 'Kim Site').est`), 'choosing their part conf
 // ---- a CRM import keeps them, until Dynamics has them
 await g(`(async () => { const list = ${crm(`, {n: 'kim site', r: 'Site Engineer', t: '', p: '', pk: '', e: []}`)}; await accReplaceAll(list); indexAccounts(list); })()`); await tick(300);
 ok(added() === 'Lee New' && g(`ACC_BY_NAME.get('${A}').c.filter(c => /kim site/i.test(c.n)).length`) === 1, 'after a CRM import Lee is still there; Kim came in from Dynamics, once');
-ok((await g(`peopleAll()`)).map(r => r.n).join() === 'Lee New' && g(`PEOPLE.length`) === 1, 'Kim\'s added record clears itself');
+ok((await g(`peopleAll()`)).filter(r => !r.kind).map(r => r.n).join() === 'Lee New' && g(`PEOPLE.length`) === 1, 'Kim\'s added record clears itself');
 ok((await g(`accAll()`)).every(a => a.c.every(c => !c.added)), 'the accounts store never holds an added contact');
 
 // ---- backup and the desktop exchange carry them separately

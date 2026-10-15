@@ -949,4 +949,16 @@ for now. Reviewed a clickable mock first.*
 
 ---
 
+## Built (v154): The same company on every map
+*Asked and built 2026-10-15*
+
+Ben: "if we have the same OEMs, integrators, consultants, etc., involved with
+a customer or intralox the relationships going to be the same no matter which
+large account plan it is." One shared record per OEM, integrator, head
+contractor and consultant holds its people, Reports to and our relationships
+with them; each map keeps the deal's part (roles, stance, ratings, spec,
+works with). Existing duplicates were folded together, newest edit winning.
+
+---
+
 <!-- Add new ideas above this line. -->
