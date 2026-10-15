@@ -47,12 +47,12 @@ await tick(100);
 
 // ---- the list, in Settings (v155: Lists is gone)
 g(`go('settings')`); await tick(80);
-ok($('sxStaff') && /No Intralox people yet/.test($('sfRes').textContent), 'Settings has Intralox people, empty to start');
+ok($('sxStaff') && g(`STAFF.map(s => s.n).join()`) === 'Ben Example' && /In the CRM: account manager of 1 account/.test($('sfRes').textContent), 'Settings has Intralox people; v157: it starts with the CRM\'s account manager, no position yet');
 $('sfNew').click(); await tick(80);
 ok($('staffdlg').hasAttribute('open') && $('sfPos').querySelectorAll('button').length === 7, 'its + opens a new person, with the six positions and Other');
 ok([...$('sfPos').querySelectorAll('button')].map(b => b.dataset.v).join() === 'AM,ATL,ITL,SS,AE,TSG,Other', 'AM, ATL, ITL, SS, AE, TSG');
 $('sfOk').click(); await tick(150);
-ok(g(`STAFF.length`) === 0, 'Done with nothing typed keeps nothing');
+ok(g(`STAFF.length`) === 1, 'Done with nothing typed keeps nothing');
 $('sfNew').click(); await tick(80);
 $('sfName').value = 'Ita Leader'; $('sfPos').querySelector('[data-v="ITL"]').click();
 $('sfOk').click(); await tick(150);
@@ -64,6 +64,7 @@ $('sfBoss').value = ita;
 $('sfEmail').value = 'ben@example.org';
 $('sfOk').click(); await tick(150);
 const ben = g(`STAFF.find(s => s.n === 'Ben Example')`);
+ok(g(`STAFF.filter(s => s.n === 'Ben Example').length`) === 1 && ben.id === 'sf-ben-example', 'typing someone already on the list updates them, not a second record');
 ok(ben && ben.pos === 'AM' && ben.boss === ita && ben.e === 'ben@example.org' && ben.kind === 'staff', 'saved with position, manager and email');
 const stored = await g(`peopleAll()`);
 ok(stored.filter(r => r.kind === 'staff').length === 2, 'kept in the shared people store, as staff');
