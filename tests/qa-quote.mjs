@@ -157,13 +157,13 @@ $('outDest').value = 'download'; w.renderOutHint();
 t('button label follows the destination (save)', $('outGo').textContent === 'Create and save');
 $('outDest').value = 'open'; w.renderOutHint();
 t('button label follows the destination (open)', $('outGo').textContent === 'Create and open');
-t('open says nothing leaves the device', $('outDlgHint').textContent.includes('Nothing leaves this device'));
+t('v159: the hint says Open is only a preview', $('outDlgHint').textContent.includes('is a preview, and does not mark the call as issued'));
 t('open does not claim the call is issued', !$('outDlgHint').textContent.includes('Marks the call as issued'));
 $('outDest').value = 'download'; w.renderOutHint();
 $('outScope').value = 'health'; w.renderOutHint();
 t('partial output says it does not mark the call issued', $('outDlgHint').textContent.includes('does not mark the call as issued'));
 $('outScope').value = 'full'; w.renderOutHint();
-t('full output says it marks the call issued', $('outDlgHint').textContent.includes('Marks the call as issued'));
+t('full output says it marks the call issued', $('outDlgHint').textContent.includes('marks the call as issued'));
 $('outImg').value = 'thumbonly'; w.renderOutHint();
 t('thumbonly warns the full images are left out', $('outDlgHint').textContent.includes('full-size images are left out'));
 

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v159">
+<meta name="build" content="v160">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1633,6 +1633,8 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .perftabs{margin:0 0 10px}
 .plantabs{margin:0 0 10px}
 .cagrow .pin{display:block}
+.outacts{display:flex;flex-direction:column;gap:8px}
+.outacts .btn{width:100%;min-height:44px}
 .bsmall{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .bsmall .btn{min-height:40px;padding:6px 12px;font-size:14px;width:auto;flex:0 0 auto}
 #cagTabs{margin:10px 0}
@@ -2932,14 +2934,12 @@ details.bsx > .msg{margin:8px 12px}
     <div class="fld help">
       <ol>
         <li>In the call, tap <b>Create and share</b> at the top.</li>
-        <li>Tap what to include, the photo size, and where to send it.</li>
-        <li>Tap <b>Create and share</b>.</li>
-        <li>Pick Outlook, Teams or OneDrive from the list.</li>
+        <li>If you need to, tap what to include and the photo size, under the buttons.</li>
+        <li>Tap <b>Share sheet</b>, then pick Outlook, Teams or OneDrive. On the PC, tap <b>Copy for email</b>, <b>Open in a new tab</b> or <b>Download to this PC</b>: each does it straight away.</li>
       </ol>
       <p>On the PC, to put the notes straight into an email:</p>
       <ol>
         <li>In the call, tap <b>Create and share</b> at the top.</li>
-        <li>Under <b>Send to</b>, tap <b>Copy for email</b>.</li>
         <li>Tap <b>Copy for email</b>.</li>
         <li>In Outlook, start the email and press <b>Ctrl</b> and <b>V</b>.</li>
       </ol>
@@ -3900,6 +3900,14 @@ details.bsx > .msg{margin:8px 12px}
   <div class="dlg-b">
     <p class="stat" id="compStat"></p>
     <div id="detachWrap"></div>
+    <!-- Options are filled by renderOutDest(): a phone leads with the share
+         sheet, a PC leads with Open, and Share is only offered where the
+         browser says it can actually do it. -->
+    <!-- v159 - Ben: "once you click copy to email, it should copy it ... no point in doing extra clicks".
+         Each of these does its job at once; Include and Images below are what it uses. -->
+    <div class="f">
+      <select id="outDest" hidden></select><div class="outacts" id="outDestSeg"></div>
+    </div>
     <div id="outScopeRow" class="f">
       <label>Include</label>
       <select id="outScope" hidden></select><div class="chips" id="outScopeSeg"></div>
@@ -3912,14 +3920,7 @@ details.bsx > .msg{margin:8px 12px}
         <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
       </select><div class="chips" id="outImgSeg"></div>
     </div>
-    <!-- Options are filled by renderOutDest(): a phone leads with the share
-         sheet, a PC leads with Open, and Share is only offered where the
-         browser says it can actually do it. -->
-    <div class="f">
-      <label>Send to</label>
-      <select id="outDest" hidden></select><div class="chips" id="outDestSeg"></div>
-    </div>
-    <button class="big" id="outGo">Create and share</button>
+    <button class="big" id="outGo" hidden>Create and share</button>
     <p class="note" id="outDlgHint"></p>
   </div>
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="outCancel" type="button">Cancel</button></div>

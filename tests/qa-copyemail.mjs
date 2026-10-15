@@ -45,23 +45,30 @@ const seg = id => [...$(id).querySelectorAll('button')].map(b => b.textContent +
 ok($('outScope').hidden && $('outImg').hidden && $('outDest').hidden, 'the three dropdowns are out of sight');
 ok(seg('outScopeSeg') === 'Full call notes*|Health check only|Belt requirements only', 'Include is a row of buttons: ' + seg('outScopeSeg'));
 ok(/^Full size\*\|Thumbnails, expandable\|Thumbnails only/.test(seg('outImgSeg')), 'so is Images: ' + seg('outImgSeg'));
-ok(seg('outDestSeg') === 'Copy for email*|Open in a new tab|Download to this PC', 'Send to leads with Copy for email on the PC: ' + seg('outDestSeg'));
-ok($('outGo').textContent === 'Copy for email' && /paste into an email in Outlook/.test($('outDlgHint').textContent), 'the main button and the line under it say so');
-$('outDestSeg').querySelector('[data-v="download"]').click(); await tick(30);
-ok($('outDest').value === 'download' && $('outGo').textContent === 'Create and save' && /\*$/.test(seg('outDestSeg').split('|')[2]), 'tapping a button picks it');
+ok(seg('outDestSeg') === 'Copy for email|Open in a new tab|Download to this PC', 'the ways out, Copy for email first on the PC: ' + seg('outDestSeg'));
+ok($('outGo').hidden && $('outDestSeg').querySelector('button').classList.contains('go'), 'no separate button to confirm: the first way out is the main button');
+const secs = [...$('outdlg').querySelectorAll('#outDestSeg, #outScopeSeg, #outImgSeg')].map(x => x.id).join();
+ok(secs === 'outDestSeg,outScopeSeg,outImgSeg', 'the ways out at the top, what to include and the images below: ' + secs);
+ok(/Copy for email puts the notes on the clipboard/.test($('outDlgHint').textContent), 'the line under says what Copy for email does');
 $('outScopeSeg').querySelector('[data-v="health"]').click(); await tick(30);
-ok($('outScope').value === 'health' && /This is for handing to the customer/.test($('outDlgHint').textContent), 'and the hint follows');
-$('outScopeSeg').querySelector('[data-v="full"]').click();
-$('outDestSeg').querySelector('[data-v="copy"]').click(); await tick(30);
+ok($('outScope').value === 'health' && /This is for handing to the customer/.test($('outDlgHint').textContent) && $('outdlg').hasAttribute('open'), 'picking what to include stays in the sheet, and the hint follows');
+$('outScopeSeg').querySelector('[data-v="full"]').click(); await tick(30);
 
-// ---- Copy for email
-$('outGo').click(); await tick(800);
+// ---- Copy for email: one tap
+let opened = 0; w.eval(`openInTab = () => { window.__opened = (window.__opened || 0) + 1; }`);
+$('outDestSeg').querySelector('[data-v="copy"]').click(); await tick(800);
+ok(!$('outdlg').hasAttribute('open'), 'tapping Copy for email copies at once and closes the sheet');
 const h = (clip || {})['text/html'] || '', t = (clip || {})['text/plain'] || '';
 ok(h.length > 200 && t.length > 50, 'the notes go to the clipboard as formatted text and plain text');
 ok(!/<img/i.test(h) && !/<style/i.test(h) && !/<script/i.test(h) && !/class="/.test(h), 'no pictures, stylesheet, scripts or classes: Outlook keeps what is there');
 ok(/style="/.test(h) && /<li[^>]*>trial agreed<\/li>/.test(h), 'each part styled in place, and the summary\'s bullets as a list');
 ok(/Copied: paste it into the email with Ctrl\+V/.test(w.__t || ''), 'and says how to use it: ' + w.__t);
 ok(g(`!!call.shared`) && g(`call.status`) === 'compiled', 'the call notes count as issued');
+
+// ---- Open a new tab: one tap too
+g(`openOutDlg()`); await tick(100);
+$('outDestSeg').querySelector('[data-v="open"]').click(); await tick(400);
+ok(w.__opened === 1 && !$('outdlg').hasAttribute('open'), 'tapping Open a new tab opens it at once');
 
 ok(errs.length === 0, 'no errors', errs.join(' | '));
 console.log(`PASS ${pass}` + (fail ? `  FAIL ${fail}` : ''));
