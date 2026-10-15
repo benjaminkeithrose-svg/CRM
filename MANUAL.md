@@ -690,6 +690,22 @@ The first time the app opens after an update, it says so once at the bottom of t
 
 Photos with nothing logged yet go in **Loose photos** and come out at the end of the notes. Tap a photo to look at it. The × on it deletes it.
 
+On the PC, to add a picture you have copied (a screenshot, or a picture from an email, a drawing or a web page):
+
+1. Copy the picture, for example with **Copy image** or a screenshot.
+2. Open the call. To put it with a belt, project, note or health check, open that entry.
+3. Press **Ctrl** and **V**.
+
+In an entry, the picture joins its photos and is kept when you tap **Done**. On the call itself it goes in **Loose photos**. You can also drag a picture file from a folder onto the screen. Copied text still pastes as text.
+
+### Bullet points
+
+1. Tap in the line you want as a bullet point, or select several lines.
+2. Tap **• Bullets** under the box.
+3. To take them off, select the same lines and tap **• Bullets** again.
+
+Pressing Enter at the end of a bullet starts the next one. Pressing Enter on an empty bullet ends the list. The button is under the call summary, a note, a project's notes, a belt's and a health check's comments, a health check's recommended action, a task's notes, a visit's agenda and an opportunity's description. In the notes you send, the bullets come out as a proper list, and a blank line starts a new paragraph.
+
 ### Delete something
 
 1. Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a product on the Products tab of Plan, or an entry in a call.

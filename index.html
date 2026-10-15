@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v155">
+<meta name="build" content="v156">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -2777,6 +2777,24 @@ details.bsx > .msg{margin:8px 12px}
         <li>Or tap <b>&#8943;</b> on an entry's card, then <b>Take a photo</b> or <b>Add from photos</b>.</li>
       </ol>
       <p>Photos with nothing logged yet go in <b>Loose photos</b> and come out at the end of the notes. Tap a photo to look at it. The &times; on it deletes it.</p>
+      <p>On the PC, to add a picture you have copied (a screenshot, or a picture from an email, a drawing or a web page):</p>
+      <ol>
+        <li>Copy the picture, for example with <b>Copy image</b> or a screenshot.</li>
+        <li>Open the call. To put it with a belt, project, note or health check, open that entry.</li>
+        <li>Press <b>Ctrl</b> and <b>V</b>.</li>
+      </ol>
+      <p>In an entry, the picture joins its photos and is kept when you tap <b>Done</b>. On the call itself it goes in <b>Loose photos</b>. You can also drag a picture file from a folder onto the screen. Copied text still pastes as text.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Bullet points</b><span class="sxs">In the summary, notes and other long boxes</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap in the line you want as a bullet point, or select several lines.</li>
+        <li>Tap <b>&bull; Bullets</b> under the box.</li>
+        <li>To take them off, select the same lines and tap <b>&bull; Bullets</b> again.</li>
+      </ol>
+      <p>Pressing Enter at the end of a bullet starts the next one. Pressing Enter on an empty bullet ends the list. The button is under the call summary, a note, a project's notes, a belt's and a health check's comments, a health check's recommended action, a task's notes, a visit's agenda and an opportunity's description. In the notes you send, the bullets come out as a proper list, and a blank line starts a new paragraph.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -4167,8 +4185,7 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld">
     <label>General comments</label>
     <textarea id="bComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>
-    <div class="txtacts"><button type="button" class="bullet-btn" id="bCommentBullet">Insert bullet &bull;</button>
-      <button type="button" class="bullet-btn aibtn" data-ai="bComment" data-field="belt">Tidy</button></div>
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="bComment" data-field="belt">Tidy</button></div>
     <p class="hint">Prints in bold on the report. A blank line starts a new paragraph; a line
       starting with - or &bull; becomes a bullet list.</p>
   </div>
@@ -4290,8 +4307,7 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld">
     <label>General comments</label>
     <textarea id="hComment" rows="3" placeholder="Condition, non-standard items, anything that has to be read"></textarea>
-    <div class="txtacts"><button type="button" class="bullet-btn" id="hCommentBullet">Insert bullet &bull;</button>
-      <button type="button" class="bullet-btn aibtn" data-ai="hComment" data-field="health">Tidy</button></div>
+    <div class="txtacts"><button type="button" class="bullet-btn aibtn" data-ai="hComment" data-field="health">Tidy</button></div>
     <p class="hint">Prints in bold on the report. A blank line starts a new paragraph; a line
       starting with - or &bull; becomes a bullet list.</p>
   </div>

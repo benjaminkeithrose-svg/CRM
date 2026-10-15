@@ -13,12 +13,13 @@
 | **Task Slaughterer** | Its export, once | `tasks`, `snippets`, `products` | The old separate tasks page |
 | **Engineering manuals** | intralox.com (found by the `intralox-manuals` function) or a PDF you pick | the browser's storage, as page images | pdf.js loads from a CDN the first time |
 | **A shared file** | Android's share sheet | the call or form it was shared to | |
+| **A copied or dragged picture** (v156) | The clipboard (Ctrl+V) or a picture file dragged onto a call, on the PC | the open entry's `photos`, or the call's `loose` | Shrunk like any photo; text on the clipboard pastes as text |
 
 ## Going out
 
 | What | How | Format |
 |---|---|---|
-| **Call notes**, health check, belt requirements | Create and share on a call | Self-contained A4 HTML for the share sheet or a new tab; survives Outlook's renderer |
+| **Call notes**, health check, belt requirements | Create and share on a call | Self-contained A4 HTML for the share sheet or a new tab; survives Outlook's renderer. In the summary, comments, a note's text and a project's notes, a blank line starts a paragraph and lines starting with a bullet or - print as a list (v156: notes and project notes too) |
 | **Quote request (RFQ)** | Create and share on a quote | A4 HTML |
 | **Blue Sheet** | Create and share | PDF (the print screen's Save as PDF) or Excel in Miller Heiman's template layout |
 | **Large account plan** | Create and share | A4 HTML in Dynamics' order |
