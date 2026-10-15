@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v156">
+<meta name="build" content="v157">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1630,6 +1630,7 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .arrhid{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin:12px 0 4px}
 .perftabs{margin:0 0 10px}
 .plantabs{margin:0 0 10px}
+.opours{display:flex;flex-direction:column;gap:2px;margin:0 0 8px}
 #s-plan .planwrap{min-height:calc(100vh - 170px)}
 #prAccts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
 #prAccts .prc{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:16px;padding:2px 4px 2px 10px;font-size:14px}
@@ -2679,8 +2680,8 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Intralox people</b><span class="sxs">Our own people, their positions and relationships</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Intralox people</b>.</li>
-        <li>Tap <b>Add someone</b>.</li>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Intralox people</b>. Everyone the CRM export names as an account manager or account representative, and your team, is already there.</li>
+        <li>Tap someone to give them a position and a manager, or tap <b>Add someone</b> for anyone else.</li>
         <li>Type their name.</li>
         <li>Tap their position: <b>AM</b> account manager, <b>ATL</b> account team leader, <b>ITL</b> industry team leader, <b>SS</b> solution seller (P2P), <b>AE</b> application engineer or <b>TSG</b> technical service group. For anything else, tap <b>Other</b> and type it.</li>
         <li>Under <b>Reports to</b>, pick their manager if they are on the list. Leave it as <b>Nobody yet</b> if not.</li>
@@ -2689,6 +2690,14 @@ details.bsx > .msg{margin:8px 12px}
         <li>To see everyone they have a relationship with, tap them under <b>Intralox people</b> in Settings, or tap them on a map and then <b>Their Intralox record</b>.</li>
         <li>Under <b>Their relationships</b>, each map they are on is listed. Tap <b>Strong</b>, <b>Neutral</b>, <b>Weak</b>, <b>Hostile</b> or <b>Unknown</b> on a row to set it, or tap a name to go to them on that map.</li>
       </ol>
+      <p>To put our people on a large account or a Blue Sheet:</p>
+      <ol>
+        <li>Tap the <b>Intralox</b> box on the map.</li>
+        <li>Tap <b>Add our people</b>.</li>
+        <li>Tick the people to add. They are grouped by position. The account managers of the sites on the map and the account team leader come ticked; anyone already in the box shows as in it.</li>
+        <li>Tap <b>Add ticked</b>.</li>
+      </ol>
+      <p>Someone without a position yet shows what the CRM has them as, for example account manager of 12 accounts. Positions and who reports to whom are added by hand. Deleting someone the CRM put on the list keeps them off it. Typing a name that is already on the list updates that person rather than adding them twice.</p>
       <p>The list is shared with your team. On a map, someone in the Intralox box with the same name is tied to their record and shows their position. When their manager is in the box too, they are drawn under them, as an organisation chart. Someone on a map who is not on the list yet has <b>Add to Intralox people</b> in their panel. Deleting someone from the list leaves them on the maps they are on.</p>
     </div>
   </details>

@@ -598,8 +598,8 @@ The spreadsheet has a sheet each for new contacts, moved contacts, changed detai
 
 ### Intralox people
 
-1. Tap **⋯** on Home, then **Settings**, then **Intralox people**.
-2. Tap **Add someone**.
+1. Tap **⋯** on Home, then **Settings**, then **Intralox people**. Everyone the CRM export names as an account manager or account representative, and your team, is already there.
+2. Tap someone to give them a position and a manager, or tap **Add someone** for anyone else.
 3. Type their name.
 4. Tap their position: **AM** account manager, **ATL** account team leader, **ITL** industry team leader, **SS** solution seller (P2P), **AE** application engineer or **TSG** technical service group. For anything else, tap **Other** and type it.
 5. Under **Reports to**, pick their manager if they are on the list. Leave it as **Nobody yet** if not.
@@ -607,6 +607,15 @@ The spreadsheet has a sheet each for new contacts, moved contacts, changed detai
 7. To put them on a map, tap the table icon next to **Intralox** in the list beside the map and start typing their name. Pick it from the list.
 8. To see everyone they have a relationship with, tap them under **Intralox people** in Settings, or tap them on a map and then **Their Intralox record**.
 9. Under **Their relationships**, each map they are on is listed. Tap **Strong**, **Neutral**, **Weak**, **Hostile** or **Unknown** on a row to set it, or tap a name to go to them on that map.
+
+To put our people on a large account or a Blue Sheet:
+
+1. Tap the **Intralox** box on the map.
+2. Tap **Add our people**.
+3. Tick the people to add. They are grouped by position. The account managers of the sites on the map and the account team leader come ticked; anyone already in the box shows as in it.
+4. Tap **Add ticked**.
+
+Someone without a position yet shows what the CRM has them as, for example account manager of 12 accounts. Positions and who reports to whom are added by hand. Deleting someone the CRM put on the list keeps them off it. Typing a name that is already on the list updates that person rather than adding them twice.
 
 The list is shared with your team. On a map, someone in the Intralox box with the same name is tied to their record and shows their position. When their manager is in the box too, they are drawn under them, as an organisation chart. Someone on a map who is not on the list yet has **Add to Intralox people** in their panel. Deleting someone from the list leaves them on the maps they are on.
 

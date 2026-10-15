@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v156';
+const APP_BUILD = 'v157';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1480,7 +1480,7 @@ function showScreen(name){
   if(name==='directory') renderDirPane();
   if(name==='reference') renderRefPane();
   if(name==='ccontacts') renderCallContacts();
-  if(name==='settings'){ renderStaff(); renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); renderPeopleStat();
+  if(name==='settings'){ staffFill().catch(e => console.error('people', e)); renderStaff(); renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); renderPeopleStat();
     if($('setImgMode')) $('setImgMode').value = defaultImgMode();
     renderSettingsSummary(); }
   if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
@@ -5067,12 +5067,14 @@ async function loadLists(){
   homeLayoutLoad();                               // v152: your Home layout, from your other devices
   try {
     const all = await peopleAll();
-    PEOPLE = all.filter(r => !r.kind); STAFF = all.filter(r => r.kind === 'staff');   // v142: Intralox people share the store
+    PEOPLE = all.filter(r => !r.kind); STAFF = all.filter(r => r.kind === 'staff' && !r.gone);   // v142: Intralox people share the store
+    STAFF_GONE = new Set(all.filter(r => r.kind === 'staff' && r.gone).map(r => r.id));             // v157: taken off, not filled again
     CHG = all.filter(r => r.kind === 'chg');                                           // v144: and changes for Dynamics
     ORGS = all.filter(r => r.kind === 'org' && !r.merged);                                          // v154: and the OEMs, contractors and consultants
     peopleMerge();
   } catch(e){ console.error('people', e); }
   try { await orgMigrate(); } catch(e){ console.error('companies', e); }
+  try { await staffFill(); } catch(e){ console.error('people', e); }
 }
 const newId = pre => pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const snTitle = r => (r.label || '').trim() || (r.text || '').trim().split('\n')[0].slice(0, 60) || 'Saved note';
@@ -6633,7 +6635,7 @@ async function cloudSyncRecs(){
   } finally { cloudProgress = ''; }
   const bits = [], n = (x, w) => x + ' ' + w + (x === 1 ? '' : 's');
   const list = x => [x.calls && n(x.calls, 'call'), x.appts && n(x.appts, 'appointment'), x.tasks && n(x.tasks, 'task'),
-    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'), x.cip && n(x.cip, 'CIP and MBO record'), x.people && n(x.people, 'added contact'),
+    x.snippets && n(x.snippets, 'saved note'), x.products && n(x.products, 'product'), x.plans && n(x.plans, 'account plan'), x.opps && x.opps + (x.opps === 1 ? ' opportunity' : ' opportunities'), x.cip && n(x.cip, 'CIP and MBO record'), x.people && x.people + (x.people === 1 ? ' person or company' : ' people or companies'),   // v157: contacts, Intralox people, companies and changes share the store
     x.gone && n(x.gone, 'deletion'), x.photos && n(x.photos, 'photo')].filter(Boolean).join(', ');
   if(up.calls + up.appts + up.tasks + up.snippets + up.products + up.plans + up.opps + up.cip + up.people + up.gone) bits.push('sent ' + list(Object.assign({}, up, {photos: up.photosUp})));
   if(stats.calls + stats.appts + stats.tasks + stats.snippets + stats.products + stats.plans + stats.opps + stats.cip + stats.people + stats.gone){
@@ -13224,6 +13226,8 @@ function opPartyPanel(q){
       '<div class="opadd"><input type="text" id="opQbeltN" placeholder="Another supplier" aria-label="Another belting supplier"><button type="button" class="btn act2" id="opQbeltGo">Add</button></div>' +
       opWorksHTML(q) : '') +                                           // v151: on a Blue Sheet too
     opPplHTML(q, ppl) +
+    // v157: our people, from the Intralox people list, a tick each
+    (q.kind === 'ilx' ? '<div class="orow"><button type="button" class="btn act2" id="opQours">Add our people</button></div><div id="opOurs" hidden></div>' : '') +
     '<div class="orow"><button type="button" class="btn go" id="opQtbl">Add or change people</button><button type="button" class="btn" id="opQeye">' + (q.show === false ? 'Draw them on the map' : 'List only, off the map') + '</button>' +
       '<button type="button" class="btn" id="opDone">Done</button>' + (q.kind !== 'ilx' && !q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQrm">Remove</button>' : '') +
       (q.site ? '<span class="spacer" style="flex:1"></span><button type="button" class="btn warnb" id="opQout">Take out of the plan</button>' : '') + '</div>' +
@@ -13271,6 +13275,7 @@ function opPartyPanel(q){
   P.querySelectorAll('[data-qp]').forEach(b => b.addEventListener('click', () => opSelect({t: 'p', id: b.dataset.qp})));
   opPplWire(() => opPartyPanel(q));
   $('opQtbl').addEventListener('click', () => opTableOpen(q.id));
+  if($('opQours')) $('opQours').addEventListener('click', () => { const el = $('opOurs'); el.hidden = !el.hidden; if(!el.hidden) opOursDraw(q); });
   if($('opQhq')) $('opQhq').addEventListener('change', e => {
     OPP.parties.forEach(x => { if(x.kind === 'end' && x.hq){ x.hq = false; delete x.x; delete x.y; } });
     q.hq = e.target.checked; delete q.x; delete q.y;
@@ -13919,9 +13924,43 @@ function staffRels(s){
   return out;
 }
 const staffRecTitle = o => o.kind === 'large' ? (o.name || 'Large account') + ' (large account)' : (o.name || 'Untitled') + (o.acct ? ' · ' + o.acct : '');
+/* ---- v157: the list fills itself ----
+   Ben, 2026-10-15: "the intralox people should be taken from the database".
+   Everyone the CRM export names as an Account Manager or Account Representative
+   (and anyone an account has been reassigned to), and your team's members,
+   join the list once, with no position: positions and who reports to whom are
+   added by hand. The id comes from the name, so two devices filling the list at
+   once make the same record, not two. Someone deleted from the list is kept as
+   gone, so the next fill does not bring them back. */
+let STAFF_GONE = new Set();
+const staffIdFor = n => 'sf-' + pKey(n).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+function staffCrmNames(){
+  const m = new Map(), add = (n, src) => { n = String(n || '').trim(); if(n.length < 2 || /^(nobody|none|n\/a|-)$/i.test(n)) return; if(!m.has(pKey(n))) m.set(pKey(n), {n, src}); };
+  for(const a of ACCOUNTS){ add(a.mgr, 'crm'); add(effMgr(a), 'crm'); add(a.rep, 'crm'); }
+  teamPeople().forEach(x => add(x.name, 'team'));
+  return [...m.values()];
+}
+async function staffFill(){
+  if(!ACCOUNTS.length && !teamPeople().length) return 0;
+  const have = new Set(STAFF.map(x => pKey(x.n))), made = [];
+  for(const {n, src} of staffCrmNames()){
+    const id = staffIdFor(n);
+    if(have.has(pKey(n)) || STAFF_GONE.has(id) || STAFF.some(x => x.id === id)) continue;
+    const r = {id, kind: 'staff', n, pos: '', boss: '', e: '', p: '', src, added: Date.now(), updated: Date.now()};
+    await peoplePut(r); made.push(r); have.add(pKey(n));
+  }
+  if(made.length){ STAFF = STAFF.concat(made); if(screen === 'settings') renderStaff(); }
+  return made.length;
+}
+// what the CRM says about them, for someone with no position yet
+function staffCrmLine(s){
+  const k = pKey(s.n), am = ACCOUNTS.filter(a => pKey(effMgr(a)) === k).length, rp = ACCOUNTS.filter(a => pKey(a.rep) === k).length;
+  const bits = [am ? 'account manager of ' + am + (am === 1 ? ' account' : ' accounts') : '', rp ? 'representative on ' + rp : ''].filter(Boolean);
+  return bits.length ? 'In the CRM: ' + bits.join(', ') : s.src === 'team' ? 'On your team' : '';
+}
 function staffRow(s){
   const boss = STAFF.find(x => x.id === s.boss), maps = staffRels(s).length;
-  const meta = [s.pos ? staffPosName(s.pos) : '', boss ? 'reports to ' + boss.n : '', maps ? maps + (maps === 1 ? ' map' : ' maps') : ''].filter(Boolean).join(' · ');
+  const meta = [s.pos ? staffPosName(s.pos) : staffCrmLine(s), boss ? 'reports to ' + boss.n : '', maps ? maps + (maps === 1 ? ' map' : ' maps') : ''].filter(Boolean).join(' · ');
   return '<div class="rprow"><button class="rpt" data-sfopen="' + esc(s.id) + '"><div class="rn">' + esc(s.n || 'Someone') + (s.pos ? ' <span class="sfpos">' + esc(s.pos) + '</span>' : '') + '</div>' +
     '<div class="rm">' + esc(meta || 'No position yet') + '</div></button>' + binBtn('data-sfdel', s.id, s.n || 'this person') + '</div>';
 }
@@ -14031,6 +14070,18 @@ async function staffFinish(){
   if(!sfIsNew && JSON.stringify(r) === sfBefore) return;
   if(!r.n){ toast('A name is needed: nothing was changed'); return; }
   r.updated = Date.now();
+  // v157: already on the list (the CRM put them there): the new details go on that record, not a second one
+  const same = sfIsNew && STAFF.find(x => pKey(x.n) === pKey(r.n));
+  if(same){
+    const m = Object.assign({}, same, {pos: r.pos || same.pos, boss: r.boss || same.boss, e: r.e || same.e, p: r.p || same.p, updated: r.updated});
+    if(m.boss === m.id) m.boss = same.boss;
+    await peoplePut(m);
+    STAFF = STAFF.filter(x => x.id !== m.id).concat([m]);
+    toast(m.n + ' was already on the list: their details are updated');
+    if(screen === 'settings') renderStaff();
+    if(screen === 'opp' && OPP){ renderOpp(); }
+    return;
+  }
   if(sfIsNew) r.by = localStorage.getItem(LS('mgr')) || '';
   await peoplePut(r);
   STAFF = STAFF.filter(x => x.id !== r.id).concat([r]);
@@ -14042,8 +14093,11 @@ async function staffDelete(s){
   const under = STAFF.filter(x => x.boss === s.id).length, maps = staffRels(s).length;
   if(!confirm('Delete ' + (s.n || 'this person') + ' from Intralox people?' +
       (under ? '\n\n' + under + (under === 1 ? ' person reports' : ' people report') + ' to them; they will report to nobody.' : '') +
-      (maps ? '\n\nThey stay on the ' + maps + (maps === 1 ? ' map' : ' maps') + ' they are on, with their relationships; only this record goes.' : '') + ' This cannot be undone.')) return false;
-  await peopleDel(s.id);
+      (maps ? '\n\nThey stay on the ' + maps + (maps === 1 ? ' map' : ' maps') + ' they are on, with their relationships; only this record goes.' : '') +
+      (staffCrmLine(s) ? '\n\nThey are in the CRM: the list will not add them again.' : '') + ' This cannot be undone.')) return false;
+  // v157: kept as gone, not deleted, so the list does not fill them back in (and a team member may not delete a colleague's record)
+  await peoplePut({id: s.id, kind: 'staff', n: s.n, gone: true, added: s.added || 0, updated: Date.now()});
+  STAFF_GONE.add(s.id);
   STAFF = STAFF.filter(x => x.id !== s.id);
   for(const x of STAFF.filter(y => y.boss === s.id)){ x.boss = ''; x.updated = Date.now(); await peoplePut(x); }
   toast((s.n || 'They') + ' deleted from Intralox people');
@@ -14051,6 +14105,48 @@ async function staffDelete(s){
   return true;
 }
 // in a map's Intralox box: tie people to their records, and their manager there is who they report to
+/* v157 - Ben: "I should be able to easily add them to the strategy sections".
+   In the Intralox box: everyone on the Intralox people list, a tick each,
+   grouped by position. The account managers of the boxes on this map and the
+   account team leader come ticked; anyone already in the box is shown ticked,
+   and stays. */
+function opOursDraw(q){
+  const el = $('opOurs'); if(!el || !OPP) return;
+  staffFill().catch(() => {});
+  const inBox = new Set((OPP.people || []).filter(p => p.party === q.id).map(p => (staffOf(p) || {}).id).filter(Boolean));
+  const want = new Set((OPP.parties || []).map(x => pKey(opAmOf(OPP, x))).filter(Boolean));
+  if(OPP.kind === 'large' && OPP.atl) want.add(pKey(OPP.atl));
+  if(!STAFF.length){ el.innerHTML = '<p class="hint">No Intralox people yet. They fill in from the CRM export, or add them under Settings, Intralox people.</p>'; return; }
+  const groups = STAFF_POS.map(([k, t]) => [t, STAFF.filter(s => s.pos === k)])
+    .concat([['Other', STAFF.filter(s => s.pos && !STAFF_POS.some(x => x[0] === s.pos))], ['No position yet', STAFF.filter(s => !s.pos)]])
+    .filter(([, l]) => l.length);
+  el.innerHTML = groups.map(([t, l]) => '<label class="l">' + esc(t) + '</label><div class="opours">' + l.slice().sort((a, b) => String(a.n).localeCompare(String(b.n))).map(s => {
+    const here = inBox.has(s.id), on = here || want.has(pKey(s.n));
+    return '<label class="chk"><input type="checkbox" data-our="' + esc(s.id) + '"' + (on ? ' checked' : '') + (here ? ' disabled' : '') + '> ' + esc(s.n) +
+      (here ? ' <span class="hint">in the box</span>' : want.has(pKey(s.n)) ? ' <span class="hint">' + (OPP.atl && pKey(OPP.atl) === pKey(s.n) ? 'account team leader' : 'account manager here') + '</span>' : '') + '</label>';
+  }).join('') + '</div>').join('') +
+    '<div class="orow"><button type="button" class="btn go" id="opOursGo">Add ticked</button></div>';
+  $('opOursGo').addEventListener('click', () => {
+    const ids = [...el.querySelectorAll('[data-our]:checked:not(:disabled)')].map(c => c.dataset.our);
+    const n = opOursAdd(q, ids);
+    el.hidden = true;
+    oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q);
+    toast(n ? n + (n === 1 ? ' person' : ' people') + ' added to Intralox' : 'Nobody new to add');
+  });
+}
+function opOursAdd(q, ids){
+  let n = 0;
+  for(const id of ids){
+    const s = STAFF.find(x => x.id === id); if(!s) continue;
+    if((OPP.people || []).some(p => p.party === q.id && staffOf(p) === s)) continue;
+    OPP.people = (OPP.people || []).concat([{id: newId('pp'), party: q.id, side: 'us', n: s.n, title: s.pos ? staffPosName(s.pos) : '', sid: s.id,
+      stance: 'unknown', mode: '', rate: 0, note: '', win: '', result: '', evid: ''}]);
+    OPP.amGone = (OPP.amGone || []).filter(k => k !== opAmKey(s.n));     // added back by hand: no longer kept off
+    n++;
+  }
+  if(n) staffOnMap(OPP);                       // their manager in the box becomes who they report to
+  return n;
+}
 function staffOnMap(o){
   if(!o || !Array.isArray(o.parties) || !STAFF.length) return false;
   const ilx = o.parties.find(q => q.kind === 'ilx'); if(!ilx) return false;
@@ -19705,6 +19801,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v157', 'The Intralox people list fills itself from the CRM export\'s account managers and representatives, and your team; positions are added by hand. In the Intralox box on a map, Add our people ticks them in, grouped by position, with the sites\' account managers ticked.'],
   ['v156', 'On the PC, paste a copied picture into a call with Ctrl+V, or drag one in: it goes with the entry open, or into Loose photos. A Bullets button under the summary, notes and other long boxes puts bullet points on and takes them off; Enter carries on the list.'],
   ['v155', 'Plan has three tabs: Calendar, Tasks and Products; the Tasks and Lists tiles are gone. Product ideas move from Idea to Requested, Approved and Stocked, with the customers who want each, Make a task, and Share the list. Intralox people are in Settings. Saved notes are kept in the backup.'],
   ['v154', 'The same OEM, integrator, head contractor or consultant is one company on every large account and Blue Sheet: its people, who they report to and our relationships with them are the same everywhere. Their part in each deal stays with each map.'],

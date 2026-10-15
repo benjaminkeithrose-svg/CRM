@@ -92,9 +92,9 @@ ok(kim.role === 'Checks the spec' && kim.stance === 'neutral' && kim.est.join() 
 const added = () => g(`ACC_BY_NAME.get('${A}').c.filter(c => c.added).map(c => c.n).sort().join()`);
 ok(added() === 'Kim Site,Lee New', 'Kim and Lee are on the customer\'s contacts, marked added; Tom was there already: ' + added());
 ok(/2 people added to Example Meats - Dandenong's contacts, marked Not in Dynamics yet/.test($('toast').textContent), 'and a message says so');
-const stored = await g(`peopleAll()`);
+const stored = (await g(`peopleAll()`)).filter(r => !r.kind);   // v157: Intralox people share the store
 ok(stored.length === 2 && stored.every(r => r.acct === A && r.by === 'Ben Example' && r.from === 'Boning room') && stored.find(r => r.n === 'Kim Site').t === 'Site Engineer', 'kept in the people store: account, name, title, who, which Blue Sheet');
-const dirty = await g(`cloudDirtyLoad().then(() => Object.keys(cloudDirty).filter(k => k.startsWith('people/')).length)`);
+const dirty = await g(`cloudDirtyLoad().then(() => Object.keys(cloudDirty).filter(k => k.startsWith('people/') && !k.startsWith('people/sf-')).length)`);
 ok(dirty === 2, 'both waiting to go to the cloud for the team');
 ok(g(`haystack(ACC_BY_NAME.get('${A}'))`).includes('lee new'), 'searchable straight away');
 // the Directory tags them
@@ -122,7 +122,7 @@ ok((await g(`accAll()`)).every(a => a.c.every(c => !c.added)), 'the accounts sto
 
 // ---- backup and the desktop exchange carry them separately
 const bk = await g(`buildBackup(false)`);
-ok(bk.accounts.every(a => a.c.every(c => !c.added)) && bk.people.map(r => r.n).join() === 'Lee New', 'a backup keeps the accounts as Dynamics gave them, and the people beside them');
+ok(bk.accounts.every(a => a.c.every(c => !c.added)) && bk.people.filter(r => !r.kind).map(r => r.n).join() === 'Lee New', 'a backup keeps the accounts as Dynamics gave them, and the people beside them');
 ok(g(`accPlain()`).every(a => a.c.every(c => !c.added)) && added() === 'Lee New', 'the plain account list leaves the live one alone');
 
 // ---- Settings: the list to put into Dynamics

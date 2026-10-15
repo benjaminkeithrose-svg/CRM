@@ -484,7 +484,7 @@ ok(pcC && pcC.entries[0].notes === 'Sprocket wear' && pcC.contacts[0].name === '
 const pcBytes = await photoBytesIn(P, pcC);
 ok(JSON.stringify(pcBytes) === JSON.stringify(['255,216,255,1:300000', '255,216,255,2:250000', '255,216,255,3:200000']), 'PC has all three photos, byte for byte: ' + pcBytes.join(' '));
 ok(P.w.eval('APPTS.some(a => a.id === "a100")'), 'PC has the appointment');
-ok(/Brought in 1 call, 1 appointment, 3 photos/.test(P.w.eval('JSON.stringify(LOAD_LOG)')), 'load log says what came in');
+ok(/Brought in 1 call, 1 appointment, (\d+ (person or company|people or companies), )?3 photos/.test(P.w.eval('JSON.stringify(LOAD_LOG)')), 'load log says what came in: ' + P.w.eval('JSON.stringify(LOAD_LOG)').slice(0, 600));
 const postsC100 = posts.filter(x => x === 'calls/c100').length;
 await syncW(P);
 ok(posts.filter(x => x === 'calls/c100').length === postsC100, 'a call brought in is not sent back up');

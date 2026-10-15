@@ -986,4 +986,16 @@ works with). Existing duplicates were folded together, newest edit winning.
 
 ---
 
+## Built (v157): Intralox people from the CRM; Add our people
+*Asked 2026-10-15, built 2026-10-15*
+
+- The list fills itself from the CRM export's Account Manager and Account
+  Representative names (and reassignments) and the team; positions and
+  reporting lines by hand. Deleted ones stay gone; a typed duplicate updates
+  the existing person.
+- Add our people in the Intralox box: a tick list grouped by position, the
+  sites' account managers and the ATL ticked.
+
+---
+
 <!-- Add new ideas above this line. -->
