@@ -814,16 +814,14 @@ Put when it is needed by, and any reference, in the quote's notes. It shows on t
 ### Send the notes out
 
 1. In the call, tap **Create and share** at the top.
-2. Tap what to include, the photo size, and where to send it.
-3. Tap **Create and share**.
-4. Pick Outlook, Teams or OneDrive from the list.
+2. If you need to, tap what to include and the photo size, under the buttons.
+3. Tap **Share sheet**, then pick Outlook, Teams or OneDrive. On the PC, tap **Copy for email**, **Open in a new tab** or **Download to this PC**: each does it straight away.
 
 On the PC, to put the notes straight into an email:
 
 1. In the call, tap **Create and share** at the top.
-2. Under **Send to**, tap **Copy for email**.
-3. Tap **Copy for email**.
-4. In Outlook, start the email and press **Ctrl** and **V**.
+2. Tap **Copy for email**.
+3. In Outlook, start the email and press **Ctrl** and **V**.
 
 The copy has the text and tables, laid out. Photos are not in it, because Outlook on the PC blocks pictures held inside pasted text. To send photos, tap **Download to this PC** instead and attach the file.
 

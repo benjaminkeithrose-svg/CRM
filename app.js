@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v159';
+const APP_BUILD = 'v160';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -8596,6 +8596,12 @@ function closeOutDlg(){
 }
 $('doOutput').addEventListener('click', openOutDlg);
 $('outCancel').addEventListener('click', closeOutDlg);
+function outGoNow(){
+  if(!call) return;
+  closeOutDlg();
+  if($('outDest').value === 'copy'){ copyNotes(currentOutScope()); return; }   // from the tap itself
+  sendNotes(currentOutScope(), $('outDest').value, $('outImg').value);
+}
 $('outGo').addEventListener('click', ()=>{
   if(!call) return;
   closeOutDlg();
@@ -18526,13 +18532,17 @@ function renderOutDest(){
 function outSegs(){
   [['outScope', 'outScopeSeg'], ['outImg', 'outImgSeg'], ['outDest', 'outDestSeg']].forEach(([sid, gid]) => {
     const sel = $(sid), seg = $(gid); if(!sel || !seg) return;
-    seg.innerHTML = [...sel.options].map(o => '<button type="button" data-v="' + esc(o.value) + '"' + (o.value === sel.value ? ' class="on"' : '') + '>' + esc(o.textContent) + '</button>').join('');
+    seg.innerHTML = gid === 'outDestSeg'
+      // v159: the ways out are the buttons that do it, the first one the main one
+      ? [...sel.options].map((o, i) => '<button type="button" class="btn ' + (i ? 'act2' : 'go') + '" data-v="' + esc(o.value) + '">' + esc(o.textContent) + '</button>').join('')
+      : [...sel.options].map(o => '<button type="button" data-v="' + esc(o.value) + '"' + (o.value === sel.value ? ' class="on"' : '') + '>' + esc(o.textContent) + '</button>').join('');
   });
 }
 ['outScopeSeg', 'outImgSeg', 'outDestSeg'].forEach(gid => { const seg = $(gid); if(seg) seg.addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   const sel = $(gid.replace('Seg', '')); sel.value = b.dataset.v;
   sel.dispatchEvent(new Event('change'));
+  if(gid === 'outDestSeg') outGoNow();             // v159: one tap, straight away
 }); });
 function renderOutControls(){
   const sel = $('outScope');
@@ -18636,20 +18646,16 @@ function renderOutHint(){
   if(!hint) return;
   const scope = currentOutScope();
   const bits = [];
-  bits.push(dest === 'copy'
-    ? 'Copies the notes, laid out, to paste into an email in Outlook with Ctrl+V. The text and tables only: photos stay out of the copy, so download the file and attach it if they are needed.'
-    : dest === 'open'
-    ? 'Renders the file in a new tab so you can read it or print it to PDF. Nothing leaves this device, and the call is not marked issued.'
-    : dest === 'download'
-    ? (isPhone() ? 'Saves the file to this phone.' : 'Saves the file to your Downloads folder.')
-    : 'Sends the file to the phone\u2019s share sheet \u2014 pick OneDrive, Outlook or Teams.');
+  const opts = outDestOptions().map(o => o[0]);
+  if(opts.includes('copy')) bits.push('Copy for email puts the notes on the clipboard to paste into Outlook with Ctrl+V: text and tables, no photos. Open a new tab is a preview, and does not mark the call as issued.');
+  else bits.push((opts.includes('share') ? 'Share sheet sends the file to OneDrive, Outlook or Teams. ' : '') + 'Open a new tab is a preview, and does not mark the call as issued.');
   if(scope === 'health' || scope === 'belts'){
     bits.push('This is for handing to the customer. It leaves out general notes, '+
       'project discovery and the visit history'+
       (scope === 'health' ? ', and prints one fault per page so it can go straight to a fitter' : '')+
       '. It does not mark the call as issued.');
-  } else if((scope === 'full' || scope === 'rfq') && dest !== 'open'){
-    bits.push('Marks the call as issued.');
+  } else if(scope === 'full' || scope === 'rfq'){
+    bits.push('Copying, saving or sharing marks the call as issued.');
   }
   const mode = $('outImg') ? $('outImg').value : 'full';
   if(mode === 'thumbonly') bits.push('Thumbnails only \u2014 the full-size images are left out, so the file is much smaller.');
@@ -20003,6 +20009,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v160', 'Create and share: Copy for email, Open in a new tab, Download and Share do their job with one tap; no button to confirm.'],
   ['v159', 'A belt saves without an asset number. Quote requests: Required by and Your reference are gone; the account box takes a name not in the CRM. The belt form drops Belt description, and its two buttons are smaller. Create and share uses buttons, not dropdowns, and on the PC has Copy for email, to paste the notes into Outlook.'],
   ['v158', 'Changes for CAG has its own section at the bottom of Settings, with To send, Sent and Done: each change shows what Dynamics has now and what it changes to, when and by whom. An account manager change is on it as soon as you make it. Job roles and titles pick from what Dynamics holds; anything else is flagged.'],
   ['v157', 'The Intralox people list fills itself from the CRM export\'s account managers and representatives, and your team; positions are added by hand. In the Intralox box on a map, Add our people ticks them in, grouped by position, with the sites\' account managers ticked.'],
