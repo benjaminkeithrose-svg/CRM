@@ -914,6 +914,20 @@ for now. Reviewed a clickable mock first.*
 - **Later:** a coach view across all Blue Sheets ("what do Lost ones have in
   common?") now that outcomes are recorded.
 - **Built (v148):** the coach reads the large account plan with a site's records (brief, coaching, opportunity coaching).
+- **Built (v150):** the strategy order (Ben, 2026-10-15): the large account plan
+  leads, a Blue Sheet is the large account plan with an opportunity that
+  needs specific relationships, the site's account plan takes its lead from
+  it. Strategy tabs in that order; Blue Sheets link to their large account
+  by themselves and say which objective they deliver; site plans show the
+  large account above them and say which objective they support; the
+  Objectives tab lists both; the coach is told.
+- **Built (v151):** how relationships flow: a Consultants kind (works with the
+  end user and OEMs, Specifies for / Advises, knows us); an OEM through a head
+  contractor or another OEM or integrator (chains), and Works with on any map;
+  head contractors pick their sites on a large account; an OEM, contractor
+  or consultant that is a customer is covered by its account manager by
+  default; the Blue Sheet flags anyone with a part in the decision whom
+  nobody of ours covers. No distributor box (not asked for).
 - **Later:** the group column's real name once Ben has checked the export.
 - **Later:** Make it an opportunity from a project entry; the Dynamics
   opportunities import (needs the column headings).

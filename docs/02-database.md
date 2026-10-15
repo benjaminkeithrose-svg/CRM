@@ -102,7 +102,7 @@ New product, Requested to stock), `notes`, `stocked`, `stockedAt`, `created`.
 **plans** holds two kinds of record.
 
 *An account plan* (one per account): `id`, `acct`, `goal`, `people` (each `n`,
-`role`, `mode`, `note`), `flags`, `strengths`, `updated`.
+`role`, `mode`, `note`), `flags`, `strengths`, `updated`. Since v150, `lapObj`: the large account objective a site's plan supports.
 
 *A large account plan* (`kind: 'large'`, across a customer's sites), laid out
 as Dynamics' Large Account Plan:
@@ -111,7 +111,7 @@ as Dynamics' Large Account Plan:
 |---|---|
 | `name`, `revenue`, `year`, `sharepoint`, `reviewed` | Key Plan Information |
 | `vision`, `business`, `goals`, `insights`, `ladder`, `today`, `spendUs`, `spendAll`, `comp` | Key Plan Information: the Description's five parts (vision, account overview, business goals, key insights, Intralox position) |
-| `objectives` (each `t`, `desc`, `revenue`, `period`, `owner`) | Objectives |
+| `objectives` (each `id`, `t`, `desc`, `revenue`, `period`, `owner`; v150: every one has an `id` that Blue Sheets and site plans point at) | Objectives |
 | `strategies`, `invest`, `actions` (each `t`, `owner`, `due`, `done`) | Our own working, under Objectives |
 | `sites` | Accounts |
 | `strengths`, `flags`, `swopps`, `threats` | SWOT (strengths, weaknesses, opportunities, threats) |
@@ -124,12 +124,13 @@ as Dynamics' Large Account Plan:
 |---|---|
 | `id`, `acct`, `name`, `obj`, `value`, `close` (`YYYY-MM`), `outcome` | The opportunity: objective, value, expected close, and Won / Lost / On hold |
 | `pos`, `posWord`, `posWhy`, `vsComp`, `funnel`, `timing`, `comp`, `volNow`, `volPot`, `rep`, `criteria` | The Blue Sheet: position, competition, funnel, timing, volumes, ideal customer criteria |
-| `parties` | The companies on the map: each `id`, `kind` (corp, div, grp, end, head, oem, ilx), `name`, `acct` (when it is one of our customers), `spec` (specified Intralox: yes / unsure / no), and by kind `status` (head contractor), `via` and `belts` (OEM), `covers` and `under` (group function: the sites it covers, the division it reports to), `site`, `hq`, `eng`, `engFor` and `div` (large account site: head office, group engineering there, the sites it engineers for, its division), and `works` (an OEM on a large account: each `to`, `how` (person, site, eng, proc, other), `who`, `note`) (v136) |
-| `people` | Buying influences: `n`, `title`, `party`, `side`, `boss` (reports to), `role`, `role2`, `infl`, `stance`, `mode`, `rate`, `win`, `result`, `evid`, `note`, and `est`/`estFrom` when filled in from another Blue Sheet |
+| `parties` | The companies on the map: each `id`, `kind` (corp, div, grp, end, head, oem, cons (a consultant, v151), ilx), `name`, `acct` (when it is one of our customers), `spec` (specified Intralox: yes / unsure / no), and by kind `status` (head contractor), `via` and `belts` (OEM), `covers` and `under` (group function: the sites it covers, the division it reports to), `site`, `hq`, `eng`, `engFor` and `div` (large account site: head office, group engineering there, the sites it engineers for, its division), and `works` (an OEM on a large account: each `to`, `how` (person, site, eng, proc, spec, adv, other), `who`, `note`) (v136; since v151 also an OEM or consultant on any map, and a head contractor on a large account; `via` can be another OEM) |
+| `people` | Buying influences: `n`, `title`, `party`, `side` (cust, head, oem, cons, us), `boss` (reports to), `role`, `role2`, `infl`, `stance`, `mode`, `rate`, `win`, `result`, `evid`, `note`, and `est`/`estFrom` when filled in from another Blue Sheet |
 | `links` | Relationships between people: `a`, `b`, `kind`, `str` (Strong, Neutral, Weak, Hostile, or Unknown since v141: linked, strength not known, not counted as coverage), `note` |
 | `flags`, `strengths`, `actions`, `notes` | Red flags (with information needed and from whom), strengths, possible actions (starred = best action plan), communication notes |
 | `coaching`, `test`, `created`, `updated` | The coach's view, a made-up test project, and edits |
 | `lap`, `lapPos` | The large account plan brought into this opportunity (its `id`), and where its boxes sit on this map (`{x, y, show}` by the plan's box id) (v139) |
+| `lapObj`, `lapOff` | The large account objective this Blue Sheet delivers (the objective's `id`), and that it was unlinked and must not link itself again (v150) |
 | `amGone` | Account managers taken off this map, by name in lower case, so they are not added back (v140). A large account plan's map keeps the same field |
 
 An opportunity at a large account's site can bring that account in (v139). Its boxes over the site (corporate or the head office, the site's division, the group functions over it, the site that engineers for it, the OEMs working with any of them), their people and the links between those people are copied onto the map each time it is shown, under ids starting `lk-`. They are never saved in the opportunity: a change to their people, links or spec is written back to the plan when the opportunity saves, so the plan and every linked opportunity show it. Only where they sit is the opportunity's own (`lapPos`).

@@ -276,17 +276,17 @@ The photo of the sheet is kept with the belt. It needs signal and cloud sync sig
 ### See what you are working on
 
 1. Tap **Strategy** on Home.
-2. Tap **Opportunities**, **Large accounts** or **Account plans**.
+2. Tap **Large accounts**, **Blue Sheets** or **Account plans**.
 3. Tap one to open it.
 4. Tap the back arrow to come back to the list.
 
-Opportunities are listed by close date, nearest first, with their position and red flags. Large accounts show their sites and when they were last reviewed. Account plans show their goal, last changed first.
+The tabs follow the order the work goes in: the large account plan leads, its Blue Sheets are the opportunities that need particular relationships to reach an outcome, and the sites' account plans take their lead from it. Large accounts show their sites, Blue Sheets and site plans, and when they were last reviewed. Blue Sheets are listed by close date, nearest first, with their position and red flags. Account plans show their goal, last changed first.
 
 In a team, **Mine** shows your own and **Team** your colleagues'. The search icon looks through all three lists, everyone's, by name, account or person.
 
 To start a new one from here:
 
-1. On **Opportunities**, **Large accounts** or **Account plans**, tap the circle-plus on the tab.
+1. On **Large accounts**, **Blue Sheets** or **Account plans**, tap the circle-plus on the tab.
 2. Type the account's name, then tap it. For a large account, pick one of the customer's sites; the plan takes in its other sites.
 3. Fill it in, then tap **Done**. Back comes to Strategy.
 
@@ -369,7 +369,7 @@ Your MBOs, initiatives and ticks are private. They are kept with your MBO list, 
 1. Open the account: tap **Directory** on Home, then the account.
 2. On the **Opportunities** card, tap **New opportunity**.
 3. Type its name, then tap **Done**. The map opens with the end user (the account) and Intralox already on it. Or describe it instead: see **Set up an opportunity by describing it**.
-4. In the list beside the map, tap the circle-plus next to **Head contractors** or **OEMs and integrators**.
+4. In the list beside the map, tap the circle-plus next to **Head contractors**, **OEMs and integrators** or **Consultants**.
 5. Type the company's name, or pick it from your customer list, then tap **Add**.
 6. Tap the table icon next to a party to add its people.
 7. Type one person per row. Only the name is needed. Add their title, who they report to, their part (E, U, T or C) and whether they are helping us if you know them.
@@ -380,7 +380,7 @@ Your MBOs, initiatives and ticks are private. They are kept with your MBO list, 
 
 Each party has its own colour: the end user dark blue, head contractors dark cyan, OEMs and integrators grey, and Intralox red, around the opportunity in orange. People hang under their party as an organisation chart, each under who they report to. A party that has not specified Intralox, or is unsure, has a dashed orange edge, so it stands out.
 
-Tap a party to say where a head contractor stands (Bidding, Appointed or Out of it), who an OEM works for, and which belting an OEM prefers. Intralox is ticked to start; tap a supplier to add or take it off, or type another and tap **Add**.
+Tap a party to say where a head contractor stands (Bidding, Appointed or Out of it), who an OEM works for, and which belting an OEM prefers. An OEM can work for a head contractor or for another OEM or integrator, so a conveyor builder under a line integrator under the head contractor draws as a chain. Under **Works with**, an OEM or a consultant ticks the other parties it deals with and how (for a consultant, **Specifies for** or **Advises**); each draws its own line. A consultant is an engineering firm or designer working with the end user and the OEMs. An OEM, contractor or consultant that is one of your customers in the CRM shows its account manager, who covers its people by default as at a site. On the Blue Sheet, anyone with a part in the decision whom nobody of ours covers is listed as a gap, wherever they work. Intralox is ticked to start; tap a supplier to add or take it off, or type another and tap **Add**.
 
 Tap a person to see their relationships on their own: everything else fades. Their role, view, rating, win and evidence are under **More detail**. Tap the opportunity to see everyone again.
 
@@ -492,21 +492,22 @@ It brings in the objective, the position and its ticked boxes, the ideal custome
 10. For a division with its own sites and engineering, tap the circle-plus next to **Divisions** and type its name.
 11. Tap each of the division's sites, then pick the division under **Division**.
 12. For group engineering that isn't at a site, tap the circle-plus next to **Group functions** and type its name. Tap it, then pick who it reports to under **Reports to**, and under **Covers** tap the sites it looks after.
-13. For an OEM, tap it, then under **Works with** tick each site or engineering group it deals with. For each, tap how: **A person** (then pick who), **Site management**, **Group engineering**, **Procurement** or **Other**, and type how it works.
-14. Tap the table icon next to a site or the corporate account to add its people. Link people across sites with **Link to…**.
-15. Tap a site to open its account plan or one of its opportunities.
-16. Tap **Plan** at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.
-17. On **Key info**, fill in the plan revenue, the year and the SharePoint link, then the description: the Intralox vision, the account overview, their business goals, the key insights and the Intralox position.
-18. On **Objectives**, tap **Add an objective**. Type its name, description, revenue, period and owner.
-19. Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap **Make a task**.
-20. **Activities** lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.
-21. On **Accounts**, check the sites. Tap **×** to take one out, or type a name and tap **Add**. You can also take a site out from its panel on the map: tap **Take out of the plan**.
-22. On **SWOT**, add strengths, weaknesses, opportunities and threats.
-23. On **Success factors**, type up to six critical success factors.
-24. **Team** shows our people on the map. Tap **Add or change on the map** to change them.
-25. After a review, tap **Reviewed today** on Key info.
-26. To put it into Dynamics, tap **Copy for Dynamics** on the PC. Tap **Copy** beside each field, then paste it into the same field in Dynamics.
-27. To send the plan, tap **Create and share**.
+13. For an OEM, tap it, then under **Works with** tick each site or engineering group it deals with. For each, tap how: **A person** (then pick who), **Site management**, **Group engineering**, **Procurement**, **Specifies for**, **Advises** or **Other**, and type how it works.
+14. For a head contractor, tap it, then under **Works with** tick the sites it works at. For a consultant, tick the sites, group engineering and OEMs it works with, and how. An OEM that sells through a head contractor keeps both lines: tick its sites, then pick the head contractor under **Who they work for**.
+15. Tap the table icon next to a site or the corporate account to add its people. Link people across sites with **Link to…**.
+16. Tap a site to open its account plan or one of its opportunities.
+17. Tap **Plan** at the top to open the plan behind the map. It has the same tabs as the Large Account Plan in Dynamics.
+18. On **Key info**, fill in the plan revenue, the year and the SharePoint link, then the description: the Intralox vision, the account overview, their business goals, the key insights and the Intralox position.
+19. On **Objectives**, tap **Add an objective**. Type its name, description, revenue, period and owner.
+20. Lower down, add the strategies, the investment and the actions. Give each action an owner and a due date. Tick one when it is done, or tap **Make a task**.
+21. **Activities** lists the visits and calls at the plan's sites and corporate accounts. Tap one to open it.
+22. On **Accounts**, check the sites. Tap **×** to take one out, or type a name and tap **Add**. You can also take a site out from its panel on the map: tap **Take out of the plan**.
+23. On **SWOT**, add strengths, weaknesses, opportunities and threats.
+24. On **Success factors**, type up to six critical success factors.
+25. **Team** shows our people on the map. Tap **Add or change on the map** to change them.
+26. After a review, tap **Reviewed today** on Key info.
+27. To put it into Dynamics, tap **Copy for Dynamics** on the PC. Tap **Copy** beside each field, then paste it into the same field in Dynamics.
+28. To send the plan, tap **Create and share**.
 
 Sites are grouped by the customer's name before the " - ", or by a group or parent account column if your CRM export has one. Every site in the plan shows a **Large account** card on its account screen. It says where the site sits: the corporate account or head office over it, its division, the site that engineers for it (or the sites it engineers for), the group functions over it, its OEMs and the account team leader. Tap the card to open the map with that site chosen. Ticking the box on another site of the same customer adds that site to the same plan.
 
@@ -516,13 +517,13 @@ To take a site out, untick the box on its account plan. To delete the whole plan
 
 ### Bring a large account into an opportunity
 
-1. Open the opportunity at one of the large account's sites.
+1. Open the opportunity at one of the large account's sites. It is linked to the large account from the start; to start one there, tap the site on the large account's map, then **New Blue Sheet here**.
 2. Make sure **Map** is selected at the top.
-3. In the panel beside the map, under **Large account**, tap **Bring in the large account**.
+3. In the panel beside the map, under **Large account**, pick the plan's objective it delivers under **Delivers the objective**.
 4. The large account's boxes over this site come onto the map, each with a chain: corporate or the head office, the site's division, the group functions over it, the site that engineers for it, and the OEMs that work with any of them. Their people come with them.
 5. Tap one of them to set whether it has specified Intralox, or tap **Add or change people**.
 6. To change what a box is, who it covers or which sites it engineers for, tap **Open the large account map** and change it there.
-7. To take them off this map, tap **Unlink** under **Large account**, then tap **OK**.
+7. To take them off this map, tap **Unlink** under **Large account**, then tap **OK**. It stays unlinked; **Bring in the large account** links it again.
 
 The boxes with a chain stay on the large account plan. Their people, the links between them and whether they have specified Intralox are kept there, so a change on the opportunity shows on the large account's map and on its other opportunities, and a change there shows here the next time the map opens. Where you put a box on this map is this opportunity's own. Links you draw between this opportunity's people and theirs stay with the opportunity. The Blue Sheet, the coach and Create and share include them. Unlink deletes nothing.
 
@@ -593,13 +594,14 @@ Keep an account plan:
 1. Open the account.
 2. Tap the **Account plan** card.
 3. Type the goal for this account.
-4. Tap **Add a person**.
-5. Type their name, or pick it from the account's contacts.
-6. Tap their role: **Signs the order**, **Uses it**, **Checks the spec** or **On our side**.
-7. Under **How they see it**, tap **Growth**, **Trouble**, **Steady** or **Overconfident**.
-8. Add a short note if it helps.
-9. Fill in **Red flags** and **Strengths**.
-10. Tap **Done**.
+4. If the site is in a large account, the plan shows the large account's objectives, strategies and weaknesses at the top. Under **Supports the objective**, pick the one this site's plan works towards.
+5. Tap **Add a person**.
+6. Type their name, or pick it from the account's contacts. People from the large account's map come first; picking one fills in their role and how they see it.
+7. Tap their role: **Signs the order**, **Uses it**, **Checks the spec** or **On our side**.
+8. Under **How they see it**, tap **Growth**, **Trouble**, **Steady** or **Overconfident**.
+9. Add a short note if it helps.
+10. Fill in **Red flags** and **Strengths**.
+11. Tap **Done**.
 
 Growth means they want more of something; Trouble means something is going wrong for them now; Steady means they see no need to change; Overconfident means they think all is well when it isn't. The brief and the coaching both read the plan. The bin removes a person; the bin at the top deletes the whole plan.
 
@@ -874,7 +876,7 @@ The call opens for a made-up customer, Test customer, with one belt already logg
 To try the opportunity map on a made-up project:
 
 1. Tap **Strategy** on Home.
-2. Tap the circle-plus on the **Opportunities** tab.
+2. Tap the circle-plus on the **Blue Sheets** tab.
 3. Tap **Start a test project**.
 
 It has one head contractor and three OEMs with four people each, and an engineering manager with engineers under him at the end user. It's marked **TEST**.

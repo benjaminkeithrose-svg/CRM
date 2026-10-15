@@ -119,7 +119,8 @@ ok(g(`OPP.people.find(p => p.n === 'Greta Holm').title`) === 'Design Engineer' &
 // ---- focus on one person
 const card = n => d.querySelector('#opMap .op-card[aria-label^="' + n + '"]');
 card('Ben').dispatchEvent(new w.KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); await tick();
-ok(!card('Ben').classList.contains('op-faded') && !card('Tom Ward').classList.contains('op-faded') && card('Greta Holm').classList.contains('op-faded'), 'tapping someone keeps them and whoever they are linked to bright, and fades the rest');
+ok(!card('Ben').classList.contains('op-faded') && !card('Tom Ward').classList.contains('op-faded') && card('Greg Holt').classList.contains('op-faded'), 'tapping someone keeps them and whoever they are linked to bright, and fades the rest');
+ok(!card('Greta Holm').classList.contains('op-faded'), 'v151: an OEM that is one of our customers is covered by its account manager by default, so its people stay bright too');
 ok(/Their relationships/.test(panel()) && /Tom Ward/.test(panel()) && /Our coverage/.test(panel()), 'their panel lists their relationships (v140: by site, each editable)');
 card('Kim Site').dispatchEvent(new w.KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); await tick();
 ok($('opPboss').value === 'c1' && !card('Tom Ward').classList.contains('op-faded') && !card('Ben').classList.contains('op-faded') && card('Greta Holm').classList.contains('op-faded'), 'their manager stays bright too, as does the account manager who covers them by default (v140), and they can be moved under someone else');

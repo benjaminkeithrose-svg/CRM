@@ -65,11 +65,9 @@ await tick(100);
 g(`openOpp('o2')`); await tick(150);
 ok(!$('opLapIn') && !/Large account/.test($('opPanel').textContent), 'an opportunity at a customer in no large account is not offered it');
 
-// ---- at a site: offered, nothing brought in until asked
-g(`openOpp('o1')`); await tick(150);
-ok(!!$('opLapIn') && /Sample Foods/.test($('opPanel').textContent), 'at one of the sites: Bring in the large account is offered, with its name');
-ok(g(`OPP.parties.length`) === 2, 'nothing comes in until asked');
-$('opLapIn').click(); await tick(200);
+// ---- at a site: v150, it starts from the large account, linked
+g(`openOpp('o1')`); await tick(250);
+ok(g(`OPP.lap`) === 'L1' && !!$('opLapOff') && /Sample Foods/.test($('opPanel').textContent), 'a Blue Sheet at one of the sites is linked to its large account from the start');
 const kinds = g(`OPP.parties.filter(q => q.lk).map(q => q.kind + ':' + opQName(q)).sort().join('|')`);
 ok(kinds === 'corp:Sample Foods Corporate|div:Chicken division|end:' + S.b + '|oem:Sample Conveyors', 'corporate, the division, the site that engineers for it and its OEM come in', kinds);
 ok(!/Westside/.test(kinds), 'not another site, nor an OEM that only works with another site');
@@ -82,7 +80,7 @@ const pl = g(`JSON.stringify(opPartyLinks(OPP))`);
 ok(pl.includes('"a":"lk-pb","b":"pe","t":"Engineers for it"') && pl.includes('"a":"lk-pd","b":"lk-pb"') && pl.includes('"a":"lk-pc","b":"lk-pd"') && pl.includes('"a":"lk-pb","b":"lk-po"'),
   'drawn as the plan has it: corporate to the division to the engineering site, which engineers for this site; the OEM off engineering', pl);
 ok(/3 of its boxes|4 of its boxes/.test($('opPanel').textContent) && !!$('opLapOff'), 'the panel says how many are on the map, and offers Unlink');
-await tick(300);
+await tick(900);                                  // v150: the link is saved a moment after opening
 const stored = await g(`oppsAll()`);
 const rec = stored.find(r => r.id === 'o1');
 ok(rec.lap === 'L1' && rec.parties.length === 2 && rec.people.filter(p => p.side !== 'us').length === 1 && !rec.links.length, 'the opportunity keeps only the link, never the plan\'s boxes', JSON.stringify(rec).slice(0, 300));
@@ -144,6 +142,8 @@ ok(g(`OPP.parties.length`) === 2 && !g(`OPP.lap`), 'Unlink takes the boxes off t
 L = (await g(`plansAll()`)).find(r => r.id === 'L1');
 ok(L.people.some(p => p.id === 'c1') && L.parties.some(q => q.id === 'pc'), 'and leaves them on the plan');
 ok(!(await g(`oppsAll()`)).find(r => r.id === 'o1').lap && !!$('opLapIn'), 'it can be brought in again');
+g(`openOpp('o1')`); await tick(200);
+ok(!g(`OPP.lap`) && g(`OPP.lapOff`) === true, 'once unlinked, opening it again does not link it back by itself');
 
 // ---- v147: the site's account screen says where it sits in the large account
 g(`openAccount('${S.a}')`); await tick(150);

@@ -119,7 +119,7 @@ g(`openLap('L4')`); await tick(200);
 ok(g(`OPP.parties.some(q => q.id === 'pe' && q.kind === 'corp')`), 'one with people under it stays');
 
 // ---- on an ordinary opportunity, a corporate account drives the end user
-await g(`(async () => { openAccount('${S[0]}'); OPPS.push({id: 'o2', acct: '${S[0]}', name: 'Hygiene upgrade', people: [], links: [], flags: [], strengths: []}); openOpp('o2'); })()`); await tick(200);
+await g(`(async () => { openAccount('${S[0]}'); OPPS.push({id: 'o2', acct: '${S[0]}', name: 'Hygiene upgrade', people: [], links: [], flags: [], strengths: [], lapOff: true}); openOpp('o2'); })()`); await tick(200);
 g(`opAddParty('corp', 'Sample Poultry - Head Office')`); await tick();
 ok(/"a":"OPP","b":"pe","t":"Owns it"/.test(g(`JSON.stringify(opPartyLinks(OPP))`)) && g(`JSON.stringify(opPartyLinks(OPP))`).includes('"t":"Drives"') && g(`OPP.parties.find(q => q.kind === 'corp').acct`) === 'Sample Poultry - Head Office',
   'Corporate from the customer list drives the end user');

@@ -58,9 +58,10 @@ tile.click(); await tick(150);
 ok(g('screen') === 'strategy' && $('title').textContent === 'Strategy' && !$('back').hidden, 'it opens Strategy');
 
 // ---- opportunities
-ok($('stTabs').querySelector('button.on[data-v]').dataset.v === 'opps' && $('stWho').hidden, 'Opportunities first; no Mine and Team on your own');
+ok($('stTabs').querySelector('button.on[data-v]').dataset.v === 'laps' && $('stWho').hidden && [...$('stTabs').querySelectorAll('button[data-v]')].map(b => b.textContent).join('|') === 'Large accounts|Blue Sheets|Account plans', 'v150: Large accounts first, then Blue Sheets, then Account plans; no Mine and Team on your own');
+tab('opps'); await tick(100);
 ok(names() === 'Spiral freezer belts|Line 3 upgrade|Jo retrofit', 'nearest close first, undated last: ' + names());
-ok(/3 opportunities/.test($('stHint').textContent), 'counted');
+ok(/3 Blue Sheets/.test($('stHint').textContent), 'counted');
 const line3 = rows().find(b => /Line 3/.test(b.textContent));
 ok(/close Mar 2027/.test(line3.textContent) && /position \+2/.test(line3.textContent) && /Example Meats - Dandenong · AUD 180k · 1 buying influence/.test(line3.textContent) && /1 red flag/.test(line3.textContent), 'each shows close, position, account, value, influences and red flags');
 line3.click(); await tick(150);
@@ -70,7 +71,7 @@ ok(g('screen') === 'strategy', 'back comes to Strategy, not the account');
 
 // ---- large accounts
 tab('laps'); await tick(100);
-ok(names() === 'Example Meats' && /2 sites · 2 opportunities · The standard on every line/.test(rows()[0].textContent) && /reviewed/.test(rows()[0].textContent), 'large accounts with sites, opportunities and the review date');
+ok(names() === 'Example Meats' && /2 sites · 2 Blue Sheets · \d site plans? · The standard on every line/.test(rows()[0].textContent) && /reviewed/.test(rows()[0].textContent), 'large accounts with sites, opportunities and the review date');
 rows()[0].click(); await tick(150);
 ok(g('screen') === 'opp' && g('LAP.id') === 'la1' && g('OPP === LAP'), 'tapping one opens the large account on its map (v123)');
 $('back').click(); await tick(150);
@@ -103,7 +104,7 @@ $('stWho').querySelector('[data-v="mine"]').click(); await tick(50);
 $('stSearch').click(); await tick(100);
 $('fsQ').value = 'tom ward'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(200);
 const found = [...$('fsRes').querySelectorAll('[data-st]')].map(b => b.querySelector('.rn').textContent);
-ok(found.join('|') === 'Line 3 upgrade|Example Meats|' + A && /3 found/.test($('fsHint').textContent), 'search finds a person across opportunities, large account maps and plans: ' + found.join('|'));
+ok(found.join('|') === 'Example Meats|Line 3 upgrade|' + A && /3 found/.test($('fsHint').textContent), 'search finds a person across large account maps, Blue Sheets and plans (v150: in that order): ' + found.join('|'));
 $('fsQ').value = 'retrofit'; $('fsQ').dispatchEvent(new w.Event('input')); await tick(200);
 ok([...$('fsRes').querySelectorAll('[data-st]')].map(b => b.querySelector('.rn').textContent).join() === 'Jo retrofit', 'and a teammate\'s, from Mine');
 $('fsRes').querySelector('[data-st]').click(); await tick(150);
@@ -114,7 +115,7 @@ const pickAcct = async q => { $('fsQ').value = q; $('fsQ').dispatchEvent(new w.E
 await g(`(async () => { go('home'); go('strategy'); })()`); await tick(150);
 tab('opps'); await tick(100);
 const plus = v => d.querySelector('#stTabs [data-new="' + v + '"]');
-ok(!$('stNew') && plus('opps') && plus('laps') && plus('plans') && plus('opps').querySelector('svg') && plus('opps').getAttribute('aria-label') === 'New opportunity', 'each tab carries its own circle-plus; no big button (v123)');
+ok(!$('stNew') && plus('opps') && plus('laps') && plus('plans') && plus('opps').querySelector('svg') && plus('opps').getAttribute('aria-label') === 'New Blue Sheet', 'each tab carries its own circle-plus; no big button (v123)');
 plus('opps').click(); await tick(100);
 ok($('srchdlg').hasAttribute('open') && /Type the account's name/.test($('fsHint').textContent), 'New asks which account');
 let hits = await pickAcct('bendigo');
@@ -146,7 +147,7 @@ ok(g('screen') === 'strategy' && $('stTabs').querySelector('button.on[data-v]').
 // ---- empty
 await g(`(async () => { TEAM = null; for(const o of await oppsAll()) await oppsDel(o.id); OPPS = []; go('strategy'); })()`); await tick(100);
 tab('opps'); await tick(100);
-ok($('stRes').textContent.trim() === 'No opportunities yet.' && $('stHint').textContent === '', 'empty, it says so plainly, with no nudge');
+ok($('stRes').textContent.trim() === 'No Blue Sheets yet.' && $('stHint').textContent === '', 'empty, it says so plainly, with no nudge');
 
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));
