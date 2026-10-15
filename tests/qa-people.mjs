@@ -135,7 +135,7 @@ ok(sent && /^changes_for_dynamics_\d{4}-\d{2}-\d{2}\.xlsx$/.test(sent.name), 'Do
 if (sent) {
   const wb = w.XLSX.read(new Uint8Array(await sent.blob.arrayBuffer()), {type: 'array'});
   const rows = w.XLSX.utils.sheet_to_json(wb.Sheets['New contacts'], {header: 1});
-  ok(rows[0].join() === 'Account,Full Name,Job Title,Email,Mobile,Added,Added by,From,Status' && rows[1][0] === A && rows[1][1] === 'Lee New' && rows[1][7] === 'Boning room', 'one row per contact, with where they came from');
+  ok(rows[0].join() === 'Account,Full Name,Job Role,Job Title,Email,Mobile,Added,Added by,From,Check,Status' && rows[1][0] === A && rows[1][1] === 'Lee New' && rows[1][8] === 'Boning room' && /Job role not set/.test(rows[1][9]), 'one row per contact, with where they came from; v158: the job role, and a Check column flags it is not set: ' + rows[0].join());
 }
 
 // ---- outcome

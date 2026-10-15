@@ -137,7 +137,12 @@ const wb = w.XLSX.read(new Uint8Array(await sent.blob.arrayBuffer()), {type: 'ar
 ok(wb.SheetNames.join() === 'Moved contacts,Changed details,Account owners', 'a sheet for each kind: ' + wb.SheetNames.join());
 const rows = n => w.XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1});
 ok(rows('Moved contacts')[1][0] === 'c-2' && rows('Moved contacts')[1][2] === S.a && rows('Moved contacts')[1][3] === S.b, 'moves carry the Dynamics contact id, from and to');
-ok(rows('Account owners').some(r => r[1] === 'Account Team Leader' && r[2] === 'Ada Lead'), 'owners include the ATL');
+ok(rows('Account owners').some(r => r[1] === 'Account Team Leader' && r[3] === 'Ada Lead'), 'owners include the ATL');
+// v158: what Dynamics has beside what it changes to
+ok(rows('Account owners')[0].join() === 'Account,Role,In Dynamics,Change to,Recorded,By,Status', 'owners: in Dynamics, change to, recorded, by: ' + rows('Account owners')[0].join());
+ok(rows('Changed details')[0].slice(3, 7).join() === 'Job Role in Dynamics,Job Role change to,Job Title in Dynamics,Job Title change to', 'changed details: each field as Dynamics has it and what it changes to');
+const pr = rows('Changed details').find(r => r[2] === 'Pat Plant');
+ok(pr && pr[5] === 'Engineering Manager' && pr[6] === 'Site Engineering Manager', 'Pat\'s title, from Dynamics to the new one: ' + JSON.stringify(pr));
 ok(/All sent to CAG/.test($('pplStat').textContent) && g(`CHG.filter(r => r.type !== 'owner').every(r => r.sent)`), 'marked as sent');
 
 // ---- done once Dynamics has them

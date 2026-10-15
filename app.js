@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v157';
+const APP_BUILD = 'v158';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2958,6 +2958,7 @@ async function applyReassign(revert){
     accts.forEach(a => { if(a.mgr === to) delete MGR_OF[a.a]; else MGR_OF[a.a] = to; });
   }
   await saveMgrOf();
+  await ownerLog(accts).catch(e => console.error('changes', e));   // v158: on the list for CAG now, dated
   if(plan.mgr && !allManagers().includes(plan.mgr)) plan.mgr = '';
   ACCOUNTS.forEach(a => { delete a._hay; });   // manager is searchable, so recache
   closeReassign();
@@ -12726,6 +12727,7 @@ async function ownerSet(names, to){
   const accts = names.map(n => ACC_BY_NAME.get(n)).filter(Boolean);
   accts.forEach(a => { if(a.mgr === to) delete MGR_OF[a.a]; else MGR_OF[a.a] = to; delete a._hay; });
   await saveMgrOf();
+  await ownerLog(accts);                         // v158: on the list for CAG now, dated
   toast(accts.length === 1 ? accts[0].a + ': ' + to + ' is the account manager' : to + ' is the account manager of ' + accts.length + ' sites');
   return true;
 }
@@ -13564,7 +13566,7 @@ function peopleMerge(){
     a.c = a.c || [];
     // the CRM now has them: Dynamics caught up, so the record here is done
     if(a.c.some(c => pKey(c.n) === pKey(r.n))){ gone.push(r); continue; }
-    a.c.push({n: r.n, t: r.t || '', r: '', p: r.p || '', e: r.e ? [r.e] : [], added: true, pid: r.id});
+    a.c.push({n: r.n, t: r.t || '', r: r.role || '', p: r.p || '', e: r.e ? [r.e] : [], added: true, pid: r.id});
     delete a._hay;                                // contact names are searchable
   }
   chgApply();                                     // v144: moved contacts and changed details, until Dynamics has them
@@ -13632,14 +13634,35 @@ let CHG = [];
 const chgKey = s => pKey(s);
 // the contact in the CRM's list, by Dynamics id or name
 const chgContact = (a, n, cid) => a && (a.c || []).find(c => !c.added && ((cid && c.id === cid) || pKey(c.n) === pKey(n)));
-const chgRaw = c => { const o = c._crm || {t: c.t, e: c.e, p: c.p}; return {t: o.t || '', e: (o.e && o.e[0]) || '', p: o.p || ''}; };
+const chgRaw = c => { const o = c._crm || {t: c.t, e: c.e, p: c.p, r: c.r}; return {t: o.t || '', e: (o.e && o.e[0]) || '', p: o.p || '', role: o.r || ''}; };
+/* v158 - Ben, 2026-10-16: "the roles in Dynamics are fairly strict in what
+   they will and won't allow ... I'm going to have to be able to use the
+   positions that are listed in Dynamics". The Job Roles and Job Titles that
+   Dynamics already holds, from the CRM export as it came in (not the changes
+   laid over it): a change picks from these, and anything else is flagged. */
+let DYN_VALS = null;
+function dynVals(){
+  if(DYN_VALS && DYN_VALS.n === ACCOUNTS.length) return DYN_VALS;
+  const roles = new Map(), titles = new Map();
+  for(const a of ACCOUNTS) for(const c of a.c || []){
+    if(c.added) continue;
+    const raw = chgRaw(c);
+    if(raw.role.trim() && !roles.has(pKey(raw.role))) roles.set(pKey(raw.role), raw.role.trim());
+    if(raw.t.trim() && !titles.has(pKey(raw.t))) titles.set(pKey(raw.t), raw.t.trim());
+  }
+  const sort = m => [...m.values()].sort((x, y) => x.localeCompare(y));
+  DYN_VALS = {n: ACCOUNTS.length, roles: sort(roles), titles: sort(titles), roleKeys: new Set(roles.keys()), titleKeys: new Set(titles.keys())};
+  return DYN_VALS;
+}
+// a value Dynamics does not hold yet: worth a look before it goes to CAG
+const dynOdd = (k, v) => !!String(v || '').trim() && !(k === 'role' ? dynVals().roleKeys : dynVals().titleKeys).has(pKey(v));
 function chgApply(){
   const done = [];
   // start from the contacts as the CRM gave them, then lay the changes over
   for(const a of ACCOUNTS) for(const c of a.c || []){
     if(c.moved){ delete c.moved; delete a._hay; }
     if(c.left){ delete c.left; delete a._hay; }
-    if(c._crm){ c.t = c._crm.t; c.e = c._crm.e; c.p = c._crm.p; delete c._crm; delete c.changed; delete a._hay; }
+    if(c._crm){ c.t = c._crm.t; c.e = c._crm.e; c.p = c._crm.p; if('r' in c._crm) c.r = c._crm.r; delete c._crm; delete c.changed; delete a._hay; }
   }
   for(const r of CHG){
     if(r.type === 'left' && !r.done){                // v145: off the export, or still to go
@@ -13652,9 +13675,9 @@ function chgApply(){
     if(r.type === 'edit'){
       const c = chgContact(a, r.n, r.cid); if(!c) continue;
       const raw = chgRaw(c);
-      if(['t', 'e', 'p'].every(k => !r[k] || pKey(raw[k]) === pKey(r[k]))){ done.push(r); continue; }    // Dynamics has it
-      if(!c._crm) c._crm = {t: c.t, e: (c.e || []).slice(), p: c.p};
-      if(r.t) c.t = r.t; if(r.e) c.e = [r.e].concat((c.e || []).filter(x => x !== r.e)); if(r.p) c.p = r.p;
+      if(['t', 'e', 'p', 'role'].every(k => !r[k] || pKey(raw[k]) === pKey(r[k]))){ done.push(r); continue; }    // Dynamics has it
+      if(!c._crm) c._crm = {t: c.t, e: (c.e || []).slice(), p: c.p, r: c.r};
+      if(r.t) c.t = r.t; if(r.e) c.e = [r.e].concat((c.e || []).filter(x => x !== r.e)); if(r.p) c.p = r.p; if(r.role) c.r = r.role;   // v158: the job role too
       c.changed = r.id; delete a._hay;
     } else {
       const to = ACC_BY_NAME.get(r.to), old = chgContact(a, r.n, r.cid), there = chgContact(to, r.n, '');
@@ -13662,7 +13685,7 @@ function chgApply(){
       if(old){ old.moved = r.to; delete a._hay; }
       if(to && !(to.c || []).some(c => pKey(c.n) === pKey(r.n))){
         to.c = to.c || [];
-        to.c.push({n: r.n, t: r.t || (old && old.t) || '', r: '', p: r.p || (old && old.p) || '', e: r.e ? [r.e] : (old && old.e) || [], added: true, movedFrom: r.from, chg: r.id});
+        to.c.push({n: r.n, t: r.t || (old && old.t) || '', r: r.role || (old && old.r) || '', p: r.p || (old && old.p) || '', e: r.e ? [r.e] : (old && old.e) || [], added: true, movedFrom: r.from, chg: r.id});
         delete to._hay;
       }
     }
@@ -13696,7 +13719,8 @@ function cagItems(){
     what: 'Changed ' + [r.t && 'title to ' + r.t, r.e && 'email to ' + r.e, r.p && 'mobile to ' + r.p].filter(Boolean).join(', ')}));
   // account managers reassigned here, and any sent before that Dynamics has now caught up with
   ACCOUNTS.filter(isMoved).forEach(a => {
-    const rec = CHG.find(r => r.type === 'owner' && r.acct === a.a && r.to === effMgr(a));
+    if(CHG.some(r => r.type === 'owner' && r.acct === a.a && r.to === effMgr(a) && r.dropped)) return;   // v158: taken off the list by hand
+    const rec = CHG.find(r => r.type === 'owner' && r.acct === a.a && r.to === effMgr(a) && !r.done);
     out.push({kind: 'owner', r: rec || null, sent: rec && rec.sent || 0, done: 0, acct: a.a, n: '', to: effMgr(a), from: a.mgr || '', what: 'Account manager: ' + effMgr(a) + ' (was ' + (a.mgr || 'nobody') + ')'});
   });
   CHG.filter(r => r.type === 'owner' && r.done).forEach(r => out.push({kind: 'owner', r, sent: r.sent || 0, done: r.done, acct: r.acct, n: '', to: r.to, from: r.from, what: 'Account manager: ' + r.to}));
@@ -13705,9 +13729,36 @@ function cagItems(){
     what: 'Account team leader: ' + (r.to || 'nobody') + (r.from ? ' (was ' + r.from + ')' : '')}));
   return out;
 }
+/* v158 - Ben: "in the CAG request, I'm gonna need all the details of the
+   thing that has changed ... the person's name and account, even their
+   current listed position in Dynamics, and then ... what they changed to".
+   Each change as its fields, what Dynamics has now and what it changes to,
+   and a flag on a job role or title Dynamics does not hold yet. The list in
+   Settings and the spreadsheet are built from the same lines. */
+const CAG_F = {role: 'Job role', t: 'Job title', e: 'Email', p: 'Mobile'};
+function cagDetail(i){
+  const r = i.r || {}, out = [], odd = [];
+  const dyn = (acct, n, cid) => { const c = chgContact(ACC_BY_NAME.get(acct), n, cid); return c && !c.added ? chgRaw(c) : null; };
+  const line = (k, now, to) => { if(!String(to || '').trim() && !String(now || '').trim()) return; const o = (k === 'role' || k === 't') && to && dynOdd(k === 'role' ? 'role' : 'title', to);
+    if(o) odd.push(CAG_F[k] + ' not in Dynamics\' list'); out.push({f: CAG_F[k], now: now || '', to: to || '', odd: o}); };
+  if(i.kind === 'new'){ ['role', 't', 'e', 'p'].forEach(k => line(k, '', r[k])); if(!r.role) odd.push('Job role not set'); }
+  else if(i.kind === 'edit' || i.kind === 'move'){
+    const was = Object.assign({}, dyn(i.kind === 'move' ? r.from : r.acct, r.n, r.cid) || {}, r.was || {});
+    if(i.kind === 'move') out.push({f: 'Account', now: r.from || '', to: r.to || '', odd: false});
+    ['role', 't', 'e', 'p'].forEach(k => { if(r[k] && pKey(r[k]) !== pKey(was[k])) line(k, was[k], r[k]); else if(i.kind === 'move' && was[k]) out.push({f: CAG_F[k], now: was[k], to: '', odd: false}); });
+  } else if(i.kind === 'left'){ const was = dyn(r.acct, r.n, r.cid) || {}; ['role', 't'].forEach(k => { if(was[k]) out.push({f: CAG_F[k], now: was[k], to: '', odd: false}); }); }
+  else if(i.kind === 'owner') out.push({f: 'Account manager', now: i.from || '', to: i.to || '', odd: false});
+  else if(i.kind === 'atl') out.push({f: 'Account team leader', now: i.from || '', to: i.to || '', odd: false});
+  return {lines: out, odd};
+}
+const cagLineText = l => l.f + ': ' + (l.to ? (l.now || 'not set') + ' → ' + l.to : l.now + ' (no change)');
 const CAG_KIND = {new: 'New contacts', move: 'Moved contacts', edit: 'Changed details', left: 'Left the company', owner: 'Account owners', atl: 'Account owners'};
 const CAG_ORDER = ['New contacts', 'Moved contacts', 'Changed details', 'Left the company', 'Account owners'];
-const cagState = i => i.done ? 'Done ' + new Date(i.done).toLocaleDateString() : i.sent ? 'Sent ' + new Date(i.sent).toLocaleDateString() : 'Not sent yet';
+const cagState = i => {
+  if(i.done && i.r && i.r.dropped) return 'Taken off the list ' + new Date(i.done).toLocaleDateString();
+  if(i.done && i.kind === 'owner' && i.r){ const a = ACC_BY_NAME.get(i.r.acct); if(a && pKey(a.mgr) !== pKey(i.r.to)) return 'Replaced by a later change ' + new Date(i.done).toLocaleDateString(); }
+  return i.done ? 'Done ' + new Date(i.done).toLocaleDateString() : i.sent ? 'Sent ' + new Date(i.sent).toLocaleDateString() : 'Not sent yet';
+};
 function renderPeopleStat(){
   const el = $('pplStat'); if(!el) return;
   const items = cagItems(), open = items.filter(i => !i.done), unsent = open.filter(i => !i.sent);
@@ -13716,21 +13767,56 @@ function renderPeopleStat(){
   el.textContent = open.length ? bits.join(', ') + '. ' + (unsent.length ? unsent.length + ' not sent to CAG yet.' : 'All sent to CAG.') : 'Nothing waiting: Dynamics has everything changed here.';
   $('pplShare').hidden = !open.length;
   $('cagAllW').hidden = !open.some(i => i.sent);
-  const list = $('cagList');
-  if(!list) return;
-  list.hidden = !items.length;
-  list.innerHTML = items.length ? '<summary>Show them (' + items.length + ')</summary>' + CAG_ORDER.map(k => {
-    const its = items.filter(i => CAG_KIND[i.kind] === k); if(!its.length) return '';
-    return '<div class="cagg"><b>' + k + '</b><ul class="opitems good">' + its.map(i => '<li><span>' + esc([i.n, i.acct].filter(Boolean).join(', ')) +
-      '<span class="pin">' + esc(i.what + ' · ' + cagState(i)) + '</span></span>' +
-      (i.r && i.kind !== 'new' ? '<button type="button" class="opx" data-cagrm="' + esc(i.r.id) + '" aria-label="Remove this change" title="Remove this change">' + icon('trash') + '</button>' : '') + '</li>').join('') + '</ul></div>';
-  }).join('') : '';
-  list.querySelectorAll('[data-cagrm]').forEach(b => b.addEventListener('click', async () => {
+  // v158: the log, in its own section of Settings - To send, Sent, Done
+  const sum = $('sumCag');
+  if(sum) sum.textContent = unsent.length ? unsent.length + ' to send' : open.length ? 'All sent, ' + open.length + ' waiting for Dynamics' : items.length ? 'Nothing waiting' : '';
+  cagDraw(items);
+}
+let cagTab = 'send';
+const cagWhen = i => i.kind === 'new' ? i.r && i.r.added : i.r && i.r.at;
+function cagDraw(items){
+  const el = $('cagRes'); if(!el) return;
+  items = items || cagItems();
+  const inTab = i => cagTab === 'done' ? !!i.done : cagTab === 'sent' ? !i.done && !!i.sent : !i.done && !i.sent;
+  $('cagTabs').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === cagTab); const n = items.filter(i => { const t = cagTab; cagTab = b.dataset.v; const r = inTab(i); cagTab = t; return r; }).length; b.textContent = {send: 'To send', sent: 'Sent', done: 'Done'}[b.dataset.v] + (n ? ' ' + n : ''); });
+  const its = items.filter(inTab).sort((x, y) => (cagWhen(y) || 0) - (cagWhen(x) || 0));
+  if(!its.length){ el.innerHTML = '<p class="empty">' + ({send: 'Nothing to send.', sent: 'Nothing waiting for Dynamics.', done: 'Nothing done yet.'}[cagTab]) + '</p>'; return; }
+  el.innerHTML = CAG_ORDER.map(k => {
+    const g = its.filter(i => CAG_KIND[i.kind] === k); if(!g.length) return '';
+    return '<div class="cagg"><b>' + k + '</b><ul class="opitems good">' + g.map(i => {
+      const when = cagWhen(i), by = i.r && i.r.by;
+      const made = when ? 'Made ' + new Date(when).toLocaleDateString() + (by ? ' by ' + by : '') : 'Made before this log';
+      return '<li class="cagrow"><span>' + esc([i.n, i.acct].filter(Boolean).join(', ')) +
+        '<span class="pin">' + esc(i.what) + '</span>' + (D => D.lines.map(l => '<span class="pin' + (l.odd ? ' cagodd' : '') + '">' + esc(cagLineText(l) + (l.odd ? ' (not in Dynamics\' list)' : '')) + '</span>').join('') +
+          (D.odd.filter(x => !/not in Dynamics/.test(x)).length ? '<span class="pin cagodd">' + esc(D.odd.filter(x => !/not in Dynamics/.test(x)).join('; ')) + '</span>' : ''))(cagDetail(i)) +
+        '<span class="pin">' + esc(made + ' · ' + cagState(i)) + '</span></span>' +
+        (i.r && i.kind !== 'new' ? '<button type="button" class="opx cbin" data-cagrm="' + esc(i.r.id) + '" aria-label="Remove this change" title="Remove this change">' + icon('trash') + '</button>' : '') + '</li>';
+    }).join('') + '</ul></div>';
+  }).join('');
+  el.querySelectorAll('[data-cagrm]').forEach(b => b.addEventListener('click', async () => {
     const r = CHG.find(x => x.id === b.dataset.cagrm); if(!r) return;
-    if(!confirm('Remove this change from the list for Dynamics?\n\n' + [r.n, r.acct || r.from].filter(Boolean).join(', ') + '\n\nIt is no longer shown on the contact list either.')) return;
-    await peopleDel(r.id); CHG = CHG.filter(x => x !== r);
+    const own = r.type === 'owner' && !r.done && ACC_BY_NAME.get(r.acct) && effMgr(ACC_BY_NAME.get(r.acct)) === r.to;
+    if(!confirm('Remove this change from the list for CAG?\n\n' + [r.n, r.acct || r.from].filter(Boolean).join(', ') +
+      (own ? '\n\nThe account stays with ' + r.to + ' in the app; it just is not on the list for CAG.' : '\n\nIt is no longer shown on the contact list either.'))) return;
+    if(own){ r.done = Date.now(); r.dropped = true; await chgSave(r); }       // otherwise the reassignment would put it straight back
+    else { await peopleDel(r.id); CHG = CHG.filter(x => x !== r); }
     peopleMerge(); renderPeopleStat();
   }));
+}
+$('cagTabs').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; cagTab = b.dataset.v; cagDraw(); });
+/* v158: an account manager change is on the list, dated, as soon as it is
+   made - from Strategy, a map or the planner - not only once it is sent.
+   Changed again before it is sent: the same row, the new owner. Back to the
+   CRM's own: the row goes. */
+async function ownerLog(accts){
+  for(const a of accts){
+    const open = CHG.filter(r => r.type === 'owner' && r.acct === a.a && !r.done && !r.sent);
+    if(!isMoved(a)){ for(const r of open){ await peopleDel(r.id); CHG = CHG.filter(x => x !== r); } continue; }
+    const to = effMgr(a), cur = open[0];
+    if(cur){ if(cur.to !== to){ cur.to = to; cur.from = a.mgr || ''; cur.at = Date.now(); cur.by = localStorage.getItem(LS('mgr')) || ''; await chgSave(cur); } }
+    else if(!CHG.some(r => r.type === 'owner' && r.acct === a.a && !r.done && r.to === to)) await chgSave({id: newId('cg'), kind: 'chg', type: 'owner', acct: a.a, from: a.mgr || '', to});
+  }
+  if(screen === 'settings') renderPeopleStat();
 }
 $('pplShare').addEventListener('click', async () => {
   const all = $('cagAll') && $('cagAll').checked;
@@ -13739,13 +13825,22 @@ $('pplShare').addEventListener('click', async () => {
   if(!window.XLSX){ toast('The spreadsheet library did not load'); return; }
   const d = t => t ? ddmmyyyy(iso(new Date(t))) : '';
   const contact = (acct, n, cid) => { const a = ACC_BY_NAME.get(acct), c = a && (a.c || []).find(x => !x.added && ((cid && x.id === cid) || pKey(x.n) === pKey(n))); return c || {}; };
+  // v158: every row with what Dynamics has now beside what it changes to, and anything to check
+  const val = (D, f) => { const l = D.lines.find(x => x.f === f); return l ? [l.now, l.to] : ['', '']; };
+  const pair = (D, f) => val(D, f);
+  const chk = D => D.odd.join('; ');
+  const made = i => { const w = cagWhen(i); return [w ? d(w) : '', (i.r && i.r.by) || '']; };
   const sheets = [
-    ['New contacts', ['Account', 'Full Name', 'Job Title', 'Email', 'Mobile', 'Added', 'Added by', 'From', 'Status'], items.filter(i => i.kind === 'new').map(i => [i.acct, i.n, i.r.t || '', i.r.e || '', i.r.p || '', d(i.r.added), i.r.by || '', i.r.from || '', cagState(i)])],
-    ['Moved contacts', ['(Do Not Modify) Contact', 'Full Name', 'From account', 'To account', 'Job Title', 'Email', 'Mobile', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'move').map(i => [i.r.cid || '', i.n, i.r.from, i.r.to, i.r.t || '', i.r.e || '', i.r.p || '', d(i.r.at), i.r.by || '', cagState(i)])],
-    ['Changed details', ['(Do Not Modify) Contact', 'Account', 'Full Name', 'Job Title', 'Email', 'Mobile', 'Was', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'edit').map(i => [i.r.cid || '', i.acct, i.n, i.r.t || '', i.r.e || '', i.r.p || '',
-      [i.r.was && i.r.was.t, i.r.was && i.r.was.e, i.r.was && i.r.was.p].filter(Boolean).join(' / '), d(i.r.at), i.r.by || '', cagState(i)])],
-    ['Left the company', ['(Do Not Modify) Contact', 'Full Name', 'Account', 'Recorded', 'By', 'Status'], items.filter(i => i.kind === 'left').map(i => [i.r.cid || '', i.n, i.acct, d(i.r.at), i.r.by || '', cagState(i)])],
-    ['Account owners', ['Account', 'Role', 'New owner', 'Was', 'Status'], items.filter(i => i.kind === 'owner' || i.kind === 'atl').map(i => [i.acct + (i.kind === 'atl' && i.r.sites ? ' (' + i.r.sites.join(', ') + ')' : ''), i.kind === 'atl' ? 'Account Team Leader' : 'Account Manager', i.to || '', i.from || '', cagState(i)])]
+    ['New contacts', ['Account', 'Full Name', 'Job Role', 'Job Title', 'Email', 'Mobile', 'Added', 'Added by', 'From', 'Check', 'Status'],
+      items.filter(i => i.kind === 'new').map(i => { const D = cagDetail(i); return [i.acct, i.n, i.r.role || '', i.r.t || '', i.r.e || '', i.r.p || '', d(i.r.added), i.r.by || '', i.r.from || '', chk(D), cagState(i)]; })],
+    ['Moved contacts', ['(Do Not Modify) Contact', 'Full Name', 'From account', 'To account', 'Job Role in Dynamics', 'Job Role change to', 'Job Title in Dynamics', 'Job Title change to', 'Email in Dynamics', 'Email change to', 'Mobile in Dynamics', 'Mobile change to', 'Recorded', 'By', 'Check', 'Status'],
+      items.filter(i => i.kind === 'move').map(i => { const D = cagDetail(i); return [i.r.cid || '', i.n, i.r.from, i.r.to, ...pair(D, 'Job role'), ...pair(D, 'Job title'), ...pair(D, 'Email'), ...pair(D, 'Mobile'), ...made(i), chk(D), cagState(i)]; })],
+    ['Changed details', ['(Do Not Modify) Contact', 'Account', 'Full Name', 'Job Role in Dynamics', 'Job Role change to', 'Job Title in Dynamics', 'Job Title change to', 'Email in Dynamics', 'Email change to', 'Mobile in Dynamics', 'Mobile change to', 'Recorded', 'By', 'Check', 'Status'],
+      items.filter(i => i.kind === 'edit').map(i => { const D = cagDetail(i); return [i.r.cid || '', i.acct, i.n, ...pair(D, 'Job role'), ...pair(D, 'Job title'), ...pair(D, 'Email'), ...pair(D, 'Mobile'), ...made(i), chk(D), cagState(i)]; })],
+    ['Left the company', ['(Do Not Modify) Contact', 'Full Name', 'Account', 'Job Role in Dynamics', 'Job Title in Dynamics', 'Recorded', 'By', 'Status'],
+      items.filter(i => i.kind === 'left').map(i => { const D = cagDetail(i); return [i.r.cid || '', i.n, i.acct, val(D, 'Job role')[0], val(D, 'Job title')[0], ...made(i), cagState(i)]; })],
+    ['Account owners', ['Account', 'Role', 'In Dynamics', 'Change to', 'Recorded', 'By', 'Status'],
+      items.filter(i => i.kind === 'owner' || i.kind === 'atl').map(i => [i.acct + (i.kind === 'atl' && i.r.sites ? ' (' + i.r.sites.join(', ') + ')' : ''), i.kind === 'atl' ? 'Account Team Leader' : 'Account Manager', i.from || '', i.to || '', ...made(i), cagState(i)])]
   ].filter(s => s[2].length);
   const wb = XLSX.utils.book_new();
   sheets.forEach(([name, head, rows]) => { const ws = XLSX.utils.aoa_to_sheet([head].concat(rows)); ws['!cols'] = head.map(h => ({wch: Math.max(14, Math.min(40, h.length + 8))})); XLSX.utils.book_append_sheet(wb, ws, name); });
@@ -13835,11 +13930,18 @@ function openContactChange(seed, after){
   const a = ACC_BY_NAME.get(seed.acct);
   if(!a){ toast('That contact is not at one of your customers'); return; }
   const c = (a.c || []).find(x => (seed.cid && x.id === seed.cid) || pKey(x.n) === pKey(seed.n)) || null;
-  const cur = {t: c ? c.t || '' : seed.t || '', e: c && c.e && c.e[0] || '', p: c ? c.p || '' : ''};
+  const cur = {t: c ? c.t || '' : seed.t || '', e: c && c.e && c.e[0] || '', p: c ? c.p || '' : '', role: c ? c.r || '' : ''};
   ctEdit = {acct: a.a, n: (c && c.n) || seed.n, cid: (c && c.id) || seed.cid || '', c, cur, after};
   $('ctHead').textContent = ctEdit.n || 'Contact';
   $('ctAt').textContent = 'At ' + a.a + (c && c.moved ? '. Already marked as moved to ' + c.moved + '.' : '');
   $('ctT').value = cur.t; $('ctE').value = cur.e; $('ctP').value = cur.p; $('ctTo').value = '';
+  // v158: Dynamics' own job roles and titles to pick from
+  const V = dynVals(), known = !cur.role || V.roleKeys.has(pKey(cur.role));
+  $('ctR').innerHTML = '<option value="">Not set</option>' + V.roles.map(v => '<option' + (pKey(v) === pKey(cur.role) ? ' selected' : '') + '>' + esc(v) + '</option>').join('') +
+    '<option value="__other__"' + (known ? '' : ' selected') + '>Something else…</option>';
+  $('ctRo').value = known ? '' : cur.role; $('ctRo').hidden = known;
+  $('ctTitles').innerHTML = V.titles.map(v => '<option value="' + esc(v) + '">').join('');
+  ctFlags();
   if(seed.moving){ $('ctHead').textContent = (ctEdit.n || 'Contact') + ': moved site'; setTimeout(() => { try { $('ctTo').focus(); } catch(_){} }, 60); }
   $('ctAccts').innerHTML = ACCOUNTS.filter(x => x.a !== a.a).map(x => '<option value="' + esc(x.a) + '">').join('');
   const d = $('ctdlg');
@@ -13853,30 +13955,31 @@ async function ctFinish(){
   ctEdit = null;
   const d = $('ctdlg');
   if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
-  const now = {t: $('ctT').value.trim(), e: $('ctE').value.trim(), p: $('ctP').value.trim()};
-  const edited = ['t', 'e', 'p'].some(k => pKey(now[k]) !== pKey(E.cur[k]));
+  const now = {t: $('ctT').value.trim(), e: $('ctE').value.trim(), p: $('ctP').value.trim(), role: ctRole()};
+  const edited = ['t', 'e', 'p', 'role'].some(k => pKey(now[k]) !== pKey(E.cur[k]));
   if(!edited && !to) return;                                       // nothing changed: nothing kept
   const c = E.c;
   // a contact added in the app: corrected where it is kept
   if(c && c.added && c.pid){
     const r = PEOPLE.find(x => x.id === c.pid);
-    if(r){ Object.assign(r, {t: now.t, e: now.e, p: now.p}, to ? {acct: to} : {}); r.updated = Date.now(); await peoplePut(r); peopleMerge(); }
+    if(r){ Object.assign(r, {t: now.t, e: now.e, p: now.p, role: now.role}, to ? {acct: to} : {}); r.updated = Date.now(); await peoplePut(r); peopleMerge(); }
   } else if(c && c.added && c.chg){
     const r = CHG.find(x => x.id === c.chg);
-    if(r){ Object.assign(r, {t: now.t, e: now.e, p: now.p}, to ? {to} : {}); await chgSave(r); }
+    if(r){ Object.assign(r, {t: now.t, e: now.e, p: now.p, role: now.role}, to ? {to} : {}); await chgSave(r); }
   } else if(to){
     const r = CHG.find(x => x.type === 'move' && !x.done && pKey(x.n) === pKey(E.n) && x.from === E.acct) || {id: newId('cg'), kind: 'chg', type: 'move', n: E.n, cid: E.cid, from: E.acct};
-    Object.assign(r, {to, t: now.t, e: now.e, p: now.p}); delete r.sent;
+    Object.assign(r, {to, t: now.t, e: now.e, p: now.p, role: now.role, was: c ? chgRaw(c) : r.was}); delete r.sent;
     await chgSave(r);
     // a change of details at the old account is superseded by the move
     for(const x of CHG.filter(y => y.type === 'edit' && !y.done && y.acct === E.acct && pKey(y.n) === pKey(E.n))){ await peopleDel(x.id); CHG = CHG.filter(y => y !== x); }
   } else {
     const raw = c ? chgRaw(c) : {t: '', e: '', p: ''};
     let r = CHG.find(x => x.type === 'edit' && !x.done && x.acct === E.acct && pKey(x.n) === pKey(E.n));
-    const diff = {}; ['t', 'e', 'p'].forEach(k => { diff[k] = pKey(now[k]) !== pKey(raw[k]) ? now[k] : ''; });
-    if(!diff.t && !diff.e && !diff.p){ if(r){ await peopleDel(r.id); CHG = CHG.filter(y => y !== r); } }
+    const diff = {}; ['t', 'e', 'p', 'role'].forEach(k => { diff[k] = pKey(now[k]) !== pKey(raw[k]) ? now[k] : ''; });
+    if(!diff.t && !diff.e && !diff.p && !diff.role){ if(r){ await peopleDel(r.id); CHG = CHG.filter(y => y !== r); } }
     else {
       r = r || {id: newId('cg'), kind: 'chg', type: 'edit', n: E.n, cid: E.cid, acct: E.acct, was: raw};
+      r.was = Object.assign({}, raw, r.was || {}, {role: raw.role});   // v158: what Dynamics has, the job role included
       Object.assign(r, diff); delete r.sent;
       await chgSave(r);
     }
@@ -13886,6 +13989,14 @@ async function ctFinish(){
   toast(to ? E.n + ' marked as moved to ' + to + ', for CAG' : E.n + '\'s details changed, for CAG');
   if(E.after) E.after({to, now});
 }
+const ctRole = () => $('ctR').value === '__other__' ? $('ctRo').value.trim() : $('ctR').value;
+function ctFlags(){
+  const r = ctRole(), t = $('ctT').value.trim();
+  $('ctRflag').hidden = !dynOdd('role', r); $('ctTflag').hidden = !dynOdd('title', t);
+}
+$('ctR').addEventListener('change', () => { const o = $('ctR').value === '__other__'; $('ctRo').hidden = !o; if(o) setTimeout(() => { try { $('ctRo').focus(); } catch(_){} }, 30); ctFlags(); });
+$('ctRo').addEventListener('input', ctFlags);
+$('ctT').addEventListener('input', ctFlags);
 $('ctOk').addEventListener('click', () => ctFinish().catch(e => { console.error(e); toast('Could not save: ' + e.message); }));
 $('ctdlg').addEventListener('cancel', e => { e.preventDefault(); ctFinish().catch(console.error); });
 $('ctdlg').addEventListener('close', () => { if(ctEdit) ctFinish().catch(console.error); });
@@ -19801,6 +19912,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v158', 'Changes for CAG has its own section at the bottom of Settings, with To send, Sent and Done: each change shows what Dynamics has now and what it changes to, when and by whom. An account manager change is on it as soon as you make it. Job roles and titles pick from what Dynamics holds; anything else is flagged.'],
   ['v157', 'The Intralox people list fills itself from the CRM export\'s account managers and representatives, and your team; positions are added by hand. In the Intralox box on a map, Add our people ticks them in, grouped by position, with the sites\' account managers ticked.'],
   ['v156', 'On the PC, paste a copied picture into a call with Ctrl+V, or drag one in: it goes with the entry open, or into Loose photos. A Bullets button under the summary, notes and other long boxes puts bullet points on and takes them off; Enter carries on the list.'],
   ['v155', 'Plan has three tabs: Calendar, Tasks and Products; the Tasks and Lists tiles are gone. Product ideas move from Idea to Requested, Approved and Stocked, with the customers who want each, Make a task, and Share the list. Intralox people are in Settings. Saved notes are kept in the backup.'],
