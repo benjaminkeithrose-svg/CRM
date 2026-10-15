@@ -587,14 +587,19 @@ When a contact moves, or their details change:
 
 On a large account's map, someone who moved to another of its sites moves to that site's box; someone who moved elsewhere comes off the map. The contact list shows them at their new account, and as moved at the old one, until Dynamics has it.
 
-To send the changes to CAG:
+When you change a contact's job role or title, pick from the list. The lists are the job roles and titles Dynamics already holds, from your CRM export, so what goes to CAG fits Dynamics. If what you need is not there, pick **Something else…** under Job role, or type a new title: it is kept, and flagged on the list so you check it before sending.
+
+To see what will go to CAG, and send it:
 
 1. Tap **⋯** on Home, then **Settings**.
-2. Open **CRM and belt data**.
-3. Under **Changes for Dynamics**, tap **Download for CAG** and send the spreadsheet to CAG.
-4. When asked, tap **OK** to mark them as sent.
+2. Open **Changes for CAG**, at the bottom.
+3. Check the **To send** tab. Each change shows the contact or account, what Dynamics has now and what it changes to, when it was made and by whom. A job role or title Dynamics does not hold is marked **not in Dynamics' list**.
+4. Tap **Download for CAG** and send the spreadsheet to CAG.
+5. When asked, tap **OK** to mark them as sent. They move to the **Sent** tab.
 
-The spreadsheet has a sheet each for new contacts, moved contacts, changed details, people who left the company and account owners, with Dynamics' contact ID where there is one. Next time, only changes not sent yet are included; tick **Include ones already sent** to send them all again. Tap **Show them** to see each change and whether it is sent or done. A change is done once a CRM import shows Dynamics has it, and drops off 30 days later. A team member's account manager changes go through the team's admin.
+An account manager change is on the list as soon as you make it, from a map, Strategy or the planner. Change it again before it is sent and the same row changes; put it back to the owner Dynamics has and it comes off. Once a CRM import shows Dynamics has a change, it moves to **Done**. The bin on a change takes it off the list; for an account manager, the account stays with the new manager.
+
+The spreadsheet has a sheet each for new contacts, moved contacts, changed details, people who left the company and account owners, with Dynamics' contact ID where there is one. Each row has what Dynamics has now beside what it changes to, when it was made and by whom, and a **Check** column for anything not in Dynamics' lists. Next time, only changes not sent yet are included; tick **Include ones already sent** to send them all again. A team member's account manager changes go through the team's admin.
 
 ### Intralox people
 

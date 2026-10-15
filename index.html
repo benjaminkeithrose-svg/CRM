@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v157">
+<meta name="build" content="v158">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1443,6 +1443,8 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .dlg-f .spacer{flex:1}
 .note{font-size:11.5px;color:var(--ink-2);background:var(--sunk);padding:7px 9px;border-radius:var(--r);margin:0}
 .note.warn{background:var(--red-soft);color:var(--warn)}
+.note.amb{background:var(--orange-lt);color:var(--orange-dk);margin-top:6px}
+.cagodd{color:var(--orange-dk);font-weight:600}
 .note.sync{background:var(--cyan-lt);color:var(--cyan-dk)}
 .note.sync.ok{background:var(--ok-lt);color:var(--ok)}
 .note.sync.chg{background:var(--orange-lt);color:var(--orange-dk)}
@@ -1630,6 +1632,8 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .arrhid{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin:12px 0 4px}
 .perftabs{margin:0 0 10px}
 .plantabs{margin:0 0 10px}
+.cagrow .pin{display:block}
+#cagTabs{margin:10px 0}
 .opours{display:flex;flex-direction:column;gap:2px;margin:0 0 8px}
 #s-plan .planwrap{min-height:calc(100vh - 170px)}
 #prAccts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
@@ -1867,16 +1871,6 @@ details.bsx > .msg{margin:8px 12px}
     <button class="ghost adminonly" id="importBtn">Import CRM export</button>
     <p class="hint adminonly">Export the ANZ Active Food Contacts view from Dynamics as .xlsx or .csv, then import it here. The .xlsx keeps the hiddenSheet, which is what makes writing back to Dynamics possible. Data stays on this device.</p>
   </div>
-  <!-- v125: people added on Blue Sheet maps, kept through CRM imports until Dynamics has them -->
-  <!-- v144: with moved contacts, changed details and account owners: one list for CAG -->
-  <div class="fld">
-    <label>Changes for Dynamics</label>
-    <p class="stat" id="pplStat">Nothing waiting: Dynamics has everything changed here.</p>
-    <label class="chk" id="cagAllW" hidden><input type="checkbox" id="cagAll"> Include ones already sent</label>
-    <button class="ghost" id="pplShare" hidden>Download for CAG</button>
-    <details class="cagl" id="cagList" hidden></details>
-    <p class="hint">New contacts added on maps, contacts who moved, changed titles, emails and mobiles, and account owners changed here. Download the list for CAG, then mark it sent. Each change drops off by itself once a CRM import shows Dynamics has it.</p>
-  </div>
 
   <div class="fld">
     <label>Plant audit register</label>
@@ -2023,6 +2017,18 @@ details.bsx > .msg{margin:8px 12px}
     <button class="ghost" id="rsBtn">Restore from backup</button>
     <p class="hint">Adds and updates records by id. Nothing already here is deleted.</p>
   </div>
+  </details>
+  <!-- v158: the changes to give CAG, in a section of their own at the back - Ben, 2026-10-16 -->
+  <details class="sx" id="sxCag">
+    <summary><b>Changes for CAG</b><span class="sxs" id="sumCag"></span></summary>
+    <div class="fld">
+      <button class="btn act2" id="pplShare" hidden>Download for CAG</button>
+      <label class="chk" id="cagAllW" hidden><input type="checkbox" id="cagAll"> Include ones already sent</label>
+      <p class="stat" id="pplStat">Nothing waiting: Dynamics has everything changed here.</p>
+      <div class="seg" id="cagTabs" role="group" aria-label="Changes"><button type="button" data-v="send" class="on">To send</button><button type="button" data-v="sent">Sent</button><button type="button" data-v="done">Done</button></div>
+      <div id="cagRes"></div>
+      <p class="hint">New contacts, contacts who moved or left, changed titles, emails and mobiles, and account managers and account team leaders changed in the app. Download the list for CAG, then mark it sent. Each change moves to Done by itself once a CRM import shows Dynamics has it.</p>
+    </div>
   </details>
 </section>
 
@@ -2666,14 +2672,17 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Done</b>.</li>
       </ol>
       <p>On a large account's map, someone who moved to another of its sites moves to that site's box; someone who moved elsewhere comes off the map. The contact list shows them at their new account, and as moved at the old one, until Dynamics has it.</p>
-      <p>To send the changes to CAG:</p>
+      <p>When you change a contact's job role or title, pick from the list. The lists are the job roles and titles Dynamics already holds, from your CRM export, so what goes to CAG fits Dynamics. If what you need is not there, pick <b>Something else…</b> under Job role, or type a new title: it is kept, and flagged on the list so you check it before sending.</p>
+      <p>To see what will go to CAG, and send it:</p>
       <ol>
         <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
-        <li>Open <b>CRM and belt data</b>.</li>
-        <li>Under <b>Changes for Dynamics</b>, tap <b>Download for CAG</b> and send the spreadsheet to CAG.</li>
-        <li>When asked, tap <b>OK</b> to mark them as sent.</li>
+        <li>Open <b>Changes for CAG</b>, at the bottom.</li>
+        <li>Check the <b>To send</b> tab. Each change shows the contact or account, what Dynamics has now and what it changes to, when it was made and by whom. A job role or title Dynamics does not hold is marked <b>not in Dynamics' list</b>.</li>
+        <li>Tap <b>Download for CAG</b> and send the spreadsheet to CAG.</li>
+        <li>When asked, tap <b>OK</b> to mark them as sent. They move to the <b>Sent</b> tab.</li>
       </ol>
-      <p>The spreadsheet has a sheet each for new contacts, moved contacts, changed details, people who left the company and account owners, with Dynamics' contact ID where there is one. Next time, only changes not sent yet are included; tick <b>Include ones already sent</b> to send them all again. Tap <b>Show them</b> to see each change and whether it is sent or done. A change is done once a CRM import shows Dynamics has it, and drops off 30 days later. A team member's account manager changes go through the team's admin.</p>
+      <p>An account manager change is on the list as soon as you make it, from a map, Strategy or the planner. Change it again before it is sent and the same row changes; put it back to the owner Dynamics has and it comes off. Once a CRM import shows Dynamics has a change, it moves to <b>Done</b>. The bin on a change takes it off the list; for an account manager, the account stays with the new manager.</p>
+      <p>The spreadsheet has a sheet each for new contacts, moved contacts, changed details, people who left the company and account owners, with Dynamics' contact ID where there is one. Each row has what Dynamics has now beside what it changes to, when it was made and by whom, and a <b>Check</b> column for anything not in Dynamics' lists. Next time, only changes not sent yet are included; tick <b>Include ones already sent</b> to send them all again. A team member's account manager changes go through the team's admin.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3454,11 +3463,15 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   <div class="dlg-b">
     <p class="hint" id="ctAt"></p>
-    <div class="f"><label for="ctT">Job title</label><input type="text" id="ctT" autocomplete="off"></div>
+    <div class="f"><label for="ctR">Job role</label><select id="ctR"></select>
+      <input type="text" id="ctRo" autocomplete="off" placeholder="Type the job role" hidden>
+      <p class="note amb" id="ctRflag" hidden>Not in Dynamics' list of job roles. It is flagged on the list for CAG.</p></div>
+    <div class="f"><label for="ctT">Job title</label><input type="text" id="ctT" list="ctTitles" autocomplete="off" placeholder="Start typing to pick from Dynamics' titles"><datalist id="ctTitles"></datalist>
+      <p class="note amb" id="ctTflag" hidden>Not a job title Dynamics has yet. It is flagged on the list for CAG.</p></div>
     <div class="f"><label for="ctE">Email</label><input type="email" id="ctE" autocomplete="off"></div>
     <div class="f"><label for="ctP">Mobile</label><input type="tel" id="ctP" autocomplete="off"></div>
     <div class="f"><label for="ctTo">Moved to another account</label><input type="text" id="ctTo" list="ctAccts" autocomplete="off" placeholder="Pick the account they are at now"><datalist id="ctAccts"></datalist></div>
-    <p class="hint">Changes go on the list for CAG under Changes for Dynamics in Settings, and show on the contact list here until Dynamics has them.</p>
+    <p class="hint">Job roles and titles come from Dynamics, through the CRM export. Changes go on the list under Changes for CAG in Settings, and show on the contact list here until Dynamics has them.</p>
   </div>
 </dialog>
 

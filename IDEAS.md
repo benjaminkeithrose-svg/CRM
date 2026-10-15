@@ -998,4 +998,21 @@ works with). Existing duplicates were folded together, newest edit winning.
 
 ---
 
+## Built (v158): Changes for CAG, a log you can check before downloading
+*Asked and built 2026-10-16*
+
+Ben: the CAG spreadsheet was not right, and he wants a rolling list to check
+what will go before downloading, with the contact's current Dynamics position
+beside the change, and only Dynamics' own job roles.
+
+- Its own section at the bottom of Settings: Download for CAG at the top,
+  To send / Sent / Done, each change with what Dynamics has and what it
+  changes to, when and by whom.
+- Account manager changes recorded the moment they are made (Strategy, a map
+  or the planner).
+- Job role and job title pick from the values in the CRM export; anything else
+  is flagged on the list and in the spreadsheet's Check column.
+
+---
+
 <!-- Add new ideas above this line. -->
