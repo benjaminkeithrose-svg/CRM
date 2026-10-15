@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v154">
+<meta name="build" content="v155">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1629,6 +1629,12 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .arrlist .mv{min-width:40px;padding:0}
 .arrhid{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin:12px 0 4px}
 .perftabs{margin:0 0 10px}
+.plantabs{margin:0 0 10px}
+#s-plan .planwrap{min-height:calc(100vh - 170px)}
+#prAccts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+#prAccts .prc{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:16px;padding:2px 4px 2px 10px;font-size:14px}
+#prAccts .prc button{border:0;background:none;min-width:32px;min-height:32px;color:var(--ink-3)}
+.prn{color:var(--ink-3);font-weight:400}
 .chgnotes details{margin:6px 0}
 .chgnotes summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
 .chgnotes ul{margin:4px 0 8px 18px;padding:0}
@@ -1750,7 +1756,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="tasks"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><b>Tasks</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- v152: Home arranged your way: move, hide, show again -->
@@ -1960,6 +1966,14 @@ details.bsx > .msg{margin:8px 12px}
 
 
   <!-- v114: the calls packed as text for a Claude Project, for analysis across accounts -->
+  <!-- v155: Intralox people, out of Lists -->
+  <details class="sx" id="sxStaff">
+    <summary><b>Intralox people</b><span class="sxs" id="sfHint"></span></summary>
+    <div class="fld">
+      <button type="button" class="btn act2" id="sfNew">Add someone</button>
+      <div id="sfRes"></div>
+    </div>
+  </details>
   <details class="sx" id="sxClaude">
     <summary><b>Export for Claude</b><span class="sxs">Call reports, for deeper analysis</span></summary>
   <div class="fld">
@@ -2106,7 +2120,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Unlock</b>.</li>
       </ol>
       <p>Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.</p>
-      <p>In a team, <b>Cloud sync</b> shows the team's name and its admin. The team shares its call reports, visits, account plans, opportunities, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.</p>
+      <p>In a team, <b>Cloud sync</b> shows the team's name and its admin. The team shares its call reports, visits, account plans, opportunities, product ideas and the Intralox people, and the CRM accounts and belt data the admin loads. Your tasks stay yours.</p>
       <p>To change the passphrase (on your own, or as a team's admin):</p>
       <ol>
         <li>In <b>Cloud sync</b>, tap <b>Change the passphrase</b>.</li>
@@ -2265,7 +2279,7 @@ details.bsx > .msg{margin:8px 12px}
   <details class="sx hx">
     <summary><b>Talk into a box, or tidy a note</b><span class="sxs">The microphone and Tidy</span></summary>
     <div class="fld help">
-      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, saved notes, products, a visit's agenda and your CIP.</p>
+      <p>Every free-text box on a call has a microphone beside <b>Tidy</b>: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, product ideas, a visit's agenda and your CIP.</p>
       <ol>
         <li>Tap the microphone.</li>
         <li>The first time, allow the microphone when the phone asks.</li>
@@ -2665,13 +2679,14 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Intralox people</b><span class="sxs">Our own people, their positions and relationships</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>Lists</b> on Home, then tap the circle-plus on the <b>Intralox</b> tab.</li>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>Intralox people</b>.</li>
+        <li>Tap <b>Add someone</b>.</li>
         <li>Type their name.</li>
         <li>Tap their position: <b>AM</b> account manager, <b>ATL</b> account team leader, <b>ITL</b> industry team leader, <b>SS</b> solution seller (P2P), <b>AE</b> application engineer or <b>TSG</b> technical service group. For anything else, tap <b>Other</b> and type it.</li>
         <li>Under <b>Reports to</b>, pick their manager if they are on the list. Leave it as <b>Nobody yet</b> if not.</li>
         <li>Add their email and phone if you have them, then tap <b>Done</b>.</li>
         <li>To put them on a map, tap the table icon next to <b>Intralox</b> in the list beside the map and start typing their name. Pick it from the list.</li>
-        <li>To see everyone they have a relationship with, tap them on the <b>Intralox</b> tab, or tap them on a map and then <b>Their Intralox record</b>.</li>
+        <li>To see everyone they have a relationship with, tap them under <b>Intralox people</b> in Settings, or tap them on a map and then <b>Their Intralox record</b>.</li>
         <li>Under <b>Their relationships</b>, each map they are on is listed. Tap <b>Strong</b>, <b>Neutral</b>, <b>Weak</b>, <b>Hostile</b> or <b>Unknown</b> on a row to set it, or tap a name to go to them on that map.</li>
       </ol>
       <p>The list is shared with your team. On a map, someone in the Intralox box with the same name is tied to their record and shows their position. When their manager is in the box too, they are drawn under them, as an organisation chart. Someone on a map who is not on the list yet has <b>Add to Intralox people</b> in their panel. Deleting someone from the list leaves them on the maps they are on.</p>
@@ -2768,7 +2783,7 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Delete something</b><span class="sxs">The bin on its card</span></summary>
     <div class="fld help">
       <ol>
-        <li>Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a saved note or product in Lists, or an entry in a call.</li>
+        <li>Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a product on the Products tab of Plan, or an entry in a call.</li>
         <li>Tap the red bin on the right of the card.</li>
         <li>Read what will be lost, then tap <b>OK</b>. Tap <b>Cancel</b> to keep it.</li>
       </ol>
@@ -2787,10 +2802,10 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>See all your tasks</b><span class="sxs">The Tasks tile</span></summary>
+    <summary><b>See all your tasks</b><span class="sxs">The Tasks tab of Plan</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>Tasks</b> on Home.</li>
+        <li>Tap <b>Plan</b> on Home, then the <b>Tasks</b> tab. Plan opens on whichever of <b>Calendar</b>, <b>Tasks</b> and <b>Products</b> you used last.</li>
         <li><b>Open</b> lists what is still to do: anything overdue from an earlier day first, then today, then what is coming up.</li>
         <li>Tap the box on a task to tick it done. It moves to <b>Done</b>.</li>
         <li>Tap a task to open and change it.</li>
@@ -2821,7 +2836,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Under <b>From Task Slaughterer</b>, choose the file.</li>
         <li>Tap <b>Import</b>.</li>
       </ol>
-      <p>Open tasks go on today from 8am. Done ones go on the day you ticked them off. Saved notes and products go to <b>Lists</b>. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.</p>
+      <p>Open tasks go on today from 8am. Done ones go on the day you ticked them off. Products go to the <b>Products</b> tab of <b>Plan</b>; saved notes are kept in the backup. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2843,31 +2858,21 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>Keep saved notes</b><span class="sxs">Text you paste again and again</span></summary>
+    <summary><b>Track product ideas</b><span class="sxs">From an idea to stocked</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>Lists</b> on Home.</li>
-        <li>Tap <b>Saved notes</b> at the top.</li>
-        <li>Tap the circle-plus on the <b>Saved notes</b> tab.</li>
-        <li>Give it a label, tap its reason, and type or dictate the text.</li>
+        <li>Tap <b>Plan</b> on Home, then the <b>Products</b> tab.</li>
+        <li>Tap the circle-plus on the <b>Ideas</b> tab.</li>
+        <li>Type the product, and tap <b>Belt</b>, <b>Sprocket</b> or <b>Other</b>.</li>
+        <li>Type the part number if you have it.</li>
+        <li>Under <b>Customers who want it</b>, start typing a customer, pick it from the list and tap <b>Add</b>. Do the same for each customer who wants it.</li>
+        <li>Check <b>Raised by</b>. It starts as your name.</li>
         <li>Tap <b>Done</b>.</li>
       </ol>
-      <p>To use one, tap <b>&#8943;</b> on it and tap <b>Copy the text</b>, then paste it into Dynamics. The ones you copy most recently stay at the top.</p>
-      <p>Tap a saved note to change it. <b>Duplicate</b> on the <b>&#8943;</b> opens a copy to change before it's saved.</p>
-    </div>
-  </details>
-  <details class="sx hx">
-    <summary><b>Keep the Not stocked list</b><span class="sxs">Products to chase</span></summary>
-    <div class="fld help">
-      <ol>
-        <li>Tap <b>Lists</b> on Home.</li>
-        <li>Tap <b>Products</b> at the top.</li>
-        <li>Tap the circle-plus on the <b>Products</b> tab.</li>
-        <li>Fill in the product, part number, status and account.</li>
-        <li>Tap <b>Done</b>.</li>
-      </ol>
-      <p>When it's stocked, tap <b>&#8943;</b> on it and tap <b>Mark stocked</b>. It moves to the <b>Stocked</b> tab with the date.</p>
-      <p>Tap a product to change it. To delete one, tap the bin on the right of its card.</p>
+      <p>Each step has its own tab: <b>Ideas</b>, <b>Requested</b>, <b>Approved</b>, <b>Stocked</b> and <b>Not going ahead</b>. To move one on, tap <b>&#8943;</b> on it and tap <b>Move to</b> the next step, or open it and tap the step. The ones most customers want come first.</p>
+      <p>A product idea has no due date. For a follow-up on a day, tap <b>&#8943;</b> on it and tap <b>Make a task</b>, or tap <b>Make a task</b> in the form. The task is named for the product and carries its customers.</p>
+      <p>To send the list, tap <b>Share the list</b> at the top. It lists every product by step, with the customers who want each one.</p>
+      <p>Tap a product to change it. <b>Duplicate</b> on the <b>&#8943;</b> opens a copy to change before it's saved. To delete one, tap the bin on the right of its card.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3192,6 +3197,7 @@ details.bsx > .msg{margin:8px 12px}
 
 <!-- TODAY / THIS WEEK -->
 <section class="scr" id="s-today">
+  <div class="seg plantabs" role="group" aria-label="Plan"><button type="button" data-ptab="cal" class="on">Calendar</button><button type="button" data-ptab="tasks">Tasks</button><button type="button" data-ptab="products">Products</button></div>
   <div class="tvbar">
     <button class="tvi" id="tvPrev" type="button" aria-label="Previous"></button>
     <button class="tvi" id="tvNow" type="button">Today</button>
@@ -3324,6 +3330,7 @@ details.bsx > .msg{margin:8px 12px}
 
 <!-- PLAN -->
 <section class="scr" id="s-plan">
+  <div class="seg plantabs" role="group" aria-label="Plan"><button type="button" data-ptab="cal" class="on">Calendar</button><button type="button" data-ptab="tasks">Tasks</button><button type="button" data-ptab="products">Products</button></div>
   <div class="planwrap">
     <div class="rail">
       <div class="rail-top">
@@ -3411,21 +3418,6 @@ details.bsx > .msg{margin:8px 12px}
   </div>
 </dialog>
 
-<!-- A saved note (v97): reusable text, such as closing notes for Dynamics. -->
-<dialog id="snipdlg">
-  <div class="dlg-h tkh">
-    <button type="button" class="tkdel" id="snDel" aria-label="Delete saved note" title="Delete saved note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
-    <b id="snHead">Saved note</b>
-    <button type="button" class="btn go" id="snOk">Done</button>
-  </div>
-  <div class="dlg-b">
-    <button type="button" class="btn act2" id="snCopy">Copy the text</button>
-    <div class="f"><label for="snLabel">Label</label><input type="text" id="snLabel" autocomplete="off" placeholder="What it's for, e.g. Close: went with another supplier"></div>
-    <div class="f"><label>Reason</label><div class="chips" id="snReason"></div>
-      <input type="text" id="snOther" autocomplete="off" placeholder="Type the reason" hidden></div>
-    <div class="f"><label for="snText">Text</label><textarea id="snText" data-talk="note" rows="8" placeholder="Type it, or tap the microphone on your keyboard to dictate"></textarea></div>
-  </div>
-</dialog>
 
 <!-- A contact who moved, or whose details changed (v144): goes on the list for CAG -->
 <dialog id="ctdlg">
@@ -3461,7 +3453,7 @@ details.bsx > .msg{margin:8px 12px}
   </div>
 </dialog>
 
-<!-- A product on the Not stocked list (v97). -->
+<!-- A product idea (v97; v155 tracked from idea to stocked). -->
 <dialog id="proddlg">
   <div class="dlg-h tkh">
     <button type="button" class="tkdel" id="prDel" aria-label="Delete product" title="Delete product"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
@@ -3470,11 +3462,15 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   <div class="dlg-b">
     <div class="f"><label for="prName">Product</label><input type="text" id="prName" autocomplete="off" placeholder="e.g. S1600 flush grid, 6 in wide"></div>
+    <div class="f"><label>What it is</label><div class="chips" id="prKind"></div></div>
     <div class="f"><label for="prPart">Part number</label><input type="text" id="prPart" autocomplete="off"></div>
-    <div class="f"><label>Status</label><div class="chips" id="prStatus"></div></div>
-    <div class="f"><label for="prAcct">Account</label><input type="text" id="prAcct" list="prAcctList" autocomplete="off" placeholder="Start typing an account"><datalist id="prAcctList"></datalist></div>
+    <div class="f"><label>Where it is up to</label><div class="chips" id="prStage"></div><p class="hint" id="prStageAt"></p></div>
+    <div class="f"><label>Customers who want it <span class="prn" id="prCount"></span></label>
+      <div id="prAccts"></div>
+      <div class="opadd"><input type="text" id="prAcct" list="prAcctList" autocomplete="off" placeholder="Start typing a customer" aria-label="Add a customer"><button type="button" class="btn act2" id="prAcctGo">Add</button></div><datalist id="prAcctList"></datalist></div>
+    <div class="f"><label for="prBy">Raised by</label><input type="text" id="prBy" autocomplete="off"></div>
     <div class="f"><label for="prNotes">Notes</label><textarea id="prNotes" data-talk="note" rows="4"></textarea></div>
-    <label class="ct"><input type="checkbox" id="prStocked"><div><div class="cn">Now stocked</div><div class="cr" id="prStockedAt">Tick it when it's on the shelf. It moves to the Stocked tab.</div></div></label>
+    <button type="button" class="btn act2" id="prTask">Make a task</button>
   </div>
 </dialog>
 
@@ -4339,7 +4335,6 @@ details.bsx > .msg{margin:8px 12px}
 </div>
 </section>
 
-<!-- LISTS (v97): saved notes and the Not stocked products, from Task Slaughterer -->
 <!-- STRATEGY (v120): the opportunities, large account plans and account plans being worked on, in one place -->
 <!-- CIP (v121): the continuous improvement plan, the four pillars and their reference. Private to you. -->
 <section class="scr" id="s-cip">
@@ -4393,6 +4388,7 @@ details.bsx > .msg{margin:8px 12px}
 
 <!-- v132: tasks in their own place: Open and Done, overdue first, emails filter -->
 <section class="scr" id="s-tasks">
+  <div class="seg plantabs" role="group" aria-label="Plan"><button type="button" data-ptab="cal">Calendar</button><button type="button" data-ptab="tasks" class="on">Tasks</button><button type="button" data-ptab="products">Products</button></div>
   <div class="seg tabs ptabs" id="tkTabs">
     <span class="ptab on"><button type="button" data-pane="open" class="on">Open</button><button type="button" class="tplus" id="tkNewT" aria-label="New task" title="New task"></button></span>
     <span class="ptab"><button type="button" data-pane="done">Done</button></span>
@@ -4404,36 +4400,22 @@ details.bsx > .msg{margin:8px 12px}
   <div id="tkRes"></div>
 </section>
 
-<section class="scr" id="s-lists">
-  <div class="seg tabs ptabs" id="lsTabs">
-    <span class="ptab on"><button type="button" data-pane="notes" class="on">Saved notes</button><button type="button" class="tplus" id="snNew" aria-label="New saved note" title="New saved note"></button></span>
-    <span class="ptab"><button type="button" data-pane="prods">Products</button><button type="button" class="tplus" id="prNew" aria-label="New product" title="New product"></button></span>
-    <!-- v142: Intralox's own people, shared with the team -->
-    <span class="ptab"><button type="button" data-pane="staff">Intralox</button><button type="button" class="tplus" id="sfNew" aria-label="New Intralox person" title="New Intralox person"></button></span>
+<!-- v155: product ideas, tracked from idea to stocked; a tab of Plan -->
+<section class="scr" id="s-products">
+  <div class="seg plantabs" role="group" aria-label="Plan"><button type="button" data-ptab="cal">Calendar</button><button type="button" data-ptab="tasks">Tasks</button><button type="button" data-ptab="products" class="on">Products</button></div>
+  <div class="seg tabs ptabs" id="prTabs">
+    <span class="ptab on"><button type="button" data-st="idea" class="on">Ideas</button><button type="button" class="tplus" id="prNew" aria-label="New product idea" title="New product idea"></button></span>
+    <span class="ptab"><button type="button" data-st="requested">Requested</button></span>
+    <span class="ptab"><button type="button" data-st="approved">Approved</button></span>
+    <span class="ptab"><button type="button" data-st="stocked">Stocked</button></span>
+    <span class="ptab"><button type="button" data-st="no">Not going ahead</button></span>
   </div>
-  <div class="pane" id="paneNotes">
-    <div class="rptop lsrow">
-      <p class="hint" id="snHint"></p>
-      <button type="button" class="tvi" id="snSearch" aria-label="Search saved notes" title="Search saved notes"></button>
-    </div>
-    <div id="snRes"></div>
+  <div class="rptop lsrow">
+    <button type="button" class="btn act2" id="prShare">Share the list</button>
+    <p class="hint" id="prHint"></p>
+    <button type="button" class="tvi" id="prSearch" aria-label="Search products" title="Search products"></button>
   </div>
-  <div class="pane" id="paneProds" hidden>
-    <div class="rptop lsrow">
-      <p class="hint" id="prHint"></p>
-      <button type="button" class="tvi" id="prSearch" aria-label="Search products" title="Search products"></button>
-    </div>
-    <div class="seg" id="prView">
-      <button type="button" data-v="open" class="on">Open</button>
-      <button type="button" data-v="stocked">Stocked</button>
-    </div>
-    <div style="height:10px"></div>
-    <div id="prRes"></div>
-  </div>
-  <div class="pane" id="paneStaff" hidden>
-    <div class="rptop lsrow"><p class="hint" id="sfHint"></p></div>
-    <div id="sfRes"></div>
-  </div>
+  <div id="prRes"></div>
 </section>
 
 <section class="scr" id="s-reference">

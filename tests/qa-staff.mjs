@@ -45,9 +45,9 @@ await g(`(async () => {
 })()`);
 await tick(100);
 
-// ---- the list, on the Lists screen
-g(`showLists('staff')`); await tick(80);
-ok(!$('paneStaff').hidden && /No Intralox people yet/.test($('sfRes').textContent), 'an Intralox tab on Lists, empty to start');
+// ---- the list, in Settings (v155: Lists is gone)
+g(`go('settings')`); await tick(80);
+ok($('sxStaff') && /No Intralox people yet/.test($('sfRes').textContent), 'Settings has Intralox people, empty to start');
 $('sfNew').click(); await tick(80);
 ok($('staffdlg').hasAttribute('open') && $('sfPos').querySelectorAll('button').length === 7, 'its + opens a new person, with the six positions and Other');
 ok([...$('sfPos').querySelectorAll('button')].map(b => b.dataset.v).join() === 'AM,ATL,ITL,SS,AE,TSG,Other', 'AM, ATL, ITL, SS, AE, TSG');
@@ -95,7 +95,7 @@ ok(!/to rate/.test($('sfRels').textContent), 'and it is no longer left to rate')
 $('sfOk').click(); await tick(150);
 
 // ---- delete
-g(`showLists('staff')`); await tick(80);
+g(`go('settings')`); await tick(80);
 const del = $('sfRes').querySelector('[data-sfdel="' + ita + '"]');
 del.click(); await tick(200);
 ok(!g(`STAFF.some(s => s.id === '${ita}')`) && g(`STAFF.find(s => s.n === 'Ben Example').boss`) === '', 'deleting someone leaves those who reported to them reporting to nobody');

@@ -961,4 +961,17 @@ works with). Existing duplicates were folded together, newest edit winning.
 
 ---
 
+## Built (v155): Tasks and Products in Plan; product ideas tracked; Lists retired
+*Asked 2026-10-15, built 2026-10-15*
+
+- Plan has Calendar, Tasks and Products tabs and reopens on the one used last;
+  the Tasks and Lists tiles are gone.
+- Product ideas: Idea -> Requested -> Approved -> Stocked, or Not going ahead,
+  a tab each; the customers who want it, from the CRM, counted; Belt, Sprocket
+  or Other; raised by; Make a task for a dated follow-up; Share the list.
+- Intralox people moved to Settings. Saved notes have no screen; they stay in
+  the store and the backup.
+
+---
+
 <!-- Add new ideas above this line. -->

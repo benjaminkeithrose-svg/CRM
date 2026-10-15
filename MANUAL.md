@@ -88,7 +88,7 @@ You get the project address, the key and your sign-in from whoever set up the cl
 
 Keep the passphrase in your password manager. Without it nobody, including you, can read the cloud copy.
 
-In a team, **Cloud sync** shows the team's name and its admin. The team shares its call reports, visits, account plans, opportunities, products and saved notes, and the CRM accounts and belt data the admin loads. Your tasks stay yours.
+In a team, **Cloud sync** shows the team's name and its admin. The team shares its call reports, visits, account plans, opportunities, product ideas and the Intralox people, and the CRM accounts and belt data the admin loads. Your tasks stay yours.
 
 To change the passphrase (on your own, or as a team's admin):
 
@@ -215,7 +215,7 @@ The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Phot
 
 ### Talk into a box, or tidy a note
 
-Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, saved notes, products, a visit's agenda and your CIP.
+Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, product ideas, a visit's agenda and your CIP.
 
 1. Tap the microphone.
 2. The first time, allow the microphone when the phone asks.
@@ -598,14 +598,15 @@ The spreadsheet has a sheet each for new contacts, moved contacts, changed detai
 
 ### Intralox people
 
-1. Tap **Lists** on Home, then tap the circle-plus on the **Intralox** tab.
-2. Type their name.
-3. Tap their position: **AM** account manager, **ATL** account team leader, **ITL** industry team leader, **SS** solution seller (P2P), **AE** application engineer or **TSG** technical service group. For anything else, tap **Other** and type it.
-4. Under **Reports to**, pick their manager if they are on the list. Leave it as **Nobody yet** if not.
-5. Add their email and phone if you have them, then tap **Done**.
-6. To put them on a map, tap the table icon next to **Intralox** in the list beside the map and start typing their name. Pick it from the list.
-7. To see everyone they have a relationship with, tap them on the **Intralox** tab, or tap them on a map and then **Their Intralox record**.
-8. Under **Their relationships**, each map they are on is listed. Tap **Strong**, **Neutral**, **Weak**, **Hostile** or **Unknown** on a row to set it, or tap a name to go to them on that map.
+1. Tap **⋯** on Home, then **Settings**, then **Intralox people**.
+2. Tap **Add someone**.
+3. Type their name.
+4. Tap their position: **AM** account manager, **ATL** account team leader, **ITL** industry team leader, **SS** solution seller (P2P), **AE** application engineer or **TSG** technical service group. For anything else, tap **Other** and type it.
+5. Under **Reports to**, pick their manager if they are on the list. Leave it as **Nobody yet** if not.
+6. Add their email and phone if you have them, then tap **Done**.
+7. To put them on a map, tap the table icon next to **Intralox** in the list beside the map and start typing their name. Pick it from the list.
+8. To see everyone they have a relationship with, tap them under **Intralox people** in Settings, or tap them on a map and then **Their Intralox record**.
+9. Under **Their relationships**, each map they are on is listed. Tap **Strong**, **Neutral**, **Weak**, **Hostile** or **Unknown** on a row to set it, or tap a name to go to them on that map.
 
 The list is shared with your team. On a map, someone in the Intralox box with the same name is tied to their record and shows their position. When their manager is in the box too, they are drawn under them, as an organisation chart. Someone on a map who is not on the list yet has **Add to Intralox people** in their panel. Deleting someone from the list leaves them on the maps they are on.
 
@@ -691,7 +692,7 @@ Photos with nothing logged yet go in **Loose photos** and come out at the end of
 
 ### Delete something
 
-1. Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a saved note or product in Lists, or an entry in a call.
+1. Find its card: a call in Reports, a visit or task on the calendar, an opportunity or plan on Strategy, a product on the Products tab of Plan, or an entry in a call.
 2. Tap the red bin on the right of the card.
 3. Read what will be lost, then tap **OK**. Tap **Cancel** to keep it.
 
@@ -707,7 +708,7 @@ A copy opens without being saved. Change what's different and tap Done. Photos a
 
 ### See all your tasks
 
-1. Tap **Tasks** on Home.
+1. Tap **Plan** on Home, then the **Tasks** tab. Plan opens on whichever of **Calendar**, **Tasks** and **Products** you used last.
 2. **Open** lists what is still to do: anything overdue from an earlier day first, then today, then what is coming up.
 3. Tap the box on a task to tick it done. It moves to **Done**.
 4. Tap a task to open and change it.
@@ -732,7 +733,7 @@ It goes on the calendar at the next half hour, for 30 minutes. Change the day or
 3. Under **From Task Slaughterer**, choose the file.
 4. Tap **Import**.
 
-Open tasks go on today from 8am. Done ones go on the day you ticked them off. Saved notes and products go to **Lists**. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.
+Open tasks go on today from 8am. Done ones go on the day you ticked them off. Products go to the **Products** tab of **Plan**; saved notes are kept in the backup. Account names that match the CRM are linked; any that don't are kept as typed and listed. Cloud sync takes them to your phone. Importing the same file again adds nothing.
 
 ### Write an email as a task
 
@@ -751,29 +752,23 @@ If your phone opens a different mail app, set Outlook as the default email app i
 
 Draft it works like **Tidy**: it needs signal and cloud sync, and sends the points and the task's contact, account and project to Anthropic to write the email. It ends with "Kind regards," so your Outlook signature follows. You can say things like "keep it short" or "put the parts as a list" with the points.
 
-### Keep saved notes
+### Track product ideas
 
-1. Tap **Lists** on Home.
-2. Tap **Saved notes** at the top.
-3. Tap the circle-plus on the **Saved notes** tab.
-4. Give it a label, tap its reason, and type or dictate the text.
-5. Tap **Done**.
+1. Tap **Plan** on Home, then the **Products** tab.
+2. Tap the circle-plus on the **Ideas** tab.
+3. Type the product, and tap **Belt**, **Sprocket** or **Other**.
+4. Type the part number if you have it.
+5. Under **Customers who want it**, start typing a customer, pick it from the list and tap **Add**. Do the same for each customer who wants it.
+6. Check **Raised by**. It starts as your name.
+7. Tap **Done**.
 
-To use one, tap **⋯** on it and tap **Copy the text**, then paste it into Dynamics. The ones you copy most recently stay at the top.
+Each step has its own tab: **Ideas**, **Requested**, **Approved**, **Stocked** and **Not going ahead**. To move one on, tap **⋯** on it and tap **Move to** the next step, or open it and tap the step. The ones most customers want come first.
 
-Tap a saved note to change it. **Duplicate** on the **⋯** opens a copy to change before it's saved.
+A product idea has no due date. For a follow-up on a day, tap **⋯** on it and tap **Make a task**, or tap **Make a task** in the form. The task is named for the product and carries its customers.
 
-### Keep the Not stocked list
+To send the list, tap **Share the list** at the top. It lists every product by step, with the customers who want each one.
 
-1. Tap **Lists** on Home.
-2. Tap **Products** at the top.
-3. Tap the circle-plus on the **Products** tab.
-4. Fill in the product, part number, status and account.
-5. Tap **Done**.
-
-When it's stocked, tap **⋯** on it and tap **Mark stocked**. It moves to the **Stocked** tab with the date.
-
-Tap a product to change it. To delete one, tap the bin on the right of its card.
+Tap a product to change it. **Duplicate** on the **⋯** opens a copy to change before it's saved. To delete one, tap the bin on the right of its card.
 
 ### Request a quote
 

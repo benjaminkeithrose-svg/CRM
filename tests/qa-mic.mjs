@@ -65,7 +65,7 @@ ok(mics.some(m => m.dataset.mic === 'tkNotes') && mics.some(m => m.dataset.mic =
 const bs = mics.filter(m => ['osText', 'odDesc'].includes(m.dataset.mic) || ($(m.dataset.mic) && $(m.dataset.mic).dataset.talk));
 // v132: and every box marked data-talk on the page (saved notes, products, the account plan, CIP, the visit agenda)
 const talk = [...d.querySelectorAll('[data-talk]')].filter(x => x.id && !x.readOnly).length;
-ok(bs.length === talk + 2 && ['snText', 'prNotes', 'plGoal', 'plFlags', 'plStrengths', 'dAgenda', 'cbNote'].every(id => mics.some(m => m.dataset.mic === id)) &&
+ok(bs.length === talk + 2 && ['prNotes', 'plGoal', 'plFlags', 'plStrengths', 'dAgenda', 'cbNote'].every(id => mics.some(m => m.dataset.mic === id)) &&
   mics.length === tidies.length + 2 + bs.length, 'nowhere else, beyond the boxes marked for one: ' + mics.length);
 ok(mics.every(m => m.getAttribute('aria-label') === 'Talk into this box' && m.querySelector('svg') && !m.textContent), 'each is an icon with an accessible name');
 

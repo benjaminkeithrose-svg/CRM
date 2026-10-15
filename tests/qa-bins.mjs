@@ -84,11 +84,8 @@ ok(/^Delete the visit to Example Meats - Dandenong on/.test(confirms[0] || '') &
 confirms = []; bin('[data-tdel="t1"]').click(); await tick(300);
 ok(/^Delete the task "Call Tom back"/.test(confirms[0] || '') && !g(`TASKS.length`) && !(await g(`tasksAll()`)).length, 'the task too');
 
-// ---- Lists
-await g(`showLists('notes')`); await tick(100);
-confirms = []; bin('[data-sndel="s1"]').click(); await tick(300);
-ok(/Hygiene pitch/.test(confirms[0] || '') && !g(`SNIPS.length`), 'a saved note, from its card');
-await g(`showLists('prods')`); await tick(100);
+// ---- v155: Products, a tab of Plan (saved notes have no screen now; they stay in the backup)
+await g(`showProducts()`); await tick(100);
 confirms = []; bin('[data-prdel="p1"]').click(); await tick(300);
 ok(/S800 flat top/.test(confirms[0] || '') && !g(`PRODS.length`), 'a product, from its card');
 
