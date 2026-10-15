@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v151">
+<meta name="build" content="v152">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1619,6 +1619,20 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 /* ---- icon tiles ----
    Six equal targets, icon over label, no count line. The subtitles were useful
    while setting the app up and became noise once everything was loaded. */
+/* v152: arranging Home */
+.arrtop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
+.arrlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.arrlist li{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 6px 6px 12px}
+.arrlist li.off{opacity:.55}
+.arrlist li b{flex:1;font-size:15px}
+.arrlist .btn{min-height:40px;padding:4px 12px}
+.arrlist .mv{min-width:40px;padding:0}
+.arrhid{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin:12px 0 4px}
+.perftabs{margin:0 0 10px}
+.chgnotes details{margin:6px 0}
+.chgnotes summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
+.chgnotes ul{margin:4px 0 8px 18px;padding:0}
+.chgnotes li{margin:2px 0;font-size:14px}
 .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:8px 0 0}
 details.sx{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin:0 0 8px}
 details.sx > summary{list-style:none;cursor:pointer;padding:13px 40px 13px 14px;min-height:48px;position:relative;display:flex;flex-direction:column;gap:2px}
@@ -1736,9 +1750,14 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="tasks"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><b>Tasks</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="cip"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>CIP</b></button><button data-go="mbo"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M8.2 13.4 7 22l5-3 5 3-1.2-8.6"/></svg></span><b>MBO</b></button></div>
+  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="tasks"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><b>Tasks</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="lists"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span><b>Lists</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
+  <!-- v152: Home arranged your way: move, hide, show again -->
+  <div id="homeArr" hidden>
+    <div class="arrtop"><b>Arrange Home</b><button type="button" class="btn go" id="homeArrDone">Done</button></div>
+    <ul id="homeArrList" class="arrlist"></ul>
+  </div>
   <!-- The tiles no longer carry a count line. These keep the existing render
        code working without a guard on every assignment. -->
   <span hidden id="resumeInfo"></span><span hidden id="planInfo"></span>
@@ -1931,6 +1950,8 @@ details.bsx > .msg{margin:8px 12px}
     <button class="ghost" id="upBtn" type="button">Get the latest version</button>
     <p class="stat" id="upStat"></p>
     <p class="hint" id="appVer"></p>
+    <!-- v152: what changed, newest first -->
+    <div id="chgNotes" class="chgnotes"></div>
   </div>
   <!-- v107: every call started with Test call on New, gone in one go -->
   <div class="fld setbtn">
@@ -2323,7 +2344,7 @@ details.bsx > .msg{margin:8px 12px}
     <summary><b>Bring in your CIP and MBOs</b><span class="sxs">Once, from the CIP and MBO page</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>CIP</b> on Home.</li>
+        <li>Tap <b>Performance</b> on Home, then the <b>CIP</b> tab.</li>
         <li>Tap <b>&#8943;</b> at the top right.</li>
         <li>Tap <b>Import a CIP and MBO file</b>.</li>
         <li>Pick the file the CIP and MBO page saved with <b>Save HTML copy</b>. It brings everything: your plan, your MBOs, the four pillars and the reference. A file saved with <b>Save to file</b> works too, but holds no reference.</li>
@@ -2333,10 +2354,10 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>Keep your CIP</b><span class="sxs">The CIP tile</span></summary>
+    <summary><b>Keep your CIP</b><span class="sxs">Performance, the CIP tab</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>CIP</b> on Home.</li>
+        <li>Tap <b>Performance</b> on Home, then the <b>CIP</b> tab.</li>
         <li>Pick the period at the top, for example <b>2026 H2 year-end</b>.</li>
         <li>If it hasn't been started, tap <b>Start</b>. Starting from the period before carries your goals and development plan forward.</li>
         <li>Type into the boxes. Everything saves as you go.</li>
@@ -2350,10 +2371,10 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>Log your MBOs</b><span class="sxs">The MBO tile</span></summary>
+    <summary><b>Log your MBOs</b><span class="sxs">Performance, the MBO tab</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>MBO</b> on Home.</li>
+        <li>Tap <b>Performance</b> on Home, then the <b>MBO</b> tab.</li>
         <li>Pick the year at the top.</li>
         <li>On a phone, tap the quarter: <b>Q1</b>, <b>Q2</b>, <b>Q3</b> or <b>Q4</b>. The PC shows all four.</li>
         <li>Tap <b>+</b> in an MBO's row to log a completion.</li>
@@ -2385,7 +2406,7 @@ details.bsx > .msg{margin:8px 12px}
       <p>A tick goes into the call's quarter (January to March is Q1), with the account and the date. Untick it to take it out. Moving the call to another date moves its ticks. A locked quarter can't take new ticks.</p>
       <p>To have one tick itself:</p>
       <ol>
-        <li>Tap <b>MBO</b> on Home.</li>
+        <li>Tap <b>Performance</b> on Home, then the <b>MBO</b> tab.</li>
         <li>Tap the MBO's or initiative's name.</li>
         <li>Under <b>Ticks itself when a call</b>, choose what the call must be: the account's focus, the call type, a health check, a project, a project moved to Complete, or a belt mentioning a product.</li>
         <li>Tap <b>Close</b>. Calls already made this year are counted too.</li>
@@ -2684,6 +2705,31 @@ details.bsx > .msg{margin:8px 12px}
       </ol>
       <p>Nothing in the plan changes until you tick it, and a suggestion never replaces something already in the plan. The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.</p>
       <p>The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records and plan to Anthropic (and, for a site in a large account, the large account plan: where the site sits in it and the people over it), and counts towards the 200 a day; Prepare tomorrow counts one for each brief it writes.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Arrange Home</b><span class="sxs">Move or hide the tiles</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> at the top right of Home.</li>
+        <li>Tap <b>Arrange Home</b>.</li>
+        <li>Tap <b>&uarr;</b> or <b>&darr;</b> beside a tile to move it.</li>
+        <li>Tap <b>Hide</b> beside a tile you don't use. It moves under <b>Hidden</b>.</li>
+        <li>To bring a hidden tile back, tap <b>Show</b> beside it.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>The layout is yours alone. Cloud sync takes it to your other devices; your team never sees it.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>See what's new</b><span class="sxs">After an update</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
+        <li>Look under the version number, in <b>What's new</b>.</li>
+        <li>Tap a version to see what came with it.</li>
+      </ol>
+      <p>The first time the app opens after an update, it says so once at the bottom of the screen.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -4275,6 +4321,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- STRATEGY (v120): the opportunities, large account plans and account plans being worked on, in one place -->
 <!-- CIP (v121): the continuous improvement plan, the four pillars and their reference. Private to you. -->
 <section class="scr" id="s-cip">
+  <div class="seg perftabs" role="group" aria-label="Performance"><button type="button" data-perf="cip" class="on">CIP</button><button type="button" data-perf="mbo">MBO</button></div>
   <div class="opptools">
     <select id="cipPeriod" class="toolsel" aria-label="Period"></select>
     <button type="button" class="btn go" id="cipShare">Create and share</button>
@@ -4293,6 +4340,7 @@ details.bsx > .msg{margin:8px 12px}
 
 <!-- MBOs (v121): each year's list, the completions logged against it, and what it pays. Private to you. -->
 <section class="scr" id="s-mbo">
+  <div class="seg perftabs" role="group" aria-label="Performance"><button type="button" data-perf="cip">CIP</button><button type="button" data-perf="mbo" class="on">MBO</button></div>
   <div class="opptools">
     <select id="mboYear" class="toolsel" aria-label="MBO year"></select>
     <button type="button" class="btn go" id="mboShare">Create and share</button>

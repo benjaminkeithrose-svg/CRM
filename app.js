@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v151';
+const APP_BUILD = 'v152';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1365,7 +1365,7 @@ const TITLES = {
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
-  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['CIP',''], mbo:['MBOs',''],
+  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['Performance','CIP'], mbo:['Performance','MBOs'],
   note:['General note',''], health:['Health check',''], lists:['Lists',''], opp:['Opportunity',''], tasks:['Tasks','']
 };
 /* ---------- navigation ----------
@@ -1455,6 +1455,7 @@ function showScreen(name){
   // leaving the map with a change still being typed: save it now (v115)
   if(screen === 'opp' && name !== 'opp' && opSaveTimer) oppSaveNow().catch(e => console.error('opportunity', e));
   if(screen === 'lap' && name !== 'lap' && lapSaveTimer) lapSaveNow().catch(e => console.error('large account', e));
+  if(screen === 'home' && name !== 'home' && homeArr) homeArrFinish(true);
   if((screen === 'cip' || screen === 'mbo') && name !== screen && cipTimer) cipSaveNow().catch(e => console.error('cip', e));
   // leaving a note or project with a change still being typed: into the log now (v133)
   if((screen === 'note' || screen === 'project') && name !== screen) entryAutoFlush(screen);
@@ -5064,6 +5065,7 @@ async function loadLists(){
   catch(e){ console.error('lists', e); }
   // not while a change is still to be saved: the copy on screen is the newer one
   try { if(!cipTimer) await cipLoad(); } catch(e){ console.error('cip', e); }
+  homeLayoutLoad();                               // v152: your Home layout, from your other devices
   try {
     const all = await peopleAll();
     PEOPLE = all.filter(r => !r.kind); STAFF = all.filter(r => r.kind === 'staff');   // v142: Intralox people share the store
@@ -7451,6 +7453,7 @@ $('hdMenu').addEventListener('click', ()=>{
   // on Home it is the ⋯ menu: Settings, and Help (v85)
   if(screen === 'home'){
     openCardMenu('Field CRM', 'Version ' + APP_BUILD, [
+      {label: 'Arrange Home', icon: 'edit', run: () => homeArrange()},       // v152
       {label: 'Settings', icon: 'gear', run: () => go('settings')},
       {label: 'Help', icon: 'help', run: () => go('help')}
     ]);
@@ -7647,6 +7650,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     go('strategy');
   } else if(t==='cip' || t==='mbo'){
     go(t);
+  } else if(t==='perf'){
+    go(perfLast());                               // v152: CIP and MBO, under Performance
   } else if(t==='reports'){
     go('reports');
   } else if(t==='manuals'){
@@ -15711,6 +15716,7 @@ async function cipSaveNow(){
 }
 // a newer copy from another device replaces the one on screen, unless something is being typed
 async function cipCloudIn(){
+  await homeLayoutLoad();
   if(cipTimer) return;
   await cipLoad();
   if(screen !== 'cip' && screen !== 'mbo') return;
@@ -19244,6 +19250,121 @@ function paintBuild(el, st){
       ? '<br>Until the cache matches, the phone serves the older build whatever is in the repository.'
       : '');
 }
+/* ---------- Home, arranged your way (v152) ----------
+   Ben, 2026-10-15: "the home screen should be easily rearranged to the
+   user's preference". ⋯ on Home, Arrange Home: each tile moves up or down,
+   or is hidden (and shown again). The layout is yours: kept in your private
+   'cip' store as record 'home' (never shared with the team, synced to your
+   own devices), and on this device for an instant start. */
+const HOME_LAYOUT_LS = 'homeLayout';
+var HOME_LAYOUT = (() => { try { return JSON.parse(localStorage.getItem(LS(HOME_LAYOUT_LS)) || 'null'); } catch(e){ return null; } })();
+const homeTiles = () => [...document.querySelectorAll('#s-home .tiles > button[data-go]')];
+const homeTileName = b => (b.querySelector('b') || b).textContent.trim();
+function homeLayoutApply(){
+  const box = document.querySelector('#s-home .tiles'); if(!box) return;
+  const L = HOME_LAYOUT || {}, order = L.order || [], hidden = new Set(L.hidden || []);
+  const tiles = homeTiles();
+  tiles.sort((a, b) => { const ia = order.indexOf(a.dataset.go), ib = order.indexOf(b.dataset.go); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); })
+    .forEach(b => { box.appendChild(b); b.hidden = hidden.has(b.dataset.go); });
+}
+async function homeLayoutSave(L){
+  HOME_LAYOUT = Object.assign({}, L, {updated: Date.now()});
+  try { localStorage.setItem(LS(HOME_LAYOUT_LS), JSON.stringify(HOME_LAYOUT)); } catch(e){}
+  await cipPut(Object.assign({id: 'home'}, HOME_LAYOUT));
+}
+// a newer layout from another device of yours
+async function homeLayoutLoad(){
+  try {
+    const r = (await cipAll()).find(x => x.id === 'home');
+    if(r && (!HOME_LAYOUT || (r.updated || 0) > (HOME_LAYOUT.updated || 0))){
+      HOME_LAYOUT = {order: r.order || [], hidden: r.hidden || [], updated: r.updated || 0};
+      try { localStorage.setItem(LS(HOME_LAYOUT_LS), JSON.stringify(HOME_LAYOUT)); } catch(e){}
+      homeLayoutApply();
+    }
+  } catch(e){ console.warn('home layout', e); }
+}
+var homeArr = null;              // {order, hidden} while arranging
+function homeArrange(){
+  const tiles = homeTiles();
+  homeArr = {order: tiles.map(b => b.dataset.go), hidden: tiles.filter(b => b.hidden).map(b => b.dataset.go)};
+  homeArrDraw();
+  $('homeArr').hidden = false;
+  document.querySelector('#s-home .tiles').hidden = true;
+}
+function homeArrDraw(){
+  const A = homeArr, name = {}; homeTiles().forEach(b => { name[b.dataset.go] = homeTileName(b); });
+  const shown = A.order.filter(k => !A.hidden.includes(k)), off = A.order.filter(k => A.hidden.includes(k));
+  const row = (k, i, n) => '<li><b>' + esc(name[k] || k) + '</b>' +
+    '<button type="button" class="btn mv" data-up="' + esc(k) + '"' + (i === 0 ? ' disabled' : '') + ' aria-label="Move ' + esc(name[k]) + ' up">↑</button>' +
+    '<button type="button" class="btn mv" data-down="' + esc(k) + '"' + (i === n - 1 ? ' disabled' : '') + ' aria-label="Move ' + esc(name[k]) + ' down">↓</button>' +
+    '<button type="button" class="btn" data-hide="' + esc(k) + '">Hide</button></li>';
+  $('homeArrList').innerHTML = shown.map((k, i) => row(k, i, shown.length)).join('') +
+    (off.length ? '<li class="arrhid" role="presentation">Hidden</li>' + off.map(k => '<li class="off"><b>' + esc(name[k] || k) + '</b><button type="button" class="btn" data-show="' + esc(k) + '">Show</button></li>').join('') : '');
+}
+$('homeArrList').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || !homeArr) return;
+  const A = homeArr, shown = A.order.filter(k => !A.hidden.includes(k));
+  const swap = (k, d) => { const i = shown.indexOf(k), j = i + d; if(j < 0 || j >= shown.length) return; const other = shown[j];
+    const a1 = A.order.indexOf(k), a2 = A.order.indexOf(other); A.order[a1] = other; A.order[a2] = k; };
+  if(b.dataset.up) swap(b.dataset.up, -1);
+  else if(b.dataset.down) swap(b.dataset.down, 1);
+  else if(b.dataset.hide) A.hidden = A.hidden.concat([b.dataset.hide]);
+  else if(b.dataset.show) A.hidden = A.hidden.filter(k => k !== b.dataset.show);
+  homeArrDraw();
+});
+// Done, or leaving Home some other way: keep what was arranged
+function homeArrFinish(quiet){
+  if(!homeArr) return;
+  const A = homeArr; homeArr = null;
+  $('homeArr').hidden = true;
+  document.querySelector('#s-home .tiles').hidden = false;
+  homeLayoutSave({order: A.order, hidden: A.hidden}).then(() => { if(!quiet) toast('Home arranged'); }).catch(reportErr);
+  homeLayoutApply();
+}
+$('homeArrDone').addEventListener('click', () => homeArrFinish());
+homeLayoutApply();
+
+/* ---------- CIP and MBO under one tile: Performance (v152) ---------- */
+const perfLast = () => { try { return localStorage.getItem(LS('perfTab')) === 'mbo' ? 'mbo' : 'cip'; } catch(e){ return 'cip'; } };
+document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click', () => {
+  const v = b.dataset.perf;
+  try { localStorage.setItem(LS('perfTab'), v); } catch(e){}
+  if(screen !== v) go(v, true);
+}));
+
+/* ---------- What's new (v152) ----------
+   Ben, 2026-10-15: "there should be a change note section under the version
+   update in settings". Plain words, newest first; after an update the app
+   says so once on Home. */
+const CHANGES = [
+  ['v152', 'Arrange Home: ⋯ on Home, then Arrange Home, to move or hide tiles. CIP and MBO share one Performance tile. This list of what\'s new.'],
+  ['v151', 'Consultants on Blue Sheets and large accounts. OEMs can sell through a head contractor or an integrator. Head contractors pick their sites. An OEM\'s own account manager covers its people. The Blue Sheet flags anyone with a part in the decision whom nobody of ours covers.'],
+  ['v150', 'The large account leads: Strategy opens on Large accounts; Blue Sheets link to their large account and say which objective they deliver; a site\'s account plan shows the large account and the objective it supports.'],
+  ['v149', 'The browser tab shows the Field CRM badge.'],
+  ['v148', 'The coach reads the large account plan.'],
+  ['v147', 'A site\'s account screen shows where it sits in its large account.'],
+  ['v146', 'Housekeeping: customer names out of the app\'s files.'],
+  ['v145', 'Each person has Hide: not relevant, Moved site and Left the company. OEMs and contractors fill from the CRM. Known by.'],
+  ['v144', 'Change a site\'s account manager, set the account team leader, and send changes to CAG from Settings.'],
+  ['v143', 'Large account sites fill with their Dynamics contacts.'],
+  ['v142', 'The Intralox people list.'],
+  ['v141', 'Relationships left to rate come first; Unknown as a strength.'],
+  ['v140', 'Reporting lines across sites; the account manager\'s default links; relationships by site.']
+];
+function renderChanges(){
+  const el = $('chgNotes'); if(!el) return;
+  el.innerHTML = '<label>What\'s new</label>' + CHANGES.map(([v, t], i) => '<details' + (i === 0 ? ' open' : '') + '><summary>' + esc(v) + (v === APP_BUILD ? ' (this version)' : '') + '</summary><ul>' +
+    t.split(/(?<=\.)\s+/).filter(Boolean).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>').join('');
+}
+renderChanges();
+// once after an update: what came with it
+(() => {
+  let seen = '';
+  try { seen = localStorage.getItem(LS('seenBuild')) || ''; localStorage.setItem(LS('seenBuild'), APP_BUILD); } catch(e){ return; }
+  if(!seen || seen === APP_BUILD) return;
+  const c = CHANGES.find(x => x[0] === APP_BUILD);
+  if(c) setTimeout(() => toast('Updated to ' + APP_BUILD + '. What\'s new is under Settings.'), 1500);
+})();
 function renderBuildCheck(){
   buildReport().then(st => {
     paintBuild($('appVer'), st);

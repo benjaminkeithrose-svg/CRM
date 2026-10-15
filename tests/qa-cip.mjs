@@ -42,8 +42,9 @@ w.eval(`deliverDoc = async (html, name, title) => { window.__doc = {html, name, 
 const docOut = () => w.__doc || {};
 
 // ---- the tiles
-const tCip = d.querySelector('.tiles [data-go="cip"]'), tMbo = d.querySelector('.tiles [data-go="mbo"]');
-ok(tCip && /CIP/.test(tCip.textContent) && tMbo && /MBO/.test(tMbo.textContent), 'Home has CIP and MBO tiles');
+// v152: one Performance tile, with CIP and MBO as tabs
+const tCip = d.querySelector('.tiles [data-go="perf"]');
+ok(tCip && /Performance/.test(tCip.textContent) && !d.querySelector('.tiles [data-go="cip"]') && !d.querySelector('.tiles [data-go="mbo"]'), 'Home has one Performance tile for CIP and MBOs');
 ok(g(`DB_VER`) >= 8 && g(`CLOUD_REC_STORES.includes('cip')`), 'a store of its own, synced like the others');
 const sql = ['0004_teams.sql', '0007_team_opps.sql'].map(f => fs.readFileSync('supabase/migrations/' + f, 'utf8')).join('\n');
 ok(!/'cip'/.test(sql), 'and not one the team rules share, so it stays private');
@@ -51,7 +52,7 @@ ok(!/'cip'/.test(sql), 'and not one the team rules share, so it stays private');
 // ---- starting from nothing
 tCip.click(); await tick(150);
 const now = g(`cipNowPeriod()`);
-ok(g('screen') === 'cip' && $('title').textContent === 'CIP' && /hasn't been started/.test(body().textContent) && $('cipPeriod').value === now, 'CIP opens on this half-year, not started');
+ok(g('screen') === 'cip' && $('title').textContent === 'Performance' && /hasn't been started/.test(body().textContent) && $('cipPeriod').value === now, 'CIP opens on this half-year, not started');
 ok((await g(`cipAll()`)).length === 0, 'looking saves nothing');
 btn('[data-cipstart="blank"]').click(); await tick(300);
 ok(g(`CIP.periods['${now}'].goals.length`) === 1 && field('self.accomplishments') && field('goals.0.goal'), 'Start makes the period, with one goal, one strength and one gap to fill');
@@ -184,7 +185,7 @@ ok(/Newer wins/.test(cd) && /2025 H1:<\/b> Old wins/.test(cd) && /&#9746; Perfor
 
 // ---- MBOs
 w.eval(`go('mbo')`); await tick(150);
-ok(g('screen') === 'mbo' && $('title').textContent === 'MBOs' && d.body.classList.contains('planning'), 'MBOs open full width on a PC');
+ok(g('screen') === 'mbo' && $('title').textContent === 'Performance' && d.body.classList.contains('planning'), 'MBOs open full width on a PC');
 pick($('mboYear'), '2025'); await tick();
 const mb = () => $('mboBody');
 ok(/Annual cap \$4,000, up to \$1,000 paid a quarter · list agreed and locked/.test(mb().textContent), 'the cap and the quarter\'s share');
