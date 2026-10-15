@@ -547,8 +547,17 @@ To change a site's account manager:
 
 1. On a large account's map, or an opportunity's map, tap the site's box.
 2. Under **Account manager**, tap **Change**.
-3. Pick who it is now, or pick **Someone else…** and type their name.
+3. Pick who it is now, or pick **Someone else…** and type their name. Anyone on the Intralox people list can be picked.
 4. Tap **Apply**.
+
+A box on a large account's map with no account of its own, such as group engineering, a division or corporate, has an **Owner** instead:
+
+1. Tap the box.
+2. Under **Owner**, tap **Change**.
+3. Pick any of our people, or pick **Someone else…** and type their name.
+4. Tap **Apply**.
+
+Until an owner is picked, the account team leader looks after group engineering, the head office and corporate. The owner joins the Intralox box with a default link to everyone in that box. To go back, tap **Change**, then **Back to the account team leader**. An owner here is not sent to CAG: Dynamics has no account for the box.
 
 To change every site of a large account at once, tap the map's background so nothing is selected, then under **Owners** tap **Change every site**. To set the account team leader, tap **Change** under **Account team leader** there. The ATL joins the Intralox box at the top, with a default link to everyone at corporate, the head office and group engineering; untick it on any of those boxes to switch it off.
 

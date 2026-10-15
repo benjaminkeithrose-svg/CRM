@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v152';
+const APP_BUILD = 'v153';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -12337,7 +12337,9 @@ function opSiteAcct(o, q){
 }
 function opAmOf(o, q){
   const a = opSiteAcct(o, q), acc = a && ACC_BY_NAME.get(a);
-  return acc ? String(effMgr(acc) || '').trim() : '';
+  // v153: a box with no account of its own (group engineering, a division, corporate) has the owner picked for it
+  if(!acc) return q && q.kind !== 'ilx' && o && o.kind === 'large' ? String(q.owner || '').trim() : '';
+  return String(effMgr(acc) || '').trim();
 }
 function opAmEnsure(o){
   if(!o || !Array.isArray(o.parties) || o.test) return false;
@@ -12371,7 +12373,8 @@ function opAmEnsure(o){
    default link to everyone at corporate, the head office and group
    engineering (sites marked Group engineering here, and group functions).
    Each box can switch it off (atlOff). */
-const ownerNames = () => [...new Set(allManagers().concat(STAFF.filter(s => s.pos === 'AM' || s.pos === 'ATL').map(s => s.n)))].sort();
+// v153 - Ben, 2026-10-15: "All of the sites should be able to be directed to any Intralox employee as the owner"
+const ownerNames = () => [...new Set(allManagers().concat(STAFF.map(s => s.n).filter(Boolean)))].sort();
 function ownerPickHTML(id, cur, names){
   return '<div class="opadd ownpick" id="' + id + '"><select aria-label="Pick who">' + names.map(n => '<option value="' + esc(n) + '"' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>').join('') +
     '<option value="__new__">Someone else…</option></select><input type="text" placeholder="Their name" aria-label="Their name" hidden><button type="button" class="btn act2">Apply</button></div>';
@@ -12410,7 +12413,7 @@ function lapOwnersHTML(){
   const by = {}; sites.forEach(a => { const m = effMgr(a) || 'Nobody'; by[m] = (by[m] || 0) + 1; });
   return '<h2>Owners</h2>' +
     '<label class="l">Account team leader</label><div class="orow ownrow"><span>' + esc(L.atl || 'Nobody yet') + '</span><button type="button" class="btn act2" id="opAtlCh">Change</button></div>' +
-    '<div id="opAtlPickW" hidden>' + ownerPickHTML('opAtlPick', L.atl || '', [...new Set(STAFF.filter(s => s.pos === 'ATL').map(s => s.n).concat(ownerNames()))]) + '</div>' +
+    '<div id="opAtlPickW" hidden>' + ownerPickHTML('opAtlPick', L.atl || '', ownerNames()) + '</div>' +
     '<label class="l">Account managers</label><div class="orow ownrow"><span>' + esc(Object.entries(by).map(([m, n]) => m + ' (' + n + (n === 1 ? ' site)' : ' sites)')).join(', ') || 'No sites yet') + '</span>' +
       (sites.length ? '<button type="button" class="btn act2" id="opAmAll">Change every site</button>' : '') + '</div>' +
     '<div id="opAmAllW" hidden>' + ownerPickHTML('opAmAllPick', '', ownerNames()) + '</div>';
@@ -12427,12 +12430,24 @@ function lapOwnersWire(){
 // one site's account manager, in its box's panel
 function siteOwnerHTML(q){
   const n = opSiteAcct(OPP, q), a = n && ACC_BY_NAME.get(n);
+  if(!a && !q.lk && OPP.kind === 'large' && q.kind !== 'ilx'){
+    // v153: a box with no account of its own: its owner, any of our people; until one is picked the account team leader looks after it
+    const by = q.owner ? q.owner : atlCovers(q) && OPP.atl && !q.atlOff ? OPP.atl + ' (account team leader)' : 'Nobody yet';
+    return '<label class="l">Owner</label><div class="orow ownrow"><span>' + esc(by) + '</span><button type="button" class="btn act2" id="opOwnCh">Change</button></div>' +
+      '<div id="opOwnPickW" hidden>' + ownerPickHTML('opOwnPick', q.owner || '', ownerNames()) + (q.owner ? '<button type="button" class="lnkbtn" id="opOwnClr">' + (atlCovers(q) && OPP.atl ? 'Back to the account team leader' : 'No owner') + '</button>' : '') + '</div>';
+  }
   if(!a || q.lk) return '';
   return '<label class="l">Account manager</label><div class="orow ownrow"><span>' + esc(effMgr(a) || 'Nobody') + (isMoved(a) ? ' <span class="tag moved">changed here, was ' + esc(a.mgr || 'nobody') + '</span>' : '') + '</span>' +
     '<button type="button" class="btn act2" id="opOwnCh">Change</button></div><div id="opOwnPickW" hidden>' + ownerPickHTML('opOwnPick', effMgr(a) || '', ownerNames()) + '</div>';
 }
 function siteOwnerWire(q){
   if($('opOwnCh')) $('opOwnCh').addEventListener('click', () => { $('opOwnPickW').hidden = !$('opOwnPickW').hidden; });
+  if(!opSiteAcct(OPP, q)){
+    const set = v => { if(v) q.owner = v; else delete q.owner; delete q.amOff; opAmEnsure(OPP); oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); toast(v ? v + ' owns ' + opQName(q) : 'No owner for ' + opQName(q)); };
+    ownerPickWire('opOwnPick', set);
+    if($('opOwnClr')) $('opOwnClr').addEventListener('click', () => set(''));
+    return;
+  }
   ownerPickWire('opOwnPick', v => { ownerSet([opSiteAcct(OPP, q)], v).then(ok => { if(ok){ opAmEnsure(OPP); oppSaveNow().catch(reportErr); drawOpp(); opPartyPanel(q); } }).catch(reportErr); });
 }
 const atlCovers = q => q.kind === 'corp' || q.kind === 'grp' || (q.site && (q.hq || q.eng));
@@ -12452,7 +12467,7 @@ function opImplied(o){
   // v144: the account team leader, over corporate, the head office and group engineering
   const atl = o.kind === 'large' && o.atl && us.find(p => opAmKey(p.n) === opAmKey(o.atl));
   if(atl) for(const q of o.parties){
-    if(q.atlOff || q.lk || !atlCovers(q)) continue;
+    if(q.atlOff || q.lk || !atlCovers(q) || (q.owner && !opSiteAcct(o, q))) continue;   // v153: an owner picked for it instead
     (o.people || []).filter(p => p.party === q.id && p.side !== 'us' && !p.hidden).forEach(p => {
       const id = 'im:' + atl.id + ':' + p.id;
       if(out.some(l => l.id === id) || (o.links || []).some(l => (l.a === atl.id && l.b === p.id) || (l.a === p.id && l.b === atl.id))) return;
@@ -12845,9 +12860,9 @@ function opPartyPanel(q){
     (!q.site && !q.lk && q.kind !== 'ilx' && !(q.acct && ACC_BY_NAME.has(q.acct)) ? '<label class="l" for="opQmatch">Match to a customer</label><div class="opadd"><input type="text" id="opQmatch" list="opAcctList" placeholder="Pick their account" autocomplete="off"><button type="button" class="btn act2" id="opQmatchGo">Match</button></div>'
       : !q.site && q.acct && q.acct !== q.name ? '<p class="hint">Matched to ' + esc(q.acct) + ' in the customer list.</p>' : '') +
     siteOwnerHTML(q) +                                 // v144
-    (OPP.kind === 'large' && OPP.atl && atlCovers(q) && !q.lk ? '<label class="chk"><input type="checkbox" id="opQatl"' + (q.atlOff ? '' : ' checked') + '> ' + esc(OPP.atl) + ', the account team leader, covers everyone here</label>' : '') +
+    (OPP.kind === 'large' && OPP.atl && atlCovers(q) && !q.lk && !q.owner ? '<label class="chk"><input type="checkbox" id="opQatl"' + (q.atlOff ? '' : ' checked') + '> ' + esc(OPP.atl) + ', the account team leader, covers everyone here</label>' : '') +
     // v140: the account manager covers everyone here, unless switched off for this site
-    (opAmOf(OPP, q) ? '<label class="chk"><input type="checkbox" id="opQam"' + (q.amOff ? '' : ' checked') + '> ' + esc(opAmOf(OPP, q)) + ', the account manager, covers everyone here</label>' +
+    (opAmOf(OPP, q) ? '<label class="chk"><input type="checkbox" id="opQam"' + (q.amOff ? '' : ' checked') + '> ' + esc(opAmOf(OPP, q)) + (opSiteAcct(OPP, q) ? ', the account manager' : ', the owner') + ', covers everyone here</label>' +
       '<p class="hint">Shown when you tap them or someone here. It counts on the Blue Sheet once you rate it.</p>' : '') +
     // v129: a site's own plan and opportunities, one tap away
     // v131: corporate can sit at a site; a group function covers all the sites or some
@@ -19337,6 +19352,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v153', 'Any of our people can own a site. A box on a large account with no account of its own, such as group engineering, has an Owner, in place of the account team leader.'],
   ['v152', 'Arrange Home: ⋯ on Home, then Arrange Home, to move or hide tiles. CIP and MBO share one Performance tile. This list of what\'s new.'],
   ['v151', 'Consultants on Blue Sheets and large accounts. OEMs can sell through a head contractor or an integrator. Head contractors pick their sites. An OEM\'s own account manager covers its people. The Blue Sheet flags anyone with a part in the decision whom nobody of ours covers.'],
   ['v150', 'The large account leads: Strategy opens on Large accounts; Blue Sheets link to their large account and say which objective they deliver; a site\'s account plan shows the large account and the objective it supports.'],
