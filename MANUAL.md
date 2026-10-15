@@ -294,7 +294,7 @@ If the account already has an account plan, or the site is already in a large ac
 
 ### Bring in your CIP and MBOs
 
-1. Tap **CIP** on Home.
+1. Tap **Performance** on Home, then the **CIP** tab.
 2. Tap **⋯** at the top right.
 3. Tap **Import a CIP and MBO file**.
 4. Pick the file the CIP and MBO page saved with **Save HTML copy**. It brings everything: your plan, your MBOs, the four pillars and the reference. A file saved with **Save to file** works too, but holds no reference.
@@ -304,7 +304,7 @@ Do this on one device. Cloud sync takes it to your others. Your CIP and MBOs are
 
 ### Keep your CIP
 
-1. Tap **CIP** on Home.
+1. Tap **Performance** on Home, then the **CIP** tab.
 2. Pick the period at the top, for example **2026 H2 year-end**.
 3. If it hasn't been started, tap **Start**. Starting from the period before carries your goals and development plan forward.
 4. Type into the boxes. Everything saves as you go.
@@ -319,7 +319,7 @@ Each goal, strength and gap can be locked on its own with **Lock**, and opened a
 
 ### Log your MBOs
 
-1. Tap **MBO** on Home.
+1. Tap **Performance** on Home, then the **MBO** tab.
 2. Pick the year at the top.
 3. On a phone, tap the quarter: **Q1**, **Q2**, **Q3** or **Q4**. The PC shows all four.
 4. Tap **+** in an MBO's row to log a completion.
@@ -351,7 +351,7 @@ A tick goes into the call's quarter (January to March is Q1), with the account a
 
 To have one tick itself:
 
-1. Tap **MBO** on Home.
+1. Tap **Performance** on Home, then the **MBO** tab.
 2. Tap the MBO's or initiative's name.
 3. Under **Ticks itself when a call**, choose what the call must be: the account's focus, the call type, a health check, a project, a project moved to Complete, or a belt mentioning a product.
 4. Tap **Close**. Calls already made this year are counted too.
@@ -640,6 +640,25 @@ After the call:
 Nothing in the plan changes until you tick it, and a suggestion never replaces something already in the plan. The coaching stays with the call and is never in a report. The next brief for that account reads it, so each visit builds on the last.
 
 The coach follows SPIN Selling and Strategic Selling, with Value First, Then Price and The Speed of Trust from the Intralox booklist. It works only from what's logged for that account and says when something is unknown. It needs signal and cloud sync, sends that account's records and plan to Anthropic (and, for a site in a large account, the large account plan: where the site sits in it and the people over it), and counts towards the 200 a day; Prepare tomorrow counts one for each brief it writes.
+
+### Arrange Home
+
+1. Tap **⋯** at the top right of Home.
+2. Tap **Arrange Home**.
+3. Tap **↑** or **↓** beside a tile to move it.
+4. Tap **Hide** beside a tile you don't use. It moves under **Hidden**.
+5. To bring a hidden tile back, tap **Show** beside it.
+6. Tap **Done**.
+
+The layout is yours alone. Cloud sync takes it to your other devices; your team never sees it.
+
+### See what's new
+
+1. Tap **⋯** on Home, then **Settings**.
+2. Look under the version number, in **What's new**.
+3. Tap a version to see what came with it.
+
+The first time the app opens after an update, it says so once at the bottom of the screen.
 
 ### Add photos
 

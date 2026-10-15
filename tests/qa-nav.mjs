@@ -63,8 +63,8 @@ w.showScreen('home');
 // v85: on Home the right-hand button is the ⋯ menu: Settings and Help
 t('on Home the right-hand button is the Settings and Help menu', $('hdMenu').style.display !== 'none' && $('hdMenu').getAttribute('aria-label') === 'Settings and help');
 $('hdMenu').click();
-t('the ⋯ menu offers Settings and Help',
-  $('vmdlg').hasAttribute('open') && [...$('vmBody').querySelectorAll('button')].map(b => b.textContent.trim()).join() === 'Settings,Help');
+t('the ⋯ menu offers Arrange Home, Settings and Help',
+  $('vmdlg').hasAttribute('open') && [...$('vmBody').querySelectorAll('button')].map(b => b.textContent.trim()).join() === 'Arrange Home,Settings,Help');
 [...$('vmBody').querySelectorAll('button')].find(b => /Settings/.test(b.textContent)).click();
 t('Settings opens Settings', g('screen') === 'settings' && !$('vmdlg').hasAttribute('open'));
 w.showScreen('home');

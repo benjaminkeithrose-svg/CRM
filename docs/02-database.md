@@ -23,7 +23,7 @@ an older database forward by itself (see [Running it](06-running-it.md#when-the-
 | `products` | `id` | A product not stocked, new or requested | record by record | Yes |
 | `plans` | `id` | An account plan, or a large account plan (`kind: 'large'`) | record by record | Yes |
 | `opps` | `id` | An opportunity: its Blue Sheet and relationship map | record by record | Yes |
-| `cip` | `me`, `mbo`, `ref` | Your CIP, your MBOs, and the CIP reference | record by record | **No, private** |
+| `cip` | `me`, `mbo`, `ref`, `home` | Your CIP, your MBOs, the CIP reference, and how you arranged Home | record by record | **No, private** |
 | `people` | `id` | A contact added on a Blue Sheet map who is not in the CRM export yet | record by record | Yes |
 | `kv` | a name | Settings and whole datasets (see 2.2) | some, as datasets | See 2.2 |
 
@@ -149,6 +149,15 @@ Since v145 a change can also be `left` (`n`, `cid`, `acct`): the contact left th
 reviews) and the four pillars; `mbo` your MBO list and claims by year and
 quarter; `ref` the reference you import (job indicants, LCI principles, BU
 goals, booklist). All three are private and never shared with the team.
+
+Since v152 a fourth record, `home`, holds how you arranged Home: `order` (the
+tiles' `data-go` names, top first), `hidden` (the ones you hid) and `updated`.
+It lives here because this store is the private one, so the layout follows you
+to your other devices and never reaches the team. A copy is kept in
+localStorage (`homeLayout`) so Home opens already arranged; the newer of the
+two wins. Two other device-only keys came with it: `perfTab` (whether the
+Performance tile opens on CIP or MBO) and `seenBuild` (the last build this
+device opened, so the app says once that it was updated).
 
 The `mbo` record, one entry per year under `years`:
 

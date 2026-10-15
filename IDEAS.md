@@ -934,4 +934,19 @@ for now. Reviewed a clickable mock first.*
 
 ---
 
+## Built (v152): Arrange Home, one Performance tile, What's new
+*Asked and built 2026-10-15*
+
+- **Arrange Home:** ⋯ on Home → Arrange Home; ↑ ↓ to move a tile, Hide and
+  Show, Done at the top. Kept per person in the private `cip` store (record
+  `home`) so it follows you to your devices and never reaches the team.
+- **Performance:** CIP and MBO share one tile, with CIP / MBO tabs at the top.
+- **What's new:** change notes under the version in Settings; after an update
+  the app says so once.
+- **Next (agreed):** v153 Tasks and Products as tabs in Plan, product ideas
+  tracked through Idea → Requested → Approved → Stocked, Lists retired;
+  v154 the Intralox people list from the CRM export and "Add our people".
+
+---
+
 <!-- Add new ideas above this line. -->
