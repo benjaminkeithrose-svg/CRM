@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v158">
+<meta name="build" content="v159">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1633,6 +1633,8 @@ a.rpt.weblink .rm{font-size:12px;color:var(--ink-2);margin-top:3px}
 .perftabs{margin:0 0 10px}
 .plantabs{margin:0 0 10px}
 .cagrow .pin{display:block}
+.bsmall{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.bsmall .btn{min-height:40px;padding:6px 12px;font-size:14px;width:auto;flex:0 0 auto}
 #cagTabs{margin:10px 0}
 .opours{display:flex;flex-direction:column;gap:2px;margin:0 0 8px}
 #s-plan .planwrap{min-height:calc(100vh - 170px)}
@@ -2917,11 +2919,12 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Tap <b>New</b> on Home.</li>
         <li>Tap <b>Quote request</b>.</li>
-        <li>Fill in when it's <b>Required by</b>, then pick the account and the people.</li>
-        <li>Log the belts the same way as on a call.</li>
+        <li>Under <b>Account</b>, type part of the customer's name and tap the account. If it is not in the CRM, type its name and tap <b>Use</b> it <b>, not in the CRM</b>.</li>
+        <li>Pick the people.</li>
+        <li>Log the belts the same way as on a call. The asset number is not needed: type the line description, or leave it blank.</li>
         <li>Tap <b>Create and share</b> to send it.</li>
       </ol>
-      <p>It shows on the calendar, in orange, on the day you made it. Tap it there to open it again. It never goes to Outlook.</p>
+      <p>Put when it is needed by, and any reference, in the quote's notes. It shows on the calendar, in orange, on the day you made it. Tap it there to open it again. It never goes to Outlook.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -2929,10 +2932,18 @@ details.bsx > .msg{margin:8px 12px}
     <div class="fld help">
       <ol>
         <li>In the call, tap <b>Create and share</b> at the top.</li>
-        <li>Choose what to include, the photo size, and where to send it.</li>
+        <li>Tap what to include, the photo size, and where to send it.</li>
         <li>Tap <b>Create and share</b>.</li>
         <li>Pick Outlook, Teams or OneDrive from the list.</li>
       </ol>
+      <p>On the PC, to put the notes straight into an email:</p>
+      <ol>
+        <li>In the call, tap <b>Create and share</b> at the top.</li>
+        <li>Under <b>Send to</b>, tap <b>Copy for email</b>.</li>
+        <li>Tap <b>Copy for email</b>.</li>
+        <li>In Outlook, start the email and press <b>Ctrl</b> and <b>V</b>.</li>
+      </ol>
+      <p>The copy has the text and tables, laid out. Photos are not in it, because Outlook on the PC blocks pictures held inside pasted text. To send photos, tap <b>Download to this PC</b> instead and attach the file.</p>
       <p>Only the people ticked for customer documents are named in it. Tap the card at the top of the call to change who.</p>
       <p>Once the file has gone, open Create and share again and tap <b>Drop the photos, keep the record</b> to free up space. The photos are in the file you sent.</p>
     </div>
@@ -3178,29 +3189,14 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint" id="mgrHint"></p>
   </div>
   </div>
-  <!-- required-by and reference sit outside cMore: a quote request needs them on show -->
-  <!-- Quote requests only. A call has no required-by date and no reference to
-       carry, so these are hidden rather than sitting empty on every call. -->
-  <div class="fld" id="cReqByRow" hidden>
-    <label>Required by</label>
-    <input type="text" id="cReqBy" placeholder="e.g. end of next week, before the shutdown">
-    <p class="hint">Free text &mdash; &ldquo;Q3&rdquo; and &ldquo;late Oct&rdquo; are both fine.</p>
-  </div>
-  <div class="fld" id="cRefRow" hidden>
-    <label>Your reference</label>
-    <input type="text" id="cRef" placeholder="Optional">
-  </div>
   <h2 id="accHead">Account</h2>
   <div class="fld">
     <label>Search</label>
-    <input type="text" id="accQ" placeholder="Type any part of the name" autocomplete="off">
+    <input type="text" id="accQ" placeholder="Type any part of the name, or a new account" autocomplete="off">
     <p class="hint" id="accHint">Import contact data first</p>
     <div class="res" id="accRes"></div>
-  </div>
-  <div class="fld">
-    <label>Not in the list</label>
-    <input type="text" id="accManual" placeholder="Enter account name">
-    <button class="ghost" id="accManualGo">Use manual account</button>
+    <!-- v159: not in the CRM? the name as typed, from the same box -->
+    <button class="ghost" id="accManualGo" hidden></button>
   </div>
 </section>
 
@@ -3906,22 +3902,22 @@ details.bsx > .msg{margin:8px 12px}
     <div id="detachWrap"></div>
     <div id="outScopeRow" class="f">
       <label>Include</label>
-      <select id="outScope"></select>
+      <select id="outScope" hidden></select><div class="chips" id="outScopeSeg"></div>
     </div>
     <div class="f">
       <label>Images</label>
-      <select id="outImg">
+      <select id="outImg" hidden>
         <option value="full">Full size</option>
         <option value="thumb">Thumbnails, expandable</option>
         <option value="thumbonly">Thumbnails only &mdash; smaller file</option>
-      </select>
+      </select><div class="chips" id="outImgSeg"></div>
     </div>
     <!-- Options are filled by renderOutDest(): a phone leads with the share
          sheet, a PC leads with Open, and Share is only offered where the
          browser says it can actually do it. -->
     <div class="f">
       <label>Send to</label>
-      <select id="outDest"></select>
+      <select id="outDest" hidden></select><div class="chips" id="outDestSeg"></div>
     </div>
     <button class="big" id="outGo">Create and share</button>
     <p class="note" id="outDlgHint"></p>
@@ -4018,12 +4014,15 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld">
     <label>Asset no. and line description</label>
     <input type="text" id="bAsset" placeholder="61-156 boning line 2">
-    <p class="err" id="bErr">Enter an asset no. or line description first</p>
+    <p class="err" id="bErr">Enter something about the belt first</p>
     <p class="msg" id="draft_belt"></p>
     <p class="msg" id="bAssetHit"></p>
-    <button type="button" class="ghost" id="bFault">Log a fault on this belt</button>
+    <!-- v159: two small buttons side by side, not two full-width ones -->
+    <div class="bsmall">
+    <button type="button" class="btn act2" id="bFault">Log a fault on this belt</button>
     <!-- v101: photograph a paper spec and the AI fills the empty boxes, tinted -->
-    <button type="button" class="ghost" id="bScan">Read a spec sheet</button>
+    <button type="button" class="btn act2" id="bScan">Read a spec sheet</button>
+    </div>
     <input type="file" id="bScanFile" accept="image/*" hidden>
     <p class="msg" id="bScanMsg"></p>
   </div>
@@ -4037,7 +4036,9 @@ details.bsx > .msg{margin:8px 12px}
     <label>Copy spec from a belt already logged</label>
     <select id="bCopy"><option value="">Start from blank</option></select>
   </div>
-  <div class="fld">
+  <!-- v159 - Ben: "remove belt description ... more things that you have to fill in that don't mean anything".
+       Kept out of sight: the asset register and a spec sheet photo still fill it, and older belts keep theirs. -->
+  <div class="fld" hidden>
     <label>Belt description</label>
     <input type="text" id="bDesc" placeholder="S800OHFT">
     <p class="hint">Shorthand as you would write it. The pickers below are the detail behind it.</p>

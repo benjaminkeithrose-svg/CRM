@@ -111,14 +111,16 @@ t('required fields defined for all four',
 setCall(mk('c5'));
 w.showScreen('belt');
 t('an untouched belt form is empty', w.entryIsEmpty('belt') === true);
-t('an untouched belt form lacks its required field', w.entryHasRequired('belt') === false);
+// v159: a belt needs no asset number - anything on the form saves it
+t('a belt has no required field', g('ENTRY_REQUIRED').belt.length === 0);
 $('bAsset').value = 'CV-100';
-t('required field satisfied once filled', w.entryHasRequired('belt') === true);
 t('form no longer counts as empty', w.entryIsEmpty('belt') === false);
 $('bAsset').value = '';
-$('bDesc').value = 'half typed';
-t('part filled is neither empty nor complete',
-  w.entryIsEmpty('belt') === false && w.entryHasRequired('belt') === false);
+$('bWidth').value = '600';
+t('a width alone is something to save', w.entryIsEmpty('belt') === false);
+$('back').click();
+t('leaving a belt with no asset number logs it', g('call').entries.length === 1 && g('call').entries[0].width === '600' && g('call').entries[0].asset === '');
+t('and names it without one', w.eval('beltName(call.entries[0])') === 'No asset no.' && w.eval('entryHead(call.entries[0])') === 'Belt - No asset no.');
 
 // empty form: leaving must leave nothing behind
 setCall(mk('c6'));
