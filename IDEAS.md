@@ -1050,4 +1050,21 @@ and paste; Evaluation only in Create and share.
 
 ---
 
+## Built (v162): Plan search in place, tasks to Outlook, zone marker by the zone
+*Asked and built 2026-10-16*
+
+Ben: searching the whole book went to a search page, so he couldn't drag a
+result onto the calendar. On the PC the search is now a box at the top of the
+side list; the tiles follow what is typed and stay draggable (the phone keeps
+the full-screen search). Tasks: he uses only the calendar in Outlook and does
+tasks at the time he booked, so dated tasks go into the same .ics as the
+visits, as appointments (Outlook cannot import tasks from a calendar file).
+The week's territory marker moved up beside the Zone picker as one Add button.
+
+- **Open:** the Territory this week panel at the bottom of the list still holds
+  the month view's week pickers and Download week markers. Remove it if the
+  Add button covers what he uses.
+
+---
+
 <!-- Add new ideas above this line. -->

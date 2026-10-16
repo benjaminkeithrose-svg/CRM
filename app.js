@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v161';
+const APP_BUILD = 'v162';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1912,6 +1912,15 @@ function apState(ap){
 const ST_LABEL = {new:'Not in Outlook yet', changed:'Edited since last download', synced:'In your Outlook calendar'};
 const ST_SHORT = {new:'not downloaded', changed:'changed', synced:'in Outlook'};
 function pendingAppts(list){ return (list||APPTS).filter(ap => apState(ap) !== 'synced'); }
+/* v162 - Ben, 2026-10-16: "changing the task to be appointment suits me
+   better ... I only use a single function in the calendar ... separate in our
+   CRM system, but not in Outlook". A task goes to Outlook as an ordinary
+   appointment, in the same download as the visits, tracked the same way: not
+   downloaded, or edited since, and it goes in the next file; Outlook updates
+   the one it has. Ticking it done here is not an edit. */
+function taskRev(t){ return [t.type, t.title, t.date, t.start, t.dur, t.acct, t.contact, (t.notes||'').trim()].join('|'); }
+function taskIcsState(t){ return !t.exp ? 'new' : t.exp === taskRev(t) ? 'synced' : 'changed'; }
+const pendingTasks = list => (list || TASKS).filter(t => !t.deleted && t.date && taskIcsState(t) !== 'synced');
 /* Every write stamps the record. The exchange resolves an appointment edited on
    both sides newest-wins, and it cannot do that without knowing when. */
 async function saveAppt(ap){ ap.touchedAt = Date.now(); await apptsPut(ap); }
@@ -2005,7 +2014,8 @@ function renderRail(){
       'Searching every zone and every manager' +
       (out ? ' \u2014 '+out+' outside '+plan.zone : '') +
       (others ? ', '+others+' not yours' : '');
-    scope.querySelector('button').onclick = ()=>{ plan.q=''; renderPlan(); };
+    scope.querySelector('button').onclick = ()=>{ planSearchClear(); renderPlan(); };
+    if(!isPhone()) planSearchShow();                  // v162: the box shows what is being searched
   } else {
     const z = ZONES[plan.zone];
     $('zTitle').textContent = plan.zone ? zoneName(plan.zone) : 'No zone';
@@ -2573,13 +2583,41 @@ function renderPlan(){
 function renderPlanCount(){
   const el = $('planInfo');
   if(!el) return;
-  if(!APPTS.length){ el.textContent = 'Nothing planned'; return; }
-  const p = pendingAppts(APPTS).length;
+  const p = pendingAppts(APPTS).length + pendingTasks().length;     // v162: tasks go to Outlook too
+  if(!APPTS.length){ el.textContent = 'Nothing planned' + (p ? ', ' + p + ' not in Outlook' : ''); return; }
   el.textContent = APPTS.length+' planned'+(p ? ', '+p+' not in Outlook' : '');
 }
 $('pDueOnly').addEventListener('click', ()=>{ plan.dueOnly = !plan.dueOnly; renderPlan(); });
 $('pSearch').innerHTML = icon('search') + '<span>Search the whole account book</span>';
-$('pSearch').addEventListener('click', () => openSearch({
+/* v162 - Ben, 2026-10-16: "as I'm typing the search in, the tiles on the side
+   should change to match the search rather than going to a search page ... I
+   can't use the drag and drop function on the calendar then". On the PC the
+   button becomes a box at the top of the list; the tiles follow what is typed,
+   across the whole book, and stay draggable; the search stays put after a
+   drop. The cross, or Esc, puts the list back. The phone keeps the
+   full-screen search: it has no calendar to drag onto. */
+let pQTimer = null;
+function planSearchShow(){
+  $('pSearch').hidden = true; $('pQWrap').hidden = false;
+  if($('pQ').value !== plan.q) $('pQ').value = plan.q;
+}
+function planSearchClear(){
+  clearTimeout(pQTimer);
+  plan.q = ''; $('pQ').value = '';
+  $('pQWrap').hidden = true; $('pSearch').hidden = false;
+  renderRail();
+}
+$('pQ').addEventListener('input', () => {
+  clearTimeout(pQTimer);
+  pQTimer = setTimeout(() => { plan.q = $('pQ').value.trim(); renderRail(); }, 150);
+});
+$('pQ').addEventListener('keydown', e => { if(e.key === 'Escape'){ e.preventDefault(); planSearchClear(); } });
+$('pQx').addEventListener('click', planSearchClear);
+$('pSearch').addEventListener('click', () => {
+  if(!isPhone()){ planSearchShow(); try { $('pQ').focus(); } catch(_){} return; }
+  openSearchFull();
+});
+const openSearchFull = () => openSearch({
   placeholder: 'Account, suburb, contact, zone or manager',
   value: plan.q,
   render(q, el, hint){
@@ -2600,7 +2638,7 @@ $('pSearch').addEventListener('click', () => openSearch({
       closeSearch(); openDialog(null, {acct: b.dataset.fsacct});
     }));
   }
-}));
+});
 $('pMgr').addEventListener('change', ()=>{ plan.mgr = $('pMgr').value; renderPlan(); });
 $('pZone').addEventListener('change', ()=>{ plan.zone = $('pZone').value; renderPlan(); });
 $('pView').querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
@@ -2689,7 +2727,30 @@ function suggestZone(mon){
   return best ? {zone:best, n:n[best]} : null;
 }
 
+/* v162 - Ben: "add the zone marker to the zone we're currently searching. And
+   then just put an add to this week button next to it". Beside the Zone
+   picker: whether the week on screen is marked for this zone, and one tap to
+   mark it. The full list of week markers stays under Territory. */
+function renderZoneMark(){
+  const el = $('pZoneMark'); if(!el) return;
+  if(!plan.zone || !ZONES[plan.zone]){ el.innerHTML = ''; return; }
+  const mon = iso(startOfWeek(plan.anchor)), cur = (WEEKS[mon] || {}).zone || '';
+  const thisWk = mon === iso(startOfWeek(new Date()));
+  const wk = thisWk ? 'this week' : 'the week of ' + parseIso(mon).getDate() + ' ' + MONNM[parseIso(mon).getMonth()].slice(0, 3);
+  el.innerHTML = cur === plan.zone
+    ? '<span class="on">\u2713 ' + esc(plan.zone) + ' is ' + esc(wk) + '\u2019s territory</span>'
+    : '<button type="button" class="btn act2" id="pZoneAdd">Add ' + esc(plan.zone) + ' to ' + esc(wk) + '</button>' +
+      (cur ? '<span>' + esc(wk.charAt(0).toUpperCase() + wk.slice(1)) + ' is marked ' + esc(cur) + '</span>' : '');
+  const b = $('pZoneAdd');
+  if(b) b.onclick = async () => {
+    WEEKS[mon] = Object.assign({}, WEEKS[mon] || {}, {zone: plan.zone});
+    await saveWeeks();
+    renderTerritory();
+    toast(plan.zone + ' marked as ' + wk + '\u2019s territory');
+  };
+}
 function renderTerritory(){
+  renderZoneMark();
   const bar = $('terr');
   if(!bar) return;
   const mons = viewWeeks();
@@ -3296,13 +3357,12 @@ function inviteParts(ap){
   return {txt: txt.join('\n'), html: html, tz: zoneTz(a.z), assumed: zoneTzAssumed(a.z)};
 }
 
-function buildIcs(list){
+function buildIcs(list, tasks){
+  tasks = tasks || [];
   const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Intralox//Field CRM//EN',
              'CALSCALE:GREGORIAN','METHOD:PUBLISH'];
-  const tzs = [...new Set(list.map(ap => {
-    const a = ACC_BY_NAME.get(ap.acct);
-    return zoneTz(a ? a.z : '');
-  }))];
+  const tzOf = acct => { const a = ACC_BY_NAME.get(acct); return zoneTz(a ? a.z : ''); };
+  const tzs = [...new Set(list.map(ap => tzOf(ap.acct)).concat(tasks.map(t => tzOf(t.acct))))];
   tzs.forEach(t => L.push(...vtimezone(t)));
   list.forEach(ap=>{
     const p = inviteParts(ap), a = ACC_BY_NAME.get(ap.acct);
@@ -3345,6 +3405,25 @@ function buildIcs(list){
     L.push('TRANSP:OPAQUE');
     L.push('END:VEVENT');
   });
+  // v162: tasks, as plain appointments - no invitees, so Outlook never sends anything
+  tasks.forEach(t => {
+    const tz = tzOf(t.acct), a = ACC_BY_NAME.get(t.acct);
+    L.push('BEGIN:VEVENT');
+    L.push('UID:task-'+t.id+'@field-crm.intralox');
+    L.push('SEQUENCE:'+(t.icsSeq||0));
+    L.push('DTSTAMP:'+stamp());
+    L.push('LAST-MODIFIED:'+stamp());
+    L.push('DTSTART;TZID='+tz+':'+dtLocal(t.date, t.start || '08:00', 0));
+    L.push('DTEND;TZID='+tz+':'+dtLocal(t.date, t.start || '08:00', t.dur || TASK_DUR));
+    L.push('SUMMARY:'+icsEsc((t.title || t.type || 'Task') + (t.acct ? ' - ' + t.acct : '')));
+    if(a) L.push('LOCATION:'+icsEsc([a.sub, a.a].filter(Boolean).join(', ')));
+    L.push('DESCRIPTION:'+icsEsc([t.type && 'Task: ' + t.type, t.contact && 'Contact: ' + t.contact + [t.mobile, t.email].filter(Boolean).map(x => ', ' + x).join(''),
+      t.project && 'Project: ' + t.project, (t.notes || '').trim()].filter(Boolean).join('\n')));
+    L.push('CATEGORIES:Field CRM task');
+    L.push('X-MICROSOFT-CDO-BUSYSTATUS:BUSY');
+    L.push('TRANSP:OPAQUE');
+    L.push('END:VEVENT');
+  });
   L.push('END:VCALENDAR');
   return L.map(fold).join('\r\n') + '\r\n';
 }
@@ -3363,12 +3442,14 @@ function downloadFile(name, text, mime){
   setTimeout(()=>URL.revokeObjectURL(u), 4000);
 }
 async function doExport(mode){
-  const inView = APPTS.filter(inRange);
-  if(!inView.length){ toast('Nothing planned in this '+plan.view+'. Add an appointment first.'); return; }
+  const inView = APPTS.filter(inRange), tView = TASKS.filter(t => !t.deleted && t.date && inRange(t));   // v162: and the tasks
+  if(!inView.length && !tView.length){ toast('Nothing planned in this '+plan.view+'. Add an appointment first.'); return; }
   const list = mode === 'all' ? inView : pendingAppts(inView);
-  if(!list.length){ toast('Everything in this '+plan.view+' is already in your Outlook calendar.'); return; }
-  if(mode === 'all' && list.length > pendingAppts(inView).length &&
-     !confirm('Re-download all '+list.length+' appointment'+(list.length===1?'':'s')+' in this '+plan.view+
+  const tlist = mode === 'all' ? tView : pendingTasks(tView);
+  if(!list.length && !tlist.length){ toast('Everything in this '+plan.view+' is already in your Outlook calendar.'); return; }
+  const n = list.length + tlist.length;
+  if(mode === 'all' && n > pendingAppts(inView).length + pendingTasks(tView).length &&
+     !confirm('Re-download all '+n+' appointment'+(n===1?'':'s')+' in this '+plan.view+
               '?\n\nOutlook will update the ones it already has rather than duplicate them.')) return;
   const assumed = list.filter(ap => { const a = ACC_BY_NAME.get(ap.acct); return zoneTzAssumed(a ? a.z : ''); });
   if(assumed.length && !confirm(assumed.length+' appointment'+(assumed.length===1?' is':'s are')+
@@ -3381,14 +3462,19 @@ async function doExport(mode){
     if(ap.icsSeq == null) ap.icsSeq = 0;
     else if(apState(ap) === 'changed') ap.icsSeq++;
   }
+  for(const t of tlist){
+    if(t.icsSeq == null) t.icsSeq = 0;
+    else if(taskIcsState(t) === 'changed') t.icsSeq++;
+  }
   const name = 'field-calls-'+iso(plan.anchor)+(mode === 'all' ? '-all' : '')+'.ics';
-  downloadFile(name, buildIcs(list), 'text/calendar;charset=utf-8');
+  downloadFile(name, buildIcs(list, tlist), 'text/calendar;charset=utf-8');
 
   // Green only once the file has actually been handed over.
   const now = Date.now();
   for(const ap of list){ ap.exp = apRev(ap); ap.expAt = now; await saveAppt(ap); }
+  for(const t of tlist){ t.exp = taskRev(t); t.expAt = now; t.updated = now; await tasksPut(t); }
   renderPlan();
-  toast(list.length+' appointment'+(list.length===1?'':'s')+' written to '+name);
+  toast(list.length+' appointment'+(list.length===1?'':'s')+(tlist.length ? ' and '+tlist.length+' task'+(tlist.length===1?'':'s') : '')+' written to '+name);
 }
 $('pExport').addEventListener('click', ()=>doExport('pending').catch(e=>{ console.error(e); toast('Export failed: '+e.message); }));
 $('pExportAll').addEventListener('click', ()=>doExport('all').catch(e=>{ console.error(e); toast('Export failed: '+e.message); }));
@@ -20287,6 +20373,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v162', 'Plan on the PC: Search the whole account book now types in the side list, and the tiles change as you type, so you can still drag them onto the calendar. Under the zone, Add marks it as the week\u2019s territory. Dated tasks go to Outlook as appointments with the visits.'],
   ['v161', 'Evaluation forms in a call: tap ⋯ beside Create and share. The freezing and chilling tunnel evaluation is first; the call fills who and where, conveyors copy from logged belts, and Create and share has Evaluation only.'],
   ['v160', 'Create and share: Copy for email, Open in a new tab, Download and Share do their job with one tap; no button to confirm.'],
   ['v159', 'A belt saves without an asset number. Quote requests: Required by and Your reference are gone; the account box takes a name not in the CRM. The belt form drops Belt description, and its two buttons are smaller. Create and share uses buttons, not dropdowns, and on the PC has Copy for email, to paste the notes into Outlook.'],
