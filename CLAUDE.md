@@ -27,6 +27,7 @@ work from a copy of a file anywhere other than this checkout.
 | `sw.js` | Service worker, cache-first, offline |
 | `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
 | `manuals.js`, `healthlib.js` | Reference data and the health-check library |
+| `forms.js` | Application engineering evaluation forms (v161): each form described once (sections, questions, answer lists, units, conditions); app.js draws and prints any of them. Blank forms only, generic engineering questions (Ben's choice); a filled-in one is an entry of the call |
 | `manifest.webmanifest`, icons, `logo.png` | Installability and branding. `apple-touch-icon.png` (v135) is the iPhone home-screen icon, an opaque 180px copy of the maskable icon; `favicon-32.png` (v149) is the browser tab's icon |
 | `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
 | `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |

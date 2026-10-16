@@ -14,6 +14,7 @@ are in the repository.
 | `app.js` | Everything else, about 17,000 lines in one file, in titled sections (below) |
 | `sw.js` | The service worker: caches `ASSETS` one at a time, serves the app's own files cache-first, lets Supabase and GitHub go to the network |
 | `zones.js`, `manuals.js`, `healthlib.js`, `health-seed.json` | Reference data: the AU/NZ zone map, the manual list, the health-check fault library |
+| `forms.js` (v161) | The application engineering evaluation forms, each described once: sections, questions (`k`, `l`, `t`, `req`, `u`, `o`, `h`, `ph`, `when`, `fill`), a repeating group (the conveyors) and its sprocket table, and which conveyor answers a logged belt shares. A new form is a new entry here; the screen, the call log card and the document draw from it |
 | `supabase-2.117.1.js`, `xlsx-0.18.5.full.min.js` | The two libraries, shipped in the repo so they work offline |
 | `supabase/` | The cloud schema (`migrations/`) and server functions (`functions/`) |
 | `tests/` | Headless suites (`qa-*.mjs`, run by `tests/run.mjs`) and the browser tests |
