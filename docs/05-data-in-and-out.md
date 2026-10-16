@@ -27,7 +27,7 @@
 | **Large account plan** | Create and share | A4 HTML in Dynamics' order |
 | **Copy for Dynamics** | The large account plan | Each Dynamics field with its own Copy button |
 | **Changes for CAG** (v144; its own section of Settings since v158) | Settings, Changes for CAG | .xlsx for CAG: new contacts, moved contacts, changed details, left the company (v145) and account owners (account managers, ATL), a sheet each. Since v158 each row has what Dynamics has now beside what it changes to (job role, job title, email, mobile, owner), when it was made and by whom, and a Check column for a job role or title Dynamics does not hold. Then marked sent; the To send tab shows the same before downloading |
-| **Visits to Outlook** | The calendar | .ics calendar file: subject "Type: Account", location, agenda, invitees, focus and zone as categories |
+| **Visits and tasks to Outlook** | The calendar | .ics calendar file: subject "Type: Account", location, agenda, invitees, focus and zone as categories. Since v162 dated tasks go in the same file as appointments (not Outlook tasks, which a calendar file cannot carry): subject "Title - Account", no invitees, category "Field CRM task", only those new or changed since the last download |
 | **Email tasks to Outlook** | Open in Outlook | A new email (mailto): To, Subject (or the title), Body |
 | **Planning weeks** | The planner | .ics calendar file of week markers |
 | **PC folder** | Reports | Each done call saved as files in a folder on the PC |

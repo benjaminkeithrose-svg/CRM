@@ -92,6 +92,7 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `mailTo`, `mailSubject`, `mailBody` | An email's To, Subject and Body |
 | `done`, `doneAt`, `callId`, `created`, `updated` | Finished, when, and the call it came from |
 | `mbo` | The MBO (`m:` and its id) or initiative (`i:` and its id) the task counts towards when done (v134) |
+| `exp`, `expAt`, `icsSeq` | What the task looked like when it last went into an Outlook calendar file, when, and the file's version for it (v162) |
 
 **snippets** (saved notes): `id`, `label`, `text`, `reason` (Won, Lost, Not
 Qualified, Other), `created`, `lastUsed`, `updated`. Since v155 they have no

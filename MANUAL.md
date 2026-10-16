@@ -125,22 +125,26 @@ Outlook uses it as the organiser on the invites. Without it, the people you invi
 ### Plan a week
 
 1. Tap **Plan** on Home.
-2. Pick a **Zone** to see that patch, or click **Search the whole account book**.
+2. Pick a **Zone** to see that patch, or click **Search the whole account book** and type. The list below changes as you type.
 3. Click an account, or drag it onto a day.
 4. Set the time, how long, what it's for, and who you'll see.
 5. Click **Save**.
 
-Drag a visit to another day to move it. The coloured chips filter by focus.
+Drag a visit to another day to move it. The coloured chips filter by focus. To end a search, click **×** beside the box, or press Esc.
+
+Under the zone, click **Add** to mark it as this week's territory. Once it is marked, it says so with a tick. Further down, **Territory this week** still downloads the week markers.
 
 Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. A visit booked on a weekend stays there.
 
-### Put visits in Outlook
+### Put visits and tasks in Outlook
 
 1. On **Plan**, click **⋯** at the top right of the calendar.
 2. Click **Download to Outlook**.
 3. Open the file it gives you, and accept it in Outlook.
 
 Only visits that changed since last time are in the file, and downloading again updates Outlook rather than adding a second copy. The colour on a visit: blue is not in Outlook yet, green is in Outlook, orange has changed since. Download again.
+
+Your tasks with a date go in the same file, as appointments at their time. They have no invitees, so Outlook sends nothing, and they carry the category "Field CRM task". Ticking a task done in the app does not change Outlook.
 
 ### See my week on the phone
 

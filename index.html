@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v161">
+<meta name="build" content="v162">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1134,6 +1134,12 @@ body.planning{padding-bottom:0}
 .planwrap{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 120px)}
 .rail{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .rail-top{padding:10px 12px;border-bottom:1px solid var(--line-2);display:flex;flex-direction:column;gap:8px}
+.zmark{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--ink-2)}
+.zmark .btn{min-height:36px;padding:4px 12px;font-size:13px}
+.zmark .on{color:var(--ok);font-weight:700}
+.railq{display:flex;align-items:center;gap:6px}
+.railq input{flex:1;min-width:0;min-height:40px}
+.railq button{min-width:40px;min-height:40px;border:1px solid var(--edge);border-radius:var(--r);background:var(--surface);font-size:20px;line-height:1}
 .railsearch{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 10px;
   border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink-2);
   font-size:13.5px;cursor:pointer;text-align:left}
@@ -2197,17 +2203,18 @@ details.bsx > .msg{margin:8px 12px}
     <div class="fld help">
       <ol>
         <li>Tap <b>Plan</b> on Home.</li>
-        <li>Pick a <b>Zone</b> to see that patch, or click <b>Search the whole account book</b>.</li>
+        <li>Pick a <b>Zone</b> to see that patch, or click <b>Search the whole account book</b> and type. The list below changes as you type.</li>
         <li>Click an account, or drag it onto a day.</li>
         <li>Set the time, how long, what it's for, and who you'll see.</li>
         <li>Click <b>Save</b>.</li>
       </ol>
-      <p>Drag a visit to another day to move it. The coloured chips filter by focus.</p>
+      <p>Drag a visit to another day to move it. The coloured chips filter by focus. To end a search, click <b>&times;</b> beside the box, or press Esc.</p>
+      <p>Under the zone, click <b>Add</b> to mark it as this week's territory. Once it is marked, it says so with a tick. Further down, <b>Territory this week</b> still downloads the week markers.</p>
       <p>Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. A visit booked on a weekend stays there.</p>
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>Put visits in Outlook</b><span class="sxs">On the PC</span></summary>
+    <summary><b>Put visits and tasks in Outlook</b><span class="sxs">On the PC</span></summary>
     <div class="fld help">
       <ol>
         <li>On <b>Plan</b>, click <b>&#8943;</b> at the top right of the calendar.</li>
@@ -2215,6 +2222,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Open the file it gives you, and accept it in Outlook.</li>
       </ol>
       <p>Only visits that changed since last time are in the file, and downloading again updates Outlook rather than adding a second copy. The colour on a visit: blue is not in Outlook yet, green is in Outlook, orange has changed since. Download again.</p>
+      <p>Your tasks with a date go in the same file, as appointments at their time. They have no invitees, so Outlook sends nothing, and they carry the category "Field CRM task". Ticking a task done in the app does not change Outlook.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3406,7 +3414,11 @@ details.bsx > .msg{margin:8px 12px}
     <div class="rail">
       <div class="rail-top">
         <button type="button" class="railsearch" id="pSearch"></button>
-        <div class="f"><label>Zone</label><select id="pZone"></select></div>
+        <!-- v162: on the PC the search happens here, and the tiles below follow it, still draggable -->
+        <div class="railq" id="pQWrap" hidden><input type="text" enterkeyhint="search" id="pQ" placeholder="Account, suburb, contact, zone or manager" autocomplete="off" aria-label="Search the whole account book"><button type="button" id="pQx" aria-label="Clear the search" title="Clear the search">&times;</button></div>
+        <div class="f"><label>Zone</label><select id="pZone"></select>
+          <!-- v162: the week's territory marker, beside the zone it is for -->
+          <div class="zmark" id="pZoneMark"></div></div>
         <div class="scope" id="pScope" hidden></div>
         <div class="chips" id="pChips"></div>
         <!-- Kept in the DOM, out of sight. The manager is set once and lives in
