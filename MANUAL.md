@@ -213,6 +213,20 @@ A belt or health check saves on Done. Leave one with nothing typed and nothing i
 
 The belt form is in sections: Belt data, Sprockets, Flights and sideguards, Photos and comments, and Quote contact. Tap a section's name to open or close it. A closed one shows a line saying what's in it. A new belt opens on Belt data; a belt you've already logged opens with them all closed.
 
+### Fill in an evaluation
+
+1. In the call, tap **⋯** beside **Create and share** at the top.
+2. Tap the form, for example **Evaluation: Freezing and chilling tunnel**.
+3. Check the customer details and Entered by: they come from the call.
+4. Answer what you can. Tap an answer to pick it, and tap it again to clear it. Tap **Estimate** beside a number that is one.
+5. For each conveyor, tap **Copy from a belt logged** to bring in a belt you logged in this call. Tap **Duplicate** to copy a conveyor and change only what differs, or **Add a conveyor** for another.
+6. Add photos under **Photos**. On the PC, a copied picture pastes in with **Ctrl** and **V**.
+7. Tap **Done**.
+
+Starred answers are the ones the engineer needs. They are counted, never forced: Done keeps what is there, and the evaluation says what is still to come. Tap the evaluation in the call log to carry on.
+
+To send it, tap **Create and share**, then **Evaluation only** under Include, then the way to send it. The full call notes list the evaluation and say it is its own document. **Log it as a belt** on a conveyor puts it in the call log as a belt, ready for a quote.
+
 ### Talk into a box, or tidy a note
 
 Every free-text box on a call has a microphone beside **Tidy**: the note, a project's next action or notes, a belt's comments, and a health check's fault, recommended action or comments. So does a task's notes, and every text box on an opportunity's map and Blue Sheet, the account plans, product ideas, a visit's agenda and your CIP.

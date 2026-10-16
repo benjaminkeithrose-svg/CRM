@@ -1034,4 +1034,20 @@ beside the change, and only Dynamics' own job roles.
 
 ---
 
+## Built (v161): Application engineering evaluations, in a call
+*Asked and built 2026-10-16*
+
+Ben: application engineering forms will need to come into the CRM; uncommon,
+usually part of a call. Behind the ⋯ in the call toolbar (his choice). Each
+form described once in forms.js and drawn and printed by one screen and one
+document. First: the Conditioning Evaluation Form for freezing and chilling
+tunnels, from his earlier project. The call fills customer and entered-by;
+conveyors copy from logged belts and can be logged as belts; estimates; photos
+and paste; Evaluation only in Create and share.
+
+- **Next:** his other application engineering forms, one entry in forms.js
+  each.
+
+---
+
 <!-- Add new ideas above this line. -->

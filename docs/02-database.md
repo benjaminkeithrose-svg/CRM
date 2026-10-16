@@ -60,7 +60,7 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `rectype` | `'quote'` for a quote request, otherwise absent |
 | `customer`, `site`, `zone`, `suburb`, `focus`, `mgr` | The account and its details at the time |
 | `contacts` | People on the call: `name`, `role`, `email`, `mobile`, `crm` (from the export or not), `cid`, and the per-contact document tick |
-| `entries` | What was logged, in order. Each has a `type`: `belt` (the full belt specification: series, style, material, widths, sprockets, flights, sideguards, quantities, comments), `health` (fault, severity, recommended action, comments), `note`, or `project` (name, status, next action, target, owner, notes). Each can carry `photos`. A note or project is written here as it is typed (v133); a belt or health check on Done |
+| `entries` | What was logged, in order. Each has a `type`: `belt` (the full belt specification: series, style, material, widths, sprockets, flights, sideguards, quantities, comments), `health` (fault, severity, recommended action, comments), `note`, `project` (name, status, next action, target, owner, notes), or since v161 `eval`, an application engineering evaluation: `form` (its id in `forms.js`), `v` (the answers by question key), `est` (the numbers ticked as estimates), `conv` (each conveyor's `v` and `est`, sprocket table answers as `sprk_drive_qty` and the like). Each can carry `photos`. A note or project is written here as it is typed (v133); a belt or health check on Done |
 | `drafts` | A belt or health check form left half filled, by kind, offered back next time that form opens. Also a note or project form left without its text or name |
 | `loose` | Photos not tied to an entry |
 | `summary` | The visit summary that heads the call notes |

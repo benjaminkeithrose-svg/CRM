@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v160';
+const APP_BUILD = 'v161';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1381,7 +1381,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg'];
+const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg','evaldlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1473,6 +1473,7 @@ function showScreen(name){
   $('bar').style.display = inCall ? 'block' : 'none';
   // one main action in the toolbar: Create and share on the call menu, Done on a form
   $('doOutput').hidden = name !== 'dash';
+  if($('barMore')) $('barMore').hidden = name !== 'dash';                 // v161: the evaluation forms, on the call itself
   $('barDone').hidden = name === 'dash';
   window.scrollTo(0,0);
   if(name==='dash') renderDash();
@@ -7995,6 +7996,8 @@ function renderDash(){
     if(e.type==='project'){ head='Project - '+e.project; body=line([e.status,e.next,e.target]); }
     if(e.type==='note'){ head='Note - '+e.topic; body=esc(e.text); }
     if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=line([e.fault,e.severity]); }
+    if(e.type==='eval'){ const f = evForm(e.form), m = f ? evMissing(e, f).length : 0; head = evTitle(e);   // v161
+      body = line([e.v && e.v.apptype, (e.conv||[]).length + ((e.conv||[]).length === 1 ? ' conveyor' : ' conveyors'), m ? m + ' starred still to fill' : 'every starred answer in']); }
     /* A comment is the thing most worth knowing is there, and it would otherwise
        be invisible on the dashboard until the file was compiled. */
     if(e.comment) body += (body ? '<br>' : '') + '<b>' + esc(e.comment.slice(0,120)) +
@@ -8045,6 +8048,7 @@ function entryHead(e){
   if(e.type==='project') return 'Project - ' + e.project;
   if(e.type==='note') return 'Note - ' + e.topic;
   if(e.type==='health') return 'Health - ' + (e.asset || 'unspecified');
+  if(e.type==='eval') return evTitle(e);
   return 'Entry';
 }
 function openEntryMenu(i){
@@ -8074,6 +8078,7 @@ async function deleteEntry(i){
 function openLogged(i, copy){
   const e = call && call.entries[i];
   if(!e) return;
+  if(e.type === 'eval'){ evEdit(i, copy); return; }        // v161: its own screen
   editingIdx = i;
   if(e.type==='belt'){
     resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
@@ -10154,6 +10159,7 @@ async function picturesIn(files, how){
   toast(what + ' ' + how + ': saved with this ' + ({belt: 'belt', project: 'project', note: 'note', health: 'health check'}[screen] || 'entry') + ' when you tap Done');
 }
 document.addEventListener('paste', e => {
+  if(EV && $('evaldlg').open){ const f = clipPictures(e.clipboardData); if(f.length){ e.preventDefault(); evAddPhotos(f).catch(reportErr); } return; }   // v161
   if(!call || !CALL_SCREENS.includes(screen)) return;
   const files = clipPictures(e.clipboardData);
   if(!files.length) return;                        // text: paste as usual
@@ -18185,6 +18191,14 @@ async function buildNotesHTML(scope, mode, c){
     p.push('</table>');
   }
 
+  // v161: an evaluation is its own document; the notes say it was done
+  const evals = wantNotes ? c.entries.filter(e=>e.type==='eval') : [];
+  if(evals.length){
+    p.push('<h2>Evaluations</h2><table><tr><th>Form</th><th>Equipment</th><th>Line</th><th>Conveyors</th></tr>');
+    evals.forEach(x=>{ const f = evForm(x.form); p.push('<tr><td>'+V(f ? f.name : x.form)+'</td><td>'+V(x.v && x.v.apptype)+'</td><td>'+V(x.v && x.v.line)+'</td><td>'+V(String((x.conv||[]).length))+'</td></tr>'); });
+    p.push('</table><p class="sent">Each evaluation is its own document: Create and share, Evaluation only.</p>');
+  }
+
   const belts = wantBelts ? c.entries.filter(e=>e.type==='belt') : [];
   if(belts.length){
     p.push('<h2>Belts to quote</h2>');
@@ -18440,10 +18454,11 @@ function fileName(scope, c){
   const tag = scope === 'health' ? 'health_check'
             : scope === 'belts'  ? 'belt_requirements'
             : scope === 'rfq'    ? 'belt_RFQ'
+            : scope === 'eval'   ? 'evaluation'
             : 'call_notes';
   return cust+site+'_'+tag+'_'+date+'.html';
 }
-const SHARE_TITLE = {full:'Call notes ', health:'Health check ', belts:'Belt requirements ', rfq:'Belt RFQ '};
+const SHARE_TITLE = {full:'Call notes ', health:'Health check ', belts:'Belt requirements ', rfq:'Belt RFQ ', eval:'Evaluation '};
 /* One path for every output. Scope decides what is in the document, mode decides
    how the photos are shown, dest decides where it goes. They used to be five
    buttons that each hard-coded one combination. */
@@ -18451,7 +18466,7 @@ async function sendNotes(scope, dest, mode){
   toast('Building...');
   let html;
   try {
-    html = (scope === 'rfq') ? await buildRFQHTML(mode) : await buildNotesHTML(scope, mode);
+    html = (scope === 'rfq') ? await buildRFQHTML(mode) : (scope === 'eval') ? await buildEvalHTML(call, mode) : await buildNotesHTML(scope, mode);
   }
   catch(e){ console.error(e); toast('Could not build the file: '+e.message); return; }
   const name = fileName(scope);
@@ -18494,7 +18509,8 @@ async function sendNotes(scope, dest, mode){
 function outScopeOptions(){
   const q = isQuote(call);
   return q ? [['rfq','Belt RFQ']]
-           : [['full','Full call notes'],['health','Health check only'],['belts','Belt requirements only']];
+           : [['full','Full call notes'],['health','Health check only'],['belts','Belt requirements only']]
+             .concat(call && (call.entries || []).some(e => e.type === 'eval') ? [['eval','Evaluation only']] : []);   // v161
 }
 function currentOutScope(){
   const el = $('outScope');
@@ -18603,7 +18619,7 @@ function emailHTML(doc){
 function copyNotes(scope){
   const marks = (scope === 'full' || scope === 'rfq');
   const ph = call ? call.entries.reduce((a, e) => a + (e.photos ? e.photos.length : 0), 0) + (call.loose ? call.loose.length : 0) : 0;
-  const built = (async () => emailHTML(scope === 'rfq' ? await buildRFQHTML('thumbonly') : await buildNotesHTML(scope, 'thumbonly')))();
+  const built = (async () => emailHTML(scope === 'rfq' ? await buildRFQHTML('thumbonly') : scope === 'eval' ? await buildEvalHTML(call, 'thumbonly') : await buildNotesHTML(scope, 'thumbonly')))();
   const done = async () => {
     toast('Copied: paste it into the email with Ctrl+V' + (ph ? '. Photos are not in the copy; to send them, download the file and attach it' : ''));
     if(marks) await markShared(fileName(scope));
@@ -18649,7 +18665,8 @@ function renderOutHint(){
   const opts = outDestOptions().map(o => o[0]);
   if(opts.includes('copy')) bits.push('Copy for email puts the notes on the clipboard to paste into Outlook with Ctrl+V: text and tables, no photos. Open a new tab is a preview, and does not mark the call as issued.');
   else bits.push((opts.includes('share') ? 'Share sheet sends the file to OneDrive, Outlook or Teams. ' : '') + 'Open a new tab is a preview, and does not mark the call as issued.');
-  if(scope === 'health' || scope === 'belts'){
+  if(scope === 'eval') bits.push('The evaluation form for the engineer: every answer, the conveyors and their photos. It does not mark the call as issued.');
+  else if(scope === 'health' || scope === 'belts'){
     bits.push('This is for handing to the customer. It leaves out general notes, '+
       'project discovery and the visit history'+
       (scope === 'health' ? ', and prints one fault per page so it can go straight to a fitter' : '')+
@@ -18708,6 +18725,267 @@ function download(html, name){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
   toast('Saved to Downloads');
+}
+
+/* ================= Evaluations (v161) =================
+   Ben, 2026-10-16: application engineering forms, "usually part of a call. So
+   when we're on site, we can open up evaluation forms". Behind the ⋯ on the
+   call (his choice: they are uncommon). Each form is described in forms.js
+   (AE_FORMS); this draws any of them, keeps the answers as an entry of the
+   call ({type: 'eval', form, v, est, conv: [{v, est}], photos}) and prints any
+   of them. The call fills in who, where and when; a conveyor can take its
+   numbers from a belt logged in the same call, or be logged as a belt for a
+   quote. Starred answers are marked and counted, never forced: Done keeps what
+   is there. A number can be ticked as an estimate, and prints as one. */
+const evForms = () => (typeof window !== 'undefined' && Array.isArray(window.AE_FORMS)) ? window.AE_FORMS : [];
+const evForm = id => evForms().find(f => f.id === id) || null;
+let EV = null;                  // {idx, e, form, open: Set of open sections and conveyors}
+// what the call already knows
+function evFill(form){
+  const c = call, a = c && ACC_BY_NAME.get(c.customer);
+  const ct = c ? (c.contacts || []).filter(docContact)[0] || (c.contacts || [])[0] || {} : {};
+  const me = localStorage.getItem(LS('mgr')) || (c && c.mgr) || '';
+  const st = STAFF.find(s => pKey(s.n) === pKey(me));
+  const tz = a && ZONES[a.z] && ZONES[a.z].tz || '';
+  const iso = (() => { const m = String(c && c.date || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + '-' + m[2] + '-' + m[1] : todayISOdate(); })();
+  const val = {'contact.name': ct.name, 'contact.title': ct.role, 'contact.email': ct.email, 'contact.phone': ct.mobile,
+    customer: c && c.customer, site: c && c.site, city: a && a.sub, country: a ? (/Auckland/.test(tz) ? 'New Zealand' : 'Australia') : '',
+    'me.name': me, 'me.pos': st && st.pos ? staffPosName(st.pos) : '', 'me.email': (localStorage.getItem(LS('email')) || '').trim(), date: iso};
+  const v = {};
+  for(const s of form.sections) if(!s.group) for(const q of s.q) if(q.fill && val[q.fill]) v[q.k] = String(val[q.fill]);
+  return v;
+}
+function evNew(formId){
+  const form = evForm(formId);
+  if(!form){ toast('That form did not load'); return; }
+  if(!call){ toast('Open a call first'); return; }
+  EV = {idx: null, form, e: {type: 'eval', form: form.id, v: evFill(form), est: {}, conv: [{v: {}, est: {}}], photos: [], created: Date.now()}, open: new Set([form.start || form.sections[0].id, 'c0'])};
+  evOpen();
+}
+function evEdit(i, copy){
+  const e = call && call.entries[i], form = e && evForm(e.form);
+  if(!form){ toast('That form is not in this version of the app'); return; }
+  EV = {idx: copy ? null : i, form, e: JSON.parse(JSON.stringify(Object.assign({}, e, {photos: []}))), open: new Set([form.sections[0].id])};
+  EV.e.photos = copy ? [] : (e.photos || []).slice();          // photos are Blobs: kept, not copied as JSON; a copy starts without them
+  if(copy){ delete EV.e.updated; EV.e.created = Date.now(); }
+  EV.before = evKey(EV.e);
+  evOpen();
+}
+const evKey = e => JSON.stringify([e.v, e.est, e.conv]) + '|' + (e.photos || []).length;
+function evOpen(){
+  $('evHead').textContent = EV.form.name;
+  $('evDel').hidden = EV.idx == null;
+  evDraw();
+  const d = $('evaldlg');
+  if(!d.open){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('evaldlg'); }
+}
+const evShown = (q, e) => !q.when || q.when.in.includes(e.v[q.when.k] || '');
+// the starred questions still to answer, by name
+function evMissing(e, form){
+  const out = [];
+  for(const s of form.sections){
+    if(s.group) (e.conv || []).forEach((c, ci) => s.q.forEach(q => { if(q.req && evShown(q, e) && !String(c.v[q.k] || '').trim()) out.push(s.group + ' ' + (ci + 1) + ': ' + q.l); }));
+    else s.q.forEach(q => { if(q.req && evShown(q, e) && !String(e.v[q.k] || '').trim()) out.push(q.l); });
+  }
+  return out;
+}
+const evAttr = (ci, k) => (ci == null ? '' : ' data-ci="' + ci + '"') + ' data-ek="' + esc(k) + '"';
+function evQ(q, store, est, ci){
+  const v = store[q.k] || '', lab = '<label' + (q.t === 'pick' || q.t === 'sprk' ? '' : ' for="ev_' + (ci == null ? '' : ci + '_') + q.k + '"') + '>' + esc(q.l) + (q.req ? ' <span class="req">*</span>' : '') + '</label>';
+  const id = ' id="ev_' + (ci == null ? '' : ci + '_') + q.k + '"', ph = q.ph ? ' placeholder="' + esc(q.ph) + '"' : '';
+  let ctl = '';
+  if(q.t === 'area') ctl = '<textarea rows="3"' + id + evAttr(ci, q.k) + ph + '>' + esc(v) + '</textarea>';
+  else if(q.t === 'num') ctl = '<div class="evnum"><input type="number" inputmode="decimal" step="any"' + id + evAttr(ci, q.k) + ph + ' value="' + esc(v) + '">' +
+    (q.u ? '<span class="evunit">' + esc(q.u) + '</span>' : '') +
+    '<button type="button" class="evest' + (est[q.k] ? ' on' : '') + '"' + evAttr(ci, q.k) + ' data-est="1" aria-pressed="' + !!est[q.k] + '">Estimate</button></div>';
+  else if(q.t === 'pick') ctl = '<div class="chips" data-ep="' + esc(q.k) + '"' + (ci == null ? '' : ' data-ci="' + ci + '"') + '>' + q.o.map(o => '<button type="button" data-v="' + esc(o) + '"' + (o === v ? ' class="on"' : '') + '>' + esc(o) + '</button>').join('') + '</div>';
+  else if(q.t === 'sprk'){
+    const S = EV.form.sprk;
+    ctl = '<div class="evsprk"><table><tr><th></th>' + S.cols.map(c => '<th>' + esc(c.l) + '</th>').join('') + '</tr>' + S.rows.map(([rk, rl]) => '<tr><th>' + esc(rl) + '</th>' + S.cols.map(c => {
+      const k = 'sprk_' + rk + '_' + c.k, x = store[k] || '', aria = ' aria-label="' + esc(rl + ', ' + c.l) + '"';
+      return '<td>' + (c.t === 'pick' ? '<select' + evAttr(ci, k) + aria + '><option value="">—</option>' + c.o.map(o => '<option' + (o === x ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>'
+        : '<input type="' + (c.t === 'num' ? 'number' : 'text') + '"' + (c.t === 'num' ? ' inputmode="numeric"' : '') + evAttr(ci, k) + aria + (c.ph ? ' placeholder="' + esc(c.ph) + '"' : '') + ' value="' + esc(x) + '">') + '</td>';
+    }).join('') + '</tr>').join('') + '</table></div>';
+  }
+  else ctl = '<input type="' + (q.t === 'date' ? 'date' : q.t === 'email' ? 'email' : q.t === 'tel' ? 'tel' : 'text') + '"' + id + evAttr(ci, q.k) + ph + ' value="' + esc(v) + '">';
+  return '<div class="evq">' + lab + ctl + (q.h ? '<p class="hint">' + esc(q.h) + '</p>' : '') + '</div>';
+}
+function evDraw(){
+  const E = EV, e = E.e, form = E.form, el = $('evBody');
+  const top = el.scrollTop;
+  const belts = (call.entries || []).map((x, i) => [x, i]).filter(([x]) => x.type === 'belt');
+  const miss = evMissing(e, form);
+  let h = '<p class="hint">' + esc(form.intro || '') + (miss.length ? ' <b>' + miss.length + ' starred ' + (miss.length === 1 ? 'answer' : 'answers') + ' still to fill.</b>' : ' <b>Every starred answer is in.</b>') + '</p>';
+  for(const s of form.sections){
+    const n = s.group ? null : s.q.filter(q => q.req && evShown(q, e) && !String(e.v[q.k] || '').trim()).length;
+    h += '<details class="sx evsec" data-sec="' + esc(s.id) + '"' + (E.open.has(s.id) ? ' open' : '') + '><summary><b>' + esc(s.t) + '</b><span class="sxs">' +
+      (s.group ? e.conv.length + ' ' + s.group.toLowerCase() + (e.conv.length === 1 ? '' : 's') : n ? n + ' to fill' : '') + '</span></summary><div class="fld">' + (s.note ? '<p class="hint">' + esc(s.note) + '</p>' : '');
+    if(s.group){
+      h += e.conv.map((c, ci) => '<details class="evconv" data-conv="' + ci + '"' + (E.open.has('c' + ci) ? ' open' : '') + '><summary>' + esc(s.group + ' ' + (ci + 1) + (c.v.desc ? ': ' + String(c.v.desc).split('\n')[0].slice(0, 50) : '')) + '</summary>' +
+        '<div class="evcbar">' + (belts.length ? '<select data-evcopy="' + ci + '" aria-label="Copy from a belt logged"><option value="">Copy from a belt logged…</option>' + belts.map(([b, i]) => '<option value="' + i + '">' + esc(beltName(b)) + '</option>').join('') + '</select>' : '') +
+        '<button type="button" class="btn act2" data-evbelt="' + ci + '">Log it as a belt</button>' +
+        (e.conv.length < (s.max || 8) ? '<button type="button" class="btn act2" data-evdup="' + ci + '">Duplicate</button>' : '') +
+        (e.conv.length > 1 ? '<button type="button" class="opx cbin" data-evrm="' + ci + '" aria-label="Remove ' + esc(s.group + ' ' + (ci + 1)) + '" title="Remove">' + icon('trash') + '</button>' : '') + '</div>' +
+        s.q.filter(q => evShown(q, e)).map(q => evQ(q, c.v, c.est || {}, ci)).join('') + '</details>').join('') +
+        (e.conv.length < (s.max || 8) ? '<button type="button" class="btn act2" id="evAddConv">Add a ' + esc(s.group.toLowerCase()) + '</button>' : '');
+    } else h += s.q.filter(q => evShown(q, e)).map(q => evQ(q, e.v, e.est)).join('');
+    h += '</div></details>';
+  }
+  const ph = e.photos || [];
+  h += '<details class="sx evsec" data-sec="photos"' + (E.open.has('photos') ? ' open' : '') + '><summary><b>Photos</b><span class="sxs">' + (ph.length ? ph.length + (ph.length === 1 ? ' photo' : ' photos') : '') + '</span></summary><div class="fld">' +
+    '<p class="hint">Belt edge and markings, sprockets, bores and shafts, the drive and the run of the conveyor. On the PC, paste a picture with Ctrl+V.</p>' +
+    '<div class="evcbar"><button type="button" class="btn act2" id="evCamGo">Take a photo</button><button type="button" class="btn act2" id="evGalGo">Add from photos</button></div>' +
+    (ph.length ? '<div class="thumbs">' + ph.map((p, j) => '<span class="thumb"><img src="' + photoSrc(p) + '" data-evview="' + j + '" alt="Photo ' + (j + 1) + '"><button class="thx" data-evrmph="' + j + '" title="Delete this photo" aria-label="Delete photo ' + (j + 1) + '">&times;</button></span>').join('') + '</div>' : '') +
+    '</div></details>';
+  el.innerHTML = h;
+  el.scrollTop = top;
+}
+function evStore(t){ const ci = t.dataset.ci; return ci == null ? {v: EV.e.v, est: EV.e.est} : EV.e.conv[+ci]; }
+// does a change to this answer show or hide another question?
+const evDrives = k => EV.form.sections.some(s => s.q.some(q => q.when && q.when.k === k));
+$('evBody').addEventListener('input', ev => {
+  const t = ev.target; if(!EV || !t.dataset.ek) return;
+  const st = evStore(t); st.v[t.dataset.ek] = t.value;
+  if(t.dataset.ek === 'desc'){ const s = t.closest('details.evconv'); if(s){ const g = EV.form.sections.find(x => x.group); s.querySelector('summary').textContent = g.group + ' ' + (+t.dataset.ci + 1) + (t.value ? ': ' + t.value.split('\n')[0].slice(0, 50) : ''); } }
+});
+$('evBody').addEventListener('change', ev => {
+  const t = ev.target; if(!EV) return;
+  if(t.dataset.ek && t.tagName === 'SELECT'){ evStore(t).v[t.dataset.ek] = t.value; return; }
+  if(t.dataset.evcopy != null && t.value !== ''){ evFromBelt(+t.dataset.evcopy, +t.value); }
+});
+$('evBody').addEventListener('toggle', ev => {
+  const d = ev.target; if(!EV || d.tagName !== 'DETAILS') return;
+  const k = d.dataset.sec || (d.dataset.conv != null ? 'c' + d.dataset.conv : ''); if(!k) return;
+  if(d.open) EV.open.add(k); else EV.open.delete(k);
+}, true);
+$('evBody').addEventListener('click', ev => {
+  const b = ev.target.closest('button, img'); if(!b || !EV) return;
+  const e = EV.e;
+  if(b.dataset.est){ const st = evStore(b); st.est = st.est || {}; st.est[b.dataset.ek] = !st.est[b.dataset.ek]; if(!st.est[b.dataset.ek]) delete st.est[b.dataset.ek]; b.classList.toggle('on', !!st.est[b.dataset.ek]); b.setAttribute('aria-pressed', !!st.est[b.dataset.ek]); return; }
+  const pick = b.closest('[data-ep]');
+  if(pick && b.dataset.v != null){
+    const st = evStore(pick), k = pick.dataset.ep, was = st.v[k] === b.dataset.v;
+    if(was) delete st.v[k]; else st.v[k] = b.dataset.v;                       // tap again to deselect
+    if(evDrives(k)) evDraw(); else pick.querySelectorAll('button').forEach(x => x.classList.toggle('on', !was && x === b));
+    return;
+  }
+  if(b.id === 'evAddConv'){ e.conv.push({v: {}, est: {}}); EV.open.add('c' + (e.conv.length - 1)); evDraw(); return; }
+  if(b.dataset.evdup != null){ const c = JSON.parse(JSON.stringify(e.conv[+b.dataset.evdup])); e.conv.splice(+b.dataset.evdup + 1, 0, c); EV.open.add('c' + (+b.dataset.evdup + 1)); evDraw(); toast('Copied: change only what differs'); return; }
+  if(b.dataset.evrm != null){
+    const ci = +b.dataset.evrm, c = e.conv[ci], g = EV.form.sections.find(x => x.group).group;
+    const n = Object.values(c.v).filter(x => String(x || '').trim()).length;
+    if(n && !confirm('Remove ' + g + ' ' + (ci + 1) + (c.v.desc ? ' (' + String(c.v.desc).split('\n')[0] + ')' : '') + ' and its ' + n + (n === 1 ? ' answer' : ' answers') + '?')) return;
+    e.conv.splice(ci, 1); evDraw(); return;
+  }
+  if(b.dataset.evbelt != null){ evToBelt(+b.dataset.evbelt).catch(reportErr); return; }
+  if(b.id === 'evCamGo'){ $('evCam').value = ''; $('evCam').click(); return; }
+  if(b.id === 'evGalGo'){ $('evGal').value = ''; $('evGal').click(); return; }
+  if(b.dataset.evview != null){ openPhoto(e.photos, +b.dataset.evview, EV.form.name + ' — photo'); return; }
+  if(b.dataset.evrmph != null){ if(!confirm('Delete this photo?')) return; e.photos.splice(+b.dataset.evrmph, 1); evDraw(); return; }
+});
+async function evAddPhotos(files){
+  if(!EV || !files.length) return;
+  let ok = 0;
+  for(const f of files){ try { EV.e.photos.push(await shrink(f)); ok++; } catch(err){ console.error('skipped', f.name, err); } }
+  EV.open.add('photos'); evDraw();
+  toast(ok === 1 ? 'Photo added to the evaluation' : ok + ' photos added to the evaluation');
+}
+$('evCam').addEventListener('change', e => evAddPhotos([...e.target.files]).catch(reportErr));
+$('evGal').addEventListener('change', e => evAddPhotos([...e.target.files]).catch(reportErr));
+// a conveyor from a belt logged in the call: only into boxes still empty
+function evFromBelt(ci, bi){
+  const b = call.entries[bi], c = EV.e.conv[ci]; if(!b || !c) return;
+  const map = EV.form.belt || {}, got = [];
+  for(const [bk, ck] of Object.entries(map)) if(String(b[bk] || '').trim() && !String(c.v[ck] || '').trim()){ c.v[ck] = String(b[bk]); got.push(ck); }
+  const today = [b.series, b.style, b.beltmat].filter(Boolean).join(' ') || b.beltdesc || '';
+  if(today && !String(c.v.today || '').trim()){ c.v.today = today; got.push('today'); }
+  if(!String(c.v.desc || '').trim() && b.asset){ c.v.desc = b.asset; got.push('desc'); }
+  [['drive', b.sprdrive], ['idle', b.spridle]].forEach(([r, q]) => { if(q && !c.v['sprk_' + r + '_qty']){ c.v['sprk_' + r + '_qty'] = String(q); got.push(r); } });
+  EV.open.add('c' + ci); evDraw();
+  toast(got.length ? 'Filled ' + got.length + (got.length === 1 ? ' answer' : ' answers') + ' from ' + beltName(b) + '; nothing you typed was changed' : 'Nothing to fill: those answers are in already');
+}
+// a conveyor as a belt entry in the call, for a quote
+async function evToBelt(ci){
+  const c = EV.e.conv[ci]; if(!c) return;
+  const map = EV.form.belt || {}, e = {type: 'belt', asset: String(c.v.desc || '').split('\n')[0].trim(), beltdesc: String(c.v.today || '').trim(), photos: [], comment: 'From the ' + EV.form.name.toLowerCase() + ' evaluation'};
+  for(const [bk, ck] of Object.entries(map)) if(String(c.v[ck] || '').trim()) e[bk] = String(c.v[ck]);
+  if(c.v.sprk_drive_qty) e.sprdrive = c.v.sprk_drive_qty;
+  if(c.v.sprk_idle_qty) e.spridle = c.v.sprk_idle_qty;
+  call.entries.push(e); await saveCall();
+  toast(beltName(e) + ' is in the call log as a belt');
+}
+async function evFinish(){
+  if(!EV) return;
+  if($('evaldlg').open && history.state && history.state.dialog === 'evaldlg'){ history.back(); return; }
+  const E = EV; EV = null;
+  const d = $('evaldlg'); if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  const e = E.e, form = E.form;
+  const filled = Object.keys(evFill(form)), own = Object.keys(e.v).some(k => !filled.includes(k) && String(e.v[k] || '').trim()) || e.conv.some(c => Object.values(c.v).some(x => String(x || '').trim()));
+  if(E.idx == null && !own && !(e.photos || []).length) return;            // only what the call filled in: nothing kept
+  if(E.idx != null && evKey(e) === E.before) return;
+  e.updated = Date.now();
+  if(E.idx == null) call.entries.push(e); else call.entries[E.idx] = e;
+  await saveCall();
+  if(screen === 'dash') renderDash();
+  const m = evMissing(e, form).length;
+  toast(form.name + ' evaluation saved' + (m ? ': ' + m + ' starred ' + (m === 1 ? 'answer' : 'answers') + ' still to fill' : ''));
+}
+$('evOk').addEventListener('click', () => evFinish().catch(reportErr));
+$('evaldlg').addEventListener('cancel', e => { e.preventDefault(); evFinish().catch(reportErr); });
+$('evaldlg').addEventListener('close', () => { if(EV) evFinish().catch(reportErr); });
+$('evDel').addEventListener('click', async () => {
+  if(!EV || EV.idx == null) return;
+  const i = EV.idx, e = call.entries[i], n = (e.photos || []).length;
+  if(!confirm('Delete this ' + EV.form.name.toLowerCase() + ' evaluation' + (n ? ' and its ' + n + (n === 1 ? ' photo' : ' photos') : '') + '?\n\nThis cannot be undone.')) return;
+  EV = null;
+  const d = $('evaldlg');
+  if(history.state && history.state.dialog === 'evaldlg') history.back(); else if(d.close) d.close(); else d.removeAttribute('open');
+  call.entries.splice(i, 1); await saveCall(); renderDash();
+  toast('Evaluation deleted');
+});
+// the ⋯ on the call: the forms
+$('barMore').innerHTML = '<span class="dots" aria-hidden="true">&#8943;</span>';
+$('barMore').addEventListener('click', () => {
+  if(!call) return;
+  const forms = evForms();
+  openCardMenu('More for this call', forms.length ? 'Evaluation forms' : '', forms.length
+    ? forms.map(f => ({label: 'Evaluation: ' + f.name, icon: 'plus', run: () => evNew(f.id)}))
+    : [{label: 'The evaluation forms did not load', icon: 'close', run: () => {}}]);
+});
+const evTitle = e => { const f = evForm(e.form); return 'Evaluation - ' + (f ? f.name : e.form) + (e.v && e.v.line ? ' - ' + e.v.line : ''); };
+/* The document for the engineer: every answer, starred ones left empty said
+   so, estimates marked, the conveyors one after another, then the photos. */
+async function buildEvalHTML(c, mode){
+  c = c || call;
+  const evs = (c.entries || []).filter(e => e.type === 'eval' && evForm(e.form));
+  const val = (q, st, est) => { const v = String(st[q.k] || '').trim(); if(!v) return q.req ? '<span class="flag">Not yet known</span>' : ''; return esc(v).replace(/\n/g, '<br>') + (q.u ? ' ' + esc(q.u) : '') + (est && est[q.k] ? ' <i>(estimate)</i>' : ''); };
+  const rows = (qs, st, est) => { const r = qs.map(q => [q, val(q, st, est)]).filter(([q, v]) => v && q.t !== 'sprk'); return r.length ? '<table>' + r.map(([q, v]) => '<tr><td class="l">' + esc(q.l) + '</td><td>' + v + '</td></tr>').join('') + '</table>' : ''; };
+  const p = ['<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(evs.length ? evForm(evs[0].form).title : 'Evaluation') + ' ' + DASH_CH + ' ' + esc(c.customer) + '</title>' +
+    '<link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>', '<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">'];
+  for(const e of evs){
+    const form = evForm(e.form);
+    p.push('<p class="eyebrow">Intralox application engineering</p><h1>' + esc(form.title) + '</h1>');
+    p.push('<p class="sub">' + esc([c.customer, e.v.line, e.v.r_date || c.date].filter(Boolean).join(' · ')) + '</p>');
+    const miss = evMissing(e, form);
+    if(miss.length) p.push('<p class="sent">Still to come: ' + esc(miss.join('; ')) + '.</p>');
+    for(const s of form.sections){
+      if(s.group){
+        (e.conv || []).forEach((cv, ci) => {
+          p.push('<div class="blk"><h2>' + esc(s.group + ' ' + (ci + 1) + (cv.v.desc ? ' ' + DASH_CH + ' ' + String(cv.v.desc).split('\n')[0] : '')) + '</h2>');
+          p.push(rows(s.q.filter(q => evShown(q, e)), cv.v, cv.est || {}));
+          const S = form.sprk, any = S && S.rows.some(([rk]) => S.cols.some(col => cv.v['sprk_' + rk + '_' + col.k]));
+          if(any) p.push('<table><tr><th></th>' + S.cols.map(col => '<th>' + esc(col.l) + '</th>').join('') + '</tr>' + S.rows.map(([rk, rl]) => '<tr><td class="l">' + esc(rl) + '</td>' + S.cols.map(col => '<td>' + (esc(cv.v['sprk_' + rk + '_' + col.k] || '') || DASH_CH) + '</td>').join('') + '</tr>').join('') + '</table>');
+          p.push('</div>');
+        });
+      } else {
+        const r = rows(s.q.filter(q => evShown(q, e)), e.v, e.est || {});
+        if(r) p.push('<h2>' + esc(s.t) + '</h2>' + r);
+      }
+    }
+    if((e.photos || []).length) p.push('<h2>Photos</h2><div class="ph">' + (await photoImgs(e.photos, mode)) + '</div>');
+  }
+  p.push('</div></body></html>');
+  return p.join('');
 }
 
 /* ---------- backup and restore ---------- */
@@ -20009,6 +20287,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v161', 'Evaluation forms in a call: tap ⋯ beside Create and share. The freezing and chilling tunnel evaluation is first; the call fills who and where, conveyors copy from logged belts, and Create and share has Evaluation only.'],
   ['v160', 'Create and share: Copy for email, Open in a new tab, Download and Share do their job with one tap; no button to confirm.'],
   ['v159', 'A belt saves without an asset number. Quote requests: Required by and Your reference are gone; the account box takes a name not in the CRM. The belt form drops Belt description, and its two buttons are smaller. Create and share uses buttons, not dropdowns, and on the PC has Copy for email, to paste the notes into Outlook.'],
   ['v158', 'Changes for CAG has its own section at the bottom of Settings, with To send, Sent and Done: each change shows what Dynamics has now and what it changes to, when and by whom. An account manager change is on it as soon as you make it. Job roles and titles pick from what Dynamics holds; anything else is flagged.'],
