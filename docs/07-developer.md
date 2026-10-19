@@ -45,7 +45,7 @@ the banner text. In order:
 | CIP and MBOs | `CIP and MBOs` |
 | Create and share, Prepare tomorrow, coaching actions, the microphone, the RFQ | `Create and share` to `the belt RFQ` |
 | Account history, the output block, backup and restore, Export for Claude | `account history` to `Export for Claude` |
-| Boot, updates, manuals from intralox.com, meeting invites | `boot` onwards |
+| Boot, updates, manuals from intralox.com, Outlook calendar files | `boot` onwards |
 
 ## Rules that bite
 

@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v162';
+const APP_BUILD = 'v163';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -2489,7 +2489,7 @@ function openDialog(id, seed){
   const withP = cs.filter(c => c.p).length;
   const cover = $('dCover');
   cover.textContent = withP+' of '+cs.length+' contacts have a phone number on file. '+
-    'Missing numbers are marked in the invite.';
+    'The ones ticked are listed in the Outlook appointment\u2019s notes; nobody is invited.';
   cover.className = 'note' + (withP === 0 ? ' warn' : '');
 
   const sync = $('dSync');
@@ -2503,7 +2503,6 @@ function openDialog(id, seed){
   } else {
     sync.hidden = true;
   }
-  $('dHold').checked = !!ap.hold;
   $('dDel').hidden = !id;
   /* The details stay here for the invite; this goes into the call (v86).
      Only for a saved visit: a new one has nothing to start yet. A finished
@@ -2532,7 +2531,6 @@ async function saveDialog(keepOpen){
   ap.start = $('dTime').value || '09:00';
   ap.dur = parseInt($('dDur').value,10) || DEF_DUR;
   ap.agenda = $('dAgenda').value;
-  ap.hold = $('dHold').checked;
   ap.contacts = [...$('dCts').querySelectorAll('input:checked')].map(x => +x.dataset.i);
   /* A visit on a Saturday or Sunday stays there (v94). It used to move to the
      Monday because the Week view had no weekend to show it on; it has now. */
@@ -3375,23 +3373,11 @@ function buildIcs(list, tasks){
     L.push('DTEND;TZID='+p.tz+':'+dtLocal(ap.date, ap.start, ap.dur));
     L.push('SUMMARY:'+icsEsc(apptTitle(ap)));
     L.push('LOCATION:'+icsEsc([a.sub, a.a].filter(Boolean).join(', ')));
-    /* A placeholder is time blocked for you, so nobody is written as an
-       attendee. Otherwise the contacts ticked on the appointment go on, and the
-       organiser is you - Outlook needs an organiser before it will treat the
-       import as a meeting rather than a bare appointment. */
-    const myEmail = (localStorage.getItem(LS('email')) || '').trim();
-    if(!ap.hold && myEmail){
-      const invitees = (ap.contacts||[]).map(i => a.c[i]).filter(Boolean)
-        .map(c => ({name: c.n, email: (c.e && c.e[0]) || ''}))
-        .filter(c => c.email);
-      if(invitees.length){
-        L.push('ORGANIZER;CN='+icsEsc(localStorage.getItem(LS('mgr')) || myEmail)+
-               ':MAILTO:'+myEmail);
-        invitees.forEach(c => L.push(
-          'ATTENDEE;CN='+icsEsc(c.name)+';ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE'+
-          ':MAILTO:'+c.email));
-      }
-    }
+    /* v163 - no ORGANIZER and no ATTENDEE, ever. With Ben as organiser and the
+       contacts as attendees Outlook took each visit as a meeting he had called:
+       cancelling one offered to email the customers a cancellation, and it did.
+       The contacts stay listed in the notes; to invite someone, add them in
+       Outlook and press Send there. */
     L.push('DESCRIPTION:'+icsEsc(p.txt));
     L.push('X-ALT-DESC;FMTTYPE=text/html:'+icsEsc(p.html));
     /* Outlook colours a calendar item from its own category list, matching on
@@ -20158,23 +20144,6 @@ document.addEventListener('DOMContentLoaded', () => {
       toast('Saved');
     });
   }
-  /* Ticking placeholder makes the invitee list moot, so the dialog says so
-     rather than leaving the contact ticks looking like they still apply. */
-  const hold = $('dHold');
-  if(hold) hold.addEventListener('change', () => {
-    const cover = $('dCover');
-    if(cover && hold.checked){
-      cover.textContent = 'Placeholder - the time is blocked for you and nobody is invited.';
-      cover.className = 'note';
-    } else if(cover && dlgAppt){
-      const a = ACC_BY_NAME.get(dlgAppt.acct);
-      const cs = (a && a.c) ? a.c : [];
-      const withP = cs.filter(c => c.p).length;
-      cover.textContent = withP+' of '+cs.length+' contacts have a phone number on file. '+
-        'Missing numbers are marked in the invite.';
-      cover.className = 'note' + (withP === 0 ? ' warn' : '');
-    }
-  });
 });
 
 
@@ -20373,6 +20342,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v163', 'Download to Outlook puts visits in as your own appointments, with nobody invited, so moving or cancelling one in Outlook never emails a customer. The people to see are listed in the notes. Placeholder only is gone: every visit is like that now.'],
   ['v162', 'Plan on the PC: Search the whole account book now types in the side list, and the tiles change as you type, so you can still drag them onto the calendar. Under the zone, Add marks it as the week\u2019s territory. Dated tasks go to Outlook as appointments with the visits.'],
   ['v161', 'Evaluation forms in a call: tap ⋯ beside Create and share. The freezing and chilling tunnel evaluation is first; the call fills who and where, conveyors copy from logged belts, and Create and share has Evaluation only.'],
   ['v160', 'Create and share: Copy for email, Open in a new tab, Download and Share do their job with one tap; no button to confirm.'],

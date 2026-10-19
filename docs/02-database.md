@@ -75,11 +75,11 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 |---|---|
 | `id`, `acct`, `type` | The account, and the kind of visit |
 | `date`, `start`, `dur` | Day, start time and minutes |
-| `agenda`, `contacts` | What it is for, and which of the account's contacts are invited |
+| `agenda`, `contacts` | What it is for, and which of the account's contacts you will see (listed in the Outlook appointment's notes; nobody is invited) |
 | `status` | planned, in progress, done, missed or cancelled |
 | `callId` | The call started from it |
 | `brief` | The coach's pre-visit brief |
-| `hold`, `icsSeq`, `expAt` | A placeholder (time held, no invitees), and the Outlook calendar file's version and last download |
+| `icsSeq`, `expAt` | The Outlook calendar file's version and last download. (`hold`, the old Placeholder only tick, may still be on older visits; since v163 nothing reads it) |
 | `touchedAt` | Last real edit |
 
 **tasks**

@@ -1,5 +1,6 @@
 // v162: the zone's territory marker beside the zone on the Plan screen, and
 // tasks going to Outlook as appointments in the same .ics as the visits.
+// v163: visits go to Outlook with no organiser and no invitees.
 // Everything here is made up.
 import { JSDOM } from 'jsdom';
 import fs from 'fs';
@@ -75,6 +76,21 @@ ok(/SEQUENCE:1/.test(dl().text) && /T150000/.test(dl().text), 'and the update go
 ok(g(`taskIcsState(TASKS[0])`) === 'synced' && (await g(`tasksAll()`))[0].exp, 'the saved task remembers it was sent');
 await g(`(async () => { TASKS[0].done = true; TASKS[0].doneAt = Date.now(); renderPlan(); })()`);
 ok(g(`taskIcsState(TASKS[0])`) === 'synced', 'ticking it done is not a change Outlook needs');
+
+// ---- v163: a visit goes to Outlook with nobody invited, even with your email set
+await g(`(async () => {
+  localStorage.setItem(LS('email'), 'ben@example.org'); localStorage.setItem(LS('mgr'), 'Ben');
+  const list = [{a: 'Acme Pty Ltd - Smithfield', sub: 'Smithfield', z: 'Z1', foc: 'High', cad: CAD['High'], mgr: 'Ben', rep: '',
+    c: [{n: 'Jo Example', r: 'Engineer', t: '', p: '0400 111 222', pk: 'ok', e: ['jo@example.org']}]}];
+  await accReplaceAll(list); indexAccounts(list);
+  const ap = {id: 'ap-1', acct: 'Acme Pty Ltd - Smithfield', type: 'Intralox site visit', date: '${day}', start: '10:00', dur: 60, agenda: 'Belt survey', contacts: [0]};
+  APPTS.push(ap); await saveAppt(ap); renderPlan();
+})()`);
+await g(`doExport('pending')`); await tick(100);
+const v = dl().text;
+ok(/UID:ap-1@field-crm\.intralox/.test(v) && !/ORGANIZER/.test(v) && !/ATTENDEE/.test(v) && !/MAILTO/i.test(v), 'a visit with a contact ticked: no organiser, no invitee');
+ok(/Jo Example/.test(v) && /jo@example\.org/.test(v), 'the contact is listed in the notes instead');
+ok(!$('dHold') && !/Placeholder only/.test($('dlg').innerHTML), 'the Placeholder only tick is gone');
 
 const real = errs.filter(e => !/Not implemented|Could not parse CSS|zones\.js/i.test(e));
 ok(!real.length, 'no console errors: ' + real.slice(0, 3).join(' | '));
