@@ -1096,4 +1096,51 @@ equal columns, pushing names into the right half.
 
 ---
 
+## Built (v165): Capture on Home
+*Asked and built 2026-10-20*
+
+Ben: the Task Slaughterer habit of reading things into a chat and having
+Claude format them, brought into the app: a voice button on the front screen,
+the notes turned into discrete pieces of work that go onto the calendar, with
+much less clicking. Talk or type; Sort it (Haiku, ai-tidy kind 'capture')
+splits it into tasks, phone calls, site visits and notes; the app matches the
+customers and contacts itself (Claude never sees the list); cards to check,
+then Add all (his choice). Notes are held for the customer and drop into the
+next call there (his choice). Stored in the private tasks store by `kind`.
+
+- **Next, using the same machinery:** on Plan, changing what is already on
+  the calendar by voice ("move Gavin's call to Thursday"); in a call,
+  dictating the whole visit into notes, projects and follow-ups; on an
+  account, Capture already knowing the customer; end of day, pulling the
+  promises out of the day's calls into tasks.
+
+---
+
+## Idea: a Capture button on every screen of the phone
+*Banked 2026-10-20, not built*
+
+Ben: a button always at the bottom of the screen on the phone, bottom right
+under the thumb, so from any screen he can press it and talk straight in,
+without going back to Home. It would open Capture (v165) over the screen he is
+on and leave him there afterwards. To work out when built: what it does inside
+a call (the call's own notes, or Capture), keeping it clear of each screen's
+own buttons, and hiding it while typing.
+
+---
+
+## Idea: talk a belt into the belt form
+*Banked 2026-10-20, not built*
+
+Ben: while adding a belt in a call, read the details in shorthand and have
+the most likely fields filled, then check, add photos and Add to call. His
+example: "asset number 661, conveyor description NP to FHF, series 800, seam
+free, acetal white with PK rods, width 556, inside frame 565, conveyor length
+6 metres, 40 square bore 8 tooth angled easy clean sprockets, retainers
+needed". Read a spec sheet (v101, ai-tidy kind 'spec') already fills the form
+from a photo through the same field list, so this is that, from words instead
+of a photo: filled values marked as estimates, never over anything typed,
+and anything it cannot place said so.
+
+---
+
 <!-- Add new ideas above this line. -->

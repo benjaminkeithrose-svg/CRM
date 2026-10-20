@@ -93,6 +93,8 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `mailTo`, `mailSubject`, `mailBody` | An email's To, Subject and Body |
 | `done`, `doneAt`, `callId`, `created`, `updated` | Finished, when, and the call it came from |
 | `mbo` | The MBO (`m:` and its id) or initiative (`i:` and its id) the task counts towards when done (v134) |
+
+Since v165 the store also holds Capture's own records, marked by `kind`, which the task list and calendar leave out: `kind: 'capture'` (one record, `id: 'capture'`): the words not yet sorted (`text`) and the cards still to check (`items`: `type` task, call, visit or note; `ttype`, `title`, `company` and `person` as said, the matched `acct` and `contact`, `date`, `time`, `mins`, `details`, `said`, and `est`, the values filled in as estimates); `kind: 'capnote'`: a note held for a customer (`acct`, `text`, `at`), deleted once it goes into the next call there as a note headed Noted in Capture. Being in the tasks store, they are private and sync between your devices.
 | `exp`, `expAt`, `icsSeq` | What the task looked like when it last went into an Outlook calendar file, when, and the file's version for it (v162) |
 
 **snippets** (saved notes): `id`, `label`, `text`, `reason` (Won, Lost, Not

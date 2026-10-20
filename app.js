@@ -150,6 +150,8 @@ async function apptsDel(id){
   });
   cloudMarkRec('appts', id, Date.now(), true);
 }
+// v165: the tasks store also keeps Capture's draft and held notes (kind set): the task list leaves them out
+const tasksReal = list => list.filter(t => !t.kind);
 async function tasksAll(){
   const d = await ready();
   return new Promise((res,rej)=>{
@@ -994,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v164';
+const APP_BUILD = 'v165';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1225,7 +1227,8 @@ async function loadAccounts(){
   indexAccounts(await accAll());
   await ownersLoad();
   APPTS = await apptsMine();
-  TASKS = await tasksAll();
+  TASKS = tasksReal(await tasksAll());
+  await capLoad();                                 // v165
   await loadQuotes();
   await loadLists();
   REF = await kvGet('beltref') || null;
@@ -1366,7 +1369,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['Performance','CIP'], mbo:['Performance','MBOs'],
-  note:['General note',''], health:['Health check',''], opp:['Opportunity',''], tasks:['Plan','Tasks'], products:['Plan','Products']
+  note:['General note',''], health:['Health check',''], opp:['Opportunity',''], tasks:['Plan','Tasks'], products:['Plan','Products'], capture:['Capture','']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1381,7 +1384,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg','evaldlg'];
+const DIALOGS = ['capdlg','dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg','evaldlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1554,7 +1557,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', products:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home'
+  today:'home', settings:'home', help:'home', products:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home', capture:'home'
 };
 function parentOf(name){
   if(name === 'opp' && OPP && OPP.kind === 'large') name = 'lap';      // a large account's own map (v123)
@@ -3864,7 +3867,9 @@ async function startVisit(id){
   const draft = callFromAppt(ap);
   const reuse = await offerExistingCall(ap.acct, ap.date, draft.contacts, '');
   call = reuse || draft;
-  if(reuse) toast('Continuing the call from ' + reuse.date);
+  const held = await capDrop(call);                // v165: notes held in Capture for this customer
+  if(reuse) toast('Continuing the call from ' + reuse.date + (held ? ', with ' + held + (held === 1 ? ' note' : ' notes') + ' from Capture' : ''));
+  else if(held) toast(held + (held === 1 ? ' note' : ' notes') + ' from Capture added to this call');
   await saveCall();
   ap.status = 'in progress';
   ap.callId = call.id;
@@ -4605,7 +4610,7 @@ async function importTaskSlaughterer(data){
     await tasksPut(make(x, iso(when), hhmm(Math.floor((when.getHours() * 60 + when.getMinutes()) / 30) * 30)));
     added++;
   }
-  TASKS = await tasksAll();
+  TASKS = tasksReal(await tasksAll());
   taskRefresh();
   const nOpen = open.filter(x => !have.has(x.key)).length, nDone = added - nOpen;
   const line = added
@@ -6720,7 +6725,8 @@ async function cloudSyncRecs(){
     bits.push('brought in ' + got);
     await logLoad('Cloud', 'cloud', 'Brought in ' + got);
     APPTS = await apptsMine();
-    TASKS = await tasksAll();
+    TASKS = tasksReal(await tasksAll());
+    await capLoad(); if(screen === 'capture') try { renderCapture(); } catch(e){ console.error('capture', e); }
     await loadQuotes();
     await loadLists();
     if(screen === 'products') try { renderProducts(); } catch(e){ console.error('products', e); }
@@ -8020,7 +8026,9 @@ $('openCall').addEventListener('click', async ()=>{
     call = reuse;
     for(const x of CT_LEFT_NOW) call.leftPeople = ctLeftNote(call.leftPeople, x, x.acct, true);
     CT_LEFT_NOW = [];
+    const held = await capDrop(call);              // v165: notes held in Capture for this customer
     await saveCall();
+    if(held) toast(held + (held === 1 ? ' note' : ' notes') + ' from Capture added to this call');
     go('dash');
     toast('Continuing the call from ' + reuse.date);
     return;
@@ -8045,13 +8053,16 @@ $('openCall').addEventListener('click', async ()=>{
     closed: false,
     updated: Date.now()
   };
+  const held = await capDrop(call);                // v165: notes held in Capture for this customer
   await saveCall();
   await bookUnplanned(call, acc);
+
   const noMob = chosen.filter(c=>!c.mobile).map(c=>c.name);
   const noEm = chosen.filter(c=>!c.email).map(c=>c.name);
   go('dash');
-  if(noMob.length || noEm.length){
+  if(noMob.length || noEm.length || held){
     let m = [];
+    if(held) m.push(held + (held === 1 ? ' note' : ' notes') + ' from Capture added');
     if(noEm.length) m.push('no email: '+noEm.join(', '));
     if(noMob.length) m.push('no mobile: '+noMob.join(', '));
     toast(m.join(' | '));
@@ -18248,6 +18259,7 @@ function micStart(btn){
     after: btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr)
       : btn.dataset.after === 'setup' ? () => osRead().catch(reportErr)          // v127: a description sets the map up
       : btn.dataset.after === 'setupnew' ? () => odSetup()
+      : btn.dataset.after === 'capture' ? () => captureSort().catch(reportErr)    // v165: finishing sorts it
       : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr)};
   micRun(micSession);
   if(micSession && !micSession.paused) toast('Listening. Tap Finish when you are done');
@@ -18328,6 +18340,264 @@ if(SPEECH){
 $('taskdlg').addEventListener('close', micAbort);
 $('tkDraft').addEventListener('click', () => aiDraft().catch(reportErr));
 $('aiKeep').addEventListener('click', aiLeave);
+
+/* ================= Capture (v165) =================
+   Ben, 2026-10-20: "a voice to text icon on the front screen ... as I'm taking
+   the notes, will then be able to transition into discrete pieces of work ...
+   much faster and much less clicking". Talk or type on Home; Sort it sends
+   only the words and today's date to Claude (ai-tidy, kind 'capture'), which
+   splits them into tasks, phone calls, site visits and notes. The accounts
+   and contacts are matched here, from the CRM export: Claude never sees the
+   customer list. Each piece is a card to check - a time the app filled in is
+   an estimate, a gap is flagged - and Add all puts the tasks and visits on the
+   calendar (his choice: check first). A note is held for its customer and
+   goes into the notes of the next call there (his choice). The draft and the
+   held notes live in the tasks store, marked kind 'capture' and 'capnote':
+   private like tasks, synced between his devices, never the team's. */
+const CAP_ID = 'capture';
+const CAP_TYPES = {task: 'Task', call: 'Phone call', visit: 'Site visit', note: 'Note'};
+const CAP_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+let CAP = {id: CAP_ID, kind: 'capture', text: '', items: [], updated: 0}, CAP_HELD = [], capTimer = null, capEdit = null;
+async function capLoad(){
+  const all = await tasksAll();
+  const r = all.find(t => t.id === CAP_ID && t.kind === 'capture');
+  if(r) CAP = r;
+  CAP.items = CAP.items || [];
+  CAP_HELD = all.filter(t => t.kind === 'capnote').sort((a, b) => (a.at || 0) - (b.at || 0));
+}
+async function capSave(){ clearTimeout(capTimer); capTimer = null; CAP.updated = Date.now(); await tasksPut(CAP); }
+// the person, among the customer's contacts still there: the full name, or one first name that fits
+function capContact(acct, person){
+  const a = ACC_BY_NAME.get(acct), k = pKey(person);
+  if(!a || !k) return '';
+  const live = (a.c || []).filter(c => !c.left && c.n);
+  const exact = live.find(c => pKey(c.n) === k);
+  if(exact) return exact.n;
+  const w = k.split(' '), first = w[0], last = w.length > 1 ? w[w.length - 1] : '';
+  const fit = live.filter(c => { const cw = pKey(c.n).split(' '); return cw[0] === first && (!last || osLev(cw[cw.length - 1], last) <= 1); });
+  return fit.length === 1 ? fit[0].n : '';
+}
+// the account as he said it; failing that, found by the person's name (an estimate)
+function capMatch(it){
+  it.est = (it.est || []).filter(k => k !== 'acct');
+  let acct = it.company ? acctFind(it.company, it.said || '') : '';     // the words said help pick the site
+  if(!acct && !it.company && it.person){
+    const hits = new Set();
+    for(const a of ACCOUNTS) if(capContact(a.a, it.person)) hits.add(a.a);
+    if(hits.size === 1){ acct = [...hits][0]; it.est.push('acct'); }
+  }
+  it.acct = acct;
+  it.contact = acct && it.person ? capContact(acct, it.person) : '';
+}
+function capItem(x){
+  const it = {id: newId('ci'), type: CAP_TYPES[x.type] ? x.type : 'note', ttype: TASK_TYPES.includes(x.taskType) ? x.taskType : (x.type === 'task' ? 'Other' : ''),
+    title: x.title || '', company: x.company || '', person: x.person || '', date: /^\d{4}-\d{2}-\d{2}$/.test(x.date || '') ? x.date : '',
+    time: /^\d{2}:\d{2}$/.test(x.time || '') ? x.time : '', mins: x.minutes || 0, details: x.details || '', said: x.said || '', est: []};
+  if(it.details && pKey(it.title).includes(pKey(it.details))) it.details = '';      // nothing the title does not already say
+  // no time said: the start of the working day, as an estimate
+  if(it.type !== 'note' && !it.time){ it.time = it.type === 'task' ? '08:00' : '09:00'; it.est.push('time'); }
+  capMatch(it);
+  return it;
+}
+function capNeeds(it){
+  if(it.type === 'note') return it.acct ? '' : it.company ? '"' + it.company + '" is not in your customer list: tap to pick' : 'Tap to pick the customer it is about';
+  if(!it.title.trim()) return 'Tap to give it a title';
+  if(it.type !== 'task' && !it.acct) return it.company ? '"' + it.company + '" is not in your customer list: tap to pick' : 'Tap to pick the customer';
+  if(!it.date) return 'No date: tap to set';
+  return '';
+}
+const capDay = d => { const x = parseIso(d); return CAP_DAYS[x.getDay()].slice(0, 3) + ' ' + x.getDate() + ' ' + MONNM[x.getMonth()].slice(0, 3); };
+const capEst = '<span class="esttag">estimate</span>';
+function capCard(it, i){
+  const need = capNeeds(it);
+  const who = it.contact ? esc(it.contact) : it.person ? esc(it.person) + (it.acct ? ' <span class="esttag">not on the contact list</span>' : '') : '';
+  const when = it.type === 'note' ? (it.acct ? 'Held for the next call there' : '')
+    : [it.date ? capDay(it.date) : '', it.time ? it.time + (it.est.includes('time') ? capEst : '') : ''].filter(Boolean).join(' ');
+  return '<div class="capcard t-' + it.type + '" data-ci="' + i + '" role="button" tabindex="0">' +
+    '<div class="cch"><span class="cct">' + CAP_TYPES[it.type] + (it.type === 'task' && it.ttype ? ' · ' + esc(it.ttype) : '') + '</span>' +
+      binBtn('data-cdel', String(i), CAP_TYPES[it.type].toLowerCase()) + '</div>' +
+    '<div class="ccn">' + esc(it.title || '(no title)') + '</div>' +
+    '<div class="ccm">' + [it.acct ? esc(it.acct) + (it.est.includes('acct') ? capEst : '') : '', who, when].filter(Boolean).join(' · ') + '</div>' +
+    (need ? '<div class="ccw">' + esc(need) + '</div>' : '') +
+    (it.said ? '<div class="ccs">“' + esc(it.said) + '”</div>' : '') + '</div>';
+}
+function renderCapture(){
+  if(!$('s-capture')) return;
+  const text = $('capText').value.trim(), items = CAP.items || [], ready = items.filter(it => !capNeeds(it));
+  $('capGo').hidden = !text && items.length > 0;
+  $('capAdd').hidden = !items.length;
+  $('capAdd').textContent = ready.length === items.length ? 'Add all (' + items.length + ')' : 'Add ' + ready.length + ' of ' + items.length;
+  $('capAdd').disabled = !ready.length;
+  // with nothing new typed, adding is the main thing to do
+  $('capAdd').className = text ? 'btn act2' : 'big';
+  $('capCards').innerHTML = items.map(capCard).join('');
+  $('capCards').querySelectorAll('.capcard').forEach(el => {
+    const open = () => capOpen(+el.dataset.ci);
+    el.addEventListener('click', e => { if(!e.target.closest('[data-cdel]')) open(); });
+    el.addEventListener('keydown', e => { if(e.key === 'Enter') open(); });
+  });
+  $('capCards').querySelectorAll('[data-cdel]').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation();
+    const it = CAP.items[+b.dataset.cdel]; if(!it) return;
+    if(!confirm('Bin this ' + CAP_TYPES[it.type].toLowerCase() + ': "' + (it.title || it.said).slice(0, 80) + '"?\n\nNothing has been added from it yet.')) return;
+    CAP.items = CAP.items.filter(x => x !== it);
+    await capSave(); renderCapture();
+  }));
+  $('capHeldH').hidden = $('capHeld').hidden = !CAP_HELD.length;
+  $('capHeld').innerHTML = CAP_HELD.map(r => '<div class="ccrow"><span class="who"><div class="nm">' + esc(r.acct) + '</div><div class="mt">' + esc(r.text) + '</div></span>' +
+    binBtn('data-hdel', r.id, 'held note') + '</div>').join('');
+  $('capHeld').querySelectorAll('[data-hdel]').forEach(b => b.addEventListener('click', async () => {
+    const r = CAP_HELD.find(x => x.id === b.dataset.hdel); if(!r) return;
+    if(!confirm('Delete the note held for ' + r.acct + '?\n\n"' + r.text.slice(0, 120) + '"')) return;
+    await tasksDel(r.id); CAP_HELD = CAP_HELD.filter(x => x !== r); renderCapture();
+  }));
+}
+let capMic = null;
+function openCapture(listen){
+  go('capture');
+  $('capText').value = CAP.text || '';
+  showMsg($('capMsg'), '', '');
+  renderCapture();
+  if(listen && capMic) micStart(capMic);                  // in the same tap, so the phone lets it listen
+  else if(listen) setTimeout(() => { try { $('capText').focus(); } catch(_){} }, 60);
+  // anything a sync brought since: read again, without touching what is being said
+  capLoad().then(() => { if(screen !== 'capture') return; if(!micSession && document.activeElement !== $('capText')) $('capText').value = CAP.text || ''; renderCapture(); }).catch(reportErr);
+}
+async function captureSort(){
+  const text = $('capText').value.trim();
+  if(!text){ toast('Say or type something first'); return; }
+  CAP.text = $('capText').value; await capSave();
+  const why = aiBlocked();
+  if(why){ showMsg($('capMsg'), 'warn', esc(why) + '. What you said is kept here.'); return; }
+  $('capGo').disabled = true;
+  showMsg($('capMsg'), 'info', 'Sorting' + String.fromCharCode(8230) + ' usually a few seconds.');
+  const d = new Date();
+  let r;
+  try { r = await aiAsk({kind: 'capture', text, today: iso(d) + ', ' + CAP_DAYS[d.getDay()], types: TASK_TYPES}); }
+  catch(e){ $('capGo').disabled = false; showMsg($('capMsg'), 'warn', 'That did not work: ' + esc(e.message || String(e)) + '. What you said is kept here.'); return; }
+  $('capGo').disabled = false;
+  const items = (r.items || []).map(capItem);
+  if(!items.length){ showMsg($('capMsg'), 'warn', 'Nothing to sort was found in that. Say what to do, for whom and when, then tap Sort it again.'); return; }
+  // the words move into the cards; the box is for what comes next
+  const now = $('capText').value;
+  $('capText').value = now.trim().startsWith(text) ? now.trim().slice(text.length).trim() : now;
+  CAP.text = $('capText').value;
+  CAP.items = (CAP.items || []).concat(items);
+  await capSave();
+  showMsg($('capMsg'), '', '');
+  renderCapture();
+  const need = items.filter(capNeeds).length;
+  toast(items.length + (items.length === 1 ? ' piece' : ' pieces') + ' to check' + (need ? ', ' + need + ' with something missing' : ''));
+}
+async function capAddOne(it){
+  const a = ACC_BY_NAME.get(it.acct), now = Date.now();
+  if(it.type === 'note'){
+    const r = {id: newId('cn'), kind: 'capnote', acct: it.acct, text: [it.title, it.details].filter(Boolean).join('\n'), at: now, updated: now};
+    await tasksPut(r); CAP_HELD.push(r);
+    return;
+  }
+  if(it.type === 'task'){
+    const c = a && it.contact ? (a.c || []).find(x => x.n === it.contact) : null;
+    const t = {id: 't' + now.toString(36) + Math.random().toString(36).slice(2, 6), type: it.ttype || 'Other', title: it.title.trim(),
+      date: it.date, start: it.time || '08:00', dur: it.mins || TASK_DUR, acct: it.acct || '', contact: it.contact || it.person || '',
+      email: (c && c.e && c.e[0]) || '', mobile: (c && c.p) || '', project: '', revenue: '', notes: it.details || '',
+      mailTo: '', mailSubject: '', mailBody: '', done: false, doneAt: null, callId: null, created: now, updated: now};
+    await tasksPut(t); TASKS = TASKS.filter(x => x.id !== t.id).concat([t]);
+    return;
+  }
+  const i = a && it.contact ? (a.c || []).findIndex(x => x.n === it.contact) : -1;
+  const ap = {id: 'ap' + now.toString(36) + (plan.seq++), acct: it.acct, type: it.type === 'call' ? 'Planned phone call' : 'Intralox site visit',
+    date: it.date, start: it.time || '09:00', dur: it.mins || DEF_DUR,
+    agenda: [it.title.trim(), it.details, i < 0 && it.person ? 'With ' + it.person : ''].filter(Boolean).join('\n'),
+    contacts: i >= 0 ? [i] : [], origin: isPhone() ? 'phone' : 'desktop', acked: false, status: 'planned'};
+  APPTS.push(ap); await saveAppt(ap);
+}
+async function captureAdd(){
+  const ready = (CAP.items || []).filter(it => !capNeeds(it));
+  if(!ready.length){ toast('Each one still needs something: tap it to fill it in'); return; }
+  const n = {task: 0, call: 0, visit: 0, note: 0};
+  for(const it of ready){ await capAddOne(it); n[it.type]++; CAP.items = CAP.items.filter(x => x !== it); }
+  await capSave();
+  renderCapture();
+  const left = CAP.items.length;
+  const said = [n.task && n.task + (n.task === 1 ? ' task' : ' tasks'), n.call && n.call + (n.call === 1 ? ' phone call' : ' phone calls'),
+    n.visit && n.visit + (n.visit === 1 ? ' site visit' : ' site visits'), n.note && n.note + (n.note === 1 ? ' note held for the next call' : ' notes held for the next calls')].filter(Boolean);
+  toast('Added ' + said.join(', ') + (left ? '. ' + left + ' still ' + (left === 1 ? 'needs' : 'need') + ' something' : ''));
+}
+// one card, to check and correct; Done keeps it as a card
+function capOpen(i){
+  const it = CAP.items[i]; if(!it) return;
+  capEdit = {i, it: JSON.parse(JSON.stringify(it))};
+  const dl = $('cdAccts');
+  if(dl.childElementCount !== ACCOUNTS.length) dl.innerHTML = ACCOUNTS.map(a => '<option value="' + esc(a.a) + '">').join('');
+  $('cdTT').innerHTML = TASK_TYPES.map(t => '<option' + (t === it.ttype ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+  $('cdTitle').value = it.title; $('cdAcct').value = it.acct || it.company || '';
+  $('cdDate').value = it.date || ''; $('cdTime').value = it.time || ''; $('cdDet').value = it.details || '';
+  $('cdTime').classList.toggle('est', it.est.includes('time'));
+  $('cdSaid').textContent = it.said ? 'What you said: “' + it.said + '”' : '';
+  capDlgType(it.type); capDlgContacts();
+  const d = $('capdlg');
+  if(!d.open){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('capdlg'); }
+}
+function capDlgType(t){
+  capEdit.it.type = t;
+  $('cdType').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === t));
+  $('cdTTw').hidden = t !== 'task'; $('cdWhen').hidden = t === 'note'; $('cdCtW').hidden = t === 'note'; $('cdDetW').hidden = t === 'note';
+  $('cdTitleL').textContent = t === 'note' ? 'The note' : 'Title';
+  $('cdHead').textContent = CAP_TYPES[t];
+}
+function capDlgContacts(){
+  const it = capEdit.it, acct = ACC_BY_NAME.has($('cdAcct').value.trim()) ? $('cdAcct').value.trim() : '';
+  const a = ACC_BY_NAME.get(acct), live = a ? (a.c || []).filter(c => !c.left && c.n) : [];
+  const keep = it.contact || (it.person && !live.some(c => c.n === it.person) ? it.person : '');
+  $('cdCt').innerHTML = '<option value="">(nobody)</option>' + live.map(c => '<option' + (c.n === it.contact ? ' selected' : '') + '>' + esc(c.n) + '</option>').join('') +
+    (keep && !live.some(c => c.n === keep) ? '<option selected>' + esc(keep) + '</option>' : '');
+}
+async function capFinish(){
+  const E = capEdit; if(!E) return;
+  if($('capdlg').open && history.state && history.state.dialog === 'capdlg'){ history.back(); return; }
+  capEdit = null;
+  const d = $('capdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  const it = E.it, typed = $('cdAcct').value.trim();
+  it.title = $('cdTitle').value.trim(); it.ttype = it.type === 'task' ? $('cdTT').value : it.ttype;
+  if(typed !== (it.acct || it.company || '')){ it.acct = ACC_BY_NAME.has(typed) ? typed : ''; it.company = typed; it.est = it.est.filter(k => k !== 'acct'); }
+  else if(it.acct && !ACC_BY_NAME.has(it.acct)) it.acct = '';
+  const ct = $('cdCt').value; it.contact = it.acct && ACC_BY_NAME.get(it.acct).c.some(c => c.n === ct) ? ct : ''; if(ct && !it.contact) it.person = ct;
+  // a time typed over the estimate is his: the badge goes
+  if($('cdTime').value !== it.time) it.est = it.est.filter(k => k !== 'time');
+  it.date = $('cdDate').value; it.time = $('cdTime').value; it.details = $('cdDet').value.trim();
+  if(it.type !== 'note' && !it.time){ it.time = it.type === 'task' ? '08:00' : '09:00'; if(!it.est.includes('time')) it.est.push('time'); }
+  const at = CAP.items.findIndex(x => x.id === it.id);
+  if(at >= 0) CAP.items[at] = it;
+  await capSave(); renderCapture();
+}
+/* Notes held for a customer go into the next call there, as a note each
+   (Ben's choice), and the hold ends. */
+async function capDrop(c){
+  const mine = CAP_HELD.filter(r => r.acct === c.customer);
+  if(!mine.length) return 0;
+  for(const r of mine){ c.entries.push({type: 'note', topic: 'Noted in Capture', text: r.text, photos: []}); await tasksDel(r.id); }
+  CAP_HELD = CAP_HELD.filter(r => !mine.includes(r));
+  return mine.length;
+}
+$('homeCap').querySelector('.capic').innerHTML = icon('mic');
+$('homeCap').addEventListener('click', () => openCapture(true));
+$('capGo').addEventListener('click', () => captureSort().catch(reportErr));
+$('capAdd').addEventListener('click', () => captureAdd().catch(reportErr));
+$('capText').addEventListener('input', () => {
+  CAP.text = $('capText').value;
+  clearTimeout(capTimer); capTimer = setTimeout(() => capSave().catch(reportErr), 600);
+  $('capGo').hidden = false;
+  $('capAdd').className = $('capText').value.trim() ? 'btn act2' : 'big';
+});
+$('cdType').querySelectorAll('button').forEach(b => b.addEventListener('click', () => capDlgType(b.dataset.v)));
+$('cdAcct').addEventListener('change', capDlgContacts);
+$('cdTime').addEventListener('input', () => $('cdTime').classList.remove('est'));
+$('cdOk').addEventListener('click', () => capFinish().catch(reportErr));
+$('capdlg').addEventListener('cancel', e => { e.preventDefault(); capFinish().catch(reportErr); });
+$('capdlg').addEventListener('close', () => { if(capEdit) capFinish().catch(reportErr); });
+if(SPEECH){ capMic = micButton('capText', 'note', 'capture'); $('capTalk').appendChild(capMic); }
 $('aiUse').addEventListener('click', () => {
   const apply = aiApply;
   if(apply) apply();
@@ -19638,7 +19908,7 @@ async function doRestore(file){
   if(appts.length) APPTS = await apptsMine();
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   for(const t of tasks) if(t && t.id) await tasksPut(t);
-  if(tasks.length) TASKS = await tasksAll();
+  if(tasks.length) TASKS = tasksReal(await tasksAll());
   // saved notes and products (v97), by id like everything else
   for(const r of (Array.isArray(data.snippets) ? data.snippets : [])) if(r && r.id) await snippetsPut(r);
   for(const r of (Array.isArray(data.products) ? data.products : [])) if(r && r.id) await productsPut(r);
@@ -20489,6 +20759,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v165', 'Capture, at the top of Home: tap it and talk. Tasks, phone calls, site visits and notes come back as cards to check; Add all puts them on the calendar. A note is held for the customer and goes into your next call there.'],
   ['v164', 'Left: one tap on a contact, on the account, in the Directory, or when you choose who is on a call. They stay listed with a line through, can no longer be picked, and go on the CAG list. Not left undoes it; Joined another company moves them. Marked during a call, they show in its notes as a red line. Manuals opened from a call show their pages again.'],
   ['v163', 'Download to Outlook puts visits in as your own appointments, with nobody invited, so moving or cancelling one in Outlook never emails a customer. The people to see are listed in the notes. Placeholder only is gone: every visit is like that now.'],
   ['v162', 'Plan on the PC: Search the whole account book now types in the side list, and the tiles change as you type, so you can still drag them onto the calendar. Under the zone, Add marks it as the week\u2019s territory. Dated tasks go to Outlook as appointments with the visits.'],
