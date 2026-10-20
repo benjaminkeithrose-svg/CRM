@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v163">
+<meta name="build" content="v164">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -495,7 +495,8 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .sec{margin-bottom:10px}
 .linkbtn{background:none;border:none;color:var(--link);font-size:13px;font-weight:700;
   padding:10px 2px;text-align:left;text-decoration:underline;cursor:pointer}
-.mview{position:fixed;inset:0;z-index:50;background:var(--surface);flex-direction:column;display:none}
+/* above the Manuals screen opened from a call (.manov, 55), or the pages open out of sight (fixed v164) */
+.mview{position:fixed;inset:0;z-index:58;background:var(--surface);flex-direction:column;display:none}
 .mview.on{display:flex}
 .mview .mvtop{display:flex;align-items:center;gap:11px;padding:9px 14px;
   border-bottom:3px solid var(--red);flex:none}
@@ -896,6 +897,16 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .ownpick input{flex:1;min-width:0}
 .cagg>b{display:block;font-size:13px;margin:0 0 6px}
 .tag.moved{background:var(--sunk);color:var(--ink-2)}
+/* v164: a contact who has left the company: struck through, a Left tag in the warning colour */
+.tag.left{background:#fff;color:var(--warn);border:1px solid var(--warn)}
+.gone .cn,.gone .nm,.gone .pn{text-decoration:line-through;color:var(--ink-3)}
+.gone .tag{text-decoration:none;display:inline-block}
+.ctleft{display:flex;gap:6px;flex-wrap:wrap;flex:none;margin-left:8px;align-self:center}
+.ct.gone,.pick.gone{flex-wrap:wrap}
+.ct.gone .ctleft,.pick.gone .ctleft{flex-basis:100%;justify-content:flex-end;margin-left:0}
+.lbtn{min-height:36px;padding:4px 12px;font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink-2);cursor:pointer}
+.lbtn.leftb,.pcard .pl button.leftb{color:var(--warn);border-color:var(--warn)}
+.leftnote{color:var(--warn);font-weight:600}
 /* v142: Intralox people */
 .sfpos{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:var(--sunk);color:var(--ink-2);font-size:12px;font-weight:700;vertical-align:1px}
 .sfh{margin:14px 0 8px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
@@ -1694,10 +1705,10 @@ details.bsx > .msg{margin:8px 12px}
 .help li{margin:5px 0;line-height:1.45}
 .help p{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2)}
 #s-help h2:first-child{margin-top:4px}
-.pick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
-.pick button{min-height:56px;padding:10px 8px;border:1px solid var(--cyan-md);border-radius:var(--r);background:var(--surface);
+#newPick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
+#newPick button{min-height:56px;padding:10px 8px;border:1px solid var(--cyan-md);border-radius:var(--r);background:var(--surface);
   font-size:15px;font-weight:700;color:var(--ink);cursor:pointer}
-.pick button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);box-shadow:inset 0 0 0 1px var(--cyan-dk)}
+#newPick button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);box-shadow:inset 0 0 0 1px var(--cyan-dk)}
 #s-account.choosing > :not(#newChoose){display:none}
 #cSummary .lnk{margin-left:6px}
 .tiles button{
@@ -2688,6 +2699,28 @@ details.bsx > .msg{margin:8px 12px}
       </ol>
       <p>What belongs to the deal stays with each map: their part in the decision, whether they are helping us, the ratings, wins and evidence on the Blue Sheet, the spec, who they work with, and their links to the customer's people. <b>Hide: not relevant</b> is for this map only.</p>
       <p><b>Take off this map</b> on one of the company's people takes them off the company, so off every map; the panel says so first. Removing the company's box from a map leaves it as it is everywhere else. Where two maps had the same person before, they become one, and the most recent edit or rating is kept.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Mark someone who has left</b><span class="sxs">From the contact lists, or while starting a call</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Find them in one of these places: the account's <b>Contacts</b>, the Directory's people, the <b>Who did you see?</b> list when you start a call, or <b>People on this call</b> during one.</li>
+        <li>Tap <b>Left</b> beside their name.</li>
+        <li>Tap <b>OK</b>.</li>
+      </ol>
+      <p>They stay on the contact lists with a line through their name and a <b>Left</b> tag. They can no longer be picked for a call, a visit, a task, an account plan, a large account plan or a Blue Sheet. They go on the <b>Changes for CAG</b> list in Settings, to remove from Dynamics. Someone only added in the app is not sent to CAG. They drop off once your CRM export no longer has them.</p>
+      <p>Marked while you start a call or during one, they also go in that call's notes, as a red line under <b>Left the business</b>, so whoever reads the notes knows they have gone.</p>
+      <p>On a map they are already on, their name is crossed out and says <b>Left the company</b>. Tap them, then <b>Take off this map</b> when you are ready. Their relationships go with them.</p>
+      <p>Marked by mistake: tap <b>Not left</b>. If the removal has already gone to CAG, you are asked first; tell CAG not to remove them.</p>
+      <p>If they turn up at another customer:</p>
+      <ol>
+        <li>Tap <b>Joined another company</b> beside their name.</li>
+        <li>Type the account under <b>Moved to another account</b> and pick it from the list.</li>
+        <li>Correct their job title, email or mobile if they changed.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>They are active again at the new account. If the removal had not gone to CAG yet, CAG gets a move instead. If it had, they go to CAG as a new contact at the new account.</p>
     </div>
   </details>
   <details class="sx hx">

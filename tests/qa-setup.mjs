@@ -92,8 +92,10 @@ ok(g(`OPP.people.find(p => p.n === 'Greta Holm').title`) === 'Design Engineer' &
 ok(g(`OPP.comp`) === 'Another supplier quoted on modular belting', 'the competition goes on the Blue Sheet');
 // v154: opening the map also writes its companies, so wait for the save rather than a fixed time
 let savedOpp = null;
-for (let i = 0; i < 30 && !(savedOpp && savedOpp.people.length === 5); i++) { await tick(100); savedOpp = (await g(`oppsAll()`)).find(o => o.id === g(`OPP.id`)); }
-ok(savedOpp && savedOpp.people.length === 5, 'saved');
+// the account manager may join the Intralox box as well (v157), so count the other side
+const theirs = o => o && o.people.filter(p => p.side !== 'us').length;
+for (let i = 0; i < 30 && !(savedOpp && theirs(savedOpp) === 5); i++) { await tick(100); savedOpp = (await g(`oppsAll()`)).find(o => o.id === g(`OPP.id`)); }
+ok(savedOpp && theirs(savedOpp) === 5, 'saved');
 await tick(200);
 const added = (await g(`peopleAll()`)).filter(r => !r.kind).map(   // v154: companies share the store
   r => r.acct + ':' + r.n).sort().join('|');
