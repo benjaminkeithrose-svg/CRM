@@ -574,6 +574,29 @@ What belongs to the deal stays with each map: their part in the decision, whethe
 
 **Take off this map** on one of the company's people takes them off the company, so off every map; the panel says so first. Removing the company's box from a map leaves it as it is everywhere else. Where two maps had the same person before, they become one, and the most recent edit or rating is kept.
 
+### Mark someone who has left
+
+1. Find them in one of these places: the account's **Contacts**, the Directory's people, the **Who did you see?** list when you start a call, or **People on this call** during one.
+2. Tap **Left** beside their name.
+3. Tap **OK**.
+
+They stay on the contact lists with a line through their name and a **Left** tag. They can no longer be picked for a call, a visit, a task, an account plan, a large account plan or a Blue Sheet. They go on the **Changes for CAG** list in Settings, to remove from Dynamics. Someone only added in the app is not sent to CAG. They drop off once your CRM export no longer has them.
+
+Marked while you start a call or during one, they also go in that call's notes, as a red line under **Left the business**, so whoever reads the notes knows they have gone.
+
+On a map they are already on, their name is crossed out and says **Left the company**. Tap them, then **Take off this map** when you are ready. Their relationships go with them.
+
+Marked by mistake: tap **Not left**. If the removal has already gone to CAG, you are asked first; tell CAG not to remove them.
+
+If they turn up at another customer:
+
+1. Tap **Joined another company** beside their name.
+2. Type the account under **Moved to another account** and pick it from the list.
+3. Correct their job title, email or mobile if they changed.
+4. Tap **Done**.
+
+They are active again at the new account. If the removal had not gone to CAG yet, CAG gets a move instead. If it had, they go to CAG as a new contact at the new account.
+
 ### Owners, moved contacts and changes for Dynamics
 
 To change a site's account manager:

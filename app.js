@@ -994,7 +994,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v163';
+const APP_BUILD = 'v164';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1806,18 +1806,20 @@ function renderAccount(){
       '<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join('')+'</dl>';
 
   $('avContacts').innerHTML = a.c.length
-    ? a.c.map(c=>{
+    ? a.c.map((c,i)=>{
         const email = c.e && c.e.length ? c.e[0] : '';
         const extra = c.e && c.e.length > 1 ? ' +'+(c.e.length-1) : '';
-        return '<div class="ct"><span><div class="cn">'+esc(c.n)+'</div>'+
+        return '<div class="ct'+(c.left ? ' gone' : '')+'"><span><div class="cn">'+esc(c.n)+
+            (c.left ? ' <span class="tag left">Left</span>' : '')+'</div>'+
           '<div class="cr">'+esc(c.t || c.r || 'role not recorded')+'</div></span>'+
           '<span class="cp">'+
             (email ? esc(email)+esc(extra) : '<span class="miss">no email</span>')+'<br>'+
             (c.p ? esc(c.p)+(c.pk==='check'?' <span class="miss">check</span>':'')
                  : '<span class="miss">no mobile</span>')+
-          '</span></div>';
+          '</span>'+ctLeftBtns(i, c)+'</div>';
       }).join('')
     : '<p class="empty">No contacts on file for this account.</p>';
+  ctLeftWire($('avContacts'), a, renderAccount);
 
   const hist = callsFor(a.a);
   $('avHistory').innerHTML = hist.length
@@ -2453,7 +2455,7 @@ function openDialog(id, seed){
              people a belt call is actually for. Ticking all fourteen on a large
              account put all fourteen onto any visit started from the
              appointment, and from there onto the report. */
-          contacts: (a && a.c ? a.c.map((_,i)=>i).slice(0, 3) : [])};
+          contacts: ctLive(a).slice(0, 3)};
     editingAppt = null;
   }
   const a = ACC_BY_NAME.get(ap.acct);
@@ -2471,6 +2473,7 @@ function openDialog(id, seed){
   const box = $('dCts'); box.innerHTML = '';
   const cs = a && a.c ? a.c : [];
   cs.forEach((c,i)=>{
+    if(c.left) return;                                // v164: someone who has left is not offered
     const row = document.createElement('label'); row.className = 'ct';
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.dataset.i = i; cb.checked = ap.contacts.includes(i);
@@ -3288,7 +3291,7 @@ function vtimezone(tzid){
 function inviteParts(ap){
   const a = ACC_BY_NAME.get(ap.acct);
   const z = ZONES[a.z] || {name:'unzoned', hub:'n/a', cov:''};
-  const cts = (ap.contacts||[]).map(i => a.c[i]).filter(Boolean);
+  const cts = (ap.contacts||[]).map(i => a.c[i]).filter(c => c && !c.left);     // v164: not someone who has left
   const withP = cts.filter(c => c.p).length;
   const d = dueState(a);
   const head = [
@@ -4109,7 +4112,7 @@ async function bookVisitFor(name){
     id: 'ap' + Date.now().toString(36) + (plan.seq++),
     acct: acc.a, type: 'Intralox site visit',
     date: todayISOdate(), start: '09:00', dur: DEF_DUR, agenda: '',
-    contacts: acc.c.map((_, i) => i).slice(0, 3),
+    contacts: ctLive(acc).slice(0, 3),
     origin: isPhone() ? 'phone' : 'desktop', acked: false,
     status: 'planned'
   };
@@ -4926,7 +4929,7 @@ function renderDashTasks(){
 function taskFillContacts(acct, keep){
   const sel = $('tkContact'), a = ACC_BY_NAME.get(acct);
   sel.innerHTML = '<option value="">(none)</option>';
-  const names = a ? a.c.map(c => c.n) : [];
+  const names = a ? a.c.filter(c => !c.left).map(c => c.n) : [];     // v164: not someone who has left
   if(keep && !names.includes(keep)) names.unshift(keep);     // a contact since removed from the CRM stays visible
   for(const n of names){ const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); }
   sel.value = keep || '';
@@ -6792,9 +6795,9 @@ function renderPeople(q, el, hint, before){
     P.push('<div class="pgroup">People</div>');
     folk.slice(0, 40).forEach((p, n) => {
       const c = p.c, email = (c.e && c.e[0]) || '';
-      P.push('<div class="pcard '+FOC_CLS[p.a.foc]+'">'+
+      P.push('<div class="pcard '+FOC_CLS[p.a.foc]+(c.left ? ' gone' : '')+'">'+
         '<div class="pn">'+esc(c.n)+'</div>'+
-        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.left ? ' <span class="tag moved">Left, to remove from Dynamics</span>' : c.moved ? ' <span class="tag moved">Moved to '+esc(c.moved)+'</span>' : c.movedFrom ? ' <span class="tag nodyn">Moved from '+esc(c.movedFrom)+', not in Dynamics yet</span>' : c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : c.changed ? ' <span class="tag nodyn">Changed, not in Dynamics yet</span>' : '')+'</div>'+
+        '<div class="pr">'+esc(c.t || c.r || 'role not recorded')+(c.left ? ' <span class="tag left">Left'+(c.added ? '' : ', to remove from Dynamics')+'</span>' : c.moved ? ' <span class="tag moved">Moved to '+esc(c.moved)+'</span>' : c.movedFrom ? ' <span class="tag nodyn">Moved from '+esc(c.movedFrom)+', not in Dynamics yet</span>' : c.added ? ' <span class="tag nodyn">Not in Dynamics yet</span>' : c.changed ? ' <span class="tag nodyn">Changed, not in Dynamics yet</span>' : '')+'</div>'+
         '<div class="pa">'+esc(p.a.a)+(p.a.sub ? ' \u00b7 '+esc(p.a.sub) : '')+'</div>'+
         '<div class="pl">'+
           (c.p ? '<a href="tel:'+esc(c.p.replace(/\s/g,''))+'">Call '+esc(c.p)+'</a>'
@@ -6802,7 +6805,12 @@ function renderPeople(q, el, hint, before){
           (email ? '<a href="mailto:'+esc(email)+'">Email</a>'
                  : '<span class="missing">No email</span>')+
           '<button data-peacct="'+esc(p.a.a)+'">Account</button>'+
-          '<button data-pechg="'+esc(p.a.a)+'" data-pen="'+esc(c.n)+'">Change</button>'+     // v144
+          (c.left
+            // v164: back, or at another company now
+            ? '<button data-perej="'+esc(p.a.a)+'" data-pen="'+esc(c.n)+'">Joined another company</button>'+
+              '<button data-peback="'+esc(p.a.a)+'" data-pen="'+esc(c.n)+'">Not left</button>'
+            : '<button data-pechg="'+esc(p.a.a)+'" data-pen="'+esc(c.n)+'">Change</button>'+     // v144
+              '<button class="leftb" data-peleft="'+esc(p.a.a)+'" data-pen="'+esc(c.n)+'">Left</button>')+
         '</div></div>');
     });
     if(folk.length > 40) P.push('<p class="hint">'+(folk.length-40)+' more \u2014 narrow the search</p>');
@@ -6826,6 +6834,17 @@ function renderPeople(q, el, hint, before){
     b.addEventListener('click', ()=>{ if(before) before(); openAccount(b.dataset.peacct); }));
   el.querySelectorAll('[data-pechg]').forEach(b =>
     b.addEventListener('click', ()=>{ if(before) before(); openContactChange({acct: b.dataset.pechg, n: b.dataset.pen}); }));
+  // v164: Left, Not left, Joined another company - the list redraws where it is
+  const redo = () => renderPeople(search ? q : undefined, el, hint, before);
+  el.querySelectorAll('[data-peleft]').forEach(b => b.addEventListener('click', () =>
+    contactLeft(b.dataset.peleft, ctFind(b.dataset.peleft, b.dataset.pen)).then(ok => { if(ok) redo(); }).catch(reportErr)));
+  el.querySelectorAll('[data-peback]').forEach(b => b.addEventListener('click', () =>
+    contactBack(ctFind(b.dataset.peback, b.dataset.pen)).then(ok => { if(ok) redo(); }).catch(reportErr)));
+  el.querySelectorAll('[data-perej]').forEach(b => b.addEventListener('click', () => {
+    const c = ctFind(b.dataset.perej, b.dataset.pen); if(!c) return;
+    if(before) before();
+    contactRejoin(b.dataset.perej, c, () => { if(screen === 'directory') renderPeople(); });
+  }));
 }
 $('peSearch').innerHTML = icon('search');
 $('peSearch').addEventListener('click', () => {
@@ -7904,8 +7923,25 @@ function chooseAccount(name, manual){
   if(sub) sub.textContent = acc
     ? [acc.sub, zoneName(acc.z), acc.foc, acc.cad].filter(Boolean).join(' \u00b7 ')
     : 'Not in the CRM export - will be flagged as needing adding to Dynamics';
+  CT_LEFT_NOW = [];
+  $('ctList').innerHTML = '';
+  renderCtList();
+  go('contacts');
+}
+/* v164: someone marked as left while choosing who is on a new call goes in
+   that call's notes, so whoever reads them knows they have gone. */
+let CT_LEFT_NOW = [];
+function ctLeftNote(list, c, acct, on){
+  const k = pKey(c.n);
+  const rest = (list || []).filter(x => pKey(x.n) !== k || x.acct !== acct);
+  return on ? rest.concat([{n: c.n, role: c.role != null ? c.role : c.t || c.r || '', acct, at: c.at || Date.now()}]) : rest;
+}
+function renderCtList(){
+  const acc = pendingAcct && pendingAcct.acc;
   const list = $('ctList');
   const cs = acc ? acc.c : [];
+  // the ticks survive a redraw
+  const was = new Set([...list.querySelectorAll('input:checked')].map(b => b.dataset.i));
   if(!cs.length){
     list.innerHTML = '<p class="empty">No contacts on file. Add one below.</p>';
   } else {
@@ -7916,12 +7952,12 @@ function chooseAccount(name, manual){
       if(!email) bits.push('no email');
       if(c.pk === 'none') bits.push('no mobile');
       if(c.pk === 'check') bits.push('check number');
-      const tag = bits.length ? '<span class="tag">'+bits.join(', ')+'</span>' : '';
-      return '<label class="pick"><input type="checkbox" data-i="'+i+'">'+
-        '<span><div class="nm">'+esc(c.n)+tag+'</div><div class="mt">'+meta+'</div></span></label>';
+      const tag = c.left ? ' <span class="tag left">Left</span>' : bits.length ? '<span class="tag">'+bits.join(', ')+'</span>' : '';
+      return '<label class="pick'+(c.left ? ' gone' : '')+'"><input type="checkbox" data-i="'+i+'"'+(c.left ? ' disabled' : was.has(String(i)) ? ' checked' : '')+'>'+
+        '<span><div class="nm">'+esc(c.n)+tag+'</div><div class="mt">'+meta+'</div></span>'+ctLeftBtns(i, c)+'</label>';
     }).join('');
+    ctLeftWire(list, acc, renderCtList, (c, on) => { CT_LEFT_NOW = ctLeftNote(CT_LEFT_NOW, c, acc.a, on); });
   }
-  go('contacts');
 }
 $('cType').addEventListener('change', syncQuoteMode);
 $('ctQ').addEventListener('input', ()=>{
@@ -7982,6 +8018,8 @@ $('openCall').addEventListener('click', async ()=>{
   const reuse = await offerExistingCall(pendingAcct.name, $('cDate').value, chosen, site);
   if(reuse){
     call = reuse;
+    for(const x of CT_LEFT_NOW) call.leftPeople = ctLeftNote(call.leftPeople, x, x.acct, true);
+    CT_LEFT_NOW = [];
     await saveCall();
     go('dash');
     toast('Continuing the call from ' + reuse.date);
@@ -7999,6 +8037,7 @@ $('openCall').addEventListener('click', async ()=>{
     focus: acc ? acc.foc : '',
     site: $('cSite').value.trim(),
     contacts: chosen,
+    leftPeople: CT_LEFT_NOW.slice(),          // v164: marked as left while choosing
     entries: [],
     loose: [],
     status: 'in progress',
@@ -8029,6 +8068,7 @@ function renderDash(){
     '<b>'+esc(c.customer)+'</b>'+(c.test ? ' <span class="tag test">TEST</span>' : '')+'<br>'+esc(c.date)+' &middot; '+esc(c.type)+' &middot; '+esc(c.mgr)+
     (c.site?'<br>'+esc(c.site):'')+
     '<br>'+c.contacts.map(x=>esc(x.name)+(x.crm?'':' <span class="tag">not in CRM</span>')).join(', ')+
+    ((c.leftPeople || []).length ? '<br><span class="leftnote">Left: '+c.leftPeople.map(x => esc(x.n)).join(', ')+'</span>' : '')+
     '<br><span class="hint">'+onDoc+' of '+c.contacts.length+
     ' on customer documents &middot; tap to change</span>';
   const n = t => c.entries.filter(e=>e.type===t).length;
@@ -9925,12 +9965,19 @@ function renderCallContacts(){
   const q = ($('ccQ').value||'').trim().toLowerCase();
   const rest = pool.filter(p => !have.has(p.id!=null?'id:'+p.id:'nm:'+String(p.n).toLowerCase()))
     .filter(p => !q || (p.n+' '+(p.t||p.r||'')).toLowerCase().includes(q));
-  $('ccAdd').innerHTML = rest.length ? rest.map((p,i)=>{
+  // v164: someone who has left is listed last, struck through, and cannot be added
+  const live = rest.filter(p => !p.left), gone = rest.filter(p => p.left);
+  $('ccAdd').innerHTML = rest.length ? live.concat(gone).map(p=>{
     const meta = [p.t||p.r, (p.e&&p.e[0])||'', p.p].filter(Boolean).map(esc).join(' \u00b7 ');
-    return '<div class="ccrow"><span class="who"><div class="nm">'+esc(p.n)+'</div>'+
+    const i = pool.indexOf(p);
+    return '<div class="ccrow'+(p.left ? ' gone' : '')+'"><span class="who"><div class="nm">'+esc(p.n)+(p.left ? ' <span class="tag left">Left</span>' : '')+'</div>'+
       '<div class="mt">'+(meta||'no details on file')+'</div></span>'+
-      '<button type="button" class="x" data-add="'+pool.indexOf(p)+'">Add</button></div>';
+      (p.left ? '' : '<button type="button" class="x" data-add="'+i+'">Add</button>')+ctLeftBtns(i, p)+'</div>';
   }).join('') : '<p class="empty">'+(pool.length?'Everyone is already on the call.':'No contacts on file for this account.')+'</p>';
+  if(acc) ctLeftWire($('ccAdd'), acc, renderCallContacts, (c, on) => {
+    call.leftPeople = ctLeftNote(call.leftPeople, c, acc.a, on);
+    Promise.resolve(saveCall()).catch(reportErr); renderDash();
+  });
 
   $('ccAdd').querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click', async ()=>{
     const p = pool[+b.dataset.add];
@@ -12489,8 +12536,10 @@ function drawOppIn(svg, live){
       opEl('rect', {x: 0, y: 0, width: 4, height: OPCH, rx: 2, fill: col}, g);
       const st = p.stance === 'helps' ? c('--ok') : p.stance === 'hinders' ? c('--orange-dk') : p.stance === 'neutral' ? c('--ink-3') : '';
       if(!ours) opEl('circle', st ? {cx: 14, cy: OPCH / 2, r: 4.5, fill: st} : {cx: 14, cy: OPCH / 2, r: 4, fill: 'none', stroke: c('--ink-3')}, g);
-      opText(g, {x: ours ? 12 : 25, y: 15, class: 'op-name'}, opCut(p.n || 'Someone', code ? 17 : 21));
-      opText(g, {x: ours ? 12 : 25, y: 28, class: 'op-title'}, opCut(p.title || '', 26));
+      // v164: left the company: struck through, until taken off the map
+      const gone = !ours && opLeftOf(OPP, q, p);
+      opText(g, Object.assign({x: ours ? 12 : 25, y: 15, class: 'op-name'}, gone ? {style: 'fill:' + c('--warn') + ';text-decoration:line-through'} : {}), opCut(p.n || 'Someone', code ? 17 : 21));
+      opText(g, Object.assign({x: ours ? 12 : 25, y: 28, class: 'op-title'}, gone ? {style: 'fill:' + c('--warn')} : {}), gone ? 'Left the company' : opCut(p.title || '', 26));
       if(code){
         const w = code.length > 1 ? 34 : 22, r0 = code[0];
         opEl('rect', {x: OPCW - 7 - w, y: 8, width: w, height: 18, rx: 9, fill: r0 === 'E' ? c('--act') : r0 === 'C' ? c('--ok') : c('--cyan-dk')}, g);
@@ -12963,7 +13012,9 @@ function opPersonPanel(p){
     (q.lk ? '<p class="hint">On the large account plan: a change here shows there too.</p>' : '') +
     // v142: one of the Intralox people, or not yet
     // v144: a customer's person who moved, or whose details changed
-    (!ours ? '<div class="orow ppact">' + (opPartyAcct(OPP, q) ? '<button type="button" class="btn sm act2" id="opCtChg">Details changed</button><button type="button" class="btn sm" id="opPmv">Moved site</button>' : '') +
+    // v164: marked as left on the contact list
+    (!ours && opLeftOf(OPP, q, p) ? '<p class="note warn">Marked as left the company on the contact list. Their relationships stay until you take them off.</p><div class="orow"><button type="button" class="btn sm warnb" id="opPgone">Take off this map</button></div>' : '') +
+    (!ours && !opLeftOf(OPP, q, p) ? '<div class="orow ppact">' + (opPartyAcct(OPP, q) ? '<button type="button" class="btn sm act2" id="opCtChg">Details changed</button><button type="button" class="btn sm" id="opPmv">Moved site</button>' : '') +
       '<button type="button" class="btn sm" id="opPhide">Hide: not relevant</button><button type="button" class="btn sm warnb" id="opPleft">Left the company</button></div>' : '') +
     (ours ? '<div class="orow"><button type="button" class="btn act2" id="opStaff">' + (st ? 'Their Intralox record' + (st.pos ? ' (' + esc(st.pos) + ')' : '') : 'Add to Intralox people') + '</button></div>' : '') +
     '<label class="l" for="opPn">Name</label><input type="text" id="opPn" value="' + esc(p.n || '') + '">' +
@@ -13018,6 +13069,13 @@ function opPersonPanel(p){
   if($('opPmv')) $('opPmv').addEventListener('click', () => opContactChange(p, true));
   if($('opPhide')) $('opPhide').addEventListener('click', () => { opHidePerson(p); opPanel(); });
   if($('opPleft')) $('opPleft').addEventListener('click', () => opLeftPerson(p).catch(reportErr));
+  if($('opPgone')) $('opPgone').addEventListener('click', () => {
+    const nl = (OPP.links || []).filter(l => l.a === p.id || l.b === p.id).length;
+    if(!confirm('Take ' + (p.n || 'them') + ' off this map' + (nl ? ', with their ' + nl + (nl === 1 ? ' relationship' : ' relationships') : '') + '?')) return;
+    opDropPeople([p.id]);
+    if(opSel && opSel.t === 'p' && opSel.id === p.id) opSel = null;
+    oppSaveNow().catch(reportErr); drawOpp(); opPanel();
+  });
   if($('opStaff')) $('opStaff').addEventListener('click', () => { if(opSaveTimer) oppSaveNow().catch(reportErr); if(st) openStaff(st.id); else openStaff(null, {n: p.n || ''}); });
   $('opLink').addEventListener('click', () => {
     opLinkFrom = p.id; $('opHint').hidden = false;
@@ -13659,7 +13717,7 @@ function peopleMerge(){
     a.c = a.c || [];
     // the CRM now has them: Dynamics caught up, so the record here is done
     if(a.c.some(c => pKey(c.n) === pKey(r.n))){ gone.push(r); continue; }
-    a.c.push({n: r.n, t: r.t || '', r: r.role || '', p: r.p || '', e: r.e ? [r.e] : [], added: true, pid: r.id});
+    a.c.push(Object.assign({n: r.n, t: r.t || '', r: r.role || '', p: r.p || '', e: r.e ? [r.e] : [], added: true, pid: r.id}, r.left ? {left: r.id} : {}));
     delete a._hay;                                // contact names are searchable
   }
   chgApply();                                     // v144: moved contacts and changed details, until Dynamics has them
@@ -13754,7 +13812,7 @@ function chgApply(){
   // start from the contacts as the CRM gave them, then lay the changes over
   for(const a of ACCOUNTS) for(const c of a.c || []){
     if(c.moved){ delete c.moved; delete a._hay; }
-    if(c.left){ delete c.left; delete a._hay; }
+    if(c.left && !c.pid){ delete c.left; delete a._hay; }
     if(c._crm){ c.t = c._crm.t; c.e = c._crm.e; c.p = c._crm.p; if('r' in c._crm) c.r = c._crm.r; delete c._crm; delete c.changed; delete a._hay; }
   }
   for(const r of CHG){
@@ -13806,7 +13864,7 @@ async function chgSave(r){
 // what is waiting for Dynamics, as rows: one list across the four kinds
 function cagItems(){
   const out = [];
-  PEOPLE.forEach(r => out.push({kind: 'new', r, sent: r.sent || 0, done: 0, acct: r.acct, n: r.n, what: 'New contact' + (r.t ? ': ' + r.t : '')}));
+  PEOPLE.filter(r => !(r.left && !r.sent)).forEach(r => out.push({kind: 'new', r, sent: r.sent || 0, done: 0, acct: r.acct, n: r.n, what: 'New contact' + (r.t ? ': ' + r.t : '')}));
   CHG.filter(r => r.type === 'move').forEach(r => out.push({kind: 'move', r, sent: r.sent || 0, done: r.done || 0, acct: r.from, n: r.n, what: 'Moved to ' + r.to}));
   CHG.filter(r => r.type === 'edit').forEach(r => out.push({kind: 'edit', r, sent: r.sent || 0, done: r.done || 0, acct: r.acct, n: r.n,
     what: 'Changed ' + [r.t && 'title to ' + r.t, r.e && 'email to ' + r.e, r.p && 'mobile to ' + r.p].filter(Boolean).join(', ')}));
@@ -14014,6 +14072,67 @@ async function opLeftPerson(p){
   toast((p.n || 'They') + (c && !c.added ? ' has left: on the list for CAG to remove from Dynamics' : ' has left: taken off the map'));
 }
 
+/* ---- left the company, from any contact list (v164) ----
+   Ben, 2026-10-20: a quick way to mark someone who no longer works at a
+   customer, from the contact screens and while choosing who is on a call.
+   They stay on the lists struck through, can no longer be picked for a call,
+   a visit, a task or a map, and go on the CAG list to remove from Dynamics.
+   Not left undoes a mistake; Joined another company starts them again at
+   another account. Marked during a call, they go in that call's notes. */
+const ctLive = a => (a && a.c ? a.c : []).map((c, i) => c.left ? -1 : i).filter(i => i >= 0);
+const ctFind = (acct, n, cid) => { const a = ACC_BY_NAME.get(acct); return a && (a.c || []).find(x => (cid && x.id === cid) || pKey(x.n) === pKey(n)) || null; };
+async function contactLeft(acct, c){
+  if(!c || c.left) return false;
+  const app = c.added && c.pid;
+  if(!confirm(c.n + ' has left ' + acct + '?\n\nThey stay on the contact list struck through, and can no longer be picked for a call, a visit, a task, a plan or a Blue Sheet. ' +
+      (app ? 'They were only added in the app, so nothing goes to CAG.' : 'They go on the list for CAG to remove from Dynamics.'))) return false;
+  if(app){ const r = PEOPLE.find(x => x.id === c.pid); if(r){ r.left = Date.now(); r.updated = Date.now(); await peoplePut(r); } }
+  else if(c.added && c.chg){
+    // moved here, then left: they leave the account they came from
+    const r = CHG.find(x => x.id === c.chg);
+    if(r){ await peopleDel(r.id); CHG = CHG.filter(x => x !== r); await chgSave({id: newId('cg'), kind: 'chg', type: 'left', n: r.n, cid: r.cid || '', acct: r.from}); }
+  } else await chgSave({id: newId('cg'), kind: 'chg', type: 'left', n: c.n, cid: c.id || '', acct});
+  peopleMerge();
+  if(screen === 'settings') renderPeopleStat();
+  toast(c.n + ' marked as left' + (app ? '' : ', for CAG to remove from Dynamics'));
+  return true;
+}
+async function contactBack(c){
+  if(!c || !c.left) return false;
+  if(c.added && c.pid){ const r = PEOPLE.find(x => x.id === c.pid); if(r){ delete r.left; r.updated = Date.now(); await peoplePut(r); } }
+  else {
+    const r = CHG.find(x => x.id === c.left);
+    if(r && r.sent){
+      if(!confirm('The removal of ' + c.n + ' went to CAG on ' + new Date(r.sent).toLocaleDateString() + '.\n\nTake it off the list anyway? Tell CAG not to remove them.')) return false;
+      r.dropped = true; r.done = Date.now(); await chgSave(r);
+    } else if(r){ await peopleDel(r.id); CHG = CHG.filter(x => x !== r); }
+  }
+  peopleMerge();
+  if(screen === 'settings') renderPeopleStat();
+  toast(c.n + ' is active again');
+  return true;
+}
+// the buttons on a contact row (v164): Left, or Not left and Joined another company
+const ctLeftBtns = (i, c) => '<span class="ctleft">' + (c.left
+  ? '<button type="button" class="lbtn" data-ctrej="' + i + '">Joined another company</button><button type="button" class="lbtn" data-ctback="' + i + '">Not left</button>'
+  : '<button type="button" class="lbtn leftb" data-ctleft="' + i + '">Left</button>') + '</span>';
+function ctLeftWire(el, a, redo, onLeft){
+  const at = b => a.c[+b.dataset[Object.keys(b.dataset)[0]]];
+  const stop = e => { e.preventDefault(); e.stopPropagation(); };
+  el.querySelectorAll('[data-ctleft]').forEach(b => b.addEventListener('click', e => { stop(e); const c = at(b);
+    contactLeft(a.a, c).then(ok => { if(ok){ if(onLeft) onLeft(c, true); redo(); } }).catch(reportErr); }));
+  el.querySelectorAll('[data-ctback]').forEach(b => b.addEventListener('click', e => { stop(e); const c = at(b);
+    contactBack(c).then(ok => { if(ok){ if(onLeft) onLeft(c, false); redo(); } }).catch(reportErr); }));
+  el.querySelectorAll('[data-ctrej]').forEach(b => b.addEventListener('click', e => { stop(e); contactRejoin(a.a, at(b), redo); }));
+}
+// a customer's person on a map whose contact is marked as left (v164)
+function opLeftOf(o, q, p){
+  if(!q || q.kind === 'ilx') return false;
+  const acct = opPartyAcct(o, q), c = acct && ctFind(acct, p.n, p.cid);
+  return !!(c && c.left);
+}
+const contactRejoin = (acct, c, after) => openContactChange({acct, n: c.n, cid: c.id, moving: true, fromLeft: true}, after);
+
 /* ---- a contact who moved, or whose details changed (v144) ----
    From a customer's person on any map, or a contact in the Directory. A move
    or a change is a record for CAG (kind 'chg'); a contact added in the app is
@@ -14024,7 +14143,7 @@ function openContactChange(seed, after){
   if(!a){ toast('That contact is not at one of your customers'); return; }
   const c = (a.c || []).find(x => (seed.cid && x.id === seed.cid) || pKey(x.n) === pKey(seed.n)) || null;
   const cur = {t: c ? c.t || '' : seed.t || '', e: c && c.e && c.e[0] || '', p: c ? c.p || '' : '', role: c ? c.r || '' : ''};
-  ctEdit = {acct: a.a, n: (c && c.n) || seed.n, cid: (c && c.id) || seed.cid || '', c, cur, after};
+  ctEdit = {acct: a.a, n: (c && c.n) || seed.n, cid: (c && c.id) || seed.cid || '', c, cur, after, fromLeft: !!seed.fromLeft};
   $('ctHead').textContent = ctEdit.n || 'Contact';
   $('ctAt').textContent = 'At ' + a.a + (c && c.moved ? '. Already marked as moved to ' + c.moved + '.' : '');
   $('ctT').value = cur.t; $('ctE').value = cur.e; $('ctP').value = cur.p; $('ctTo').value = '';
@@ -14035,7 +14154,7 @@ function openContactChange(seed, after){
   $('ctRo').value = known ? '' : cur.role; $('ctRo').hidden = known;
   $('ctTitles').innerHTML = V.titles.map(v => '<option value="' + esc(v) + '">').join('');
   ctFlags();
-  if(seed.moving){ $('ctHead').textContent = (ctEdit.n || 'Contact') + ': moved site'; setTimeout(() => { try { $('ctTo').focus(); } catch(_){} }, 60); }
+  if(seed.moving){ $('ctHead').textContent = (ctEdit.n || 'Contact') + (seed.fromLeft ? ': joined another company' : ': moved site'); setTimeout(() => { try { $('ctTo').focus(); } catch(_){} }, 60); }
   $('ctAccts').innerHTML = ACCOUNTS.filter(x => x.a !== a.a).map(x => '<option value="' + esc(x.a) + '">').join('');
   const d = $('ctdlg');
   if(!d.open){ if(d.showModal) d.showModal(); else d.setAttribute('open', ''); pushDialog('ctdlg'); }
@@ -14050,8 +14169,27 @@ async function ctFinish(){
   if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
   const now = {t: $('ctT').value.trim(), e: $('ctE').value.trim(), p: $('ctP').value.trim(), role: ctRole()};
   const edited = ['t', 'e', 'p', 'role'].some(k => pKey(now[k]) !== pKey(E.cur[k]));
-  if(!edited && !to) return;                                       // nothing changed: nothing kept
   const c = E.c;
+  // v164: someone who left, starting again at another account
+  if(E.fromLeft){
+    if(!to || !c) return;                                          // no new account picked: still left
+    const done = m => { peopleMerge(); if(screen === 'settings') renderPeopleStat(); toast(m); if(E.after) E.after({to, now}); };
+    if(c.added && c.pid){
+      const r = PEOPLE.find(x => x.id === c.pid);
+      if(r){ delete r.left; Object.assign(r, {acct: to, t: now.t, e: now.e, p: now.p, role: now.role}); r.updated = Date.now(); await peoplePut(r); }
+      return done(E.n + ' is at ' + to + ' now');
+    }
+    const L = CHG.find(x => x.id === c.left);
+    if(L && L.sent){
+      // the removal is with CAG already: they start at the new account as a new contact
+      const r = {id: newId('ct'), acct: to, n: E.n, t: now.t, e: now.e, p: now.p, role: now.role, added: Date.now(), by: localStorage.getItem(LS('mgr')) || '', from: '', updated: Date.now()};
+      await peoplePut(r); PEOPLE = PEOPLE.concat([r]);
+      return done(E.n + ' is at ' + to + ' now, as a new contact for CAG');
+    }
+    if(L){ await peopleDel(L.id); CHG = CHG.filter(x => x !== L); }
+    // and on as a move: CAG moves them rather than removing them
+  }
+  if(!edited && !to) return;                                       // nothing changed: nothing kept
   // a contact added in the app: corrected where it is kept
   if(c && c.added && c.pid){
     const r = PEOPLE.find(x => x.id === c.pid);
@@ -17664,7 +17802,7 @@ function accountText(name){
     if(a.sub || a.z) L.push('Where: ' + [a.sub, zoneName(a.z)].filter(Boolean).join(', '));
     if(a.foc) L.push('Focus: ' + a.foc + (a.cad ? ' (' + a.cad + ')' : ''));
     if(a.seg || a.team) L.push('Segment: ' + [a.seg, a.team].filter(Boolean).join(', '));
-    const ppl = (a.c || []).map(c => [c.n, c.t || c.r].filter(Boolean).join(', ')).filter(Boolean);
+    const ppl = (a.c || []).filter(c => !c.left).map(c => [c.n, c.t || c.r].filter(Boolean).join(', ')).filter(Boolean);
     if(ppl.length) L.push('Contacts on file: ' + ppl.slice(0, 15).join('; '));
   }
   return L.join('\n');
@@ -18246,6 +18384,15 @@ async function buildNotesHTML(scope, mode, c){
     shownContacts.forEach(x=>p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+'</td><td>'+V(x.mobile)+
       '</td><td>'+(x.crm?'On file':'<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
     p.push('</table>');
+  }
+  /* v164 - Ben, 2026-10-20: people marked as left during the call show in the
+     notes as a red line each, "so when I publish them to the rest of the
+     business, they understand who's left". Inline styles: Outlook keeps them. */
+  const gone = scope === 'full' ? (c.leftPeople || []) : [];
+  if(gone.length){
+    p.push('<h2>Left the business</h2>');
+    gone.forEach(x => p.push('<p style="color:#B2232F;border-left:3px solid #B2232F;padding:2px 0 2px 8px;margin:4px 0"><b>' + esc(x.n) + '</b>' +
+      (x.role ? ', ' + esc(x.role) : '') + ', has left ' + esc(x.acct || c.customer) + '</p>'));
   }
 
   const notes = wantNotes ? c.entries.filter(e=>e.type==='note') : [];
@@ -20342,6 +20489,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v164', 'Left: one tap on a contact, on the account, in the Directory, or when you choose who is on a call. They stay listed with a line through, can no longer be picked, and go on the CAG list. Not left undoes it; Joined another company moves them. Marked during a call, they show in its notes as a red line.'],
   ['v163', 'Download to Outlook puts visits in as your own appointments, with nobody invited, so moving or cancelling one in Outlook never emails a customer. The people to see are listed in the notes. Placeholder only is gone: every visit is like that now.'],
   ['v162', 'Plan on the PC: Search the whole account book now types in the side list, and the tiles change as you type, so you can still drag them onto the calendar. Under the zone, Add marks it as the week\u2019s territory. Dated tasks go to Outlook as appointments with the visits.'],
   ['v161', 'Evaluation forms in a call: tap ⋯ beside Create and share. The freezing and chilling tunnel evaluation is first; the call fills who and where, conveyors copy from logged belts, and Create and share has Evaluation only.'],

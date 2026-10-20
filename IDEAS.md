@@ -1079,4 +1079,21 @@ attendees: choose Don't send when Outlook asks.
 
 ---
 
+## Built (v164): Mark someone who has left, from any contact list
+*Asked and built 2026-10-20*
+
+Ben: a quick way to mark contacts who no longer work at a customer, from the
+contact screen, the new-call contact picker and the account's contacts; shown
+struck through, never used in account plans, large account plans or Blue
+Sheets; brought back at another company later. And, marked during a call, a
+red line in the call notes so the business sees who has left. Built on v145's
+Left the company record for CAG. People already on a map stay, crossed out,
+until taken off. Also fixed: the new-call contact rows were laid out as two
+equal columns, pushing names into the right half.
+
+- **Open:** Blue Sheet and large account plan printouts do not mark a person
+  who has left; take them off the map first.
+
+---
+
 <!-- Add new ideas above this line. -->
