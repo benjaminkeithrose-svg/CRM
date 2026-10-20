@@ -149,7 +149,9 @@ Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day
 
 The recording is written out on the phone itself. Nothing said leaves the phone, and it works with no signal once the model is downloaded. It records for up to 10 minutes, and the screen stays on while it does. Writing out takes a while; the button shows how far it has got, and the message after says how long the speech was and how long it took.
 
-**Better** is the larger model (about 80 MB): more accurate, slower. **Quicker** is about 40 MB. If you leave the screen while it is writing out, the words go into Capture instead. If it fails, you are offered to save the recording as a file, so nothing said is lost.
+Your pauses to think are cut out before it is written out, so nothing said after a pause is missed. The message at the end says how long the recording was: if that matches how long you talked, the recording did not stop.
+
+**Most accurate** is the largest model (about 250 MB): best with accents, and the slowest. **Better** is about 80 MB, **Quicker** about 40 MB. None of them know your customers' names, so check names before you use the text. If you leave the screen while it is writing out, the words go into Capture instead. If it fails, you are offered to save the recording as a file, so nothing said is lost.
 
 To go back to the way it was, set Talking into the app to **Live**.
 

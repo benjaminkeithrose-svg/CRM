@@ -1174,6 +1174,13 @@ cuts at quiet moments and runs Whisper base.en or tiny.en in a worker
   writing-out step for the service IT picks; the recording side stays.
 - **Not tested here:** Whisper itself. The model host was blocked from the
   build machine, so only the recording, the cutting and the worker were run.
+- **Ben's first try (v166):** quick enough, but not accurate, worst on
+  customers' names and with his Australian accent; and what he said after a
+  pause went missing. v167 cuts the pauses out before Whisper hears them
+  (Whisper stops writing at a long silence) and adds small.en (about 250 MB).
+  Names will stay weak on the phone: none of these models know his
+  customers. The real fix is a service that takes a list of names (Azure
+  Speech phrase lists, or OpenAI with a prompt), once IT has answered.
 
 ---
 

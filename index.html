@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v166">
+<meta name="build" content="v167">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -2035,7 +2035,7 @@ details.bsx > .msg{margin:8px 12px}
     <div id="talkRec" hidden>
       <div class="gap"></div>
       <label>Speech model</label>
-      <div class="seg" id="talkModel" role="group" aria-label="Speech model"><button type="button" data-v="better">Better, about 80 MB</button><button type="button" data-v="quick">Quicker, about 40 MB</button></div>
+      <div class="seg" id="talkModel" role="group" aria-label="Speech model"><button type="button" data-v="best">Most accurate, 250 MB</button><button type="button" data-v="better">Better, 80 MB</button><button type="button" data-v="quick">Quicker, 40 MB</button></div>
       <p class="stat" id="talkStat"></p>
       <button type="button" class="btn act2" id="talkGet">Download it now</button>
     </div>
@@ -2289,7 +2289,8 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Finish</b>. The words appear in the box, then Tidy or Sort it follows as usual.</li>
       </ol>
       <p>The recording is written out on the phone itself. Nothing said leaves the phone, and it works with no signal once the model is downloaded. It records for up to 10 minutes, and the screen stays on while it does. Writing out takes a while; the button shows how far it has got, and the message after says how long the speech was and how long it took.</p>
-      <p><b>Better</b> is the larger model (about 80 MB): more accurate, slower. <b>Quicker</b> is about 40 MB. If you leave the screen while it is writing out, the words go into Capture instead. If it fails, you are offered to save the recording as a file, so nothing said is lost.</p>
+      <p>Your pauses to think are cut out before it is written out, so nothing said after a pause is missed. The message at the end says how long the recording was: if that matches how long you talked, the recording did not stop.</p>
+      <p><b>Most accurate</b> is the largest model (about 250 MB): best with accents, and the slowest. <b>Better</b> is about 80 MB, <b>Quicker</b> about 40 MB. None of them know your customers' names, so check names before you use the text. If you leave the screen while it is writing out, the words go into Capture instead. If it fails, you are offered to save the recording as a file, so nothing said is lost.</p>
       <p>To go back to the way it was, set Talking into the app to <b>Live</b>.</p>
     </div>
   </details>
