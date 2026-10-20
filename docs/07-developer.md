@@ -16,6 +16,7 @@ are in the repository.
 | `zones.js`, `manuals.js`, `healthlib.js`, `health-seed.json` | Reference data: the AU/NZ zone map, the manual list, the health-check fault library |
 | `forms.js` (v161) | The application engineering evaluation forms, each described once: sections, questions (`k`, `l`, `t`, `req`, `u`, `o`, `h`, `ph`, `when`, `fill`), a repeating group (the conveyors) and its sprocket table, and which conveyor answers a logged belt shares. A new form is a new entry here; the screen, the call log card and the document draw from it |
 | `supabase-2.117.1.js`, `xlsx-0.18.5.full.min.js` | The two libraries, shipped in the repo so they work offline |
+| `speech/`, `speech-worker.js` (v166, a trial) | Writing out a recording on the phone: transformers.js 3.8.1 and the ONNX Runtime engine (`speech/`, about 22 MB, licences in `speech/LICENSES.txt`), fetched only when first used and kept by the service worker in a cache of their own (`fieldcrm-speech-3.8.1`) that app updates leave alone; and the worker that runs Whisper on them (`speech-worker.js`, cached with the app). The Whisper model comes from huggingface.co on first use and the browser keeps it (`transformers-cache`) |
 | `supabase/` | The cloud schema (`migrations/`) and server functions (`functions/`) |
 | `tests/` | Headless suites (`qa-*.mjs`, run by `tests/run.mjs`) and the browser tests |
 | `tools/` | `help-to-manual.py` (Help screen to `MANUAL.md`), `docs-to-print.py` (these documents to one printable page) |
@@ -107,6 +108,8 @@ expect (`note`, `sales`, `line`, `self` and the others listed in
 `supabase/functions/ai-tidy/index.ts`, `FIELD`). If the box is inside one of
 the watched containers (search `micAuto`), the microphone appears by itself,
 also for boxes drawn later. Read-only boxes are skipped.
+
+Since v166, Talking in Settings can be set to **Record, then write it out** (a trial, per device, `localStorage` `talkMode` and `talkModel`). Then `micStart` hands the button to `recStart`: `MediaRecorder` records with the screen kept on, up to 10 minutes; Finish decodes it to 16 kHz mono (`recPcm`), cuts it into pieces under 30 seconds at the quietest moment between 20 and 29 seconds in and drops silent pieces (`recPieces`), and the worker (`spAsk`) runs Whisper on each, base.en or tiny.en, 8-bit, one thread. The text goes into the box, or into Capture if the box has gone from the screen; then the button's usual follow-on (Tidy, Draft it, Sort it) runs. The live session's recogniser is `micSession.rec`; a recording is marked `micSession.recording`. A failure offers to save the recording as a file. `tests/qa-speech.mjs` covers the app's side with stand-ins; Whisper itself is only proven on a phone.
 
 ## Changing what the AI does
 

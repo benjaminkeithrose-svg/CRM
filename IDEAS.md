@@ -1143,4 +1143,38 @@ and anything it cannot place said so.
 
 ---
 
+## Idea: record a conversation, and have the notes made from it
+*Banked 2026-10-20, not built*
+
+Ben: a media record function in a call: record the conversation (or his
+debrief after it), then use AI to sort the notes out and attach them to the
+call. Needs the same speech-to-text service as long dictation (Claude's API
+takes text, pictures and PDFs, not audio), then Claude turns the transcript
+into the call's notes, projects and follow-ups, as Capture does. To settle
+when built: whether the audio is kept on the call (it would sync encrypted,
+like photos, and is large) or deleted once transcribed; Intralox's policy on
+recordings; and customer consent, since recording law differs between
+states and New Zealand.
+
+---
+
+## Built (v166, a trial): record, then write it out on the phone
+*Asked and built 2026-10-20*
+
+Ben: much longer dictation, 2 or 3 minutes at a stretch, without the beeps.
+Claude's API takes no audio, so the choice was an outside speech-to-text
+service (his IT's call, pending) or Whisper on the phone; he chose to try the
+phone first. Settings, Talking into the app: Record, then write it out.
+Every microphone records (MediaRecorder, up to 10 minutes, screen kept on),
+cuts at quiet moments and runs Whisper base.en or tiny.en in a worker
+(transformers.js 3.8.1 shipped in speech/). Nothing said leaves the phone.
+
+- **To judge on the phone:** how long writing out takes, and how accurate it
+  is on names and belt terms. If either is not good enough, swap the
+  writing-out step for the service IT picks; the recording side stays.
+- **Not tested here:** Whisper itself. The model host was blocked from the
+  build machine, so only the recording, the cutting and the worker were run.
+
+---
+
 <!-- Add new ideas above this line. -->

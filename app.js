@@ -996,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v165';
+const APP_BUILD = 'v166';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -18179,6 +18179,7 @@ function micLabel(btn, state){
 function micAbort(){
   const s = micSession;
   if(!s) return;
+  if(s.recording){ s.after = null; recStop(s); return; }     // v166: the recording is still written out, into its box or Capture
   s.after = null;                         // nothing goes to Claude
   s.ending = true;
   if(s.paused){ micEnd(s); return; }
@@ -18187,6 +18188,7 @@ function micAbort(){
 function micFinish(){
   const s = micSession;
   if(!s || s.ending) return;
+  if(s.recording){ recStop(s); return; }
   s.ending = true;
   if(s.paused){ micEnd(s); return; }
   try { s.rec.stop(); } catch(_){ micEnd(s); }
@@ -18244,7 +18246,16 @@ function micEnd(s){
   if(why){ toast('Your words are in the box. ' + why); return; }
   s.after();
 }
+// what finishing does: Tidy, Draft it, set the map up, or sort it in Capture
+function micAfter(btn, id){
+  return btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr)
+    : btn.dataset.after === 'setup' ? () => osRead().catch(reportErr)          // v127: a description sets the map up
+    : btn.dataset.after === 'setupnew' ? () => odSetup()
+    : btn.dataset.after === 'capture' ? () => captureSort().catch(reportErr)    // v165: finishing sorts it
+    : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr);
+}
 function micStart(btn){
+  if(talkMode() === 'record' && !(micSession && !micSession.recording)){ recStart(btn).catch(reportErr); return; }   // v166: record, then write it out
   const id = btn.dataset.mic, box = $(id);
   if(!box) return;
   const cur = micSession;
@@ -18256,11 +18267,7 @@ function micStart(btn){
   const base = box.value.replace(/\s+$/, '');
   micSession = {btn, box, base, sep: base ? (box.tagName === 'INPUT' ? ' ' : '\n') : '',
     kept: '', run: '', heard: false, failed: '', ending: false, paused: false, pressing: false, quick: 0, lastHeard: Date.now(),
-    after: btn.dataset.after === 'draft' ? () => aiDraft().catch(reportErr)
-      : btn.dataset.after === 'setup' ? () => osRead().catch(reportErr)          // v127: a description sets the map up
-      : btn.dataset.after === 'setupnew' ? () => odSetup()
-      : btn.dataset.after === 'capture' ? () => captureSort().catch(reportErr)    // v165: finishing sorts it
-      : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr)};
+    after: micAfter(btn, id)};
   micRun(micSession);
   if(micSession && !micSession.paused) toast('Listening. Tap Finish when you are done');
 }
@@ -18308,6 +18315,218 @@ function micButton(id, field, after){
   micWire(b);
   return b;
 }
+/* ---------- record, then write it out on the phone (v166, a trial) ----------
+   Ben, 2026-10-20: "much longer recordings ... speak for 2 or 3 minutes at a
+   stretch" without the beeps. Live recognition (above) stops at every pause
+   and Android beeps each time it starts again. With Talking set to Record in
+   Settings, every microphone records sound instead - no beeps, pauses do not
+   stop it, up to REC_MAX_S - and Finish writes it out on the phone itself
+   with Whisper (speech-worker.js): nothing said leaves the phone, and it
+   works with no signal once the model is downloaded. Claude's API takes no
+   audio, so this replaces only the listening; Tidy and Sort it follow as
+   before. The text goes into the box talked into, or into Capture if that
+   box has gone from the screen meanwhile, so nothing said is lost. */
+const REC_MAX_S = 600;
+const TALK_MODELS = {better: {id: 'Xenova/whisper-base.en', size: 'about 80 MB'}, quick: {id: 'Xenova/whisper-tiny.en', size: 'about 40 MB'}};
+const talkMode = () => { try { return localStorage.getItem(LS('talkMode')) === 'record' ? 'record' : 'live'; } catch(_){ return 'live'; } };
+const talkModel = () => { try { return localStorage.getItem(LS('talkModel')) === 'quick' ? 'quick' : 'better'; } catch(_){ return 'better'; } };
+let spWorker = null, spSeq = 0, recBusy = 0, REC_LAST = null;
+const spJobs = new Map();
+function spAsk(msg, onEvent){
+  if(!spWorker){
+    spWorker = new Worker('speech-worker.js', {type: 'module'});
+    spWorker.onmessage = e => { const j = spJobs.get(e.data && e.data.id); if(j) j(e.data); };
+    spWorker.onerror = e => {
+      const m = (e && e.message) || 'The speech engine would not start';
+      for(const j of [...spJobs.values()]) j({type: 'error', message: m});
+      spJobs.clear(); try { spWorker.terminate(); } catch(_){} spWorker = null;
+    };
+  }
+  const id = ++spSeq;
+  return new Promise((res, rej) => {
+    spJobs.set(id, d => {
+      if(d.type === 'done' || d.type === 'ready'){ spJobs.delete(id); res(d); }
+      else if(d.type === 'error'){ spJobs.delete(id); rej(new Error(d.message)); }
+      else if(onEvent) onEvent(d);
+    });
+    spWorker.postMessage(Object.assign({id}, msg), msg.pieces ? msg.pieces.map(p => p.buffer) : []);
+  });
+}
+// the recording as 16 kHz mono, which is what Whisper hears
+async function recPcm(blob){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC();
+  let buf;
+  try { buf = await ac.decodeAudioData(await blob.arrayBuffer()); }
+  finally { try { ac.close(); } catch(_){} }
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(buf.duration * 16000)), 16000);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+/* Whisper hears 30 seconds at a time. Cut at the quietest moment between 20
+   and 29 seconds in, so no word is split, and leave out a piece with nothing
+   said in it: Whisper invents words for silence. */
+function recPieces(pcm){
+  const R = 16000, F = R / 10, frames = Math.floor(pcm.length / F), rms = new Float32Array(frames);
+  for(let f = 0; f < frames; f++){ let s = 0; for(let i = f * F; i < (f + 1) * F; i++) s += pcm[i] * pcm[i]; rms[f] = Math.sqrt(s / F); }
+  const out = [];
+  let start = 0;
+  while(pcm.length - start > 29 * R){
+    const a = Math.floor((start + 20 * R) / F), b = Math.min(frames, Math.floor((start + 29 * R) / F));
+    let best = a;
+    for(let f = a; f < b; f++) if(rms[f] < rms[best]) best = f;
+    const cut = best * F + F / 2;
+    out.push([start, cut]); start = cut;
+  }
+  out.push([start, pcm.length]);
+  return out.filter(([s, e]) => {
+    if(e - s < R / 2) return false;
+    for(let f = Math.floor(s / F); f < Math.min(frames, Math.ceil(e / F)); f++) if(rms[f] > 0.01) return true;
+    return false;
+  }).map(([s, e]) => pcm.slice(s, e));
+}
+// a download that failed says so plainly
+const spWhy = e => { const m = (e && e.message) || String(e); return /fetch|network|load failed/i.test(m) ? 'the speech model could not be downloaded. It needs signal the first time, best on Wi-Fi' : m; };
+const recClock = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+function recLabel(btn, txt){
+  btn.classList.toggle('on', !!txt);
+  btn.setAttribute('aria-pressed', txt ? 'true' : 'false');
+  btn.setAttribute('aria-label', txt ? txt : 'Talk into this box');
+  btn.innerHTML = icon('mic') + (txt ? '<span>' + esc(txt) + '</span>' : '');
+}
+async function recStart(btn){
+  const box = $(btn.dataset.mic);
+  if(!box || micSession) return;
+  if(recBusy){ toast('Still writing out the last recording. One moment'); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){ toast('This browser cannot record. Set Talking back to Live in Settings'); return; }
+  const s = micSession = {btn, box, recording: true, chunks: [], started: Date.now(), ending: false, pressing: false,
+    after: micAfter(btn, btn.dataset.mic)};
+  recLabel(btn, 'Starting');
+  try { s.stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true}}); }
+  catch(e){
+    if(micSession === s) micSession = null;
+    recLabel(btn, '');
+    toast(e && e.name === 'NotAllowedError' ? MIC_ERR['not-allowed'] : 'The microphone could not start: ' + ((e && e.message) || e));
+    return;
+  }
+  if(micSession !== s || s.ending){ s.stream.getTracks().forEach(t => t.stop()); if(micSession === s) micSession = null; recLabel(btn, ''); return; }
+  const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  s.mr = new MediaRecorder(s.stream, type ? {mimeType: type} : undefined);
+  s.mr.ondataavailable = e => { if(e.data && e.data.size) s.chunks.push(e.data); };
+  s.mr.onstop = () => recDone(s).catch(reportErr);
+  s.started = Date.now();
+  s.mr.start(1000);
+  // the screen stays on while recording: a phone that locks itself can stop the microphone
+  try { if(navigator.wakeLock) s.lock = await navigator.wakeLock.request('screen'); } catch(_){}
+  s.tick = setInterval(() => {
+    const sec = (Date.now() - s.started) / 1000;
+    recLabel(btn, 'Finish ' + recClock(sec));
+    if(sec >= REC_MAX_S){ toast('That is ' + REC_MAX_S / 60 + ' minutes: writing it out now'); recStop(s); }
+  }, 1000);
+  recLabel(btn, 'Finish 0:00');
+  toast('Recording. Talk as long as you like, then tap Finish');
+}
+function recStop(s){
+  if(s.ending) return;
+  s.ending = true;
+  clearInterval(s.tick);
+  if(s.mr && s.mr.state !== 'inactive'){ try { s.mr.stop(); return; } catch(_){} }
+  if(!s.mr){ if(micSession === s) micSession = null; recLabel(s.btn, ''); }   // still asking for the microphone
+}
+async function recDone(s){
+  if(micSession === s) micSession = null;
+  try { s.stream.getTracks().forEach(t => t.stop()); } catch(_){}
+  try { if(s.lock) s.lock.release(); } catch(_){}
+  const secs = (Date.now() - s.started) / 1000;
+  const blob = new Blob(s.chunks, {type: (s.mr && s.mr.mimeType) || 'audio/webm'});
+  REC_LAST = blob;
+  recBusy++;
+  recLabel(s.btn, 'Writing');
+  const t0 = Date.now();
+  try {
+    const pieces = recPieces(await recPcm(blob));
+    if(!pieces.length){ toast('Nothing was heard in that recording'); return; }
+    const r = await spAsk({cmd: 'run', model: TALK_MODELS[talkModel()].id, pieces}, d => {
+      if(d.type === 'download') recLabel(s.btn, 'Getting the speech model ' + Math.round(100 * d.loaded / (d.total || 1)) + '%');
+      else if(d.type === 'piece') recLabel(s.btn, 'Writing ' + Math.round(100 * d.i / d.n) + '%');
+    });
+    const text = String(r.text || '').trim();
+    if(!text){ toast('Nothing could be made out in that recording'); return; }
+    // the box talked into, or Capture if that box has gone from the screen
+    const shown = s.box.isConnected && s.box.closest('.scr.on, dialog[open]');
+    if(shown){
+      const cur = s.box.value.replace(/\s+$/, '');
+      aiSet(s.box, cur + (cur ? (s.box.tagName === 'INPUT' ? ' ' : '\n') : '') + text);
+    } else {
+      CAP.text = (CAP.text || '').replace(/\s+$/, '') + (CAP.text ? '\n' : '') + text;
+      await capSave();
+      if(screen === 'capture') $('capText').value = CAP.text;
+    }
+    toast(recClock(secs) + ' of speech written out in ' + recClock((Date.now() - t0) / 1000) + (shown ? '' : '. It is in Capture'));
+    if(!shown || !s.after) return;
+    const why = aiBlocked();
+    if(why){ toast('Your words are in the box. ' + why); return; }
+    s.after();
+  } catch(e){
+    console.warn('speech', e);
+    if(confirm('Writing out the recording did not work: ' + spWhy(e) + '.\n\nSave the recording to this phone, so it is not lost?')) recSave(blob);
+  } finally {
+    recBusy--;
+    recLabel(s.btn, '');
+  }
+}
+function recSave(blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'recording-' + iso(new Date()) + (/mp4/.test(blob.type) ? '.m4a' : '.webm');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+// Settings: Talking into the app
+async function talkCached(){
+  try {
+    const c = await caches.open('transformers-cache');
+    const keys = await c.keys(), id = TALK_MODELS[talkModel()].id;
+    return keys.some(k => k.url.includes(id));
+  } catch(_){ return false; }
+}
+async function renderTalk(){
+  const m = talkMode();
+  $('talkMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === m));
+  $('talkModel').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === talkModel()));
+  $('talkRec').hidden = m !== 'record';
+  $('sumTalk').textContent = m === 'record' ? 'Record, then write it out (trial)' : 'Live';
+  if(m !== 'record') return;
+  const have = await talkCached();
+  if(!talkGetting) $('talkStat').textContent = have ? 'Downloaded: recordings are written out on this phone, with or without signal.'
+    : 'Not downloaded yet (' + TALK_MODELS[talkModel()].size + '). It downloads the first time you record, or now, on Wi-Fi.';
+  $('talkGet').hidden = have;
+}
+let talkGetting = false;
+async function talkGet(){
+  if(talkGetting) return;
+  if(!navigator.onLine){ toast('This needs signal, best on Wi-Fi'); return; }
+  talkGetting = true; $('talkGet').disabled = true;
+  try {
+    await spAsk({cmd: 'load', model: TALK_MODELS[talkModel()].id}, d => {
+      if(d.type === 'download') $('talkStat').textContent = 'Downloading ' + Math.round(d.loaded / 1e6) + ' of ' + Math.round(d.total / 1e6) + ' MB' + String.fromCharCode(8230);
+    });
+    toast('The speech model is on this phone');
+  } catch(e){ $('talkStat').textContent = 'The download did not finish: ' + spWhy(e) + '.'; talkGetting = false; $('talkGet').disabled = false; return; }
+  talkGetting = false; $('talkGet').disabled = false;
+  renderTalk();
+}
+$('talkMode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  try { localStorage.setItem(LS('talkMode'), b.dataset.v); } catch(_){}
+  renderTalk();
+}));
+$('talkModel').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  try { localStorage.setItem(LS('talkModel'), b.dataset.v); } catch(_){}
+  renderTalk();
+}));
+$('talkGet').addEventListener('click', () => talkGet().catch(reportErr));
+$('sxTalk').addEventListener('toggle', () => { if($('sxTalk').open) renderTalk().catch(reportErr); });
+renderTalk().catch(() => {});
 /* v127: the Blue Sheet's free-text boxes, on the map's panel, the Blue
    Sheet itself and Details. They are drawn in code, so the containers are
    watched: every box marked data-talk gets a microphone beside it, and
@@ -20759,6 +20978,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v166', 'A trial: in Settings, Talking into the app, choose Record, then write it out. Every microphone then records for as long as you talk, with no beeps, and writes it out on the phone itself when you tap Finish.'],
   ['v165', 'Capture, at the top of Home: tap it and talk. Tasks, phone calls, site visits and notes come back as cards to check; Add all puts them on the calendar. A note is held for the customer and goes into your next call there.'],
   ['v164', 'Left: one tap on a contact, on the account, in the Directory, or when you choose who is on a call. They stay listed with a line through, can no longer be picked, and go on the CAG list. Not left undoes it; Joined another company moves them. Marked during a call, they show in its notes as a red line. Manuals opened from a call show their pages again.'],
   ['v163', 'Download to Outlook puts visits in as your own appointments, with nobody invited, so moving or cancelling one in Outlook never emails a customer. The people to see are listed in the notes. Placeholder only is gone: every visit is like that now.'],

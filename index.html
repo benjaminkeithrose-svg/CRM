@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v165">
+<meta name="build" content="v166">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -2026,6 +2026,22 @@ details.bsx > .msg{margin:8px 12px}
   </details>
 
 
+  <!-- v166: how the microphones listen - live, or record and write it out on the phone (a trial) -->
+  <details class="sx" id="sxTalk">
+    <summary><b>Talking into the app</b><span class="sxs" id="sumTalk"></span></summary>
+  <div class="fld">
+    <div class="seg" id="talkMode" role="group" aria-label="How the microphones listen"><button type="button" data-v="live">Live</button><button type="button" data-v="record">Record, then write it out</button></div>
+    <p class="hint"><b>Live</b> writes as you speak, using the phone's own speech service; it stops when you pause. <b>Record, then write it out</b> is a trial: it records for as long as you talk, with no beeps, and writes it out on this phone when you tap Finish. Nothing said leaves the phone.</p>
+    <div id="talkRec" hidden>
+      <div class="gap"></div>
+      <label>Speech model</label>
+      <div class="seg" id="talkModel" role="group" aria-label="Speech model"><button type="button" data-v="better">Better, about 80 MB</button><button type="button" data-v="quick">Quicker, about 40 MB</button></div>
+      <p class="stat" id="talkStat"></p>
+      <button type="button" class="btn act2" id="talkGet">Download it now</button>
+    </div>
+  </div>
+  </details>
+
   <!-- v107: a plain button, not a section to open. Ben, 2026-10-10. -->
   <div class="fld setbtn" id="sxVer">
     <button class="ghost" id="upBtn" type="button">Get the latest version</button>
@@ -2259,6 +2275,22 @@ details.bsx > .msg{margin:8px 12px}
       <p>The customer and the person are found in your CRM list on the phone. If only a person is named, the customer is found from them and marked as an estimate. A card that is missing something says what, for example "No date: tap to set" or that a customer is not in your list. Only the cards that are ready are added; the rest wait for you.</p>
       <p>Tasks, phone calls and site visits go on the calendar. A note is held for its customer, listed under <b>Held for your next call</b>, and goes into the notes of the next call you start there.</p>
       <p>Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day. Only the words you said and today's date go to Anthropic; your customer list does not. If there is no signal, your words stay in the box. Leaving Capture keeps the words and the cards, on your phone and your PC.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Talk for minutes at a time, with no beeps</b><span class="sxs">A trial: record, then write it out on the phone</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>.</li>
+        <li>Open <b>Talking into the app</b>.</li>
+        <li>Tap <b>Record, then write it out</b>.</li>
+        <li>On Wi-Fi, tap <b>Download it now</b>. Wait until it says Downloaded.</li>
+        <li>Tap any microphone in the app, for example on Capture, and talk. Pauses do not stop it.</li>
+        <li>Tap <b>Finish</b>. The words appear in the box, then Tidy or Sort it follows as usual.</li>
+      </ol>
+      <p>The recording is written out on the phone itself. Nothing said leaves the phone, and it works with no signal once the model is downloaded. It records for up to 10 minutes, and the screen stays on while it does. Writing out takes a while; the button shows how far it has got, and the message after says how long the speech was and how long it took.</p>
+      <p><b>Better</b> is the larger model (about 80 MB): more accurate, slower. <b>Quicker</b> is about 40 MB. If you leave the screen while it is writing out, the words go into Capture instead. If it fails, you are offered to save the recording as a file, so nothing said is lost.</p>
+      <p>To go back to the way it was, set Talking into the app to <b>Live</b>.</p>
     </div>
   </details>
   <details class="sx hx">
