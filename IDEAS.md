@@ -1143,4 +1143,19 @@ and anything it cannot place said so.
 
 ---
 
+## Idea: record a conversation, and have the notes made from it
+*Banked 2026-10-20, not built*
+
+Ben: a media record function in a call: record the conversation (or his
+debrief after it), then use AI to sort the notes out and attach them to the
+call. Needs the same speech-to-text service as long dictation (Claude's API
+takes text, pictures and PDFs, not audio), then Claude turns the transcript
+into the call's notes, projects and follow-ups, as Capture does. To settle
+when built: whether the audio is kept on the call (it would sync encrypted,
+like photos, and is large) or deleted once transcribed; Intralox's policy on
+recordings; and customer consent, since recording law differs between
+states and New Zealand.
+
+---
+
 <!-- Add new ideas above this line. -->
