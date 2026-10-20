@@ -996,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v167';
+const APP_BUILD = 'v168';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -18167,7 +18167,7 @@ function micLabel(btn, state){
   btn.classList.toggle('paused', state === 'paused');
   btn.setAttribute('aria-pressed', state === 'off' ? 'false' : 'true');
   btn.setAttribute('aria-label', state === 'on' ? 'Finish talking' : state === 'paused' ? 'Carry on talking' : 'Talk into this box');
-  btn.innerHTML = icon('mic') + (state === 'on' ? '<span>Finish</span>' : state === 'paused' ? '<span>Continue</span>' : '');
+  btn.innerHTML = icon('mic') + (state === 'on' ? '<span>' + (btn.id === 'fab' ? 'Listening' : 'Finish') + '</span>' : state === 'paused' ? '<span>Continue</span>' : '');
   const fin = btn.nextElementSibling && btn.nextElementSibling.classList.contains('micfin') ? btn.nextElementSibling : null;
   if(state === 'paused' && !fin){
     const f = document.createElement('button');
@@ -18238,6 +18238,10 @@ function micEnd(s){
   micSession = null;
   micLabel(s.btn, 'off');
   if(s.heard) aiSet(s.box, s.box.value);  // saved like typing
+  if(s.btn.id === 'fab'){                 // v168: the floating microphone talks into Capture
+    toast(s.failed ? (MIC_ERR[s.failed] || 'The microphone could not start') : s.heard ? 'In Capture, ready to sort' : 'Nothing was heard');
+    return;
+  }
   if(!s.after) return;                    // abandoned: the screen moved on
   if(s.failed === 'start'){ toast('The microphone could not start: ' + s.startErr); return; }
   if(s.failed){ toast(MIC_ERR[s.failed] + (s.heard ? '. Your words so far are in the box' : '')); return; }
@@ -18252,6 +18256,7 @@ function micAfter(btn, id){
     : btn.dataset.after === 'setup' ? () => osRead().catch(reportErr)          // v127: a description sets the map up
     : btn.dataset.after === 'setupnew' ? () => odSetup()
     : btn.dataset.after === 'capture' ? () => captureSort().catch(reportErr)    // v165: finishing sorts it
+    : btn.dataset.after === 'none' ? null                                       // v168: the floating microphone; sorted later
     : () => aiTidy(id, btn.dataset.field || 'note').catch(reportErr);
 }
 function micStart(btn){
@@ -18269,7 +18274,7 @@ function micStart(btn){
     kept: '', run: '', heard: false, failed: '', ending: false, paused: false, pressing: false, quick: 0, lastHeard: Date.now(),
     after: micAfter(btn, id)};
   micRun(micSession);
-  if(micSession && !micSession.paused) toast('Listening. Tap Finish when you are done');
+  if(micSession && !micSession.paused) toast(btn.id === 'fab' ? 'Listening. Let go when you have finished' : 'Listening. Tap Finish when you are done');
 }
 /* Tap: on, then Finish. Hold: talk while pressed, let go to finish. Pointer
    events carry both; the click that follows a press is ignored (a touch tap's
@@ -18430,7 +18435,6 @@ function recLabel(btn, txt){
 async function recStart(btn){
   const box = $(btn.dataset.mic);
   if(!box || micSession) return;
-  if(recBusy){ toast('Still writing out the last recording. One moment'); return; }
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){ toast('This browser cannot record. Set Talking back to Live in Settings'); return; }
   const s = micSession = {btn, box, recording: true, chunks: [], started: Date.now(), ending: false, pressing: false,
     after: micAfter(btn, btn.dataset.mic)};
@@ -18453,11 +18457,11 @@ async function recStart(btn){
   try { if(navigator.wakeLock) s.lock = await navigator.wakeLock.request('screen'); } catch(_){}
   s.tick = setInterval(() => {
     const sec = (Date.now() - s.started) / 1000;
-    recLabel(btn, 'Finish ' + recClock(sec));
+    recLabel(btn, (btn.id === 'fab' ? 'Recording ' : 'Finish ') + recClock(sec));
     if(sec >= REC_MAX_S){ toast('That is ' + REC_MAX_S / 60 + ' minutes: writing it out now'); recStop(s); }
   }, 1000);
-  recLabel(btn, 'Finish 0:00');
-  toast('Recording. Talk as long as you like, then tap Finish');
+  recLabel(btn, btn.id === 'fab' ? 'Recording 0:00' : 'Finish 0:00');
+  toast(btn.id === 'fab' ? 'Recording. Let go when you have finished' : 'Recording. Talk as long as you like, then tap Finish');
 }
 function recStop(s){
   if(s.ending) return;
@@ -18528,6 +18532,7 @@ async function renderTalk(){
   $('talkMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === m));
   $('talkModel').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === talkModel()));
   $('talkRec').hidden = m !== 'record';
+  if(typeof fabShow === 'function') fabShow();
   $('sumTalk').textContent = m === 'record' ? 'Record, then write it out (trial)' : 'Live';
   if(m !== 'record') return;
   const have = await talkCached();
@@ -18558,6 +18563,77 @@ $('talkModel').querySelectorAll('button').forEach(b => b.addEventListener('click
   renderTalk();
 }));
 $('talkGet').addEventListener('click', () => talkGet().catch(reportErr));
+/* ---------- the floating microphone (v168) ----------
+   Ben, 2026-10-20: "make the microphone button small and floating so I can
+   position it where is most comfortable. It needs to record and then stop
+   when I take my finger off ... It doesn't go away from the current page."
+   On every screen: hold it still to talk (it starts after a moment, with a
+   buzz), let go to stop; drag it to move it, and it stays where it was put.
+   It follows Talking into the app (Live, or Record, then write it out), and
+   the words go into Capture's box, to be sorted there later. */
+const fab = $('fab');
+let fabPos = null, fabDown = null;
+try { fabPos = JSON.parse(localStorage.getItem(LS('fabPos')) || 'null'); } catch(_){ fabPos = null; }
+function fabApply(){
+  const W = window.innerWidth || 412, H = window.innerHeight || 800, S = 52;
+  let x = fabPos ? fabPos.x * W : W - S - 16, y = fabPos ? fabPos.y * H : H - S - 96;
+  x = Math.min(Math.max(8, x), W - S - 8); y = Math.min(Math.max(8, y), H - S - 8);
+  fab.style.left = x + 'px'; fab.style.top = y + 'px';
+  fab.classList.toggle('left', x < W / 2);          // its label shows on the side with room
+}
+function fabShow(){ fab.hidden = !(talkMode() === 'record' ? !!window.MediaRecorder : !!SPEECH); }
+const fabBuzz = p => { try { if(navigator.vibrate) navigator.vibrate(p); } catch(_){} };
+function fabRecord(){
+  if(micSession){ toast('Another microphone is on'); return; }
+  // Capture's box takes the words: bring it up to date first, so nothing waiting there is written over
+  if(screen !== 'capture') $('capText').value = CAP.text || '';
+  fabBuzz(30);
+  micStart(fab);
+  if(micSession && micSession.btn === fab) micSession.pressing = true;     // live: listen through pauses while held
+}
+function fabStop(){
+  const s = micSession;
+  if(!s || s.btn !== fab) return;
+  fabBuzz([20, 40, 20]);
+  s.pressing = false;
+  micFinish();
+}
+fab.innerHTML = icon('mic');
+fab.addEventListener('contextmenu', e => e.preventDefault());
+fab.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  try { fab.setPointerCapture(e.pointerId); } catch(_){}
+  // held still for a moment: talking; moved first: dragging it somewhere else
+  fabDown = {x: e.clientX, y: e.clientY, dx: e.clientX - parseFloat(fab.style.left), dy: e.clientY - parseFloat(fab.style.top), mode: '',
+    t: setTimeout(() => { if(fabDown && !fabDown.mode){ fabDown.mode = 'rec'; fabRecord(); } }, 200)};
+});
+fab.addEventListener('pointermove', e => {
+  const d = fabDown; if(!d) return;
+  if(!d.mode && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10){ clearTimeout(d.t); d.mode = 'drag'; fab.classList.add('drag'); }
+  if(d.mode === 'drag'){ fab.style.left = (e.clientX - d.dx) + 'px'; fab.style.top = (e.clientY - d.dy) + 'px'; }
+});
+function fabUp(){
+  const d = fabDown; fabDown = null;
+  if(!d) return;
+  clearTimeout(d.t);
+  if(d.mode === 'drag'){
+    fab.classList.remove('drag');
+    fabPos = {x: parseFloat(fab.style.left) / (window.innerWidth || 412), y: parseFloat(fab.style.top) / (window.innerHeight || 800)};
+    try { localStorage.setItem(LS('fabPos'), JSON.stringify(fabPos)); } catch(_){}
+    fabApply();
+    return;
+  }
+  if(d.mode === 'rec'){ fabStop(); return; }
+  toast('Hold the microphone while you talk. Drag it to move it');
+}
+fab.addEventListener('pointerup', fabUp);
+fab.addEventListener('pointercancel', fabUp);
+// a keyboard: hold Space or Enter
+fab.addEventListener('keydown', e => { if((e.key === ' ' || e.key === 'Enter') && !e.repeat){ e.preventDefault(); fabRecord(); } });
+fab.addEventListener('keyup', e => { if(e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); fabStop(); } });
+window.addEventListener('resize', fabApply);
+fabApply(); fabShow();
+
 $('sxTalk').addEventListener('toggle', () => { if($('sxTalk').open) renderTalk().catch(reportErr); });
 renderTalk().catch(() => {});
 /* v127: the Blue Sheet's free-text boxes, on the map's panel, the Blue
@@ -18616,8 +18692,15 @@ async function capLoad(){
   if(r) CAP = r;
   CAP.items = CAP.items || [];
   CAP_HELD = all.filter(t => t.kind === 'capnote').sort((a, b) => (a.at || 0) - (b.at || 0));
+  capHint();
 }
-async function capSave(){ clearTimeout(capTimer); capTimer = null; CAP.updated = Date.now(); await tasksPut(CAP); }
+async function capSave(){ clearTimeout(capTimer); capTimer = null; CAP.updated = Date.now(); await tasksPut(CAP); capHint(); }
+// Home's Capture button says when words or cards are waiting to be sorted (v168)
+function capHint(){
+  const el = $('homeCap') && $('homeCap').querySelector('small'); if(!el) return;
+  const words = !!(CAP.text || '').trim(), cards = (CAP.items || []).length;
+  el.textContent = words ? 'Words waiting: tap to sort them' : cards ? cards + (cards === 1 ? ' card' : ' cards') + ' to check' : 'Talk or type a task, call, visit or note';
+}
 // the person, among the customer's contacts still there: the full name, or one first name that fits
 function capContact(acct, person){
   const a = ACC_BY_NAME.get(acct), k = pKey(person);
@@ -21011,6 +21094,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v168', 'A floating microphone on every screen: hold it to talk, let go to stop, and the words go into Capture while you stay where you are. Drag it to wherever suits your thumb.'],
   ['v167', 'Recording trial: your pauses are cut out before it is written out, so what you say after a pause is no longer lost. A third speech model, Most accurate (about 250 MB), for accents.'],
   ['v166', 'A trial: in Settings, Talking into the app, choose Record, then write it out. Every microphone then records for as long as you talk, with no beeps, and writes it out on the phone itself when you tap Finish.'],
   ['v165', 'Capture, at the top of Home: tap it and talk. Tasks, phone calls, site visits and notes come back as cards to check; Add all puts them on the calendar. A note is held for the customer and goes into your next call there.'],

@@ -1116,8 +1116,8 @@ next call there (his choice). Stored in the private tasks store by `kind`.
 
 ---
 
-## Idea: a Capture button on every screen of the phone
-*Banked 2026-10-20, not built*
+## Built (v168): a Capture button on every screen of the phone
+*Banked 2026-10-20; built 2026-10-20 as the floating microphone: hold to talk, let go to stop, drag to move, words into Capture without leaving the screen*
 
 Ben: a button always at the bottom of the screen on the phone, bottom right
 under the thumb, so from any screen he can press it and talk straight in,
