@@ -138,6 +138,17 @@ Tasks, phone calls and site visits go on the calendar. A note is held for its cu
 
 Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day. Only the words you said and today's date go to Anthropic; your customer list does not. If there is no signal, your words stay in the box. Leaving Capture keeps the words and the cards, on your phone and your PC.
 
+### Record a note from any screen
+
+1. Press and hold the round microphone button. After a moment it buzzes and starts recording.
+2. Talk.
+3. Let go. It stops, and the words go into Capture. You stay on the screen you were on.
+4. When you are ready, tap **Capture** on Home and tap **Sort it**.
+
+To move the button, put your finger on it and drag it straight away. It stays where you leave it. A quick tap does nothing.
+
+It listens the way Talking into the app is set in Settings: **Live**, or **Record, then write it out**. Several notes in a row go into Capture one after another. Home's Capture button says when words are waiting to be sorted.
+
 ### Talk for minutes at a time, with no beeps
 
 1. Tap **⋯** on Home, then **Settings**.

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v167">
+<meta name="build" content="v168">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -897,6 +897,17 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .ownpick input{flex:1;min-width:0}
 .cagg>b{display:block;font-size:13px;margin:0 0 6px}
 .tag.moved{background:var(--sunk);color:var(--ink-2)}
+/* v168: the floating microphone */
+.fab{position:fixed;z-index:40;width:52px;height:52px;padding:0;border:0;border-radius:50%;background:var(--act);color:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(34,34,34,.3);cursor:grab;
+  touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.fab[hidden]{display:none}
+.fab .ic{width:24px;height:24px}
+.fab.on{background:var(--cyan-dk);box-shadow:0 0 0 7px rgba(0,153,204,.28),0 2px 8px rgba(34,34,34,.3)}
+.fab.drag{opacity:.75;cursor:grabbing}
+.fab span{position:absolute;right:60px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#333;color:#fff;
+  font-size:12.5px;font-weight:600;padding:5px 9px;border-radius:12px;pointer-events:none}
+.fab.left span{right:auto;left:60px}
 /* v165: Capture */
 .capbtn{display:flex;align-items:center;gap:12px;width:100%;margin:0 0 12px;padding:14px 16px;min-height:64px;border:0;border-radius:var(--r);
   background:var(--act);color:#fff;text-align:left;cursor:pointer;font:inherit}
@@ -2275,6 +2286,19 @@ details.bsx > .msg{margin:8px 12px}
       <p>The customer and the person are found in your CRM list on the phone. If only a person is named, the customer is found from them and marked as an estimate. A card that is missing something says what, for example "No date: tap to set" or that a customer is not in your list. Only the cards that are ready are added; the rest wait for you.</p>
       <p>Tasks, phone calls and site visits go on the calendar. A note is held for its customer, listed under <b>Held for your next call</b>, and goes into the notes of the next call you start there.</p>
       <p>Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day. Only the words you said and today's date go to Anthropic; your customer list does not. If there is no signal, your words stay in the box. Leaving Capture keeps the words and the cards, on your phone and your PC.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Record a note from any screen</b><span class="sxs">The floating microphone</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Press and hold the round microphone button. After a moment it buzzes and starts recording.</li>
+        <li>Talk.</li>
+        <li>Let go. It stops, and the words go into Capture. You stay on the screen you were on.</li>
+        <li>When you are ready, tap <b>Capture</b> on Home and tap <b>Sort it</b>.</li>
+      </ol>
+      <p>To move the button, put your finger on it and drag it straight away. It stays where you leave it. A quick tap does nothing.</p>
+      <p>It listens the way Talking into the app is set in Settings: <b>Live</b>, or <b>Record, then write it out</b>. Several notes in a row go into Capture one after another. Home's Capture button says when words are waiting to be sorted.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -4794,6 +4818,8 @@ details.bsx > .msg{margin:8px 12px}
 <input type="file" id="entGalIn" accept="image/*" multiple style="display:none">
 <input type="file" id="camInput" accept="image/*" capture="environment" multiple style="display:none">
 <input type="file" id="galInput" accept="image/*" multiple style="display:none">
+<!-- v168: the floating microphone, on every screen: hold to talk into Capture, drag to move -->
+<button type="button" class="fab" id="fab" data-mic="capText" data-after="none" aria-label="Hold to talk into Capture. Drag to move" hidden></button>
 <div class="toast" id="toast"></div>
 
 <script src="xlsx-0.18.5.full.min.js"></script>
