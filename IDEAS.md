@@ -1158,4 +1158,23 @@ states and New Zealand.
 
 ---
 
+## Built (v166, a trial): record, then write it out on the phone
+*Asked and built 2026-10-20*
+
+Ben: much longer dictation, 2 or 3 minutes at a stretch, without the beeps.
+Claude's API takes no audio, so the choice was an outside speech-to-text
+service (his IT's call, pending) or Whisper on the phone; he chose to try the
+phone first. Settings, Talking into the app: Record, then write it out.
+Every microphone records (MediaRecorder, up to 10 minutes, screen kept on),
+cuts at quiet moments and runs Whisper base.en or tiny.en in a worker
+(transformers.js 3.8.1 shipped in speech/). Nothing said leaves the phone.
+
+- **To judge on the phone:** how long writing out takes, and how accurate it
+  is on names and belt terms. If either is not good enough, swap the
+  writing-out step for the service IT picks; the recording side stays.
+- **Not tested here:** Whisper itself. The model host was blocked from the
+  build machine, so only the recording, the cutting and the worker were run.
+
+---
+
 <!-- Add new ideas above this line. -->

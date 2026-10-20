@@ -3,18 +3,24 @@
    so this must never collide with the Belt Call Log's 'beltcall-' caches.
    Bump the version on EVERY change to any file listed below, or the old
    build is what gets tested. */
-const CACHE = 'fieldcrm-v165';
+const CACHE = 'fieldcrm-v166';
 
 /* The share target posts here. A separate cache, deliberately not versioned:
    activate() deletes every other fieldcrm- cache when the version changes, and
    a file shared seconds before an update must not be thrown away with them. */
 const SHARE_CACHE = 'fieldcrm-share';
+
+/* v166: the speech engine (speech/, about 22 MB) is fetched only when a
+   recording is first written out, never at install, and kept in a cache of
+   its own named for the library's version, so an app update does not throw
+   it away and fetch it again. Only a new library version replaces it. */
+const SPEECH_CACHE = 'fieldcrm-speech-3.8.1';
 const SHARE_KEY = './shared-file';
 
 // Local files first. If one of these fails the app still installs, but note the warning.
 const ASSETS = [
   './', './index.html', './app.js', './zones.js', './manuals.js', './healthlib.js', './forms.js',
-  './health-seed.json', './manifest.webmanifest', './supabase-2.117.1.js',
+  './health-seed.json', './manifest.webmanifest', './supabase-2.117.1.js', './speech-worker.js',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', './favicon-32.png',
   // SheetJS ships with the app since v93 (it came from jsDelivr, so a first
   // load that missed it left imports broken until the CDN was reached again)
@@ -36,7 +42,7 @@ self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys =>
     // this app's own versioned caches only, never the share hand-off
     Promise.all(keys
-      .filter(k => k.startsWith('fieldcrm-') && k !== CACHE && k !== SHARE_CACHE)
+      .filter(k => k.startsWith('fieldcrm-') && k !== CACHE && k !== SHARE_CACHE && k !== SPEECH_CACHE)
       .map(k => caches.delete(k)))
   ).then(() => self.clients.claim()));
 });
@@ -122,6 +128,13 @@ self.addEventListener('fetch', e => {
   if (url.origin !== self.location.origin && !ASSETS.includes(e.request.url)) return;
   // asked for fresh on purpose (the daily version check): straight to the network
   if (e.request.cache === 'no-store') return;
+  if (url.origin === self.location.origin && url.pathname.includes('/speech/')) {
+    e.respondWith(caches.open(SPEECH_CACHE).then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(res => {
+      if (res.ok) c.put(e.request, res.clone()).catch(() => {});
+      return res;
+    }))).catch(() => Response.error()));
+    return;
+  }
   // ?shared=1 must still match the cached index.html when offline
   const opts = e.request.mode === 'navigate' ? { ignoreSearch: true } : undefined;
   e.respondWith(
