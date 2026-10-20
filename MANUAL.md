@@ -122,6 +122,22 @@ It goes on the evaluation forms you fill in. It is never used to invite anyone: 
 
 ## How do I…
 
+### Capture tasks, calls and notes by talking
+
+1. Tap **Capture** at the top of Home. The microphone starts listening.
+2. Say everything in one go. For example: "Task for Sam at Example Foods, send the belt survey, due Friday. Phone call with Sam next Tuesday at 10 about the trial. Note for Example Foods, line 3 is down in December."
+3. Tap **Finish**. The cards appear: one for each task, phone call, site visit or note.
+4. Check each card. Tap one to correct it, then tap **Done**.
+5. Tap **Add all**.
+
+Starting a piece with "task", "call", "visit" or "note" makes sure it becomes that. Days like "Friday" or "next Tuesday at 10" are worked out from today. A time you did not say is filled in as an **estimate**; tap the card to set it. You can type instead of talking, then tap **Sort it**.
+
+The customer and the person are found in your CRM list on the phone. If only a person is named, the customer is found from them and marked as an estimate. A card that is missing something says what, for example "No date: tap to set" or that a customer is not in your list. Only the cards that are ready are added; the rest wait for you.
+
+Tasks, phone calls and site visits go on the calendar. A note is held for its customer, listed under **Held for your next call**, and goes into the notes of the next call you start there.
+
+Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day. Only the words you said and today's date go to Anthropic; your customer list does not. If there is no signal, your words stay in the box. Leaving Capture keeps the words and the cards, on your phone and your PC.
+
 ### Plan a week
 
 1. Tap **Plan** on Home.
