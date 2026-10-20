@@ -1067,4 +1067,16 @@ The week's territory marker moved up beside the Zone picker as one Add button.
 
 ---
 
+## Built (v163): Outlook gets plain appointments, nobody invited
+*Asked and built 2026-10-19*
+
+Ben: visits downloaded to Outlook carried the ticked contacts as invitees,
+and cancelling one sent the customers a cancellation. The calendar file now
+has no organiser and no attendees, ever; the contacts are listed in the notes.
+Placeholder only went, since every visit is like that now. Your email in
+Settings stays for evaluation forms. Appointments already in Outlook keep their
+attendees: choose Don't send when Outlook asks.
+
+---
+
 <!-- Add new ideas above this line. -->

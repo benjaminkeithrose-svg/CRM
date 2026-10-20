@@ -105,7 +105,7 @@ After that it runs by itself: when the app opens, when you come back to it, when
 1. Tap **⋯** on Home, then **Settings**, then **Your details**.
 2. Type your email address.
 
-Outlook uses it as the organiser on the invites. Without it, the people you invite are left off.
+It goes on the evaluation forms you fill in. It is never used to invite anyone: visits go to Outlook as appointments with nobody invited.
 
 ### 7. Do your first call
 
@@ -144,7 +144,9 @@ Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. 
 
 Only visits that changed since last time are in the file, and downloading again updates Outlook rather than adding a second copy. The colour on a visit: blue is not in Outlook yet, green is in Outlook, orange has changed since. Download again.
 
-Your tasks with a date go in the same file, as appointments at their time. They have no invitees, so Outlook sends nothing, and they carry the category "Field CRM task". Ticking a task done in the app does not change Outlook.
+Nobody is invited. Each visit goes in as an appointment for you alone, with the people ticked under **Who to see** listed in its notes. Moving or deleting it in Outlook never emails a customer. To invite someone, open the appointment in Outlook, add them, and press Send.
+
+Your tasks with a date go in the same file, as appointments at their time. They carry the category "Field CRM task". Ticking a task done in the app does not change Outlook.
 
 ### See my week on the phone
 
