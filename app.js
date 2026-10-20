@@ -20489,7 +20489,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
-  ['v164', 'Left: one tap on a contact, on the account, in the Directory, or when you choose who is on a call. They stay listed with a line through, can no longer be picked, and go on the CAG list. Not left undoes it; Joined another company moves them. Marked during a call, they show in its notes as a red line.'],
+  ['v164', 'Left: one tap on a contact, on the account, in the Directory, or when you choose who is on a call. They stay listed with a line through, can no longer be picked, and go on the CAG list. Not left undoes it; Joined another company moves them. Marked during a call, they show in its notes as a red line. Manuals opened from a call show their pages again.'],
   ['v163', 'Download to Outlook puts visits in as your own appointments, with nobody invited, so moving or cancelling one in Outlook never emails a customer. The people to see are listed in the notes. Placeholder only is gone: every visit is like that now.'],
   ['v162', 'Plan on the PC: Search the whole account book now types in the side list, and the tiles change as you type, so you can still drag them onto the calendar. Under the zone, Add marks it as the week\u2019s territory. Dated tasks go to Outlook as appointments with the visits.'],
   ['v161', 'Evaluation forms in a call: tap ⋯ beside Create and share. The freezing and chilling tunnel evaluation is first; the call fills who and where, conveyors copy from logged belts, and Create and share has Evaluation only.'],

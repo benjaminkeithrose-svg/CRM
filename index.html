@@ -495,7 +495,8 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .sec{margin-bottom:10px}
 .linkbtn{background:none;border:none;color:var(--link);font-size:13px;font-weight:700;
   padding:10px 2px;text-align:left;text-decoration:underline;cursor:pointer}
-.mview{position:fixed;inset:0;z-index:50;background:var(--surface);flex-direction:column;display:none}
+/* above the Manuals screen opened from a call (.manov, 55), or the pages open out of sight (fixed v164) */
+.mview{position:fixed;inset:0;z-index:58;background:var(--surface);flex-direction:column;display:none}
 .mview.on{display:flex}
 .mview .mvtop{display:flex;align-items:center;gap:11px;padding:9px 14px;
   border-bottom:3px solid var(--red);flex:none}
