@@ -51,19 +51,25 @@ w.eval(`toast = m => { window.__t = m; }`);
 ok($('sxTalk') && /Live/.test($('sumTalk').textContent) && $('talkRec').hidden, 'Settings has Talking into the app, Live to start with');
 $('talkMode').querySelector('[data-v="record"]').click(); await tick(80);
 ok(g(`talkMode()`) === 'record' && !$('talkRec').hidden && $('talkMode').querySelector('[data-v="record"]').classList.contains('on'), 'Record, then write it out: switched on, with the model choice');
-ok(/Not downloaded yet \(about 80 MB\)/.test($('talkStat').textContent) && !$('talkGet').hidden, 'it says the model is not downloaded yet, and offers to download it');
+ok($('talkModel').querySelectorAll('button').length === 3 && /Not downloaded yet \(about 80 MB\)/.test($('talkStat').textContent) && !$('talkGet').hidden, 'it says the model is not downloaded yet, and offers to download it');
 $('talkModel').querySelector('[data-v="quick"]').click(); await tick(80);
 ok(g(`TALK_MODELS[talkModel()].id`) === 'Xenova/whisper-tiny.en' && /about 40 MB/.test($('talkStat').textContent), 'Quicker picks the small model');
+$('talkModel').querySelector('[data-v="best"]').click(); await tick(80);
+ok(g(`TALK_MODELS[talkModel()].id`) === 'Xenova/whisper-small.en' && /about 250 MB/.test($('talkStat').textContent), 'Most accurate picks the largest model');
 $('talkModel').querySelector('[data-v="better"]').click(); await tick(50);
 
-// ---- where the cuts fall: quiet moments, never a word cut in half; silence left out
+// ---- v167: pauses cut out before writing out (Whisper stopped at them); long talking cut at quiet moments
 const R = 16000;
 const make = (secs, quiet) => { const p = new w.Float32Array(secs * R); for (let i = 0; i < p.length; i++) { const t = i / R; p[i] = quiet.some(([a, b]) => t >= a && t < b) ? 0.001 * Math.sin(i) : 0.3 * Math.sin(i / 7); } return p; };
-const pcm = make(70, [[24, 24.6], [51, 51.5], [66, 70]]);
-const pieces = g(`recPieces`)(pcm);
-const lens = [...pieces].map(p => p.length / R);
-ok(pieces.length === 3 && Math.abs(lens[0] - 24.3) < 0.4 && Math.abs(lens[1] - 27) < 0.6, 'a 70 s recording is cut at its quiet moments: ' + lens.map(x => x.toFixed(1)).join(', '));
-ok(lens.every(x => x <= 30), 'every piece is under 30 seconds, which is what Whisper hears');
+const secsOf = ps => [...ps].map(p => p.length / R);
+let ps = g(`recPieces`)(make(25, [[10, 15]]));
+ok(ps.length === 1 && Math.abs(secsOf(ps)[0] - 20.9) < 0.3, 'a 5 s pause to think is cut out: 20 s of talking becomes one piece of ' + secsOf(ps)[0].toFixed(1) + ' s');
+ps = g(`recPieces`)(make(70, [[24, 24.6], [51, 51.5], [66, 70]]));
+ok(ps.length === 3 && secsOf(ps).every(x => x <= 28.01) && Math.abs(secsOf(ps)[0] - 24.3) < 0.5, 'a long stretch of talking is cut at its quiet moments: ' + secsOf(ps).map(x => x.toFixed(1)).join(', '));
+ps = g(`recPieces`)(make(70, []));
+ok(ps.length === 3 && secsOf(ps).every(x => x <= 28.01) && Math.abs(secsOf(ps).reduce((a, b) => a + b, 0) - 70) < 0.5, 'non-stop talking is cut into pieces of up to 28 s, nothing lost: ' + secsOf(ps).map(x => x.toFixed(1)).join(', '));
+ps = g(`recPieces`)(make(60, [[0, 3], [8, 30], [36, 60]]));
+ok(ps.length === 1 && Math.abs(secsOf(ps)[0] - 12.5) < 0.3, 'two short bursts with long silences around them are joined into one piece: ' + secsOf(ps)[0].toFixed(1) + ' s');
 ok(g(`recPieces`)(make(40, [[0, 40]])).length === 0, 'a recording with nothing said gives nothing to write out');
 
 // ---- record into a box, then the words go in and Sort it follows

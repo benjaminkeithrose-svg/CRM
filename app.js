@@ -996,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v166';
+const APP_BUILD = 'v167';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -18327,9 +18327,10 @@ function micButton(id, field, after){
    before. The text goes into the box talked into, or into Capture if that
    box has gone from the screen meanwhile, so nothing said is lost. */
 const REC_MAX_S = 600;
-const TALK_MODELS = {better: {id: 'Xenova/whisper-base.en', size: 'about 80 MB'}, quick: {id: 'Xenova/whisper-tiny.en', size: 'about 40 MB'}};
+// v167: and the largest that runs on a phone, for accuracy with his accent and names
+const TALK_MODELS = {best: {id: 'Xenova/whisper-small.en', size: 'about 250 MB'}, better: {id: 'Xenova/whisper-base.en', size: 'about 80 MB'}, quick: {id: 'Xenova/whisper-tiny.en', size: 'about 40 MB'}};
 const talkMode = () => { try { return localStorage.getItem(LS('talkMode')) === 'record' ? 'record' : 'live'; } catch(_){ return 'live'; } };
-const talkModel = () => { try { return localStorage.getItem(LS('talkModel')) === 'quick' ? 'quick' : 'better'; } catch(_){ return 'better'; } };
+const talkModel = () => { try { const v = localStorage.getItem(LS('talkModel')); return TALK_MODELS[v] ? v : 'better'; } catch(_){ return 'better'; } };
 let spWorker = null, spSeq = 0, recBusy = 0, REC_LAST = null;
 const spJobs = new Map();
 function spAsk(msg, onEvent){
@@ -18363,27 +18364,59 @@ async function recPcm(blob){
   const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
   return (await off.startRendering()).getChannelData(0);
 }
-/* Whisper hears 30 seconds at a time. Cut at the quietest moment between 20
-   and 29 seconds in, so no word is split, and leave out a piece with nothing
-   said in it: Whisper invents words for silence. */
+/* Whisper hears 30 seconds at a time, and stops writing at a long silence
+   partway through: Ben's first trial (v166) lost what he said after each
+   pause to think. So the silences are cut out first (v167): the speech is
+   found frame by frame against the recording's own background level, kept
+   with a little either side so word edges survive, and joined with a short
+   gap into pieces of up to 28 seconds. A stretch of talking longer than that
+   is cut at its quietest moment, so no word is split. Nothing said: nothing
+   to write out. */
 function recPieces(pcm){
   const R = 16000, F = R / 10, frames = Math.floor(pcm.length / F), rms = new Float32Array(frames);
   for(let f = 0; f < frames; f++){ let s = 0; for(let i = f * F; i < (f + 1) * F; i++) s += pcm[i] * pcm[i]; rms[f] = Math.sqrt(s / F); }
-  const out = [];
-  let start = 0;
-  while(pcm.length - start > 29 * R){
-    const a = Math.floor((start + 20 * R) / F), b = Math.min(frames, Math.floor((start + 29 * R) / F));
-    let best = a;
-    for(let f = a; f < b; f++) if(rms[f] < rms[best]) best = f;
-    const cut = best * F + F / 2;
-    out.push([start, cut]); start = cut;
+  if(!frames) return [];
+  const sorted = Array.from(rms).sort((x, y) => x - y);
+  // above the background (the quietest tenth), but never above a quarter of the talking itself
+  const thr = Math.max(0.008, Math.min(3 * sorted[Math.floor(frames * 0.1)], 0.25 * sorted[Math.floor(frames * 0.9)]));
+  // speech, with 300 ms either side
+  const on = new Uint8Array(frames);
+  for(let f = 0; f < frames; f++) if(rms[f] > thr) for(let k = Math.max(0, f - 3); k <= Math.min(frames - 1, f + 3); k++) on[k] = 1;
+  const runs = [];
+  for(let f = 0; f < frames;){
+    if(!on[f]){ f++; continue; }
+    let e = f; while(e < frames && on[e]) e++;
+    if(e - f >= 3) runs.push([f, e]);            // a click or a knock is not speech
+    f = e;
   }
-  out.push([start, pcm.length]);
-  return out.filter(([s, e]) => {
-    if(e - s < R / 2) return false;
-    for(let f = Math.floor(s / F); f < Math.min(frames, Math.ceil(e / F)); f++) if(rms[f] > 0.01) return true;
-    return false;
-  }).map(([s, e]) => pcm.slice(s, e));
+  // talking for longer than 28 s without a pause: cut at the quietest moment between 20 and 28 s in
+  const segs = [];
+  for(let [f, e] of runs){
+    while(e - f > 280){
+      let best = f + 200;
+      for(let k = f + 200; k < f + 280; k++) if(rms[k] < rms[best]) best = k;
+      segs.push([f, best]); f = best;
+    }
+    segs.push([f, e]);
+  }
+  // join the speech into pieces of up to 28 s, a 300 ms gap where each pause was
+  const GAP = 3, out = [];
+  let cur = [], len = 0;
+  const flush = () => {
+    if(!cur.length) return;
+    const total = cur.reduce((n, [f, e]) => n + (e - f), 0) + GAP * (cur.length - 1);
+    const p = new Float32Array(total * F);
+    let at = 0;
+    cur.forEach(([f, e], i) => { if(i) at += GAP * F; p.set(pcm.subarray(f * F, e * F), at); at += (e - f) * F; });
+    out.push(p); cur = []; len = 0;
+  };
+  for(const [f, e] of segs){
+    if(cur.length && len + GAP + (e - f) > 280) flush();
+    len += (cur.length ? GAP : 0) + (e - f);
+    cur.push([f, e]);
+  }
+  flush();
+  return out;
 }
 // a download that failed says so plainly
 const spWhy = e => { const m = (e && e.message) || String(e); return /fetch|network|load failed/i.test(m) ? 'the speech model could not be downloaded. It needs signal the first time, best on Wi-Fi' : m; };
@@ -20978,6 +21011,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v167', 'Recording trial: your pauses are cut out before it is written out, so what you say after a pause is no longer lost. A third speech model, Most accurate (about 250 MB), for accents.'],
   ['v166', 'A trial: in Settings, Talking into the app, choose Record, then write it out. Every microphone then records for as long as you talk, with no beeps, and writes it out on the phone itself when you tap Finish.'],
   ['v165', 'Capture, at the top of Home: tap it and talk. Tasks, phone calls, site visits and notes come back as cards to check; Add all puts them on the calendar. A note is held for the customer and goes into your next call there.'],
   ['v164', 'Left: one tap on a contact, on the account, in the Directory, or when you choose who is on a call. They stay listed with a line through, can no longer be picked, and go on the CAG list. Not left undoes it; Joined another company moves them. Marked during a call, they show in its notes as a red line. Manuals opened from a call show their pages again.'],
