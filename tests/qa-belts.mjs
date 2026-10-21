@@ -89,7 +89,31 @@ w.eval(`deliverFile = async (b, n) => window.__file(b, n)`);
 $('btXls').click(); await tick(300);
 const wb = w.XLSX.read(new Uint8Array(await file.b.arrayBuffer()), {type: 'array'});
 const aoa = w.XLSX.utils.sheet_to_json(wb.Sheets['Belts'], {header: 1, defval: ''});
-ok(/\.xlsx$/.test(file.n) && /Acme Foods - Smithfield: belts reported/.test(aoa[0][0]) && aoa[2][0] === 'Asset or line' && aoa.length === 5 && aoa[3][0] === '61 555' && aoa[3][7] === 'Ordered' && aoa[4][4] === '2', 'Excel: a heading, the columns, and the ticked belts with qty and status');
+ok(/\.xlsx$/.test(file.n) && /Acme Foods - Smithfield: belts reported/.test(aoa[0][0]) && aoa[2][0] === 'Asset no.' && aoa[2][1] === 'Line or application' && aoa.length === 5 && aoa[3][0] === '61 555' && aoa[3][8] === 'Ordered' && aoa[4][5] === '2', 'Excel: a heading, the columns, and the ticked belts with qty and status');
+// v171: the line or application, split from the asset number
+const sp = t => { const r = g(`btSplit`)(t); return r.no + '|' + r.line; };
+ok(sp('661 NP to FHF') === '661|NP to FHF' && sp('61-555 - Spiral infeed') === '61-555|Spiral infeed' && sp('Line 3 infeed') === '|Line 3 infeed' && sp('61 555') === '61 555|' && sp('') === '|', 'the line or application is split from the asset number');
+ok(/<th>Asset no\.<\/th><th>Line or application<\/th>/.test(doc.h), 'the document has both columns too');
+
+// v171: compact status pills, not the four-part bar
+ok(row('61 555').querySelector('.btst') && !row('61 555').querySelector('.seg') && row('61 555').querySelectorAll('.btst button').length === 4, 'the status buttons are small pills');
+
+// v171: the same list from a call still being written, and back returns to the call
+await g(`(async () => { call = {id: 'c9', customer: '${A}', date: '20/10/2026', type: 'Site call', mgr: 'Ben', contacts: [], entries: [], loose: [], status: 'open', updated: Date.now()};
+  call.entries.push({type: 'belt', asset: 'N-9 Packing line', series: '900', comment: 'Being written', photos: []}); await saveCall(); go('dash'); })()`); await tick(300);
+ok(!$('dashBelts').hidden && /Belts at this customer: 4, /.test($('dashBelts').textContent), 'the call screen has a Belts button, counting the belt being written: ' + $('dashBelts').textContent);
+$('dashBelts').click(); await tick(300);
+ok(g(`screen`) === 'belts' && row('N-9 Packing line') && /From the call of 20 Oct 2026/.test(row('N-9 Packing line').textContent), 'it opens the list, with this call\'s belt in it');
+row('N-9 Packing line').querySelector('[data-bts="ordered"]').click(); await tick(300);
+ok(g(`call.entries[0].bstat`) === 'ordered', 'a status set there goes on the open call');
+ok(g(`parentOf('belts')`) === 'dash', 'back goes to the call');
+$('back').click(); await tick(300);
+ok(g(`screen`) === 'dash', 'and the back button returns there: ' + g(`screen`));
+g(`openAccount('${A}')`); await tick(300);
+$('avBelts').click(); await tick(300);
+ok(g(`parentOf('belts')`) === 'acct', 'opened from the account, back still goes to the account');
+await g(`(async () => { call = {id: 'c8', customer: '${B}x', date: '20/10/2026', type: 'Site call', mgr: 'Ben', contacts: [], entries: [], loose: [], status: 'open', updated: Date.now()}; go('dash'); })()`); await tick(300);
+ok($('dashBelts').hidden, 'no Belts button where no belts have been logged');
 
 const real = errs.filter(x => !/Not implemented|Could not parse CSS/.test(x));
 ok(real.length === 0, 'no errors', real.join(' | '));

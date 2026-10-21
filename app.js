@@ -996,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v170';
+const APP_BUILD = 'v171';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1563,6 +1563,7 @@ function parentOf(name){
   if(name === 'opp' && OPP && OPP.kind === 'large') name = 'lap';      // a large account's own map (v123)
   // an opportunity or large account opened from Strategy goes back there, not to an account (v120)
   if((name === 'opp' || name === 'lap') && stOpened === name) return 'strategy';
+  if(name === 'belts' && BT && BT.from === 'dash' && call) return 'dash';
   const up = PARENT[name] || 'home';
   // a call screen with no call open has nothing to go up to
   if(CALL_SCREENS.includes(up) && !call) return 'home';
@@ -8109,6 +8110,7 @@ function renderDash(){
      opens, not here. */
   renderOutSummary();
   renderVisitSummary();
+  renderDashBelts();
   try { if(mboApplyCall(c)) cipSaveSoon('mbo'); renderDashMbo(); } catch(e){ console.error('mbo', e); }   // v134
 
   renderLoose();
@@ -11406,6 +11408,17 @@ const btBelt = e => { const t = [e.series ? 'S' + String(e.series).replace(/^s/i
   const d = String(e.asset || '').trim() ? String(e.beltdesc || '').trim() : '';
   const b = t || d;
   return b + (e.rodmat ? (b ? ', ' : '') + e.rodmat + ' rods' : ''); };
+/* v171 - Ben: "definitely need the application description". It is typed
+   into the same box as the asset number ("661 NP to FHF"), so the list
+   splits it: the words at the start that carry a digit are the asset number,
+   the rest is the line or application. "Line 3 infeed" starts with a word
+   with no digit, so all of it is the line. */
+function btSplit(t){
+  const w = String(t || '').trim().split(/\s+/).filter(Boolean);
+  let n = 0;
+  while(n < w.length && /\d/.test(w[n]) && w[n].length <= 12) n++;
+  return {no: w.slice(0, n).join(' '), line: w.slice(n).join(' ').replace(/^[-–:,]\s*/, '')};
+}
 const btNote = t => { t = String(t || '').trim(); return t ? esc(t).replace(/\n/g, '<br>') : DASH_CH; };
 const btDay = t => { const d = new Date(t); return d.getDate() + ' ' + MONNM[d.getMonth()].slice(0, 3) + ' ' + d.getFullYear(); };
 const btFrom = it => (isQuote(it.r) ? 'quote request' : 'call') + ' of ' + btDay(it.when);
@@ -11421,8 +11434,9 @@ async function renderBeltsCard(){
     '<p class="meta">Tap to mark them ordered or not, and share a list with the customer.</p>';
   el.setAttribute('aria-label', 'Belts at ' + a.a);
 }
-async function openBelts(acct){
-  BT = {acct, off: new Set(), filter: 'all', groups: []};
+// v171: from = 'dash' when opened from the call screen, so back returns to the call
+async function openBelts(acct, from){
+  BT = {acct, off: new Set(), filter: 'all', groups: [], from: from || 'acct'};
   go('belts');
   await renderBelts();
 }
@@ -11448,7 +11462,7 @@ async function renderBelts(){
       (btBelt(e) ? '<div class="btm">' + esc(btBelt(e)) + '</div>' : '') + (size ? '<div class="btm">' + esc(size) + '</div>' : '') +
       '<div class="btm">From the ' + esc(btFrom(g.latest)) + (g.earlier.length ? '; also logged ' + g.earlier.map(x => btDay(x.when)).join(', ') : '') + '</div>' +
       (String(e.comment || '').trim() ? '<div class="btnote">' + esc(String(e.comment).trim()) + '</div>' : '') +
-      '<div class="seg btst" role="group" aria-label="Status">' + Object.keys(BT_ST).map(s => '<button type="button" data-bts="' + s + '" data-k="' + esc(g.k) + '"' + (s === st ? ' class="on"' : '') + '>' + BT_ST[s] + '</button>').join('') + '</div>' +
+      '<div class="btst" role="group" aria-label="Status">' + Object.keys(BT_ST).map(s => '<button type="button" data-bts="' + s + '" data-k="' + esc(g.k) + '"' + (s === st ? ' class="on"' : '') + '>' + BT_ST[s] + '</button>').join('') + '</div>' +
       '</div></div>';
   }).join('') : '<p class="empty">' + (BT.groups.length ? 'No belts with that status.' : 'No belts logged at this customer yet.') + '</p>';
   $('btList').querySelectorAll('[data-btk]').forEach(c => c.addEventListener('change', () => {
@@ -11474,10 +11488,10 @@ function buildBeltSumHTML(acct, gs){
   p.push('<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">');
   p.push('<p class="eyebrow">Intralox</p><h1>Belts reported ' + DASH_CH + ' ' + esc(acct) + '</h1>');
   p.push('<p class="sub">' + gs.length + (gs.length === 1 ? ' belt' : ' belts') + ' reported on, as at ' + esc(when) + '</p>');
-  p.push('<table><tr><th>Asset or line</th><th>Belt</th><th>Width (mm)</th><th>Length (m)</th><th>Reported</th><th>Note</th><th>Status</th></tr>');
+  p.push('<table><tr><th>Asset no.</th><th>Line or application</th><th>Belt</th><th>Width (mm)</th><th>Length (m)</th><th>Reported</th><th>Note</th><th>Status</th></tr>');
   for(const g of gs){
-    const e = g.latest.e;
-    p.push('<tr><td>' + V(beltName(e)) + '</td><td>' + V(btBelt(e)) + '</td><td>' + V(e.width) + '</td><td>' + V(e.beltlen) + '</td><td>' + V(btDay(g.latest.when)) + '</td><td>' + btNote(e.comment) + '</td><td>' + V(BT_ST[btStatus(g)]) + '</td></tr>');
+    const e = g.latest.e, sp = btSplit(e.asset);
+    p.push('<tr><td>' + V(sp.no) + '</td><td>' + V(sp.line || (sp.no ? '' : String(e.beltdesc || ''))) + '</td><td>' + V(btBelt(e)) + '</td><td>' + V(e.width) + '</td><td>' + V(e.beltlen) + '</td><td>' + V(btDay(g.latest.when)) + '</td><td>' + btNote(e.comment) + '</td><td>' + V(BT_ST[btStatus(g)]) + '</td></tr>');
   }
   p.push('</table><p class="sub" style="margin-top:24px">Made with Field CRM.</p></div></body></html>');
   return p.join('');
@@ -11501,14 +11515,27 @@ async function btDoc(){
 }
 async function btXls(){
   const gs = btPicked(); if(!gs.length) return;
-  const head = ['Asset or line', 'Belt', 'Width (mm)', 'Length (m)', 'Qty', 'Reported', 'Note', 'Status'];
-  const rows = gs.map(g => { const e = g.latest.e; return [beltName(e), btBelt(e), e.width || '', e.beltlen || '', e.qty || '', btDay(g.latest.when), String(e.comment || '').trim(), BT_ST[btStatus(g)]]; });
+  const head = ['Asset no.', 'Line or application', 'Belt', 'Width (mm)', 'Length (m)', 'Qty', 'Reported', 'Note', 'Status'];
+  const rows = gs.map(g => { const e = g.latest.e, sp = btSplit(e.asset); return [sp.no, sp.line || (sp.no ? '' : String(e.beltdesc || '')), btBelt(e), e.width || '', e.beltlen || '', e.qty || '', btDay(g.latest.when), String(e.comment || '').trim(), BT_ST[btStatus(g)]]; });
   const wb = XLSX.utils.book_new(), ws = XLSX.utils.aoa_to_sheet([[BT.acct + ': belts reported, as at ' + btDay(Date.now())], [], head].concat(rows));
-  ws['!cols'] = [{wch: 22}, {wch: 30}, {wch: 11}, {wch: 11}, {wch: 6}, {wch: 13}, {wch: 50}, {wch: 17}];
+  ws['!cols'] = [{wch: 12}, {wch: 28}, {wch: 30}, {wch: 11}, {wch: 11}, {wch: 6}, {wch: 13}, {wch: 50}, {wch: 17}];
   XLSX.utils.book_append_sheet(wb, ws, 'Belts');
   await deliverFile(new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
     btSafe(BT.acct) + '_belts_' + todayISOdate() + '.xlsx', 'Belts reported, ' + BT.acct);
 }
+// v171: the same list from the call screen, so a report being written need not be left
+function renderDashBelts(){
+  const b = $('dashBelts'); if(!b) return;
+  const c = call;
+  if(!c || !c.customer){ b.hidden = true; return; }
+  beltGroups(c.customer).then(gs => {
+    if(call !== c) return;
+    const open = gs.filter(g => btStatus(g) === 'open').length;
+    b.hidden = !gs.length;
+    b.textContent = 'Belts at this customer: ' + gs.length + ', ' + open + ' open';
+  }).catch(e => console.error('dashBelts', e));
+}
+$('dashBelts').addEventListener('click', () => { if(call && call.customer) openBelts(call.customer, 'dash').catch(reportErr); });
 $('avBelts').addEventListener('click', () => { if(viewAcct) openBelts(viewAcct.a).catch(reportErr); });
 $('avBelts').addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && viewAcct){ e.preventDefault(); openBelts(viewAcct.a).catch(reportErr); } });
 $('btCopy').addEventListener('click', () => btCopy());
@@ -21241,6 +21268,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v171', 'Belts list: the Excel and the document have the line or application in its own column, taken from what you typed after the asset number. The status buttons on each belt are small pills. A call being written has a Belts at this customer button above the call log, so you can set statuses without leaving the call.'],
   ['v170', 'Belts, on each account: every belt reported on there, with a status (Open, Ordered, Not ordered, No longer needed). Tick the ones you want and send the customer a list, as a document or Excel.'],
   ['v169', 'Capture is a tile on Home now, instead of the big blue bar. Opening it no longer starts listening: tap the microphone when you are ready. The tile shows Words when there is something waiting to sort.'],
   ['v168', 'A floating microphone on every screen: hold it to talk, let go to stop, and the words go into Capture while you stay where you are. Drag it to wherever suits your thumb.'],
