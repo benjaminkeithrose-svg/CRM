@@ -66,7 +66,7 @@ w.showScreen('home'); await tick();
 ok($('homeArr').hidden && !d.querySelector('#s-home .tiles').hidden && names().includes('perf'), 'leaving Home while arranging keeps the change and shows the tiles again');
 
 // ---- a newer layout from another device
-await g(`cipPut({id:'home', order:['perf'], hidden:[], updated: Date.now() + 1000})`);
+await g(`cipPut({id:'home', order:['perf', 'capture'], hidden:[], updated: Date.now() + 1000})`);
 await g(`homeLayoutLoad()`);
 ok(names()[0] === 'perf', 'a newer layout synced in from another device is applied');
 await g(`cipPut({id:'home', order:['${second}'], hidden:['perf'], updated: 5})`);

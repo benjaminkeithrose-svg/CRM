@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v168">
+<meta name="build" content="v169">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -909,12 +909,6 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
   font-size:12.5px;font-weight:600;padding:5px 9px;border-radius:12px;pointer-events:none}
 .fab.left span{right:auto;left:60px}
 /* v165: Capture */
-.capbtn{display:flex;align-items:center;gap:12px;width:100%;margin:0 0 12px;padding:14px 16px;min-height:64px;border:0;border-radius:var(--r);
-  background:var(--act);color:#fff;text-align:left;cursor:pointer;font:inherit}
-.capbtn .capic{display:flex;width:40px;height:40px;flex:none;border-radius:50%;background:rgba(255,255,255,.16);align-items:center;justify-content:center}
-.capbtn .capic .ic{width:22px;height:22px}
-.capbtn b{display:block;font-size:17px}
-.capbtn small{display:block;font-size:12.5px;opacity:.85;margin-top:2px}
 .capacts{display:flex;gap:8px;align-items:stretch;margin-bottom:10px}
 .capacts .big{flex:1;margin:0}
 .capacts .btn{flex:1;min-height:48px}
@@ -1750,6 +1744,9 @@ details.bsx > .msg{margin:8px 12px}
   box-shadow:var(--lift); color:var(--ink); font:inherit;
   transition:box-shadow .12s, transform .12s;
 }
+.tiles button{position:relative}
+/* v169: words waiting in Capture */
+.tbadge{position:absolute;top:8px;right:8px;font-size:10.5px;font-weight:700;color:#fff;background:var(--cyan-dk);border-radius:9px;padding:1px 7px}
 .tiles button:active{background:var(--sunk); box-shadow:var(--lift-2); transform:translateY(1px)}
 .tiles b{font-size:12.5px; font-weight:600; text-align:center; line-height:1.2}
 /* Standards: icons take the accent colour or Dark Gray, never red. */
@@ -1837,9 +1834,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <!-- v165: Capture - talk or type, and it is sorted into tasks, calls, visits and notes -->
-  <button type="button" class="capbtn" id="homeCap"><span class="capic"></span><span><b>Capture</b><small>Talk or type a task, call, visit or note</small></span></button>
-  <div class="tiles"><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button></div>
+  <div class="tiles"><button data-go="capture"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/></svg></span><b>Capture</b><span class="tbadge" id="capBadge" hidden></span></button><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- v152: Home arranged your way: move, hide, show again -->
@@ -2273,10 +2268,11 @@ details.bsx > .msg{margin:8px 12px}
 
   <h2>How do I&hellip;</h2>
   <details class="sx hx">
-    <summary><b>Capture tasks, calls and notes by talking</b><span class="sxs">Capture, at the top of Home</span></summary>
+    <summary><b>Capture tasks, calls and notes by talking</b><span class="sxs">The Capture tile on Home</span></summary>
     <div class="fld help">
       <ol>
-        <li>Tap <b>Capture</b> at the top of Home. The microphone starts listening.</li>
+        <li>Tap the <b>Capture</b> tile on Home.</li>
+        <li>Tap the microphone beside the box. It starts listening only when you tap it.</li>
         <li>Say everything in one go. For example: "Task for Sam at Example Foods, send the belt survey, due Friday. Phone call with Sam next Tuesday at 10 about the trial. Note for Example Foods, line 3 is down in December."</li>
         <li>Tap <b>Finish</b>. The cards appear: one for each task, phone call, site visit or note.</li>
         <li>Check each card. Tap one to correct it, then tap <b>Done</b>.</li>
@@ -2298,7 +2294,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>When you are ready, tap <b>Capture</b> on Home and tap <b>Sort it</b>.</li>
       </ol>
       <p>To move the button, put your finger on it and drag it straight away. It stays where you leave it. A quick tap does nothing.</p>
-      <p>It listens the way Talking into the app is set in Settings: <b>Live</b>, or <b>Record, then write it out</b>. Several notes in a row go into Capture one after another. Home's Capture button says when words are waiting to be sorted.</p>
+      <p>It listens the way Talking into the app is set in Settings: <b>Live</b>, or <b>Record, then write it out</b>. Several notes in a row go into Capture one after another. The Capture tile on Home shows <b>Words</b> when there are words waiting to be sorted, or a number when there are cards to check.</p>
     </div>
   </details>
   <details class="sx hx">

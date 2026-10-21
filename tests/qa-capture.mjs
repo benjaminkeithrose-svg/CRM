@@ -50,8 +50,11 @@ w.__ask = async p => { asked = p; if (fails) throw new Error('No signal'); retur
 w.eval(`aiAsk = p => window.__ask(p)`);
 
 // ---- Home: Capture at the top
-ok($('homeCap') && $('homeCap').compareDocumentPosition(d.querySelector('#s-home .tiles')) & 4 && /Capture/.test($('homeCap').textContent), 'Home has Capture above the tiles');
-$('homeCap').click(); await tick(150);
+const tile = d.querySelector('#s-home .tiles > button[data-go="capture"]');
+ok(tile && tile === d.querySelector('#s-home .tiles > button') && /Capture/.test(tile.textContent) && !d.getElementById('homeCap'), 'Home has a Capture tile, first; the big bar is gone');
+w.__liveStarts = 0;
+tile.click(); await tick(150);
+ok(!g(`micSession`), 'opening Capture does not start listening until the microphone is tapped');
 ok(g(`screen`) === 'capture' && !$('capGo').hidden && $('capAdd').hidden, 'it opens Capture, with Sort it at the top');
 
 // ---- Sort it: only the words and today go to Claude; the cards come back

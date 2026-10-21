@@ -124,11 +124,12 @@ It goes on the evaluation forms you fill in. It is never used to invite anyone: 
 
 ### Capture tasks, calls and notes by talking
 
-1. Tap **Capture** at the top of Home. The microphone starts listening.
-2. Say everything in one go. For example: "Task for Sam at Example Foods, send the belt survey, due Friday. Phone call with Sam next Tuesday at 10 about the trial. Note for Example Foods, line 3 is down in December."
-3. Tap **Finish**. The cards appear: one for each task, phone call, site visit or note.
-4. Check each card. Tap one to correct it, then tap **Done**.
-5. Tap **Add all**.
+1. Tap the **Capture** tile on Home.
+2. Tap the microphone beside the box. It starts listening only when you tap it.
+3. Say everything in one go. For example: "Task for Sam at Example Foods, send the belt survey, due Friday. Phone call with Sam next Tuesday at 10 about the trial. Note for Example Foods, line 3 is down in December."
+4. Tap **Finish**. The cards appear: one for each task, phone call, site visit or note.
+5. Check each card. Tap one to correct it, then tap **Done**.
+6. Tap **Add all**.
 
 Starting a piece with "task", "call", "visit" or "note" makes sure it becomes that. Days like "Friday" or "next Tuesday at 10" are worked out from today. A time you did not say is filled in as an **estimate**; tap the card to set it. You can type instead of talking, then tap **Sort it**.
 
@@ -147,7 +148,7 @@ Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day
 
 To move the button, put your finger on it and drag it straight away. It stays where you leave it. A quick tap does nothing.
 
-It listens the way Talking into the app is set in Settings: **Live**, or **Record, then write it out**. Several notes in a row go into Capture one after another. Home's Capture button says when words are waiting to be sorted.
+It listens the way Talking into the app is set in Settings: **Live**, or **Record, then write it out**. Several notes in a row go into Capture one after another. The Capture tile on Home shows **Words** when there are words waiting to be sorted, or a number when there are cards to check.
 
 ### Talk for minutes at a time, with no beeps
 

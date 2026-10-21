@@ -66,7 +66,7 @@ ok(/Recording 0:0\d/.test(fab.textContent) && fab.classList.contains('on'), 'its
 fab.dispatchEvent(at('pointerup', 901, 641)); await tick(250);
 ok(g(`screen`) === 'plan' && sent && sent.cmd === 'run', 'letting go stops it and writes it out, without leaving the screen');
 ok(/Ring Sam at Example Foods/.test(g(`CAP.text`)) && /It is in Capture/.test(w.__t), 'the words go into Capture: ' + w.__t);
-ok(/Words waiting: tap to sort them/.test($('homeCap').textContent), 'Home\'s Capture button says words are waiting');
+ok(!$('capBadge').hidden && $('capBadge').textContent === 'Words' && /waiting to be sorted/.test($('capBadge').title), 'Home\'s Capture tile says words are waiting');
 fab.dispatchEvent(at('pointerdown', 900, 640)); await tick(300); fab.dispatchEvent(at('pointerup', 900, 640)); await tick(250);
 ok((g(`CAP.text`).match(/Ring Sam/g) || []).length === 2, 'a second note is added after the first, not over it');
 

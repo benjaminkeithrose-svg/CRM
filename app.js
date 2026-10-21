@@ -996,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v168';
+const APP_BUILD = 'v169';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -7694,6 +7694,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     openTask(null, {callId: call.id, acct: call.customer, contact: first.name || '', email: first.email || '', mobile: first.mobile || ''});
   } else if(t==='tasks'){
     showTasks();
+  } else if(t==='capture'){
+    openCapture(false);              // v169: it waits for the microphone to be tapped
   } else if(t==='strategy'){
     go('strategy');
   } else if(t==='cip' || t==='mbo'){
@@ -18695,11 +18697,14 @@ async function capLoad(){
   capHint();
 }
 async function capSave(){ clearTimeout(capTimer); capTimer = null; CAP.updated = Date.now(); await tasksPut(CAP); capHint(); }
-// Home's Capture button says when words or cards are waiting to be sorted (v168)
+// Home's Capture tile says when words or cards are waiting to be sorted (v168; a tile since v169)
 function capHint(){
-  const el = $('homeCap') && $('homeCap').querySelector('small'); if(!el) return;
+  const el = $('capBadge'); if(!el) return;
   const words = !!(CAP.text || '').trim(), cards = (CAP.items || []).length;
-  el.textContent = words ? 'Words waiting: tap to sort them' : cards ? cards + (cards === 1 ? ' card' : ' cards') + ' to check' : 'Talk or type a task, call, visit or note';
+  el.hidden = !words && !cards;
+  el.textContent = words ? 'Words' : cards ? String(cards) : '';
+  el.title = words ? 'Words waiting to be sorted' : cards ? cards + (cards === 1 ? ' card' : ' cards') + ' to check' : '';
+  el.setAttribute('aria-label', el.title);
 }
 // the person, among the customer's contacts still there: the full name, or one first name that fits
 function capContact(acct, person){
@@ -18916,8 +18921,6 @@ async function capDrop(c){
   CAP_HELD = CAP_HELD.filter(r => !mine.includes(r));
   return mine.length;
 }
-$('homeCap').querySelector('.capic').innerHTML = icon('mic');
-$('homeCap').addEventListener('click', () => openCapture(true));
 $('capGo').addEventListener('click', () => captureSort().catch(reportErr));
 $('capAdd').addEventListener('click', () => captureAdd().catch(reportErr));
 $('capText').addEventListener('input', () => {
@@ -21004,7 +21007,9 @@ function homeLayoutApply(){
   const box = document.querySelector('#s-home .tiles'); if(!box) return;
   const L = HOME_LAYOUT || {}, order = L.order || [], hidden = new Set(L.hidden || []);
   const tiles = homeTiles();
-  tiles.sort((a, b) => { const ia = order.indexOf(a.dataset.go), ib = order.indexOf(b.dataset.go); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); })
+  // Capture (v169) shows first on a Home arranged before it existed; any other tile not in the order goes last
+  const rank = b => { const i = order.indexOf(b.dataset.go); return i >= 0 ? i : b.dataset.go === 'capture' ? -1 : 999; };
+  tiles.sort((a, b) => rank(a) - rank(b))
     .forEach(b => { box.appendChild(b); b.hidden = hidden.has(b.dataset.go); });
 }
 async function homeLayoutSave(L){
@@ -21094,6 +21099,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v169', 'Capture is a tile on Home now, instead of the big blue bar. Opening it no longer starts listening: tap the microphone when you are ready. The tile shows Words when there is something waiting to sort.'],
   ['v168', 'A floating microphone on every screen: hold it to talk, let go to stop, and the words go into Capture while you stay where you are. Drag it to wherever suits your thumb.'],
   ['v167', 'Recording trial: your pauses are cut out before it is written out, so what you say after a pause is no longer lost. A third speech model, Most accurate (about 250 MB), for accents.'],
   ['v166', 'A trial: in Settings, Talking into the app, choose Record, then write it out. Every microphone then records for as long as you talk, with no beeps, and writes it out on the phone itself when you tap Finish.'],
