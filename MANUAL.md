@@ -139,6 +139,20 @@ Tasks, phone calls and site visits go on the calendar. A note is held for its cu
 
 Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day. Only the words you said and today's date go to Anthropic; your customer list does not. If there is no signal, your words stay in the box. Leaving Capture keeps the words and the cards, on your phone and your PC.
 
+### Send a customer a list of the belts we have reported on
+
+1. Open the account.
+2. Tap the **Belts** card.
+3. Set each belt's status: **Open**, **Ordered**, **Not ordered** or **No longer needed**.
+4. Untick any belt you want to leave out of the list.
+5. Tap **Copy for email**, **Document** or **Excel**.
+
+Every belt logged at the customer is listed, from call reports and quote requests, newest first. A belt logged more than once (the same asset number) shows once, with its latest note, and says when else it was logged. A belt with no asset number has a row of its own.
+
+The list shows the asset, the belt, its width and length, when it was reported, the note from the belt form and its status. The chips at the top show only the belts with one status, for example only those still open; the list sent is what is ticked and shown.
+
+The status is kept with the belt in its call, so your team sees it too. If the belt is logged again later, it starts as Open. The ticks are only for the list you are making.
+
 ### Record a note from any screen
 
 1. Press and hold the round microphone button. After a moment it buzzes and starts recording.

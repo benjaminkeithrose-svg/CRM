@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v169">
+<meta name="build" content="v170">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -897,6 +897,21 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .ownpick input{flex:1;min-width:0}
 .cagg>b{display:block;font-size:13px;margin:0 0 6px}
 .tag.moved{background:var(--sunk);color:var(--ink-2)}
+/* v170: belts at a customer */
+.btacts{display:flex;gap:8px;margin:0 0 6px}
+.btacts .btn{flex:1;min-height:44px}
+.btrow{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cyan-dk);border-radius:8px;padding:10px 12px;margin:0 0 8px}
+.btrow.off{opacity:.55}
+.btrow > input[type=checkbox]{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--cyan-dk)}
+.btbody{flex:1;min-width:0}
+.btn1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:15px}
+.btm{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.btnote{font-size:13px;margin-top:6px;white-space:pre-wrap}
+.btst{margin-top:8px}
+.btst button{font-size:12.5px;padding:8px 4px}
+.tag.bt-open{background:var(--cyan-lt);color:var(--cyan-dk)}
+.tag.bt-ordered{background:var(--ok-lt);color:var(--ok)}
+.tag.bt-not,.tag.bt-gone{background:var(--sunk);color:var(--ink-2)}
 /* v168: the floating microphone */
 .fab{position:fixed;z-index:40;width:52px;height:52px;padding:0;border:0;border-radius:50%;background:var(--act);color:#fff;
   display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(34,34,34,.3);cursor:grab;
@@ -1851,6 +1866,15 @@ details.bsx > .msg{margin:8px 12px}
 
 </section>
 
+<!-- BELTS (v170): every belt logged at one customer, one row each, with its status; a list for the customer -->
+<section class="scr" id="s-belts">
+  <h2 id="btHead"></h2>
+  <div class="btacts"><button type="button" class="btn go" id="btCopy">Copy for email</button><button type="button" class="btn act2" id="btDoc">Document</button><button type="button" class="btn act2" id="btXls">Excel</button></div>
+  <p class="hint" id="btCount"></p>
+  <div class="chips" id="btFilter"></div>
+  <div id="btList"></div>
+</section>
+
 <!-- CAPTURE (v165): what was said, sorted into cards to check, then added -->
 <section class="scr" id="s-capture">
   <div class="capacts"><button type="button" class="big" id="capGo">Sort it</button><button type="button" class="btn act2" id="capAdd" hidden>Add all</button></div>
@@ -2282,6 +2306,21 @@ details.bsx > .msg{margin:8px 12px}
       <p>The customer and the person are found in your CRM list on the phone. If only a person is named, the customer is found from them and marked as an estimate. A card that is missing something says what, for example "No date: tap to set" or that a customer is not in your list. Only the cards that are ready are added; the rest wait for you.</p>
       <p>Tasks, phone calls and site visits go on the calendar. A note is held for its customer, listed under <b>Held for your next call</b>, and goes into the notes of the next call you start there.</p>
       <p>Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day. Only the words you said and today's date go to Anthropic; your customer list does not. If there is no signal, your words stay in the box. Leaving Capture keeps the words and the cards, on your phone and your PC.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Send a customer a list of the belts we have reported on</b><span class="sxs">Belts, on the account</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Open the account.</li>
+        <li>Tap the <b>Belts</b> card.</li>
+        <li>Set each belt's status: <b>Open</b>, <b>Ordered</b>, <b>Not ordered</b> or <b>No longer needed</b>.</li>
+        <li>Untick any belt you want to leave out of the list.</li>
+        <li>Tap <b>Copy for email</b>, <b>Document</b> or <b>Excel</b>.</li>
+      </ol>
+      <p>Every belt logged at the customer is listed, from call reports and quote requests, newest first. A belt logged more than once (the same asset number) shows once, with its latest note, and says when else it was logged. A belt with no asset number has a row of its own.</p>
+      <p>The list shows the asset, the belt, its width and length, when it was reported, the note from the belt form and its status. The chips at the top show only the belts with one status, for example only those still open; the list sent is what is ticked and shown.</p>
+      <p>The status is kept with the belt in its call, so your team sees it too. If the belt is logged again later, it starts as Open. The ticks are only for the list you are making.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -3482,6 +3521,8 @@ details.bsx > .msg{margin:8px 12px}
   <div class="card plancard" id="avPlan" role="button" tabindex="0"></div>
   <!-- v115: opportunities, each with its relationship map -->
   <div class="card oppcard" id="avOpps"></div>
+  <!-- v170: the belts reported on here, with their status, and a list for the customer -->
+  <div class="card plancard" id="avBelts" role="button" tabindex="0" hidden></div>
     <input type="file" id="bsFile" accept=".xls,.xlsx,.xlsm" hidden>
   <!-- v117: the large account plan this site belongs to -->
   <div class="card plancard" id="avLap" role="button" tabindex="0" hidden></div>
