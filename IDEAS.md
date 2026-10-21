@@ -1184,4 +1184,16 @@ cuts at quiet moments and runs Whisper base.en or tiny.en in a worker
 
 ---
 
+## Built (v170): Belts at a customer, with a list to send them
+*Asked and built 2026-10-21*
+
+Ben: a customer wants a table of what has been quoted and reported, rows
+chosen by him, each with a brief note on why and the usual belt data, and
+a status: ordered, not ordered, no longer needed. A Belts card on the
+account opens every belt logged there (calls and quote requests), one row
+per asset (the latest, his choice), ticks for the list, a status kept on
+the belt; out as a document or Excel (his choice), that account only.
+
+---
+
 <!-- Add new ideas above this line. -->
