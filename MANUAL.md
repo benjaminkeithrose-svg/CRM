@@ -149,9 +149,11 @@ Sort it needs signal and cloud sync, and counts as one of your 200 AI uses a day
 
 Every belt logged at the customer is listed, from call reports and quote requests, newest first. A belt logged more than once (the same asset number) shows once, with its latest note, and says when else it was logged. A belt with no asset number has a row of its own.
 
-The list shows the asset, the belt, its width and length, when it was reported, the note from the belt form and its status. The chips at the top show only the belts with one status, for example only those still open; the list sent is what is ticked and shown.
+The list shows the asset number, the line or application, the belt, its width and length, when it was reported, the note from the belt form and its status. The line or application is what you typed after the asset number in **Asset no. and line description**, for example "NP to FHF" from "661 NP to FHF". The chips at the top show only the belts with one status, for example only those still open; the list sent is what is ticked and shown.
 
 The status is kept with the belt in its call, so your team sees it too. If the belt is logged again later, it starts as Open. The ticks are only for the list you are making.
+
+While a call or quote request is still being written, the same list opens from the call screen: tap **Belts at this customer**, above the call log. The back arrow returns you to the call. The button shows once a belt has been logged at the customer.
 
 ### Record a note from any screen
 

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v170">
+<meta name="build" content="v171">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -907,8 +907,10 @@ dialog.wide{width:min(820px,96vw);max-width:96vw}
 .btn1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:15px}
 .btm{font-size:12.5px;color:var(--ink-2);margin-top:2px}
 .btnote{font-size:13px;margin-top:6px;white-space:pre-wrap}
-.btst{margin-top:8px}
-.btst button{font-size:12.5px;padding:8px 4px}
+.btst{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.btst button{font:inherit;font-size:11.5px;padding:2px 7px;min-height:28px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink-2);cursor:pointer}
+.btst button.on{background:var(--cyan-lt);border-color:var(--cyan-dk);color:var(--cyan-dk);font-weight:700}
+#dashBelts{width:100%;min-height:40px;margin:12px 0 0;text-align:left}
 .tag.bt-open{background:var(--cyan-lt);color:var(--cyan-dk)}
 .tag.bt-ordered{background:var(--ok-lt);color:var(--ok)}
 .tag.bt-not,.tag.bt-gone{background:var(--sunk);color:var(--ink-2)}
@@ -2309,7 +2311,7 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
-    <summary><b>Send a customer a list of the belts we have reported on</b><span class="sxs">Belts, on the account</span></summary>
+    <summary><b>Send a customer a list of the belts we have reported on</b><span class="sxs">Belts, on the account or the call</span></summary>
     <div class="fld help">
       <ol>
         <li>Open the account.</li>
@@ -2319,8 +2321,9 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Copy for email</b>, <b>Document</b> or <b>Excel</b>.</li>
       </ol>
       <p>Every belt logged at the customer is listed, from call reports and quote requests, newest first. A belt logged more than once (the same asset number) shows once, with its latest note, and says when else it was logged. A belt with no asset number has a row of its own.</p>
-      <p>The list shows the asset, the belt, its width and length, when it was reported, the note from the belt form and its status. The chips at the top show only the belts with one status, for example only those still open; the list sent is what is ticked and shown.</p>
+      <p>The list shows the asset number, the line or application, the belt, its width and length, when it was reported, the note from the belt form and its status. The line or application is what you typed after the asset number in <b>Asset no. and line description</b>, for example "NP to FHF" from "661 NP to FHF". The chips at the top show only the belts with one status, for example only those still open; the list sent is what is ticked and shown.</p>
       <p>The status is kept with the belt in its call, so your team sees it too. If the belt is logged again later, it starts as Open. The ticks are only for the list you are making.</p>
+      <p>While a call or quote request is still being written, the same list opens from the call screen: tap <b>Belts at this customer</b>, above the call log. The back arrow returns you to the call. The button shows once a belt has been logged at the customer.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -4258,6 +4261,7 @@ details.bsx > .msg{margin:8px 12px}
   <!-- Project and note counts are still assigned in a few places; keeping the
        elements avoids guarding every one of those assignments. -->
   <span hidden id="cntProj"></span><span hidden id="cntNote"></span>
+  <button type="button" class="btn act2" id="dashBelts" hidden>Belts at this customer</button>
   <h2 id="dashLogHead">Call log</h2>
   <div id="logList"></div>
   <h2 id="dashTasksHead" hidden>Tasks from this call</h2>
