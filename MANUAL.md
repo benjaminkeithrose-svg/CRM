@@ -264,9 +264,28 @@ It goes on the calendar by itself, at the time you started it.
 
 1. Tap **Plan** on Home.
 2. Tap **⋯** on the visit.
-3. Tap **Close out**, **Move**, **Missed** or **Cancel**.
+3. Tap **Close out**, **Change date and time**, **Missed** or **Cancel**.
 
 Close out is for a visit with nothing to write up. It still counts as a visit. The same menu has the contacts' numbers, and **Reopen** for a visit that's already closed.
+
+### Slide a visit or task to another day on the phone
+
+1. Tap **Plan** on Home.
+2. Tap **Week**.
+3. Hold your finger still on the visit or task until it lifts.
+4. Slide it up or down onto another day.
+5. Let go.
+
+The time stays the same; only the day changes. The list scrolls when you reach the top or bottom of the screen. Moving your finger straight away scrolls the page instead. To change the time, or to move it to another week, use **Change date and time** below.
+
+### Change a visit's date and time
+
+1. Tap **⋯** on the visit in Plan. If you are already in its call, tap **⋯** at the top of the call instead.
+2. Tap **Change date and time**.
+3. Change the date, the start time or the minutes.
+4. Tap **Done**.
+
+If the call has already been started and isn't compiled or done, its date moves with the visit. Download to Outlook again afterwards so the calendar follows.
 
 ### Log a belt, note, project or health check
 

@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v171">
+<meta name="build" content="v172">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -595,6 +595,10 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 .dayblk h3 .dt{color:var(--ink-3);letter-spacing:0;text-transform:none;font-weight:400}
 .dayblk.isToday h3{color:var(--red)}
 .dayblk .none{font-size:12px;color:var(--ink-3);padding:2px 0 6px}
+/* v172: hold a card on the phone's Week view and slide it to another day */
+.dayblk[data-day] .vis[data-mv]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.vis.lift{position:relative;z-index:30;pointer-events:none;box-shadow:0 8px 22px rgba(0,0,0,.22);opacity:.95}
+.dayblk.over{background:var(--cyan-lt);outline:2px dashed var(--cyan-dk);outline-offset:3px;border-radius:6px}
 /* phone month: seven columns, a count of visits (navy) and tasks (cyan) per day */
 .pm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .pm-hd{font-size:11px;font-weight:700;color:var(--ink-3);text-align:center;padding:2px 0}
@@ -2459,9 +2463,34 @@ details.bsx > .msg{margin:8px 12px}
       <ol>
         <li>Tap <b>Plan</b> on Home.</li>
         <li>Tap <b>&#8943;</b> on the visit.</li>
-        <li>Tap <b>Close out</b>, <b>Move</b>, <b>Missed</b> or <b>Cancel</b>.</li>
+        <li>Tap <b>Close out</b>, <b>Change date and time</b>, <b>Missed</b> or <b>Cancel</b>.</li>
       </ol>
       <p>Close out is for a visit with nothing to write up. It still counts as a visit. The same menu has the contacts' numbers, and <b>Reopen</b> for a visit that's already closed.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Slide a visit or task to another day on the phone</b><span class="sxs">Plan, Week</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>Plan</b> on Home.</li>
+        <li>Tap <b>Week</b>.</li>
+        <li>Hold your finger still on the visit or task until it lifts.</li>
+        <li>Slide it up or down onto another day.</li>
+        <li>Let go.</li>
+      </ol>
+      <p>The time stays the same; only the day changes. The list scrolls when you reach the top or bottom of the screen. Moving your finger straight away scrolls the page instead. To change the time, or to move it to another week, use <b>Change date and time</b> below.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Change a visit's date and time</b><span class="sxs">The &#8943; on the visit, or in the call</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>Tap <b>&#8943;</b> on the visit in Plan. If you are already in its call, tap <b>&#8943;</b> at the top of the call instead.</li>
+        <li>Tap <b>Change date and time</b>.</li>
+        <li>Change the date, the start time or the minutes.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>If the call has already been started and isn't compiled or done, its date moves with the visit. Download to Outlook again afterwards so the calendar follows.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -4103,10 +4132,18 @@ details.bsx > .msg{margin:8px 12px}
   <div class="movbody" id="manOvBody"></div>
 </div>
 
+<!-- v172: the date, start and length of a visit; from its ⋯ menu or the call's -->
 <dialog id="mvdlg">
   <div class="dlg-h"><b id="mvTitle"></b><div id="mvDlgSub"></div></div>
-  <div class="dlg-b"><div class="res" id="mvDays"></div></div>
-  <div class="dlg-f"><span class="spacer"></span><button class="btn" id="mvCancel" type="button">Cancel</button></div>
+  <div class="dlg-b">
+    <div class="row">
+      <div class="f"><label for="mvDate">Date</label><input type="date" id="mvDate"></div>
+      <div class="f"><label for="mvTime">Start</label><input type="time" id="mvTime"></div>
+      <div class="f"><label for="mvDur">Minutes</label>
+        <select id="mvDur"><option>25</option><option>30</option><option>45</option><option>60</option><option>90</option><option>120</option><option>180</option></select></div>
+    </div>
+  </div>
+  <div class="dlg-f"><button class="btn" id="mvCancel" type="button">Cancel</button><span class="spacer"></span><button class="btn key" id="mvOk" type="button" autofocus>Done</button></div>
 </dialog>
 
 <dialog id="planmenu">
