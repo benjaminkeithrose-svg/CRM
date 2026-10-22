@@ -996,7 +996,7 @@ $('bAsset').addEventListener('input', renderAssetMatch);
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v171';
+const APP_BUILD = 'v172';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -3536,7 +3536,7 @@ function visitCard(ap, opts){
     : '<span class="st '+AP_STATUS[st].cls+'">'+AP_STATUS[st].label+'</span>';
 
   const tapId = esc(ap.id);
-  return '<div class="'+cls.join(' ')+'">'+
+  return '<div class="'+cls.join(' ')+'"'+(apSettled(ap) ? '' : ' data-mv="v:'+tapId+'"')+'>'+
     '<button class="vopen" data-open="'+tapId+'">'+
       '<div class="vtop"><span class="when">'+esc(when)+'</span>'+
       '<span class="who">'+esc(ap.acct)+'</span>'+badge+'</div>'+
@@ -3579,6 +3579,7 @@ function renderToday(){
   else if(todayView === 'month') renderMonthGrid(el);
   else renderWeekList(el);
   wireVisitCards(el);
+  if(todayView === 'week') tvDragWire(el);   // v172
   /* Today is a no-op when you are already on today, so it dims rather than
      disappearing - a control that comes and goes is harder to aim at. */
   const now = tvDate() === todayISOdate();
@@ -3601,7 +3602,7 @@ function tvTitle(){
 /* A task on the phone's Day and Week lists: a tick box, then the same layout as
    a visit card. Tapping it opens the task. */
 function taskCard(t){
-  return '<div class="vis task' + (t.done ? ' settled done' : '') + '">' +
+  return '<div class="vis task' + (t.done ? ' settled done' : '') + '"' + (t.done ? '' : ' data-mv="t:' + esc(t.id) + '"') + '>' +
     '<button class="ttick" data-ttick="' + esc(t.id) + '" aria-label="' + (t.done ? 'Mark not completed' : 'Mark completed') + '">' +
       (t.done ? icon('check') : '') + '</button>' +
     '<button class="vopen" data-topen="' + esc(t.id) + '">' +
@@ -3670,7 +3671,7 @@ function renderWeekList(el){
     : 'Nothing planned '+wk+'.';
   el.innerHTML = days.map(d=>{
     const k = iso(d), items = dayItems(k);
-    return '<div class="dayblk'+(k===t?' isToday':'')+'">'+
+    return '<div class="dayblk'+(k===t?' isToday':'')+'" data-day="'+k+'">'+
       '<h3>'+DAYNM7[d.getDay()]+'<span class="dt">'+d.getDate()+' '+MONNM[d.getMonth()].slice(0,3)+'</span></h3>'+
       (items || '<div class="none">Nothing planned.</div>')+
       '</div>';
@@ -4022,27 +4023,21 @@ function isoFromDdmmyyyy(d){
 
 /* ---------- move ---------- */
 let movingAppt = null;
+/* v172 - Ben: "There is no way to alter the time or date of a planned
+   appointment" on the phone. Move used to offer the weekdays of this week and
+   next, and no time. Now it is the date, start and length, from the visit's
+   menu or from the call it became. */
 function openMoveDialog(id){
   const ap = APPTS.find(x => x.id === id);
   if(!ap) return;
   movingAppt = ap;
-  $('mvTitle').textContent = 'Move ' + ap.acct;
+  $('mvTitle').textContent = 'Change date and time: ' + ap.acct;
   // mvSub belongs to the manual page viewer; the move dialog uses mvDlgSub
-  $('mvDlgSub').textContent = 'Currently ' + dayLabel(ap.date) + ' at ' + ap.start;
-  const mon = startOfWeek(new Date());
-  const days = [];
-  for(let i=0;i<14;i++){
-    const d = addDays(mon,i);
-    if(isWeekday(d)) days.push(d);
-  }
-  $('mvDays').innerHTML = days.map(d=>{
-    const k = iso(d);
-    return '<button data-day="'+k+'"'+(k===ap.date?' disabled':'')+'>'+esc(dayLabel(k))+
-      (k===todayISOdate() ? ' <span class="tag">today</span>' : '')+
-      (k===ap.date ? ' <span class="tag">where it is now</span>' : '')+'</button>';
-  }).join('');
-  $('mvDays').querySelectorAll('[data-day]').forEach(b =>
-    b.addEventListener('click', ()=>moveTo(b.dataset.day).catch(reportErr)));
+  $('mvDlgSub').textContent = 'Now ' + dayLabel(ap.date) + (ap.start ? ' at ' + ap.start : '');
+  $('mvDate').value = ap.date;
+  $('mvTime').value = ap.start || '';
+  selEnsure($('mvDur'), String(ap.dur || DEF_DUR));
+  $('mvDur').value = String(ap.dur || DEF_DUR);
   const dlg = $('mvdlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open','');
   pushDialog('mvdlg');
@@ -4054,18 +4049,143 @@ function closeMove(){
   if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
   movingAppt = null;
 }
-async function moveTo(k){
+/* Moving a visit edits a record that may have gone to Outlook, so it is
+   stamped; the next download says it changed. A call already started from the
+   visit, not yet compiled or done, moves with it. */
+async function apMove(ap, date, start, dur){
+  const was = ap.date + ' ' + ap.start + ' ' + ap.dur;
+  ap.date = date;
+  if(start) ap.start = start;
+  if(dur) ap.dur = dur;
+  if(was === ap.date + ' ' + ap.start + ' ' + ap.dur) return false;
+  ap.movedAt = Date.now();
+  ap.movedOn = isPhone() ? 'phone' : 'desktop';
+  await saveAppt(ap);
+  if(ap.callId){
+    const c = call && call.id === ap.callId ? call : (await callsAll()).find(x => x.id === ap.callId);
+    if(c && c.status !== 'compiled' && c.status !== 'done' && c.date !== ddmmyyyy(date)){
+      c.date = ddmmyyyy(date);
+      if(c === call) await saveCall(); else { c.updated = Date.now(); await callsPut(c); }
+    }
+  }
+  return true;
+}
+function apMovedRefresh(){
+  if(screen === 'today') renderToday();
+  if(screen === 'plan') renderPlan();
+  if(screen === 'dash' && call) renderDash();
+  renderHomeCounts();
+}
+async function moveSave(){
   const ap = movingAppt;
   if(!ap) return;
-  ap.date = k;
-  /* Moving a visit here edits a record the desktop owns. The exchange resolves
-     that newest-wins, so the edit is stamped rather than silently applied. */
-  ap.movedAt = Date.now();
-  ap.movedOn = 'phone';
-  await saveAppt(ap);
+  const date = $('mvDate').value;
+  if(!date){ toast('Pick a date'); return; }
+  const moved = await apMove(ap, date, $('mvTime').value, parseInt($('mvDur').value, 10) || ap.dur);
   closeMove();
-  renderToday();
-  toast('Moved to ' + dayLabel(k));
+  if(moved){ apMovedRefresh(); toast('Now ' + dayLabel(ap.date) + ' at ' + ap.start); }
+}
+$('mvOk').addEventListener('click', () => moveSave().catch(reportErr));
+
+/* v172 - Ben: "a sliding style like I've got in my planner on the PC ... the
+   day, I can just push it up and down". On the phone's Week view, hold a visit
+   or task still for a moment until it lifts, then slide it onto another day
+   and let go. A finger that moves first is scrolling, and is left alone. The
+   time stays; only the day changes, as on the PC. */
+let tvDrag = null;
+const TV_HOLD = 450;
+function tvDragWire(el){
+  el.querySelectorAll('[data-mv]').forEach(card => {
+    card.addEventListener('contextmenu', e => { if(tvDrag) e.preventDefault(); });
+    card.addEventListener('pointerdown', e => {
+      if(e.button > 0 || (e.target.closest && e.target.closest('.vmore,.cbin,.ttick'))) return;
+      tvDragEnd();
+      const sc = document.scrollingElement || document.documentElement;
+      const d = tvDrag = {card, mv: card.dataset.mv, x: e.clientX, y: e.clientY, py: e.clientY, pid: e.pointerId, sy: sc.scrollTop, lifted: false, over: null};
+      d.t = setTimeout(() => tvLift(d), TV_HOLD);
+    });
+    // once lifted, the finger drags the card rather than the page
+    card.addEventListener('touchmove', e => { if(tvDrag && tvDrag.lifted && tvDrag.card === card) e.preventDefault(); }, {passive: false});
+  });
+}
+function tvLift(d){
+  if(tvDrag !== d) return;
+  d.lifted = true;
+  d.card.classList.add('lift');
+  try { if(navigator.vibrate) navigator.vibrate(15); } catch(_){}
+  const sc = document.scrollingElement || document.documentElement;
+  const step = () => {
+    if(tvDrag !== d) return;
+    const h = window.innerHeight || 800, top = 150, edge = 60;   // the header and toolbar sit over the top
+    const v = d.py < top ? -Math.ceil((top - d.py) / 5) : d.py > h - edge ? Math.ceil((d.py - (h - edge)) / 5) : 0;
+    if(v){ sc.scrollTop += v; tvDragMove(d); }
+    d.raf = requestAnimationFrame(step);
+  };
+  if(window.requestAnimationFrame) d.raf = requestAnimationFrame(step);
+  tvDragMove(d);
+}
+function tvDragMove(d){
+  const sc = document.scrollingElement || document.documentElement;
+  d.card.style.transform = 'translateY(' + (d.py - d.y + sc.scrollTop - d.sy) + 'px)';
+  const hit = document.elementFromPoint ? document.elementFromPoint(d.x, d.py) : null;
+  const blk = hit && hit.closest ? hit.closest('#tvBody .dayblk[data-day]') : null;
+  // over a gap or the edge of the list, the last day stays marked
+  if(blk && blk !== d.over){
+    if(d.over) d.over.classList.remove('over');
+    d.over = blk;
+    if(blk) blk.classList.add('over');
+  }
+}
+function tvDragEnd(){
+  const d = tvDrag; tvDrag = null;
+  if(!d) return null;
+  clearTimeout(d.t);
+  if(d.raf && window.cancelAnimationFrame) cancelAnimationFrame(d.raf);
+  d.card.classList.remove('lift');
+  d.card.style.transform = '';
+  if(d.over) d.over.classList.remove('over');
+  return d;
+}
+const tvSamePtr = (d, e) => d.pid == null || e.pointerId == null || d.pid === e.pointerId;
+document.addEventListener('pointermove', e => {
+  const d = tvDrag;
+  if(!d || !tvSamePtr(d, e)) return;
+  d.py = e.clientY;
+  if(!d.lifted){
+    if(Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) tvDragEnd();   // scrolling
+    return;
+  }
+  if(e.cancelable) e.preventDefault();
+  tvDragMove(d);
+}, {passive: false});
+document.addEventListener('pointerup', e => {
+  const d = tvDrag;
+  if(!d || !tvSamePtr(d, e)) return;
+  tvDragEnd();
+  if(!d.lifted) return;
+  // the lift is not a tap: the card stays shut
+  const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
+  window.addEventListener('click', stop, {capture: true, once: true});
+  setTimeout(() => window.removeEventListener('click', stop, {capture: true}), 400);
+  tvDrop(d).catch(reportErr);
+});
+document.addEventListener('pointercancel', () => { tvDragEnd(); });
+async function tvDrop(d){
+  const k = d.over && d.over.dataset.day;
+  const at = d.mv.indexOf(':'), kind = d.mv.slice(0, at), id = d.mv.slice(at + 1);
+  if(kind === 'v'){
+    const ap = APPTS.find(x => x.id === id);
+    if(!ap || !k || ap.date === k) return;
+    await apMove(ap, k);
+    toast('Moved to ' + dayLabel(k));
+  } else {
+    const t = TASKS.find(x => x.id === id);
+    if(!t || !k || t.date === k) return;
+    t.date = k;
+    await taskMoved(t);
+    toast('Moved to ' + dayLabel(k));
+  }
+  apMovedRefresh();
 }
 $('mvCancel').addEventListener('click', closeMove);
 
@@ -8669,7 +8789,7 @@ function openVisitMenu(id){
     html += '<button class="go" data-open="'+eid+'">'+(ap.callId ? 'Open the call' : 'Start the call')+'</button>'+
             '<button data-prep="'+eid+'">'+(ap.brief && ap.brief.text ? 'Brief' : 'Prepare')+'</button>'+
             '<button data-closeout="'+eid+'">Close out</button>'+
-            '<button data-move="'+eid+'">Move</button>'+
+            '<button data-move="'+eid+'">Change date and time</button>'+
             '<button class="quiet" data-missed="'+eid+'">Missed</button>'+
             '<button class="quiet" data-cancel="'+eid+'">Cancel</button>';
   }
@@ -19944,9 +20064,12 @@ $('barMore').innerHTML = '<span class="dots" aria-hidden="true">&#8943;</span>';
 $('barMore').addEventListener('click', () => {
   if(!call) return;
   const forms = evForms();
-  openCardMenu('More for this call', forms.length ? 'Evaluation forms' : '', forms.length
+  // v172: the visit this call came from, moved without leaving the call
+  const ap = call.apptId ? APPTS.find(x => x.id === call.apptId) : null;
+  const visit = ap ? [{label: 'Change date and time', icon: 'calplus', run: () => openMoveDialog(ap.id)}] : [];
+  openCardMenu('More for this call', forms.length ? 'Evaluation forms' : '', visit.concat(forms.length
     ? forms.map(f => ({label: 'Evaluation: ' + f.name, icon: 'plus', run: () => evNew(f.id)}))
-    : [{label: 'The evaluation forms did not load', icon: 'close', run: () => {}}]);
+    : [{label: 'The evaluation forms did not load', icon: 'close', run: () => {}}]));
 });
 const evTitle = e => { const f = evForm(e.form); return 'Evaluation - ' + (f ? f.name : e.form) + (e.v && e.v.line ? ' - ' + e.v.line : ''); };
 /* The document for the engineer: every answer, starred ones left empty said
@@ -21268,6 +21391,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v172', 'Plan on the phone: on the Week view, hold a visit or task until it lifts, then slide it to another day. Change date and time (in the visit\'s ⋯ menu, and in the call\'s ⋯ menu) sets the date, start and minutes.'],
   ['v171', 'Belts list: the Excel and the document have the line or application in its own column, taken from what you typed after the asset number. The status buttons on each belt are small pills. A call being written has a Belts at this customer button above the call log, so you can set statuses without leaving the call.'],
   ['v170', 'Belts, on each account: every belt reported on there, with a status (Open, Ordered, Not ordered, No longer needed). Tick the ones you want and send the customer a list, as a document or Excel.'],
   ['v169', 'Capture is a tile on Home now, instead of the big blue bar. Opening it no longer starts listening: tap the microphone when you are ready. The tile shows Words when there is something waiting to sort.'],

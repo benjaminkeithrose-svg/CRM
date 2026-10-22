@@ -83,6 +83,7 @@ are laid in beside the CRM's own contacts in memory, marked `added`.
 | `brief` | The coach's pre-visit brief |
 | `icsSeq`, `expAt` | The Outlook calendar file's version and last download. (`hold`, the old Placeholder only tick, may still be on older visits; since v163 nothing reads it) |
 | `touchedAt` | Last real edit |
+| `movedAt`, `movedOn` | When its date or time was last changed, and on which (`phone` or `desktop`): Change date and time, or a slide on the phone's Week view (v172). A call started from it and not yet compiled or done takes the new date |
 
 **tasks**
 
