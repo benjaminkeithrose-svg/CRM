@@ -1,0 +1,129 @@
+# Field CRM
+
+An offline progressive web app for planning and logging belt quoting calls. Plan on a desktop, work on an Android phone, exchange files between the two.
+
+Merges the Belt Call Log (phone call logging) and the Zone Call Planner (desktop scheduling) into one app. Both source projects stay frozen in their own repos.
+
+**See [MANUAL.md](MANUAL.md) for how to use it.**
+
+---
+
+## The repository holds no customer data
+
+The app ships empty. Account names, contacts and the zone overrides are loaded on each device by the user. This repository is public, so:
+
+**Never commit** a CRM export, a backup file, `zone-overrides.json`, the Zone Call Planner HTML, or the plant audit workbook.
+
+Anyone can install this and load their own data.
+
+---
+
+## Deploying
+
+No build step. No npm. Upload these nine files to the repository root:
+
+| File | What it is |
+|---|---|
+| `index.html` | Every screen, and all the CSS |
+| `app.js` | Everything else |
+| `zones.js` | The zone map — geography only, no customer names |
+| `manuals.js` | Offline engineering manual library, own database |
+| `sw.js` | Service worker, makes it work offline |
+| `manifest.webmanifest` | Makes it installable |
+| `icon-192.png` | Home screen icon |
+| `icon-512.png` | Home screen icon |
+| `icon-maskable-512.png` | Padded variant, survives launcher cropping |
+
+Then: Settings → Pages → deploy from `main`, root folder. Open the URL in Chrome and **Add to Home screen**.
+
+Filenames are case-sensitive on GitHub Pages, and the manifest must agree with what's actually in the repo.
+
+### Bump the cache on every change
+
+`sw.js` line 6:
+
+```js
+const CACHE = 'fieldcrm-v23';
+```
+
+**Increment this whenever any file changes**, or the old version is what gets tested and a fix will be reported as broken. This is the single most likely source of confusing behaviour after an update.
+
+---
+
+## How it is built
+
+Eight files, no framework, no bundler. One external library: SheetJS from jsDelivr, for reading the Dynamics `.xlsx`. Cached by the service worker on first load.
+
+**Storage.** IndexedDB, database `fieldcrm`, version 3.
+
+| Store | Holds |
+|---|---|
+| `kv` | Import metadata, zone overrides, territory weeks, manager reassignments, the OneDrive folder handle |
+| `calls` | Every call, open or closed, with photos as Blobs |
+| `accounts` | One record per account, keyed on the CRM account name |
+| `appts` | The schedule |
+
+`localStorage` is used only for small preferences, all under an `fcrm.` prefix.
+
+**Storage names are load-bearing.** GitHub Pages puts every repository on one origin, so this app shares an origin with the Belt Call Log. Database `fieldcrm`, cache prefix `fieldcrm-`, localStorage `fcrm.` — never the `beltcall` names.
+
+**Navigation** uses `history.pushState`, so the Android back gesture moves back a screen instead of closing the app. Dialogs get their own history entry.
+
+**Unplanned calls create their own appointment**, marked `origin` and `acked:false`. They travel to the other device in the call file's `newAppts`. The plan file is authoritative for its date range and deletes anything inside it that the file does not contain — so an appointment made here and never sent is exempt until the other side acknowledges it by including it in a plan. Without that exemption a plan arriving after an unplanned call would wipe it.
+
+**Appointment sync over GitHub.** The schedule, and only the schedule, moves between devices through a private repository via the Contents API. `acctKey()` is a 64-bit FNV-1a of the account name — not a crypto hash, and honestly not one: with a thousand-odd names anyone holding the list could rebuild the mapping. What it does is keep names out of the file and out of git history, which is the actual requirement. `slimAppt()` sends id, key, type, date, time, duration, contact indices, status and agenda; `callSummary`, `callId` and `acct` never leave. `ghCheckRepo()` refuses a public repository before any write. A 409 on a stale sha re-reads, merges and retries once. Settings and token live in `kv.github` on the device.
+
+**Two exchange folders, not one.** `DIR_OUT` is PC → Phone (the PC writes plans), `DIR_IN` is Phone → PC (the phone writes calls). Each folder is read only for the kind that belongs in it, so neither device re-imports what it just wrote. A single `dirHandle` from an earlier build migrates to `DIR_OUT`.
+
+**One call per account per week.** Before a new call is created, the week is checked for an existing call at that account. If there is one it is offered; taking it resumes the same record and merges in any contacts picked this time. Cancelled and missed calls are not offered.
+
+**Load log.** Every file in or out is recorded in `kv.loadLog` with filename, kind, detail and success, capped at 12 and rendered under Exchange. Refusals are logged too, marked failed.
+
+**Projects carry forward, they do not repeat.** `projectsHere()` gathers project entries across every call at the account, keyed on a normalised name, newest sighting winning, filtered to non-terminal statuses. Taking one records `fromStatus` so the report reads the move; updating one already in the current call replaces it rather than appending. `PROJECT_DONE` holds the two terminal statuses.
+
+**Health checks read their own history.** `healthHistory()` matches on a loosely normalised asset key across previous calls, requires three characters, and surfaces the most recent with a count of the rest. Severity is required, and health items sort `Urgent, Plan, Monitor, blank` in both the compiled notes and the invite body.
+
+**Belt reference data.** `Plant_Audit_Template_1.xlsm` is read on the device into `kv.beltref` — every valid Series > Style > Material > Colour, the link geometry the width check needs, and the sprocket table. The belt form is driven entirely by it; without it the pickers are empty and the form says so. Ported from Belt Call Log v13, along with the usage ranking in `kv.usage` that floats the values you reach for most.
+
+**Manual library.** `manuals.js` owns its own database, **`fieldcrmmanuals`** — deliberately not the Belt Call Log's `beltmanuals`. Both apps share an origin on GitHub Pages, so sharing the database would let either app clear pages the other relies on, and uninstalling either would take both. The manuals are loaded once per app. pdf.js comes from a CDN on first import only.
+
+**Share target.** The manifest registers the app as an Android share target for `.json`, `.xlsx` and `.csv`. The service worker catches the POST to `./share-target`, parks the file in a separate unversioned cache (`fieldcrm-share`) and redirects with a 303 so a reload cannot re-post. The page collects the file on boot, deletes it from the cache, and routes it. Every incoming file — shared, or chosen with the Receive button — goes through one function that sniffs content rather than filename, so a plan file renamed by OneDrive to `plan (1).json` still works.
+
+**Layout** switches at 900px. Below that the app routes to Today and This Week; above, to the planner. The same breakpoint is used by the routing and the CSS so the two cannot disagree.
+
+---
+
+## Testing
+
+Thirteen harnesses plus a QA pass, all headless with jsdom and fake-indexeddb.
+
+```
+npm install jsdom fake-indexeddb xlsx
+node qa.mjs          # wiring, ids, assets, a full walkthrough, bad input
+node test.mjs        # ... through test18.mjs
+```
+
+Roughly 1,370 assertions. They cover storage, the importer, ICS output, the exchange merge, cadence, navigation and the compiled notes.
+
+**They cannot cover:** the camera, the share sheet, whether Blobs really persist in IndexedDB (fake-indexeddb does not preserve Blob identity), `showDirectoryPicker` against a real folder, SheetJS at full scale, or anything Outlook actually does with an `.ics`.
+
+---
+
+## Known limits
+
+- **Import parses on the main thread.** The UI locks while it works. Never run against the full 5,723-row export on a phone; a worker may become necessary.
+- **SheetJS is a CDN dependency.** If it fails on first load and the device then goes offline, `.xlsx` import won't work until jsDelivr is reachable once. `.csv` still will.
+- **N/A and blank both render as an em dash.** "Checked, there are none" and "never got to it" read identically — worse when read back from account history months later.
+- **Silent defaults.** Belt and rod material default to Unknown; Retrofit and Severity are empty if never tapped. These log as answers when they are non-answers.
+- **No validation** on width, length or sprocket fields. They are free text by design, but nothing catches a mistyped 6060 mm belt.
+- **The health check field set** has not been confirmed against how walkarounds are actually recorded.
+- **The zone map is Australia and New Zealand only.** Installing this elsewhere puts every account in Z12. See the note at the top of `zones.js`.
+- **Regarding.** Dynamics server-side sync pulls the appointment in but cannot attach it to the account, so Last Activity Date does not move on its own. The invite subject carries the exact CRM account name, which a Power Automate flow can match on. Outside this app, but it is what makes the monthly push land.
+
+---
+
+## Brand
+
+Follows the Intralox Global Brand Guidelines. Light layout ratio: white dominant, grey and cyan secondary, red used sparingly. Red is the primary action colour here — a deliberate departure from the Belt Call Log, which kept red off buttons entirely. The red box logo is the first-instance mark, embedded in `index.html` and in the compiled notes.
+
+Type: Roboto, then Arial. No webfont is fetched — the app has to work offline.

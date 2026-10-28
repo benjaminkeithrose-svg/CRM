@@ -1,0 +1,157 @@
+/* Field CRM - service worker.
+   Cache prefix is 'fieldcrm-'. GitHub Pages puts every repo on one origin,
+   so this must never collide with the Belt Call Log's 'beltcall-' caches.
+   Bump the version on EVERY change to any file listed below, or the old
+   build is what gets tested. */
+const CACHE = 'fieldcrm-v185';
+
+/* The share target posts here. A separate cache, deliberately not versioned:
+   activate() deletes every other fieldcrm- cache when the version changes, and
+   a file shared seconds before an update must not be thrown away with them. */
+const SHARE_CACHE = 'fieldcrm-share';
+
+/* v166: the speech engine (speech/, about 22 MB) is fetched only when a
+   recording is first written out, never at install, and kept in a cache of
+   its own named for the library's version, so an app update does not throw
+   it away and fetch it again. Only a new library version replaces it. */
+const SPEECH_CACHE = 'fieldcrm-speech-3.8.1';
+const SHARE_KEY = './shared-file';
+// v177: words shared from another app (a Plaud transcript, an email), not a file
+const SHARE_TEXT_KEY = './shared-text';
+
+// Local files first. If one of these fails the app still installs, but note the warning.
+const ASSETS = [
+  './', './index.html', './app.js', './zones.js', './manuals.js', './healthlib.js', './forms.js', './orderform.js',
+  './health-seed.json', './manifest.webmanifest', './supabase-2.117.1.js', './speech-worker.js',
+  './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', './favicon-32.png',
+  // SheetJS ships with the app since v93 (it came from jsDelivr, so a first
+  // load that missed it left imports broken until the CDN was reached again)
+  './xlsx-0.18.5.full.min.js'
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c =>
+      // cached one at a time: a blocked CDN must not take the whole install down with it
+      // 'reload': fresh from the server, not the browser's own HTTP cache, or a new
+      // version can install with yesterday's files
+      Promise.all(ASSETS.map(a => c.add(new Request(a, { cache: 'reload' })).catch(err => console.warn('sw: not cached', a, err))))
+    ).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    // this app's own versioned caches only, never the share hand-off
+    Promise.all(keys
+      .filter(k => k.startsWith('fieldcrm-') && k !== CACHE && k !== SHARE_CACHE && k !== SPEECH_CACHE)
+      .map(k => caches.delete(k)))
+  ).then(() => self.clients.claim()));
+});
+
+/* ---------- share target ----------
+   Android posts the shared file here as multipart form data. A File cannot
+   survive the redirect that has to follow, so it is parked in a cache under a
+   known key and the page collects it on boot.
+
+   The redirect is a 303 on purpose: it turns the POST into a GET, so a reload
+   or a back gesture afterwards does not re-post the form. */
+async function stashShared(request) {
+  try {
+    const form = await request.formData();
+    let file = form.get('file');
+    if (!file || typeof file.name !== 'string') {
+      // some senders use a field name other than the one the manifest asks for
+      for (const v of form.values()) {
+        if (v && typeof v.name === 'string' && typeof v.arrayBuffer === 'function') { file = v; break; }
+      }
+    }
+    const str = k => { const v = form.get(k); return typeof v === 'string' ? v.trim() : ''; };
+    const words = { title: str('title'), text: str('text'), url: str('url') };
+    if (!(file && typeof file.arrayBuffer === 'function') && (words.text || words.url)) {
+      const c = await caches.open(SHARE_CACHE);
+      await c.put(SHARE_TEXT_KEY, new Response(JSON.stringify(words), { headers: { 'content-type': 'application/json' } }));
+    }
+    if (file && typeof file.arrayBuffer === 'function') {
+      const c = await caches.open(SHARE_CACHE);
+      await c.put(SHARE_KEY, new Response(await file.arrayBuffer(), {
+        headers: {
+          'content-type': file.type || 'application/octet-stream',
+          // header values must be latin-1, and a filename can be anything
+          'x-filename': encodeURIComponent(file.name || 'shared')
+        }
+      }));
+    }
+  } catch (err) {
+    console.warn('sw: share failed', err);
+  }
+  return Response.redirect(new URL('./index.html?shared=1', self.location).href, 303);
+}
+
+/* ---------- manual refresh ----------
+   The page asks for this; nothing here runs on its own. Every asset is fetched
+   with cache:'no-store' so GitHub Pages cannot hand back its own cached copy,
+   and the results are held until all of them have landed. Only then is the live
+   cache written. A refresh that fails partway leaves the app exactly as it was,
+   which matters when the failure mode is standing in a plant with one bar.
+
+   The versioned CACHE name is untouched, so this does not interact with the
+   install/activate cycle at all. */
+async function refreshAssets() {
+  const local = ASSETS.filter(a => !a.startsWith('http'));
+  const staged = [];
+  for (const path of local) {
+    let res;
+    try {
+      res = await fetch(new Request(path, { cache: 'no-store' }));
+    } catch (err) {
+      return { ok: false, reason: 'offline', failed: path };
+    }
+    if (!res || !res.ok) return { ok: false, reason: 'status', failed: path, status: res && res.status };
+    staged.push([path, res]);
+  }
+  const c = await caches.open(CACHE);
+  for (const [path, res] of staged) await c.put(path, res);
+  return { ok: true, count: staged.length };
+}
+
+self.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'refresh') return;
+  const reply = port => refreshAssets().then(r => port.postMessage(r))
+    .catch(err => port.postMessage({ ok: false, reason: 'error', message: String(err) }));
+  if (e.ports && e.ports[0]) reply(e.ports[0]);
+});
+
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (e.request.method === 'POST' && url.pathname.endsWith('/share-target')) {
+    e.respondWith(stashShared(e.request));
+    return;
+  }
+  if (e.request.method !== 'GET') return;
+  /* Only the app's own files (and anything listed in ASSETS) come from the
+     cache. Everything else - Supabase, the GitHub API - is live data: a saved
+     copy would be served forever after, so a sync would keep seeing the first
+     answer it ever got. Those go straight to the network. */
+  if (url.origin !== self.location.origin && !ASSETS.includes(e.request.url)) return;
+  // asked for fresh on purpose (the daily version check): straight to the network
+  if (e.request.cache === 'no-store') return;
+  if (url.origin === self.location.origin && url.pathname.includes('/speech/')) {
+    e.respondWith(caches.open(SPEECH_CACHE).then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(res => {
+      if (res.ok) c.put(e.request, res.clone()).catch(() => {});
+      return res;
+    }))).catch(() => Response.error()));
+    return;
+  }
+  // ?shared=1 must still match the cached index.html when offline
+  const opts = e.request.mode === 'navigate' ? { ignoreSearch: true } : undefined;
+  e.respondWith(
+    caches.match(e.request, opts).then(hit => hit || fetch(e.request).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
+      return res;
+    // offline with nothing cached: a page load gets the app; a script or file gets
+    // an honest failure, not index.html parsed as JavaScript
+    }).catch(() => e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
+  );
+});

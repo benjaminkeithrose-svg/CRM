@@ -1,0 +1,260 @@
+# Field CRM
+
+Offline PWA for Intralox field sales in ANZ: account planning, site calls, belt
+and health-check logging, quote requests, and compiled call notes. Vanilla JS, no
+framework, no build step. Deployed to GitHub Pages from this repo's root.
+
+## Who you are working with
+
+@PREFERENCES.md
+
+That file is Ben's own, shared across his projects. Where it and this file
+disagree, this file wins — in particular, the Intralox branding below replaces
+its visual defaults.
+
+## The repo is the only source of truth
+
+Earlier work ran across several parallel chat sessions and repeatedly drifted —
+changes were twice nearly built on stale copies. That problem ends here. Never
+work from a copy of a file anywhere other than this checkout.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `index.html` | Every screen as a `<section class="scr">`, every dialog, all CSS |
+| `app.js` | Everything else: storage (IndexedDB v9: `kv`, `calls`, `accounts`, `appts`, `tasks`, `snippets`, `products`, `plans`, `opps`, `cip`, `people`), import, navigation, planner, calls, tasks, output, sync |
+| `sw.js` | Service worker, cache-first, offline |
+| `zones.js` | AU/NZ zone map. Ships in the repo, no replacement mechanism |
+| `manuals.js`, `healthlib.js` | Reference data and the health-check library |
+| `forms.js` | Application engineering evaluation forms (v161): each form described once (sections, questions, answer lists, units, conditions); app.js draws and prints any of them. Blank forms only, generic engineering questions (Ben's choice); a filled-in one is an entry of the call |
+| `orderform.js` | The customer's order form (v183), moved in from the Belt Order Builder: `orderFormHTML()` bakes an account's ticked favourites into one self-contained HTML file; `ofFormRuntime` is everything that file runs, put in it as source text. The order sheet itself is a `plans` record, `kind: 'orders'` |
+| `manifest.webmanifest`, icons, `logo.png` | Installability and branding. `apple-touch-icon.png` (v135) is the iPhone home-screen icon, an opaque 180px copy of the maskable icon; `favicon-32.png` (v149) is the browser tab's icon |
+| `supabase-2.117.1.js` | Supabase client library, shipped in the repo (not a CDN) for cloud sync. See `BACKEND-PLAN.md` |
+| `xlsx-0.18.5.full.min.js` | SheetJS (Apache-2.0), shipped in the repo since v93 so CRM imports work offline from the first install |
+| `speech/`, `speech-worker.js` | v166 trial: writing out a recording on the phone. `speech/` holds transformers.js 3.8.1 and the ONNX Runtime engine (about 22 MB, Apache-2.0 and MIT, `speech/LICENSES.txt`); it is never precached, and the service worker keeps it on first use in `fieldcrm-speech-3.8.1`, which app updates leave alone (rename the cache when the library changes). `speech-worker.js` changes with the app, so it is in `ASSETS`. The Whisper model comes from huggingface.co on first use |
+| `supabase/migrations/` | Cloud database schema. `0004_teams.sql` (v111) adds teams: shared calls, visits, plans, products and saved notes; the admin's reference data; private tasks. `0006_team_removed.sql` (v113) lets a removed colleague's work stay with the team. `0007_team_opps.sql` (v115) shares opportunities with the team. `0008_team_people.sql` (v125) shares contacts added on Blue Sheet maps. Not served by the app |
+| `supabase/functions/` | Edge functions deployed to the Supabase project. `intralox-manuals` finds the current manual PDFs on intralox.com (v88); `ai-tidy` holds the Anthropic key for Tidy, Draft it, the visit summary, reading a spec sheet photo and the sales coach's brief, coaching and suggested account plan changes, coaching on an opportunity's Blue Sheet (v118), setting a Blue Sheet up from a description (`oppsetup`, v127), and Capture on Home sorting what was said into tasks, calls, visits and notes (`capture`, v165); Tidy and Draft it follow spoken instructions (v95/v100/v101/v102/v106/v108, Haiku 5.5, 200 a day per user via `ai_usage`); `team-admin` lets a team's admin add a colleague's sign-in and remove it (v113). Not served by the app |
+| `tests/` | Headless test suites. Not served by the app |
+| `tools/` | Maintenance scripts (`help-to-manual.py`, `docs-to-print.py`). Not served by the app |
+| `docs/` | The documentation package: overview, database architecture, sync and security, AI, data in and out, running it, developer guide, a page for colleagues, glossary, and the printable `field-crm-documentation.html` made from them. Not part of the app |
+
+## Intralox's mission drives decisions
+
+Ben, 2026-10-12: Intralox's mission, commitment and business philosophy
+(Reference, Mission tab; published on intralox.com) should drive decisions.
+The mission is to create significant economic value for customers by
+optimising their conveying systems; the commitments are improving customer
+efficiencies, minimising customer downtime and continuous improvement. When
+weighing a feature, favour what helps the salesperson find and prove those
+for a customer, and keep commitments made to them (follow-ups, dates). The
+sales coach's prompt carries the same three commitments (`ai-tidy`, METHOD).
+
+## Hard rules
+
+**Version strings live in three places and must always agree:**
+`<meta name="build">` in `index.html`, `APP_BUILD` in `app.js`, `CACHE` in `sw.js`
+(`fieldcrm-vNN`). Bump all three on every change to any served file. If the cache
+is not bumped, Ben tests the old build on his phone and reports a fix as broken —
+the single most likely source of confusion after an update.
+
+**No customer data in the repo, ever.** The repo is public on GitHub Pages —
+and GitHub Pages serves whatever it's given publicly regardless of whether the
+source repo itself is public or private, so making the repo private would not
+change this. Account names, contacts and CRM exports are loaded manually on
+each device. The app is meant to be handed to colleagues who load their own.
+`.gitignore` blocks spreadsheets as a backstop; do not rely on it.
+
+**CIP and MBOs are not in this repo either** (v121). Store `cip` holds three
+records per person: `me` (CIP periods and the four pillars), `mbo` and `ref`
+(job indicants, LCI principles, BU goals, booklist). The record is personal and
+the reference is Intralox's internal wording, so both are imported on a device
+from a file and sync encrypted. `cip` is private: never add it to the shared
+stores in the team migrations. Since v134 a call's MBO and initiative ticks live
+in the `mbo` record too (by call id), never on the call, because calls are
+shared with the team.
+
+**Contacts added in the app live in store `people`, never in `accounts`**
+(v125). A CRM import replaces the account list wholesale, so `peopleMerge()`
+lays them into the accounts' contacts in memory only, marked `added`.
+Anything writing the account list out (backup, the desktop exchange) uses
+`accPlain()`. A record clears itself once the CRM export has the same name
+at that account.
+
+**The belt/sprocket product catalogue is not in this repo either**, for the
+same public-Pages reason, even though it isn't customer data — it's Intralox's
+own part numbers. It is imported on a device and travels between devices
+encrypted through cloud sync (dataset `beltref`). The old GitHub-repo and
+OneDrive-folder syncs were removed in v78.
+
+**Storage is promise-gated.** `openDB()` returns a cached promise and clears
+itself on failure so the next call retries. Every store operation awaits it.
+A database version bump must never strand the app (v126): a blocked open waits
+for the older copy and says so, and an open database closes and reloads on
+`versionchange`. v125's bump to version 9 started the app empty while an old
+tab held version 8; `tests/qa-upgrade.mjs` guards this. Never
+write a bare `db.transaction(...)` that assumes the global is populated — an
+earlier build did, and it surfaced minutes later as an unrelated-looking import
+failure.
+
+**Cloud sync (Supabase) marks changes at the storage layer.** `kvSet()` on a
+key in `CLOUD_KV`, and `accReplaceAll()`/`accMerge()`, mark that dataset as
+waiting to send; `callsPut()`/`callsDel()`/`apptsPut()`/`apptsDel()`/
+`tasksPut()`/`tasksDel()`/`snippetsPut()`/`snippetsDel()`/`productsPut()`/
+`productsDel()`/`plansPut()`/`plansDel()`/`oppsPut()`/`oppsDel()`/`cipPut()`/`cipDel()`/`peoplePut()`/`peopleDel()` mark that record. Bump `call.updated` /
+`appointment.touchedAt` / `task.updated` on a real edit, or the change can
+lose to an older copy. Photos stay Blobs in `entry.photos` and
+`call.loose`; the sync names them by content hash on the way out. Write data only through those functions, or the change never
+reaches the other devices. Anything applying a copy pulled from
+the cloud must set `cloudQuiet`, or it bounces straight back up. Everything
+leaving the device is encrypted with `sbSeal()` first. It runs automatically
+(on open, on reconnect, after a change), by Ben's agreement in
+`BACKEND-PLAN.md`.
+
+**Service worker install caches each asset independently.** Never go back to
+`cache.addAll()`: it is atomic, and a blocked CDN once took the whole app's
+offline capability down with it.
+
+**The service worker serves only the app's own files from its cache.** Since
+v93 everything in `ASSETS` ships in the repo, SheetJS included
+(`xlsx-0.18.5.full.min.js`); only pdf.js for manual imports still loads from a
+CDN, on demand. Supabase and GitHub API requests go straight
+to the network. Before v69 it cached every GET, so a sync could be answered
+with the first reply it ever got; `tests/qa-sw.mjs` guards this.
+
+**Quote requests are marked `rectype:'quote'`, never `kind`.** The old GitHub
+call sync (removed in v78) overwrote and stripped `kind`, and call files and
+backups from that time still carry it, so a quote marked by `kind` would come
+back as an ordinary call, land in Reports and reset account cadence. Reads go through `recordsAll()` → `callsAll()` (excludes
+quotes) or `quotesAll()`. Backup and restore deliberately use `recordsAll()`.
+
+**Status vocabulary is `open` / `compiled` / `done`** and they are independent.
+Compiled means a document was produced; done means the call is finished. A call
+closed with nothing to report is a normal finished state (`noReport`).
+
+**Dialogs are registered in `DIALOGS`** so history navigation can close them.
+Any new `<dialog>` must be added there. Guard `showModal` —
+`if(d.showModal) d.showModal(); else d.setAttribute('open','')`.
+Add a dialog's history entry with `pushDialog(id)`, never a bare
+`pushState`: it names the entry, and takes over the entry a menu leaves
+behind when it closes itself (v103; `tests/qa-history.mjs`).
+
+**Help lives in two places with the same words:** the Help screen
+(`s-help` in `index.html`, opened from ⋯ on Home) and `MANUAL.md`. When a flow,
+button name or screen changes, update the matching Help section in the same
+pull request, then run `python3 tools/help-to-manual.py` to regenerate
+`MANUAL.md` from it. Help steps are
+numbered, plain English, one action per step.
+
+**The documentation in `docs/` is kept current** (Ben, 2026-10-12). A pull
+request that changes a store or its fields, the cloud schema or its rules,
+what syncs or who sees it, an AI feature, an import or an output updates the
+matching page in `docs/` in the same pull request, then runs
+`python3 tools/docs-to-print.py` to make the printable copy again. The
+version named at the top of `docs/README.md` moves with it. No customer data,
+belt catalogue or CIP/MBO wording goes in the docs either; examples use made-up
+names.
+
+**No output format that has already been rejected.** EML was tried and dropped:
+on Android, Outlook opens it in a browser rather than as a draft. PDF was dropped
+deliberately for call notes. Output is self-contained HTML handed to the share sheet.
+The exception is the Blue Sheet (v127, Ben's choice: "it'd be PDF or Excel"):
+`printDoc()` lays its A4 document into the page in a shadow root and opens the
+browser's print screen, where Save as PDF makes the file. No PDF library.
+
+## Output documents (compiled notes, RFQ)
+
+Anything pasted into or opened by Outlook must survive Word's renderer, which
+discards stylesheets, classes and scripts and squares off `border-radius`. Built
+documents use A4 (`@page{size:A4;margin:14mm}`), `print-color-adjust:exact`, and
+the spec-table palette in `NOTES_CSS`. Empty cells are omitted or an em dash,
+never "N/A". The per-contact document tick governs every output.
+
+## Branding
+
+Intralox Global Brand Guidelines, digital specification. White dominant, dark
+grey and cyan secondary, red about 5%. **Red is never a button** — brand colours
+carry no action meaning. Primary action `#00287B`, destructive `#B2232F`. Type is
+Helvetica Neue, then Roboto, then Arial; no monospace. Never recolour, distort,
+crop or outline the logo. Where a guideline and an existing spec disagree, follow
+the guideline and say what changed.
+
+## Testing
+
+```
+npm install     # installs jsdom and fake-indexeddb; each cloud session starts clean
+npm test        # runs every suite in tests/
+```
+
+Suites load the real `index.html` and scripts into jsdom with
+`runScripts:'dangerously'` and real `<script>` elements — indirect `eval` cannot
+reach top-level `let`/`const`, so read lexicals with `w.eval('(expr)')`.
+
+The pre-existing referenced-but-absent IDs are harmless and guarded:
+`looseCam, looseGal, indentAllLnk, detachBtn` (built in code when needed; v181
+removed the old `pastList` block).
+
+`tests/browser-cloud.mjs` drives the real app in Playwright's Chromium with two
+browser profiles as two devices (not part of `npm test`; how to run it is at
+the top of the file). `tests/browser-cloud-live.mjs` runs the same against the
+real Supabase project with a throwaway test account passed in the environment —
+never Ben's own account, and never written to the repo. `tests/browser-team-live.mjs`
+(v113) runs a team of two the same way: the test account is the admin of its
+own test team, never Ben's. All are real-browser tests, still not phone tests.
+
+**Say which kind of verification applies.** Headless tests catch runtime errors,
+escaping faults and broken flows. They cannot test the camera, the share sheet,
+gesture hit areas, launcher icons, the clipboard under corporate policy, or
+SheetJS parsing a real 5,700-row export. Never imply something was verified on a
+phone.
+
+Tests were written against v58–v60. If the repo has moved on, a failing assertion
+may be a stale test rather than a bug. Check which before changing code, and fix
+the test when the behaviour changed deliberately.
+
+## Git and deployment
+
+Ben runs Claude Code **on the web**, not locally. Sessions clone this repo from
+GitHub into a cloud machine; there is no local copy. Anything not committed to
+GitHub does not exist to the next session.
+
+**The repository started afresh on 2026-10-28** (Ben's decision): the
+old one's history and pull requests held customer names from early tests,
+so it was deleted and this one begun from a clean copy of v185. Pull request
+numbers mentioned in code comments and the docs (before #1 here) are the old
+repository's. Keep customer names out of tests, commit messages and pull
+request descriptions as well as the code: examples use made-up names.
+
+Work on a branch and open a pull request. **Never push to `main` directly** — a
+merge to `main` deploys to GitHub Pages immediately and reaches his phone on next
+load, so merging the pull request is his decision and his deploy step.
+
+**Ben doesn't want to log into GitHub to merge** (his instruction, 2026-10-09).
+When a pull request is ready, end your message with a tap-to-answer options
+box (the AskUserQuestion tool) asking whether to merge it, with "Merge it" as
+the first option and a line or two saying what it changes. When he picks it,
+merge it yourself through the GitHub tools and remind him to reload the app.
+Never merge without that answer for that pull request.
+
+In the pull request description, say in plain language what changed, which files,
+and what he should test on the phone. He is new to git and reads the PR on
+github.com. Never force-push. Never rewrite history.
+
+After he merges, remind him the service worker needs a reload on the phone before
+he sees the new build.
+
+## Known issues, not yet fixed
+
+- The Plant Audit Template **FORM v1.2** will not import. It has no `COLOR_IND`
+  column, moved the dimension block to its own sheet, and replaced
+  `SPROCKET SPILL DATA` with a per-series pitch-diameter layout. The importer
+  expects the older structure. `Plant_Audit_Template_1.xlsm` still imports.
+- `COLOR_IND` in the audit data records colours found in plants, not colours a
+  belt can be ordered in. Do not use it to restrict a colour picker. The same is
+  true of materials.
+- The Android back gesture moves through history chronologically; the on-screen
+  back button is hierarchical via `PARENT`. Deliberate — he does not use gestures.
+- pdf.js, used only when importing an engineering manual, still loads from
+  jsDelivr on first use. SheetJS moved into the repo in v93, and the
+  flight-material restore bug was fixed then (`selEnsure()` adds back an
+  option a dropdown no longer lists).
