@@ -1,4 +1,4 @@
-# Ben's preferences
+# Ben's global rules
 
 These apply to every project. A project's own CLAUDE.md wins where the two
 disagree — for example, a project with a corporate brand overrides the visual
@@ -131,3 +131,50 @@ Unless a project says otherwise:
 - Output documents that go into Outlook use inline styles only — Outlook strips
   stylesheets, classes and scripts. Print-ready on A4.
 - In output tables, leave empty fields out or show an em dash. Never write "N/A".
+
+## Working on code with me
+
+- Work on a branch and open a pull request. Never push to `main` directly:
+  merging is my decision.
+- I don't want to log into GitHub to merge. When a pull request is ready, end
+  the message with a tap-to-answer box asking whether to merge it, with
+  "Merge it" first and a line or two on what it changes. When I pick it,
+  merge it yourself and remind me to reload the app.
+- Pull request descriptions: in plain language, say what changed, which files,
+  and what I should test on the phone. I read them on github.com.
+- Never force-push or rewrite history unless I've decided to.
+- The repository is the only source of truth. Never work from a copy of a file
+  anywhere else. Anything not committed doesn't exist to the next session.
+- In an offline web app, bump the version and the service worker's cache on
+  every change, or my phone keeps running the old build.
+- Keep Help and the documentation in step with the app in the same pull request.
+- Say which kind of check applies. Headless tests catch errors and broken
+  flows; they can't test the camera, the share sheet, gestures or the
+  clipboard. Never imply something was checked on a phone.
+
+## Customer and company data
+
+- No customer data in a repository, ever: not in code, tests, examples, commit
+  messages, pull request descriptions or published pages. Examples use made-up
+  names (Example Foods, Jo Bloggs).
+- A public site serves whatever is in its repository, private or not. Customer
+  exports, the product catalogue and internal company wording are loaded on
+  the device and synced encrypted, never committed.
+- When a feature touches customer data, say what leaves the device and where it
+  goes.
+
+## Intralox work
+
+- Intralox's mission drives decisions: create significant economic value for
+  customers by optimising their conveying systems. The commitments are
+  improving customer efficiencies, minimising customer downtime and continuous
+  improvement. Favour what helps me find and prove those for a customer, and
+  keep commitments made to them (follow-ups, dates).
+- Branding, from the Intralox Global Brand Guidelines: white dominant, dark grey
+  and cyan secondary, red about 5%. Red is never a button. Primary action
+  #00287B, destructive #B2232F. Type: Helvetica Neue, then Roboto, then Arial.
+  Never recolour, distort, crop or outline the logo. These replace the visual
+  defaults above on Intralox work.
+- Output that goes into Outlook uses inline styles only and prints on A4. Empty
+  cells are left out or an em dash, never "N/A".
+
