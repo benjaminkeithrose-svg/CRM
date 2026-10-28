@@ -1989,7 +1989,7 @@ details.bsx > .msg{margin:8px 12px}
 <section class="scr" id="s-ofav">
   <button type="button" class="big" id="ofDone">Done</button>
   <p class="msg" id="ofMsg"></p>
-  <div class="fld" id="ofKindW"><div class="seg" id="ofKind" role="group" aria-label="What it is"><button type="button" data-v="belt">Belt</button><button type="button" data-v="sprocket">Sprocket</button></div></div>
+  <div class="fld" id="ofKindW"><div class="seg" id="ofKind" role="group" aria-label="What it is"><button type="button" data-v="belt">Belt</button><button type="button" data-v="sprocket">Sprocket</button><button type="button" data-v="accessory">Accessory</button></div></div>
   <div class="fld" id="ofFromW" hidden><label>From a belt logged here</label><div class="offrom" id="ofFrom"></div></div>
   <div id="ofBelt">
     <div class="fld ofrow">
@@ -2037,6 +2037,23 @@ details.bsx > .msg{margin:8px 12px}
     </div>
     <div class="fld"><label>Pitch diameters they can choose</label><div class="chips" id="ofSPds"></div></div>
     <div class="fld"><label>Materials they can choose</label><div class="chips" id="ofSMats"></div></div>
+  </div>
+  <div id="ofAcc" hidden>
+    <p class="msg info show" id="ofAccNone">Load the accessory list first: Settings, CRM and belt data, Accessories.</p>
+    <div id="ofAccBody">
+      <div class="fld"><div class="seg" id="ofCat" role="group" aria-label="Which accessory"><button type="button" data-v="wearstrip">Wear strip</button><button type="button" data-v="retainer">Retainer ring</button></div></div>
+      <div id="ofWs">
+        <div class="fld ofrow">
+          <div><label for="ofWsStyle">Style</label><select id="ofWsStyle"></select></div>
+          <div><label for="ofWsSpec">Size</label><select id="ofWsSpec"></select></div>
+        </div>
+        <div class="fld"><label>Colours they can choose</label><div class="chips" id="ofWsCols"></div></div>
+      </div>
+      <div id="ofRr" hidden>
+        <div class="fld"><label for="ofRrType">Type</label><select id="ofRrType"></select></div>
+        <div class="fld"><label>Sizes they can choose</label><div class="chips" id="ofRrSizes"></div></div>
+      </div>
+    </div>
   </div>
   <div class="fld"><label for="ofLabel">Name <span class="sublab">what the customer sees it called</span></label><input type="text" id="ofLabel" autocomplete="off"></div>
   <div class="fld">
@@ -2166,6 +2183,13 @@ details.bsx > .msg{margin:8px 12px}
     <input type="file" class="adminonly" id="refFile" accept=".xlsm,.xlsx" style="margin-top:10px">
     <button class="ghost adminonly" id="refBtn">Import plant audit workbook</button>
     <p class="hint adminonly">Plant_Audit_Template_1.xlsm. This is what drives the series, style, material, sprocket and flight pickers on the belt form. It is the bigger of the two files &mdash; the app will sit still for a few seconds while it reads. Leave the screen on until it says it is done.</p>
+  </div>
+  <div class="fld">
+    <label>Accessories</label>
+    <p class="stat" id="axStat">No list loaded.</p>
+    <input type="file" class="adminonly" id="axFile" accept=".json,application/json" style="margin-top:10px">
+    <button class="ghost adminonly" id="axBtn">Import accessory list</button>
+    <p class="hint adminonly">The wear strips and retainer rings for the order sheet, with their item codes: a .json file. It travels with the belt data.</p>
   </div>
   </details>
 

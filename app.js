@@ -521,6 +521,7 @@ async function importRef(file){
   const payload = {
     combos, geom, sprockets, pitch, indentGroups,
     materials, colours, rods, flightTypes, sideguardTypes,
+    accessories: (REF && REF.accessories) || undefined,   // v185: loaded on its own, kept across a workbook re-import
     imported: Date.now(),
     counts: {combos:combos.length, geom:geom.length, sprockets:sprockets.length,
              series:new Set(combos.map(c=>c[0])).size}
@@ -540,6 +541,33 @@ function renderRefStat(){
   el.innerHTML = '<b>'+REF.counts.combos+'</b> belt specs across <b>'+REF.counts.series+'</b> series, <b>'+
     REF.counts.sprockets+'</b> sprockets, <b>'+REF.counts.geom+'</b> geometry rows<br>Imported '+
     d.toLocaleDateString('en-AU')+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  renderAxStat();
+}
+/* v185: the accessory list - OneTrack wear strips and retainer rings with
+   their item codes, for the order sheet. Intralox's own codes, so like the
+   belt catalogue it is never in the repository: a .json file loaded here,
+   kept in the belt data and synced with it. */
+function renderAxStat(){
+  const el = $('axStat'); if(!el) return;
+  const ax = REF && REF.accessories;
+  el.textContent = ax ? ax.wearstrips.length + ' wear strips and ' + ax.retainers.length + ' retainer rings, loaded ' + new Date(ax.imported).toLocaleDateString('en-AU') : 'No list loaded.';
+}
+async function importAccessories(file){
+  if(!REF) throw new Error('load the plant audit workbook first');
+  const d = JSON.parse(await file.text());
+  const str = v => String(v == null ? '' : v).trim();
+  const ws = (Array.isArray(d && d.wearstrips) ? d.wearstrips : []).filter(w => w && str(w.style) && str(w.item))
+    .map(w => ({style: str(w.style), length: str(w.length), width: str(w.width), height: str(w.height), flangeWidth: str(w.flangeWidth), flangeHeight: str(w.flangeHeight),
+      frameSize: str(w.frameSize), colour: str(w.colour), item: str(w.item)}));
+  const rs = (Array.isArray(d && d.retainers) ? d.retainers : []).filter(r => r && str(r.type) && str(r.size) && str(r.item))
+    .map(r => ({type: str(r.type), size: str(r.size), item: str(r.item)}));
+  if(!ws.length && !rs.length) throw new Error('there are no wear strips or retainer rings in it');
+  const payload = Object.assign({}, REF, {accessories: {wearstrips: ws, retainers: rs, imported: Date.now()}});
+  await kvSet('beltref', payload);
+  await logLoad(file.name || 'accessory list', 'beltref', ws.length + ' wear strips, ' + rs.length + ' retainer rings');
+  REF = payload;
+  renderAxStat();
+  toast('Loaded ' + ws.length + ' wear strips and ' + rs.length + ' retainer rings');
 }
 function renderManStat(){
   const el = $('manStat');
@@ -7882,6 +7910,12 @@ $('refBtn').addEventListener('click', async ()=>{
   try { await importRef(f); }
   catch(e){ console.error(e); toast('Belt reference import failed: '+e.message); }
 });
+$('axBtn').addEventListener('click', async () => {
+  const f = $('axFile').files[0];
+  if(!f){ toast('Choose the accessory list first'); return; }
+  try { await importAccessories(f); }
+  catch(e){ console.error(e); toast('The accessory list did not load: ' + e.message); }
+});
 $('ovBtn').addEventListener('click', async ()=>{
   const f = $('ovFile').files[0];
   if(!f){ toast('Choose the zone overrides file first'); return; }
@@ -12197,8 +12231,18 @@ let OF = null;          // the favourite being changed: {acct, kind, f, isNew}
 let OSEND = null;       // the form being sent: {acct, to, off: Set of favourite ids left out}
 let ofSaveT = null;
 const osFor = acct => PLANS.filter(p => p.kind === OS_KIND && p.acct === acct).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0] || null;
-const osList = r => r ? (r.belts || []).map(f => ({kind: 'belt', f})).concat((r.sprockets || []).map(f => ({kind: 'sprocket', f}))) : [];
-const osKey = kind => kind === 'belt' ? 'belts' : 'sprockets';
+const osList = r => r ? (r.belts || []).map(f => ({kind: 'belt', f})).concat((r.sprockets || []).map(f => ({kind: 'sprocket', f})), (r.accessories || []).map(f => ({kind: 'accessory', f}))) : [];
+const osKey = kind => ({belt: 'belts', sprocket: 'sprockets', accessory: 'accessories'})[kind];
+const OF_KIND = {belt: 'Belt', sprocket: 'Sprocket', accessory: 'Accessory'};
+/* v185: the accessory list loaded on this device (wear strips, retainer rings) */
+const axList = () => (REF && REF.accessories) || {wearstrips: [], retainers: []};
+const axSpecKey = w => [w.length, w.width, w.height, w.frameSize, w.flangeWidth, w.flangeHeight].join('|');
+const axSpecLabel = w => [w.length, w.width, w.height, w.frameSize && 'frame ' + w.frameSize, w.flangeWidth && 'flange ' + w.flangeWidth + ' x ' + w.flangeHeight].filter(Boolean).join(' \u00b7 ');
+const axStyles = () => uniqSort(axList().wearstrips.map(w => w.style));
+const axSpecs = st => { const seen = new Map(); axList().wearstrips.filter(w => w.style === st).forEach(w => { if(!seen.has(axSpecKey(w))) seen.set(axSpecKey(w), axSpecLabel(w)); }); return [...seen]; };
+const axColours = (st, k) => uniqSort(axList().wearstrips.filter(w => w.style === st && axSpecKey(w) === k).map(w => w.colour));
+const axTypes = () => uniqSort(axList().retainers.map(r => r.type));
+const axSizes = t => uniqSort(axList().retainers.filter(r => r.type === t).map(r => r.size));
 // newest wins between devices, so every change is made to the latest copy of the sheet
 async function osWrite(acct, change){
   const cur = osFor(acct);
@@ -12250,6 +12294,9 @@ function ofNeeds(kind, f){
       if(!(f.widths || []).length) n.push('a width');
       if(ofNeedsRoll(f.series, f.style) && !f.rollerConfig) n.push('the passive roller set-up');
     }
+  } else if(kind === 'accessory'){
+    if(f.category === 'retainer'){ if(!f.type) n.push('a type'); else if(!(f.sizes || []).length) n.push('a size'); }
+    else if(!f.style || !f.specKey) n.push('a style and size'); else if(!(f.colours || []).length) n.push('a colour');
   } else if(!f.series || !f.bore) n.push('a series and bore');
   else {
     if(!(f.pds || []).length) n.push('a pitch diameter');
@@ -12258,11 +12305,13 @@ function ofNeeds(kind, f){
   return n;
 }
 function ofDefaultLabel(kind, f){
+  if(kind === 'accessory') return f.category === 'retainer' ? f.type || '' : f.style ? 'Wear strip, ' + f.style.toLowerCase() : '';
   if(kind === 'sprocket') return ['S' + (f.series || ''), 'sprocket', f.bore].filter(x => x && x !== 'S').join(' ').replace(/^S /, '');
   return [f.series && 'S' + f.series, f.style].filter(Boolean).join(' ');
 }
-const ofLabel = (kind, f) => String(f.label || '').trim() || ofDefaultLabel(kind, f) || (kind === 'belt' ? 'Belt' : 'Sprocket');
+const ofLabel = (kind, f) => String(f.label || '').trim() || ofDefaultLabel(kind, f) || OF_KIND[kind];
 function ofLine(kind, f){
+  if(kind === 'accessory') return f.category === 'retainer' ? (f.sizes || []).join(' or ') : [f.specLabel, (f.colours || []).join(' or ')].filter(Boolean).join(' \u00b7 ');
   if(kind === 'sprocket') return [(f.pds || []).join(' or '), (f.materials || []).join(' or ')].filter(Boolean).join(' · ');
   return [(f.materials || []).join(' or '), (f.colours || []).join(' or '), (f.widths || []).length ? f.widths.join(', ') + ' mm' : '',
     f.hasFlights && 'flights', f.hasSideguards && 'sideguards', f.hasSprocket && 'sprocket'].filter(Boolean).join(' · ');
@@ -12293,16 +12342,17 @@ function renderOrders(){
       (inTeam() ? ' · your team sees this sheet too' : '')
     : '';
   if(!favs.length){ $('osList').innerHTML = ''; return; }
-  const groups = [...new Set(favs.map(x => x.f.series || ''))].sort((a, b) => osSeriesNum(a) - osSeriesNum(b) || a.localeCompare(b));
+  const AXG = '\uffffaccessories', grp = x => x.kind === 'accessory' ? AXG : x.f.series || '';
+  const groups = [...new Set(favs.map(grp))].sort((a, b) => (a === AXG) - (b === AXG) || osSeriesNum(a) - osSeriesNum(b) || a.localeCompare(b));
   $('osList').innerHTML = groups.map(s => {
-    const own = favs.filter(x => (x.f.series || '') === s), nb = own.filter(x => x.kind === 'belt').length, ns = own.length - nb;
-    return '<div class="osser"><span>' + (s ? 'Series ' + esc(s) : 'No series yet') + '</span><span>' +
-      [nb && nb + (nb === 1 ? ' belt' : ' belts'), ns && ns + (ns === 1 ? ' sprocket' : ' sprockets')].filter(Boolean).join(', ') + '</span></div>' +
+    const own = favs.filter(x => grp(x) === s), nb = own.filter(x => x.kind === 'belt').length, ns = own.filter(x => x.kind === 'sprocket').length;
+    return '<div class="osser"><span>' + (s === AXG ? 'Accessories' : s ? 'Series ' + esc(s) : 'No series yet') + '</span><span>' +
+      (s === AXG ? own.length : [nb && nb + (nb === 1 ? ' belt' : ' belts'), ns && ns + (ns === 1 ? ' sprocket' : ' sprockets')].filter(Boolean).join(', ')) + '</span></div>' +
       own.map(x => {
         const need = ofNeeds(x.kind, x.f), line = ofLine(x.kind, x.f), name = ofLabel(x.kind, x.f);
         return '<div class="card entry"><div class="ehd"><button type="button" class="eopen" data-osopen="' + esc(x.f.id) + '">' +
           '<span class="t">' + esc(name) + '</span>' +
-          '<span class="meta"><span class="ostag">' + (x.kind === 'belt' ? 'Belt' : 'Sprocket') + '</span>' + esc(line) + '</span>' +
+          '<span class="meta"><span class="ostag">' + OF_KIND[x.kind] + '</span>' + esc(line) + '</span>' +
           (need.length ? '<span class="osneed">Still needs ' + esc(andList(need)) + '; left out of the form until then</span>' : '') +
           (x.f.internalNote ? '<span class="osnote">Sales: ' + esc(x.f.internalNote) + '</span>' : '') + '</button>' +
           '<button type="button" class="emore" data-osmenu="' + esc(x.f.id) + '" aria-label="More for ' + esc(name) + '">&#8943;</button></div></div>';
@@ -12316,7 +12366,7 @@ function renderOrders(){
     const x = osList(osFor(OSH.acct)).find(y => y.f.id === b.dataset.osmenu);
     if(!x) return;
     const name = ofLabel(x.kind, x.f);
-    openCardMenu(name, x.kind === 'belt' ? 'Belt favourite' : 'Sprocket favourite', [
+    openCardMenu(name, OF_KIND[x.kind] + ' favourite', [
       {label: 'Duplicate', icon: 'copy', run: () => { const f = JSON.parse(JSON.stringify(x.f)); f.id = newId('f'); f.label = ''; openOfav(OSH.acct, x.kind, f, true); }},
       {label: 'Remove', icon: 'trash', danger: true, run: () => {
         if(!confirm('Remove ' + name + ' from the order sheet for ' + OSH.acct + '?\n\nForms already sent keep it. ' +
@@ -12367,7 +12417,7 @@ function ofFromBelt(g){
 }
 function ofTouched(){
   const f = OF.f;
-  return !!(f.series || f.style || f.label || f.internalNote || (f.materials || []).length);
+  return !!(f.series || f.style || f.type || f.label || f.internalNote || (f.materials || []).length);
 }
 function ofSaveSoon(){ clearTimeout(ofSaveT); ofSaveT = setTimeout(() => ofSaveNow().catch(reportErr), 600); }
 async function ofSaveNow(){
@@ -12375,10 +12425,10 @@ async function ofSaveNow(){
   if(!OF) return;
   const of = OF;
   if(!of.saved && !ofTouched()) return;      // nothing chosen yet: nothing kept
-  const f = JSON.parse(JSON.stringify(of.f)), other = of.kind === 'belt' ? 'sprockets' : 'belts';
+  const f = JSON.parse(JSON.stringify(of.f));
   await osWrite(of.acct, r => {
     const k = osKey(of.kind);
-    r[other] = (r[other] || []).filter(x => x.id !== f.id);          // switched between belt and sprocket
+    ['belts', 'sprockets', 'accessories'].filter(o => o !== k).forEach(o => { r[o] = (r[o] || []).filter(x => x.id !== f.id); });   // switched kind
     const list = r[k] = r[k] || [], at = list.findIndex(x => x.id === f.id);
     if(at >= 0) list[at] = f; else list.push(f);
   });
@@ -12414,11 +12464,11 @@ function ofFlag(id, on){
 function renderOfav(){
   if(!OF) return;
   const f = OF.f, belt = OF.kind === 'belt';
-  $('title').textContent = OF.isNew ? 'New favourite' : (belt ? 'Belt favourite' : 'Sprocket favourite');
+  $('title').textContent = OF.isNew ? 'New favourite' : OF_KIND[OF.kind] + ' favourite';
   $('subtitle').textContent = OF.acct;
   $('ofKindW').hidden = !OF.isNew || OF.saved && !!f.series;
   $('ofKind').querySelectorAll('button').forEach(b => { const on = b.dataset.v === OF.kind; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
-  $('ofBelt').hidden = !belt; $('ofSpro').hidden = belt;
+  $('ofBelt').hidden = !belt; $('ofSpro').hidden = OF.kind !== 'sprocket'; $('ofAcc').hidden = OF.kind !== 'accessory';
   const logged = belt && OF.isNew ? OF.logged || [] : [];
   $('ofFromW').hidden = !logged.length;
   $('ofFrom').innerHTML = logged.map((g, i) => { const e = g.latest.e;
@@ -12436,7 +12486,26 @@ function renderOfav(){
     f.internalNote = (t ? t + (/[.;:]$/.test(t) ? ' ' : '; ') : '') + b.dataset.q;
     $('ofNote').value = f.internalNote; ofSaveSoon();
   }));
-  if(belt) renderOfBelt(); else renderOfSpro();
+  if(belt) renderOfBelt(); else if(OF.kind === 'sprocket') renderOfSpro(); else renderOfAcc();
+}
+function renderOfAcc(){
+  const f = OF.f, ax = axList(), none = !ax.wearstrips.length && !ax.retainers.length;
+  $('ofAccNone').hidden = !none; $('ofAccBody').hidden = none;
+  if(none) return;
+  $('ofCat').querySelectorAll('button').forEach(b => { const on = b.dataset.v === f.category; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  const ws = f.category !== 'retainer';
+  $('ofWs').hidden = !ws; $('ofRr').hidden = ws;
+  if(ws){
+    ofSel($('ofWsStyle'), axStyles(), 'Style...', f.style);
+    const specs = f.style ? axSpecs(f.style) : [];
+    $('ofWsSpec').innerHTML = '<option value="">' + (f.style ? 'Size...' : 'Style first') + '</option>' + specs.map(([k, l]) => '<option value="' + esc(k) + '">' + esc(l) + '</option>').join('');
+    $('ofWsSpec').value = specs.some(([k]) => k === f.specKey) ? f.specKey : '';
+    $('ofWsSpec').disabled = !f.style;
+    ofChips($('ofWsCols'), f.style && f.specKey ? axColours(f.style, f.specKey) : [], f.colours, v => { f.colours = ofToggle(f.colours || [], v); ofChanged(); });
+  } else {
+    ofSel($('ofRrType'), axTypes(), 'Type...', f.type);
+    ofChips($('ofRrSizes'), f.type ? axSizes(f.type) : [], f.sizes, v => { f.sizes = ofToggle(f.sizes || [], v); ofChanged(); });
+  }
 }
 function renderOfBelt(){
   const f = OF.f;
@@ -12537,6 +12606,7 @@ $('ofKind').querySelectorAll('button').forEach(b => b.addEventListener('click', 
   OF.kind = b.dataset.v;
   const id = OF.f.id, label = OF.f.label, note = OF.f.internalNote;
   OF.f = OF.kind === 'belt' ? {id, label, series: '', style: '', materials: [], colours: [], rods: [], widths: [], internalNote: note}
+    : OF.kind === 'accessory' ? {id, label, category: 'wearstrip', style: '', specKey: '', specLabel: '', colours: [], type: '', sizes: [], internalNote: note}
     : {id, label, series: '', bore: '', pds: [], materials: [], internalNote: note};
   ofChanged();
 }));
@@ -12565,6 +12635,17 @@ $('ofSSeries').addEventListener('change', () => { const f = OF.f; f.series = $('
   f.bore = ofBores(f.series).includes(DEFAULT_BORE) ? DEFAULT_BORE : ''; ofChanged(); });
 $('ofSBore').addEventListener('change', () => { const f = OF.f; f.bore = $('ofSBore').value; f.pds = []; f.materials = []; ofChanged(); });
 $('ofDone').addEventListener('click', () => go('orders'));
+$('ofCat').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  const f = OF && OF.f; if(!f || f.category === b.dataset.v) return;
+  Object.assign(f, {category: b.dataset.v, style: '', specKey: '', specLabel: '', colours: [], type: '', sizes: []}); ofChanged();
+}));
+$('ofWsStyle').addEventListener('change', () => { const f = OF.f; f.style = $('ofWsStyle').value; f.specKey = ''; f.specLabel = ''; f.colours = [];
+  const specs = axSpecs(f.style); if(specs.length === 1){ f.specKey = specs[0][0]; f.specLabel = specs[0][1]; }
+  const cols = f.specKey ? axColours(f.style, f.specKey) : []; if(cols.length === 1) f.colours = cols.slice();
+  ofChanged(); });
+$('ofWsSpec').addEventListener('change', () => { const f = OF.f; f.specKey = $('ofWsSpec').value; f.specLabel = (axSpecs(f.style).find(([k]) => k === f.specKey) || ['', ''])[1];
+  const cols = f.specKey ? axColours(f.style, f.specKey) : []; f.colours = cols.length === 1 ? cols.slice() : []; ofChanged(); });
+$('ofRrType').addEventListener('change', () => { const f = OF.f; f.type = $('ofRrType').value; f.sizes = []; ofChanged(); });
 
 /* ---- sending the form ---- */
 function openOsend(acct){
@@ -12585,7 +12666,7 @@ function renderOsend(){
   $('osPick').innerHTML = osList(r).map(x => {
     const need = ofNeeds(x.kind, x.f);
     return '<label><input type="checkbox" data-pick="' + esc(x.f.id) + '"' + (OSEND.off.has(x.f.id) ? '' : ' checked') + (need.length ? ' disabled' : '') + '><span>' + esc(ofLabel(x.kind, x.f)) +
-      '<small>' + (x.kind === 'belt' ? 'Belt' : 'Sprocket') + (need.length ? ' · still needs ' + esc(andList(need)) : x.f.internalNote ? ' · the sales note stays out' : '') + '</small></span></label>';
+      '<small>' + OF_KIND[x.kind] + (need.length ? ' · still needs ' + esc(andList(need)) : x.f.internalNote ? ' · the sales note stays out' : '') + '</small></span></label>';
   }).join('');
   $('osPick').querySelectorAll('[data-pick]').forEach(c => c.addEventListener('change', () => {
     if(c.checked) OSEND.off.delete(c.dataset.pick); else OSEND.off.add(c.dataset.pick);
@@ -12600,7 +12681,11 @@ function osBake(kind, f){
   const out = JSON.parse(JSON.stringify(f));
   delete out.internalNote;
   out.label = ofLabel(kind, f);
-  if(kind === 'belt'){
+  if(kind === 'accessory'){
+    out.itemLookup = {};
+    if(f.category === 'retainer') (f.sizes || []).forEach(s => { const r = axList().retainers.find(x => x.type === f.type && x.size === s); out.itemLookup[s] = r ? r.item : ''; });
+    else (f.colours || []).forEach(c => { const w = axList().wearstrips.find(x => x.style === f.style && axSpecKey(x) === f.specKey && x.colour === c); out.itemLookup[c] = w ? w.item : ''; });
+  } else if(kind === 'belt'){
     out.materialColours = {};
     (f.materials || []).forEach(m => { out.materialColours[m] = ofColsFor(f.series, f.style, m).filter(c => (f.colours || []).includes(c)); });
   } else {
@@ -12615,7 +12700,8 @@ function osFormData(acct, to, picked){
   const img = document.querySelector('header .redbox img'), logo = img ? String(img.src).replace(/^data:image\/png;base64,/, '') : '';
   return {formId: newId('of'), customer: acct, company: acct, contact: to || '', email: (c && c.e && c.e[0]) || '',
     manager: effMgr(a) || $('cMgr').value || '', managerEmail: (sbUser && sbUser.email) || '', logo,
-    belts: picked.filter(x => x.kind === 'belt').map(x => osBake('belt', x.f)), sprockets: picked.filter(x => x.kind === 'sprocket').map(x => osBake('sprocket', x.f))};
+    belts: picked.filter(x => x.kind === 'belt').map(x => osBake('belt', x.f)), sprockets: picked.filter(x => x.kind === 'sprocket').map(x => osBake('sprocket', x.f)),
+    accessories: picked.filter(x => x.kind === 'accessory').map(x => osBake('accessory', x.f))};
 }
 $('osGo').addEventListener('click', async () => {
   if(!OSEND) return;
@@ -12631,14 +12717,14 @@ $('osGo').addEventListener('click', async () => {
 /* ---- bringing in the Belt Order Builder's favourites ----
    Its Export favourites file: {belts, sprockets, accessories}, no customer
    name. They join this account's sheet; one already there (the same id) is
-   left as it is. Accessories come with a later version. */
+   left as it is. Accessories since v185. */
 $('osFile').addEventListener('change', async () => {
   const file = $('osFile').files[0];
   if(!file || !OSH) return;
   try {
     const d = JSON.parse(await file.text());
-    const belts = Array.isArray(d && d.belts) ? d.belts : [], sprs = Array.isArray(d && d.sprockets) ? d.sprockets : [];
-    if(!belts.length && !sprs.length) throw new Error('there are no belt or sprocket favourites in it');
+    const belts = Array.isArray(d && d.belts) ? d.belts : [], sprs = Array.isArray(d && d.sprockets) ? d.sprockets : [], accs = Array.isArray(d && d.accessories) ? d.accessories : [];
+    if(!belts.length && !sprs.length && !accs.length) throw new Error('there are no favourites in it');
     const norm = (f, kind) => {
       const x = Object.assign({}, f, {id: String(f.id || newId('f'))});
       if(kind === 'belt'){
@@ -12647,6 +12733,11 @@ $('osFile').addEventListener('change', async () => {
         if(!Array.isArray(x.widths)) x.widths = x.width ? [String(x.width)] : [];
         if(!Array.isArray(x.rods)) x.rods = x.rod ? [x.rod] : [];
         x.widths = x.widths.map(String);
+      } else if(kind === 'accessory'){
+        if(x.category !== 'retainer') x.category = 'wearstrip';
+        if(!Array.isArray(x.colours)) x.colours = [];
+        if(!Array.isArray(x.sizes)) x.sizes = [];
+        x.style = x.style || ''; x.specKey = x.specKey || ''; x.specLabel = x.specLabel || ''; x.type = x.type || '';
       } else {
         if(!Array.isArray(x.materials)) x.materials = x.material ? [x.material] : [];
         if(!Array.isArray(x.pds)) x.pds = x.pd ? [x.pd] : [];
@@ -12656,13 +12747,12 @@ $('osFile').addEventListener('change', async () => {
     };
     let added = 0;
     await osWrite(OSH.acct, r => {
-      [['belts', belts, 'belt'], ['sprockets', sprs, 'sprocket']].forEach(([k, list, kind]) => {
+      [['belts', belts, 'belt'], ['sprockets', sprs, 'sprocket'], ['accessories', accs, 'accessory']].forEach(([k, list, kind]) => {
         r[k] = r[k] || [];
         list.forEach(f => { const x = norm(f, kind); if(!r[k].some(y => y.id === x.id)){ r[k].push(x); added++; } });
       });
     });
-    const acc = Array.isArray(d.accessories) ? d.accessories.length : 0;
-    toast('Brought in ' + added + (added === 1 ? ' favourite' : ' favourites') + (acc ? '; ' + acc + ' accessories wait for a later version' : ''));
+    toast('Brought in ' + added + (added === 1 ? ' favourite' : ' favourites'));
     renderOrders();
   } catch(e){ toast('That file could not be read: ' + (e.message || e)); }
 });
