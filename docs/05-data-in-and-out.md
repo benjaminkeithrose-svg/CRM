@@ -15,6 +15,7 @@
 | **Engineering manuals** | intralox.com (found by the `intralox-manuals` function) or a PDF you pick | the browser's storage, as page images | pdf.js loads from a CDN the first time |
 | **A shared file** | Android's share sheet | the call or form it was shared to | |
 | **Shared words** (v177) | Android's share sheet, from any app (a Plaud transcript or summary, an email): text, or a .txt file | With a call open, a note on that call or cards in Capture (his choice each time); otherwise cards in Capture | The service worker parks shared text in the `fieldcrm-share` cache (`./shared-text`) for the page to collect. Sorting sends the words to `ai-tidy` (kind `capture`) in pieces of up to 5,500 characters, 12 at most |
+| **Claude's call report** (v186) | `fieldcrm-import.json`, written by the end-game skill (Claude Enterprise on the PC) into the visit's PC folder; Import call report on the call's ⋯ reads it from there, or asks for the file on a phone | The same call: Claude's notes as `summary`, the internal notes as a `note` (`src` `claude`), belts (empty fields filled, new ones added with `src` `claude`), photos (any already on the call skipped), contacts (flagged not in the CRM where so), follow-ups marked as tasks as next steps on the planner, and the two documents in `report` | Asks first, saying what it adds. Never changes anything typed in Field CRM; importing the same report again adds nothing. A report made for another call asks before going in. The file kind is `field-crm-claude-report`, version 1 |
 | **A copied or dragged picture** (v156) | The clipboard (Ctrl+V) or a picture file dragged onto a call, on the PC | the open entry's `photos`, or the call's `loose` | Shrunk like any photo; text on the clipboard pastes as text |
 
 ## Going out
@@ -35,11 +36,53 @@
 | **Email tasks to Outlook** | Open in Outlook | A new email (mailto): To, Subject (or the title), Body |
 | **Planning weeks** | The planner | .ics calendar file of week markers |
 | **PC folder** | Reports | Each done call saved as files in a folder on the PC |
+| **Save for Claude** (v186) | A call's ⋯ | The call for the end-game skill: `Field CRM call.json` (kind `field-crm-call-for-claude`, version 1: the call with every entry and its place in the call as `ref`, its contacts, and the account's CRM contacts and account manager) in the visit's PC folder (`Customer\Site\date`, as Save to PC folder), its photos beside it in `from Field CRM`. On a phone, or without folder access, one file to download with the photos inside it. Not on a quote request |
 | **Export for Claude** | Reports | Text files for a Claude Project |
 | **Backup** | Settings | One JSON file of everything on the device, photos optional |
 
 Rejected formats, by decision: EML (Outlook on Android opens it as a web page)
 and PDF for call notes (the Blue Sheet is the exception).
+
+## The call report with Claude: how the data flows (v186)
+
+```mermaid
+flowchart LR
+  subgraph Site["1 · On site, no signal needed"]
+    FC[Field CRM on the phone:<br>belts, notes, photos]
+    PH[Phone camera:<br>photos with time<br>and location]
+    HN[Handwritten notes,<br>photographed]
+    P[Plaud recording]
+  end
+  subgraph Cloud["Clouds"]
+    SB[(Field CRM database<br>Supabase, encrypted)]
+    PL[(Plaud cloud:<br>recording, transcript)]
+  end
+  subgraph PC["2 · The PC: folders synced to OneDrive"]
+    FPC[Field CRM on the PC]
+    CR[Camera roll]
+    VF[Visit folder<br>Customer / Site / date]
+    CL[Claude Enterprise:<br>end-game skill<br>builds the report]
+  end
+  FC <-->|encrypted sync| SB
+  SB <-->|encrypted sync| FPC
+  PH --> CR
+  HN --> CR
+  P --> PL
+  FPC -->|Save for Claude:<br>call, belts, photos| VF
+  CR -->|photos, by time| VF
+  PL -->|Plaud connector| CL
+  VF -->|everything for the visit| CL
+  CL -->|notes, customer copy,<br>fieldcrm-import.json| VF
+  VF -->|Import call report| FPC
+  VF -.->|3 · you send| CUS[Customer and<br>customer service]
+  VF -.->|3 · you attach| DY[Dynamics]
+```
+
+Solid lines happen in the apps; dotted lines are done by hand today. The two
+lines to and from the database are Field CRM's own sync, encrypted on the
+device: Claude is never on them. Claude reads and writes only the visit
+folder (and the Plaud recording), so the call reaches the database the way
+every call does, when Import call report saves it.
 
 ## Backup and restore
 

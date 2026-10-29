@@ -1003,7 +1003,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v185';
+const APP_BUILD = 'v186';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -21446,6 +21446,247 @@ $('evDel').addEventListener('click', async () => {
   call.entries.splice(i, 1); await saveCall(); renderDash();
   toast('Evaluation deleted');
 });
+/* ================= the call report with Claude (v186) =================
+   The round trip for a call written up by Claude on the PC (the end-game
+   skill, site-walk-skill's sibling in this repository):
+
+     Save for Claude       this call - customer, contacts, belts, notes and
+                           photos - into the visit's folder, the one Save to a
+                           PC folder uses (Customer\Site\date). On a phone, or
+                           without folder access, one file to download instead.
+     Import call report    the report Claude left in that folder back into the
+                           same call: the notes as the summary, the internal
+                           notes as a note, belts (filling only what is empty),
+                           contacts, photos, follow-ups as next steps, and the
+                           two documents kept with the call. Then it syncs like
+                           any other change: encrypted, as the call always is.
+
+   Files, not a connection: Claude never touches the database and never needs
+   its key. A belt Field CRM already has is matched by its place in the call
+   (ref); a belt Claude adds is marked src 'claude', so importing again updates
+   it rather than adding it twice. Nothing typed here is ever overwritten. */
+const CL_OUT_KIND = 'field-crm-call-for-claude', CL_IN_KIND = 'field-crm-claude-report';
+const CL_CALL_FILE = 'Field CRM call.json', CL_IMPORT_FILE = 'fieldcrm-import.json', CL_PHOTO_DIR = 'from Field CRM';
+const CL_BELT_KEYS = ['asset', 'beltdesc', 'series', 'style', 'beltmat', 'colour', 'rodmat', 'width', 'beltlen', 'clength', 'frame', 'retrofit',
+  'qty', 'qcontact', 'sprocket', 'sprpn', 'sprbore', 'sprpd', 'sprmat', 'sprvar', 'sprdrive', 'spridle',
+  'fstyle', 'flmat', 'fheight', 'frows', 'fspacing', 'findent', 'cnotch', 'sgtype', 'sgmat', 'sgheight', 'comment'];
+const CL_DOC_MAX = 600000;   // a document kept with the call: text only, its photos are on the call already
+const clGiven = v => v != null && v !== false && String(v).trim() !== '' && String(v).trim() !== 'N/A';
+// where this call's files go: where Save to a PC folder put it, else where it would
+async function clVisitDir(c){
+  const prev = (await pcSavedMap())[c.id];
+  return prev && prev.dir ? prev.dir.slice() : pcPath(c);
+}
+/* The file Claude reads. inline puts the photos in it as data URIs (the
+   download); otherwise they are written beside it and the file names them. */
+async function clCallFile(c, inline){
+  const acc = ACC_BY_NAME.get(c.customer);
+  const blobs = [], used = new Set();
+  const photo = async (p, base) => {
+    let blob;
+    try { blob = pcBlob(p); } catch(e){ return null; }
+    const ext = /png/.test(blob.type) ? '.png' : /webp/.test(blob.type) ? '.webp' : '.jpg';
+    let name = pcName(base, 'Photo') + ext;
+    for(let k = 2; used.has(name.toLowerCase()); k++) name = pcName(base, 'Photo') + ' (' + k + ')' + ext;
+    used.add(name.toLowerCase());
+    if(inline) return {file: name, data: await blobToDataURL(blob)};
+    blobs.push({name, blob});
+    return {file: CL_PHOTO_DIR + '/' + name};
+  };
+  const n = {belt: 0, health: 0};
+  const entries = [];
+  for(let i = 0; i < (c.entries || []).length; i++){
+    const e = c.entries[i], copy = {};
+    for(const k of Object.keys(e)) if(k !== 'photos') copy[k] = e[k];
+    copy.ref = i;
+    const label = e.type === 'belt' ? 'Belt ' + (++n.belt) : e.type === 'health' ? 'Health ' + (++n.health) : (e.type || 'Entry');
+    copy.photos = [];
+    const ph = e.photos || [];
+    for(let k = 0; k < ph.length; k++){ const x = await photo(ph[k], label + (e.asset ? ' ' + e.asset : '') + ' - ' + (k + 1)); if(x) copy.photos.push(x); }
+    entries.push(copy);
+  }
+  const loose = [];
+  for(let k = 0; k < (c.loose || []).length; k++){ const x = await photo(c.loose[k], 'Additional - ' + (k + 1)); if(x) loose.push(x); }
+  const data = {
+    kind: CL_OUT_KIND, v: 1, made: Date.now(), app: APP_BUILD, photosInline: !!inline,
+    call: {id: c.id, customer: c.customer, site: c.site || '', type: c.type || '', date: c.date || '', iso: isoFromDdmmyyyy(c.date) || '',
+      mgr: c.mgr || '', manualAccount: !!c.manualAccount, summary: c.summary || '', status: c.status || '',
+      contacts: (c.contacts || []).map(x => ({name: x.name || '', role: x.role || '', email: x.email || '', mobile: x.mobile || '', in_crm: !!x.crm})),
+      entries, loose},
+    account: acc ? {name: acc.a, site: acc.sub || '', mgr: acc.mgr || '',
+      contacts: (acc.c || []).map(x => ({name: x.n || '', role: x.t || x.r || '', email: (x.e && x.e[0]) || '', mobile: x.p || '', in_crm: !x.added}))} : null
+  };
+  return {data, blobs};
+}
+async function clSave(c){
+  c = c || call;
+  if(!c) return;
+  const day = isoFromDdmmyyyy(c.date) || iso(new Date());
+  if(!pcFolderOk()){
+    const {data} = await clCallFile(c, true);
+    downloadFile(pcName(c.customer, 'Call') + ' - ' + day + ' - ' + CL_CALL_FILE, JSON.stringify(data), 'application/json');
+    toast('Saved for Claude as a download: put it in the visit\'s folder on the PC');
+    return;
+  }
+  let root;
+  try { root = await pcRoot(false); }
+  catch(e){ console.error('claude save', e); toast('Could not open the folder: ' + e.message); return; }
+  if(!root){ toast('Nothing saved — the folder was not allowed'); return; }
+  const parts = await clVisitDir(c);
+  const dir = await pcSub(root, parts, true);
+  const {data, blobs} = await clCallFile(c, false);
+  if(blobs.length){
+    const pdir = await dir.getDirectoryHandle(CL_PHOTO_DIR, {create: true});
+    for(const b of blobs) await pcWrite(pdir, b.name, b.blob);
+  }
+  await pcWrite(dir, CL_CALL_FILE, new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'}));
+  toast('Saved for Claude in ' + [root.name].concat(parts).join('\\') + (blobs.length ? ', with ' + blobs.length + (blobs.length === 1 ? ' photo' : ' photos') : ''));
+}
+// Claude's report for this call, from the visit's folder when the PC folder can be read
+async function clFindImport(c){
+  if(!pcFolderOk() || !(await pcStored())) return null;
+  try {
+    const root = await pcRoot(false);
+    if(!root) return null;
+    const dir = await pcSub(root, await clVisitDir(c));
+    return await (await dir.getFileHandle(CL_IMPORT_FILE)).getFile();
+  } catch(e){ return null; }
+}
+/* Lays Claude's report into the call. dry: only count what would change, for
+   the confirmation. Returns the counts either way. */
+async function clApply(c, d, dry){
+  const r = {summary: '', internal: false, filled: 0, beltsNew: 0, photos: 0, contacts: 0, steps: 0, docs: false};
+  const have = new Set();
+  for(const p of pcAllPhotos(c)){ try { have.add(await photoId(await photoBytesOf(p))); } catch(e){} }
+  const photoOf = async id => {
+    const p = d.photos && d.photos[id];
+    if(!p || typeof p.data !== 'string' || !p.data.startsWith('data:')) return null;
+    let blob, pid;
+    try { blob = dataURLToBlob(p.data); pid = await photoId(await blobBytes(blob)); } catch(e){ return null; }
+    if(have.has(pid)) return null;
+    have.add(pid);
+    r.photos++;
+    return blob;
+  };
+  const sum = String(d.summary || '').trim();
+  if(sum && sum !== String(c.summary || '').trim()){
+    r.summary = String(c.summary || '').trim() ? 'replaced' : 'added';
+    if(!dry){ if(r.summary === 'replaced') c.prevSummary = c.summary; c.summary = sum; }
+  }
+  const internal = String(d.internal_notes || '').trim();
+  if(internal){
+    const e = (c.entries || []).find(x => x.type === 'note' && x.src === 'claude');
+    if(!e || e.text !== internal){
+      r.internal = true;
+      if(!dry){ if(e) e.text = internal; else c.entries.push({type: 'note', topic: 'Internal notes', text: internal, photos: [], src: 'claude'}); }
+    }
+  }
+  for(const b of (Array.isArray(d.belts) ? d.belts : [])){
+    if(!b) continue;
+    let t = Number.isInteger(b.ref) && c.entries[b.ref] && c.entries[b.ref].type === 'belt' ? c.entries[b.ref] : null;
+    const asset = String(b.asset || '').trim().toLowerCase();
+    if(!t && asset) t = c.entries.find(x => x.type === 'belt' && x.src === 'claude' && String(x.asset || '').trim().toLowerCase() === asset) || null;
+    const isNew = !t;
+    if(isNew){ t = {type: 'belt', src: 'claude', photos: []}; r.beltsNew++; }
+    for(const k of CL_BELT_KEYS){
+      if(!clGiven(b[k]) || clGiven(t[k])) continue;   // what was typed in Field CRM stays
+      if(!isNew) r.filled++;
+      if(!dry || isNew) t[k] = String(b[k]).trim();
+    }
+    if(b.tsg === true && !t.tsg){ if(!isNew) r.filled++; if(!dry || isNew) t.tsg = true; }
+    const add = [];
+    for(const id of b.photos || []){ const blob = await photoOf(id); if(blob) add.push(blob); }
+    if(!dry){ t.photos = (t.photos || []).concat(add); if(isNew) c.entries.push(t); }
+  }
+  const lo = [];
+  for(const id of (Array.isArray(d.other_photos) ? d.other_photos : [])){ const blob = await photoOf(id); if(blob) lo.push(blob); }
+  if(!dry) c.loose = (c.loose || []).concat(lo);
+  for(const x of (Array.isArray(d.contacts) ? d.contacts : [])){
+    const nm = String(x && x.name || '').trim();
+    if(!nm || (c.contacts || []).some(y => String(y.name || '').trim().toLowerCase() === nm.toLowerCase())) continue;
+    r.contacts++;
+    if(!dry) c.contacts = (c.contacts || []).concat([{name: nm, role: String(x.role || ''), email: String(x.email || ''), mobile: String(x.mobile || ''), crm: !!x.in_crm, doc: true}]);
+  }
+  for(const f of (Array.isArray(d.follow_ups) ? d.follow_ups : [])){
+    const what = String(f && f.what || '').trim();
+    if(!what || f.task !== true) continue;
+    if(TASKS.some(t => t.callId === c.id && !t.deleted && String(t.title || '').trim() === what)) continue;
+    r.steps++;
+    if(dry) continue;
+    const t = {
+      id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      type: STEP_TYPE, start: STEP_START, dur: TASK_DUR, acct: c.customer, contact: '', email: '', mobile: '', revenue: '', notes: f.who ? 'Who: ' + String(f.who) : '',
+      mailTo: '', mailSubject: '', mailBody: '', done: false, doneAt: null, callId: c.id, created: Date.now(),
+      title: what, project: '', date: /^\d{4}-\d\d-\d\d$/.test(String(f.date || '')) ? f.date : stepDates().next, updated: Date.now()
+    };
+    await tasksPut(t);
+    TASKS = TASKS.filter(x => x.id !== t.id).concat([t]);
+  }
+  const docs = d.documents || {};
+  const keep = k => typeof docs[k] === 'string' && docs[k].length <= CL_DOC_MAX ? docs[k] : '';
+  const had = c.report && c.report.docs || {};
+  if((keep('internal') || keep('customer')) && (keep('internal') !== (had.internal || '') || keep('customer') !== (had.customer || ''))){
+    r.docs = true;
+    if(!dry) c.report = {by: 'claude', at: Date.now(), made: d.made || null, review: Array.isArray(d.review) ? d.review.map(String) : [],
+      docs: {internal: keep('internal'), customer: keep('customer')}};
+  }
+  if(!dry){
+    if(c.status !== 'done') c.status = 'compiled';
+    c.updated = Date.now();
+  }
+  return r;
+}
+function clSummary(r){
+  const bits = [];
+  if(r.summary) bits.push('the summary ' + (r.summary === 'replaced' ? 'replaced by Claude\'s notes' : 'from Claude\'s notes'));
+  if(r.internal) bits.push('the internal notes');
+  if(r.beltsNew) bits.push(r.beltsNew + ' new belt' + (r.beltsNew === 1 ? '' : 's'));
+  if(r.filled) bits.push(r.filled + ' empty belt field' + (r.filled === 1 ? '' : 's') + ' filled in');
+  if(r.photos) bits.push(r.photos + ' photo' + (r.photos === 1 ? '' : 's'));
+  if(r.contacts) bits.push(r.contacts + ' contact' + (r.contacts === 1 ? '' : 's'));
+  if(r.steps) bits.push(r.steps + ' next step' + (r.steps === 1 ? '' : 's') + ' on your planner');
+  if(r.docs) bits.push('the two documents');
+  return bits;
+}
+async function clImportFile(c, file){
+  let d;
+  try { d = JSON.parse(await file.text()); } catch(e){ toast('That file is not a call report from Claude'); return; }
+  if(!d || d.kind !== CL_IN_KIND){ toast(d && d.kind === CL_OUT_KIND ? 'That is the file saved for Claude, not its report' : 'That file is not a call report from Claude'); return; }
+  if(d.v !== 1){ toast('That report is from a newer version: update the app first'); return; }
+  if(d.callId && d.callId !== c.id){
+    if(!confirm('This report was made for another call' + (d.customer ? ' (' + d.customer + (d.date ? ', ' + d.date : '') + ')' : '') +
+      '.\n\nImport it into this call, ' + c.customer + ', anyway?')) return;
+  }
+  const plan = clSummary(await clApply(c, d, true));
+  if(!plan.length){ toast('Nothing new in Claude\'s report: this call already has it'); return; }
+  if(!confirm('Import Claude\'s report into this call?\n\nIt adds ' + plan.join(', ') + '.\n\nNothing you typed in Field CRM is changed.')) return;
+  const done = clSummary(await clApply(c, d, false));
+  if(c === call) await saveCall(); else await callsPut(c);
+  indexCalls(await callsAll());
+  if(screen === 'dash') renderDash();
+  taskRefresh();
+  toast('Imported: ' + done.join(', '));
+}
+async function clImport(c){
+  c = c || call;
+  if(!c) return;
+  const f = await clFindImport(c);
+  if(f){ await clImportFile(c, f); return; }
+  const inp = $('clFile');
+  inp.value = '';
+  inp.onchange = () => { const x = inp.files && inp.files[0]; if(x) clImportFile(c, x).catch(reportErr); };
+  inp.click();
+}
+// a document kept with the call, opened in its own tab
+function clOpenDoc(c, k){
+  const html = c && c.report && c.report.docs && c.report.docs[k];
+  if(!html){ toast('No document kept with this call'); return; }
+  const u = URL.createObjectURL(new Blob([html], {type: 'text/html'}));
+  const w = window.open(u, '_blank');
+  if(!w) toast('The browser blocked the new tab: allow pop-ups for this app');
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
+}
+
 // the ⋯ on the call: the forms
 $('barMore').innerHTML = '<span class="dots" aria-hidden="true">&#8943;</span>';
 $('barMore').addEventListener('click', () => {
@@ -21458,6 +21699,15 @@ $('barMore').addEventListener('click', () => {
   visit.push({label: isQuote(call) ? 'Mark this request done' : 'Mark this call done', icon: 'check', run: async () => {
     if(await markCallDone(call)){ toast('Marked done'); go('home'); }
   }});
+  // v186: the call report with Claude, and what it made, kept with the call
+  if(!isQuote(call)){
+    visit.push({label: 'Save for Claude', icon: 'folder', run: () => clSave(call).catch(reportErr)});
+    visit.push({label: 'Import call report', icon: 'plus', run: () => clImport(call).catch(reportErr)});
+    if(call.report && call.report.docs){
+      if(call.report.docs.internal) visit.push({label: 'Open Claude\'s notes', icon: 'eye', run: () => clOpenDoc(call, 'internal')});
+      if(call.report.docs.customer) visit.push({label: 'Open Claude\'s customer copy', icon: 'eye', run: () => clOpenDoc(call, 'customer')});
+    }
+  }
   openCardMenu('More for this call', forms.length ? 'Evaluation forms' : '', visit.concat(forms.length
     ? forms.map(f => ({label: 'Evaluation: ' + f.name, icon: 'plus', run: () => evNew(f.id)}))
     : [{label: 'The evaluation forms did not load', icon: 'close', run: () => {}}]));
@@ -22755,6 +23005,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v186', 'The call report with Claude, from the PC: in a call, ⋯ then Save for Claude puts the call, its belts and photos in the visit\'s folder; once Claude has written the report, Import call report brings it back into the call: the notes, internal notes, belts, photos, contacts and follow-ups as next steps, with the documents kept on the call. Nothing you typed is changed.'],
   ['v185', 'Tidying: an example in Help now uses a made-up name. Nothing you use has changed.'],
   ['v184', 'Order sheet: a new belt favourite can start from a belt already logged at the customer. Tap it under From a belt logged here, then add the other materials, colours and widths they may choose.'],
   ['v183', 'Order sheet on each account: the belts and sprockets a customer orders, each with the materials, colours, rods and widths they may choose. Send order form makes one file to email them; they pick from it and copy the request back. Moved in from the Belt Order Builder, whose favourites can be brought in. Your team sees the sheet too.'],
