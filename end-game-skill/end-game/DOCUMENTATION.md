@@ -1,6 +1,6 @@
 # End game: documentation
 
-Version 1.0, 29 October 2026.
+Version 1.1, 29 October 2026.
 
 A Claude skill for Claude Enterprise on the PC. It writes the call report
 for a site call from the call in Field CRM, the Plaud recording, the phone
@@ -139,12 +139,13 @@ organisation's admin settings (Skills).
 
 ### The settings file
 
-The first time, Claude asks for three places and offers to remember them in
+The first time, Claude asks for four places and offers to remember them in
 `end-game settings.json` in your Field CRM PC folder:
 
 ```
 {"pc_folder": "C:\\Users\\you\\OneDrive - Intralox\\Field CRM",
  "camera_roll": "C:\\Users\\you\\OneDrive - Intralox\\Pictures\\Camera Roll",
+ "inbox": "C:\\Users\\you\\OneDrive - Intralox\\_Inbox",
  "crm_export": "C:\\Users\\you\\OneDrive - Intralox\\CRM export\\contacts.xlsx"}
 ```
 
@@ -203,6 +204,13 @@ recording and the photos give them.
 6. In Field CRM, open the call, click **⋯**, then **Import call report**.
    Read the message saying what it adds, and click **OK**.
 7. Log the call in Dynamics with the site walk notes attached.
+
+**Saving from the phone instead.** On the phone, Save for Claude opens the
+share sheet: tap **OneDrive** and save it in your Inbox (a folder at the top
+of OneDrive named `_Inbox` is first in the list). Claude finds it there,
+copies it into the visit folder and takes the photos out of it. The file is
+named `<Customer> - <date> - Field CRM call.txt`: the share sheet takes only
+certain file types, so the JSON goes as text.
 
 Phone photos reach the PC through OneDrive camera upload, which keeps their
 time. Photos sent through WhatsApp, Teams chat or email lose it.
@@ -710,4 +718,5 @@ Add a line to section 14.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1 | 29 October 2026 | The call saved from the phone (Field CRM v187's share sheet) is found in the Inbox, as `… - Field CRM call.txt`; the settings file has the Inbox |
 | 1.0 | 29 October 2026 | First version, from site-walk-report 1.2: reads the call Field CRM saved for Claude, collects photos from the camera roll by time, works in the visit's PC folder, follow-ups and review list, and writes fieldcrm-import.json for Field CRM's Import call report (Field CRM v186) |

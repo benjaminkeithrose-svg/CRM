@@ -57,6 +57,18 @@ def main():
         print(out)
     check(fc.get('call_id') == 'c1793299000000' and fc.get('customer') == 'Example Foods - Smithfield', 'the call and its CRM account')
     check(len(fc.get('belts', [])) == 1 and fc['belts'][0].get('ref') == 0 and fc['belts'][0].get('asset') == 'CV-200', 'its belt, with its place in the call (ref 0)')
+    # saved from the phone's share sheet: the same file named .txt, photos inside it
+    txt = os.path.join(OUT, 'Example Foods - Smithfield - 2026-10-29 - Field CRM call.txt')
+    d = json.load(open(os.path.join(VISIT, 'Field CRM call.json'), encoding='utf-8'))
+    d['photosInline'] = True
+    import base64
+    for e in d['call']['entries']:
+        for x in e['photos']:
+            x['data'] = 'data:image/jpeg;base64,' + base64.b64encode(open(os.path.join(VISIT, x['file']), 'rb').read()).decode()
+            x['file'] = os.path.basename(x['file'])
+    json.dump(d, open(txt, 'w', encoding='utf-8'))
+    code, out = run([os.path.join(HERE, 'fieldcrm_call.py'), txt, '--photos-out', os.path.join(OUT, 'from Field CRM')])
+    check(code == 0 and os.path.exists(os.path.join(OUT, 'from Field CRM', 'Belt 1 CV-200 - 1.jpg')), 'a call saved from the phone (.txt, photos inside) reads, and its photos come out')
 
     print('2. Collecting the visit\'s photos by time (collect_photos.py)')
     for margin, expect in (('30', 4), ('600', 5)):

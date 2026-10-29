@@ -1149,7 +1149,9 @@ The import adds Claude's notes as the summary, the internal notes as a note, bel
 
 Claude's two documents are kept with the call. To open them, click **⋯**, then **Open Claude's notes** or **Open Claude's customer copy**.
 
-On the phone, Save for Claude downloads one file instead, and Import call report asks you to pick Claude's report file (**fieldcrm-import.json**).
+On the phone, Save for Claude opens the share sheet. Tap **OneDrive** and save it in your Inbox folder: Claude finds it there. (A phone that can't share the file downloads it instead.) On the phone, Import call report asks you to pick Claude's report file (**fieldcrm-import.json**).
+
+Tip: make the Inbox folder at the top of your OneDrive and start its name with an underscore, for example **_Inbox**. It is then first in the list, a tap or two away.
 
 ### Archive old photos
 

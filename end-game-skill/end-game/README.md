@@ -51,7 +51,9 @@ chat, and save the files Claude gives you back into it.
 
 1. In Field CRM, log the call as usual: belts, notes, photos.
 2. On the PC, open the call in Field CRM. Click **⋯** beside **Create and
-   share**, then **Save for Claude**.
+   share**, then **Save for Claude**. (Or on the phone: **Save for Claude**
+   opens the share sheet; tap **OneDrive** and save it in your `_Inbox`
+   folder. Claude finds it there.)
 3. In Claude, type: **Do the call report** (add the customer if you did more
    than one call that day).
 4. Read Claude's review list and check those points.
