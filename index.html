@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v185">
+<meta name="build" content="v186">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -3563,6 +3563,27 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Write the call report with Claude</b><span class="sxs">On the PC, with the end-game skill</span></summary>
+    <div class="fld help">
+      <p>Claude Enterprise on the PC writes the report from your recording, photos and notes. Field CRM hands it the call, and takes the report back.</p>
+      <ol>
+        <li>Log the call in Field CRM as usual: the belts, notes and photos.</li>
+        <li>On the PC, open the call.</li>
+        <li>Click <b>&#8943;</b> beside <b>Create and share</b> at the top.</li>
+        <li>Click <b>Save for Claude</b>.</li>
+        <li>The first time, pick your PC folder, the one Save to PC folder uses. Click <b>Select folder</b>, then <b>Edit files</b>.</li>
+        <li>In Claude, type: <b>Do the call report.</b></li>
+        <li>Check the review list Claude gives you, and the report.</li>
+        <li>Back in the call in Field CRM, click <b>&#8943;</b>, then <b>Import call report</b>.</li>
+        <li>Read the message saying what it adds, and click <b>OK</b>.</li>
+      </ol>
+      <p>Save for Claude puts the call, its belts and photos in the visit's folder: <b>Customer\Site\2026-10-29</b>. Claude leaves its report there, and Import call report reads it from the same place.</p>
+      <p>The import adds Claude's notes as the summary, the internal notes as a note, belts Claude found, photos, people you met and the follow-ups as next steps on your planner. It only fills belt fields that are empty: nothing you typed is changed. Importing again adds nothing twice.</p>
+      <p>Claude's two documents are kept with the call. To open them, click <b>&#8943;</b>, then <b>Open Claude's notes</b> or <b>Open Claude's customer copy</b>.</p>
+      <p>On the phone, Save for Claude downloads one file instead, and Import call report asks you to pick Claude's report file (<b>fieldcrm-import.json</b>).</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Archive old photos</b><span class="sxs">Frees space, on the PC</span></summary>
     <div class="fld help">
       <ol>
@@ -4593,6 +4614,8 @@ details.bsx > .msg{margin:8px 12px}
   <h2 id="dashLooseHead">Loose photos</h2>
   <div id="looseWrap"></div>
   <button class="ghost" id="savePhotos">Save this call's photos to the phone</button>
+  <!-- v186: Import call report reads Claude's report from a file when the PC folder cannot be read -->
+  <input type="file" id="clFile" accept=".json,application/json" hidden>
 
 </section>
 

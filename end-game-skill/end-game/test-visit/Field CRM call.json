@@ -1,0 +1,82 @@
+{
+ "kind": "field-crm-call-for-claude",
+ "v": 1,
+ "made": 1793300000000,
+ "app": "v186",
+ "photosInline": false,
+ "call": {
+  "id": "c1793299000000",
+  "customer": "Example Foods - Smithfield",
+  "site": "",
+  "type": "Site call",
+  "date": "29/10/2026",
+  "iso": "2026-10-29",
+  "mgr": "Alex Example",
+  "manualAccount": false,
+  "summary": "",
+  "status": "in progress",
+  "contacts": [
+   {
+    "name": "Jo Bloggs",
+    "role": "Maintenance",
+    "email": "jo.bloggs@example.com",
+    "mobile": "0400 000 001",
+    "in_crm": true
+   }
+  ],
+  "entries": [
+   {
+    "type": "belt",
+    "asset": "CV-200",
+    "beltdesc": "Spiral exit",
+    "series": "800",
+    "style": "Flat Top",
+    "beltmat": "Acetal",
+    "colour": "White",
+    "rodmat": "",
+    "width": "",
+    "beltlen": "",
+    "sprocket": "",
+    "sprbore": "",
+    "qty": "",
+    "comment": "",
+    "tsg": false,
+    "ref": 0,
+    "photos": [
+     {
+      "file": "from Field CRM/Belt 1 CV-200 - 1.jpg"
+     }
+    ]
+   },
+   {
+    "type": "note",
+    "topic": "Other",
+    "text": "Jo mentioned a second packing line; engineering manager is Pat.",
+    "ref": 1,
+    "photos": []
+   }
+  ],
+  "loose": []
+ },
+ "account": {
+  "name": "Example Foods - Smithfield",
+  "site": "Smithfield",
+  "mgr": "Alex Example",
+  "contacts": [
+   {
+    "name": "Jo Bloggs",
+    "role": "Maintenance",
+    "email": "jo.bloggs@example.com",
+    "mobile": "0400 000 001",
+    "in_crm": true
+   },
+   {
+    "name": "Sam Sample",
+    "role": "Production",
+    "email": "sam.sample@example.com",
+    "mobile": "0400 000 002",
+    "in_crm": true
+   }
+  ]
+ }
+}

@@ -1,0 +1,116 @@
+{
+  "customer": "Example Foods - Smithfield",
+  "in_crm": true,
+  "site": "Infeed to packing",
+  "type": "Site call",
+  "date": "2026-10-29",
+  "account_manager": "Alex Example",
+  "contacts": [
+    {
+      "name": "Jo Bloggs",
+      "role": "Maintenance",
+      "email": "jo.bloggs@example.com",
+      "mobile": "0400 000 001",
+      "in_crm": true
+    },
+    {
+      "name": "Pat Example",
+      "role": "Engineering Manager",
+      "in_crm": false
+    }
+  ],
+  "notes": "- Walked three conveyors with Jo Bloggs, from the infeed (CV-100) to packing (CV-300).\n- CV-100 infeed: carryway wear strips worn at the transfer end, about half their height left. Example Foods maintenance will replace them at the next shutdown. Belt, tracking, sprockets, shafts and return way are fine.\n- CV-200 spiral exit: rods walking out on the left side about every third row, with worn hinges, since the wash-down change about six weeks ago. Drive sprocket teeth are hooked. A new belt and sprockets are recommended (Belts to quote, below).\n- CV-300 packing: belt tracking to the right and rubbing the side frame near the outfeed. Not urgent; check the take-up adjustment at the next service. Hygiene is good.\n- Second packing line: Pat Example is planning a second packing line next year, about 30 m of conveyor. Design starts in March, installation over the Christmas shutdown. Intralox to help with the layout.\n- Follow-ups: quote the CV-200 belt and sprockets by Friday 30 October (Alex Example). Send the spiral and transfer case studies to Pat Example next week (Alex Example).",
+  "internal_notes": "- Second packing line: budget about $400k. They are also talking to another supplier.\n- Pat Example is not in the CRM yet.",
+  "other_photos": [
+    "p1",
+    "p4"
+  ],
+  "belts": [
+    {
+      "asset": "CV-200",
+      "beltdesc": "Spiral exit",
+      "series": "800",
+      "style": "Flat Top",
+      "beltmat": "Acetal",
+      "colour": "White",
+      "width": "457",
+      "beltlen": "24 (about)",
+      "sprocket": "11 tooth",
+      "sprbore": "40 mm square",
+      "comment": "Replacing a belt with rods walking out and worn hinges; the drive sprockets are hooked and are replaced with it. Quote requested by Friday 30 October.",
+      "tsg": false,
+      "photos": [
+        "f1",
+        "p2",
+        "p3"
+      ],
+      "ref": 0
+    }
+  ],
+  "photos": {
+    "p1": {
+      "file": "../test-visit/photos/IMG_4101.jpg",
+      "time": "2026-10-29T09:01:15",
+      "caption": "CV-100: carryway wear strips worn down at the transfer end.",
+      "confidence": "high"
+    },
+    "p2": {
+      "file": "../test-visit/photos/IMG_4102.jpg",
+      "time": "2026-10-29T09:03:55",
+      "caption": "CV-200: rods walking out on the left edge.",
+      "confidence": "high"
+    },
+    "p3": {
+      "file": "../test-visit/photos/IMG_4103.jpg",
+      "time": "2026-10-29T09:04:43",
+      "caption": "CV-200: drive sprocket teeth hooked.",
+      "confidence": "high"
+    },
+    "p4": {
+      "file": "../test-visit/photos/IMG_4104.jpg",
+      "time": "2026-10-29T09:07:42",
+      "caption": "CV-300: belt rubbing the side frame near the outfeed.",
+      "confidence": "high"
+    },
+    "f1": {
+      "file": "../test-visit/from Field CRM/Belt 1 CV-200 - 1.jpg",
+      "caption": "CV-200: belt tag, photographed in Field CRM.",
+      "confidence": "fieldcrm"
+    }
+  },
+  "fieldcrm": {
+    "call_id": "c1793299000000"
+  },
+  "follow_ups": [
+    {
+      "what": "Quote the CV-200 belt and sprockets",
+      "who": "Alex Example",
+      "when": "Friday 30 October",
+      "date": "2026-10-30",
+      "task": true
+    },
+    {
+      "what": "Send the spiral and transfer case studies to Pat Example",
+      "who": "Alex Example",
+      "when": "Next week",
+      "task": true
+    },
+    {
+      "what": "Replace the CV-100 carryway wear strips",
+      "who": "Example Foods maintenance",
+      "when": "Next shutdown",
+      "task": false
+    },
+    {
+      "what": "Check the CV-300 take-up adjustment",
+      "who": "Example Foods maintenance",
+      "when": "Next service",
+      "task": false
+    }
+  ],
+  "review": [
+    "IMG_4105 (09:10) left out: taken after the talking stopped, nothing says what it shows.",
+    "CV-200: quantity and rod material were not given; customer service will ask.",
+    "Pat Example is not in the CRM."
+  ]
+}

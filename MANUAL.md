@@ -1129,6 +1129,28 @@ On a later day Chrome may ask again before it saves. Click **Allow this time** (
 
 The button isn't on the phone.
 
+### Write the call report with Claude
+
+Claude Enterprise on the PC writes the report from your recording, photos and notes. Field CRM hands it the call, and takes the report back.
+
+1. Log the call in Field CRM as usual: the belts, notes and photos.
+2. On the PC, open the call.
+3. Click **⋯** beside **Create and share** at the top.
+4. Click **Save for Claude**.
+5. The first time, pick your PC folder, the one Save to PC folder uses. Click **Select folder**, then **Edit files**.
+6. In Claude, type: **Do the call report.**
+7. Check the review list Claude gives you, and the report.
+8. Back in the call in Field CRM, click **⋯**, then **Import call report**.
+9. Read the message saying what it adds, and click **OK**.
+
+Save for Claude puts the call, its belts and photos in the visit's folder: **Customer\Site\2026-10-29**. Claude leaves its report there, and Import call report reads it from the same place.
+
+The import adds Claude's notes as the summary, the internal notes as a note, belts Claude found, photos, people you met and the follow-ups as next steps on your planner. It only fills belt fields that are empty: nothing you typed is changed. Importing again adds nothing twice.
+
+Claude's two documents are kept with the call. To open them, click **⋯**, then **Open Claude's notes** or **Open Claude's customer copy**.
+
+On the phone, Save for Claude downloads one file instead, and Import call report asks you to pick Claude's report file (**fieldcrm-import.json**).
+
 ### Archive old photos
 
 1. On the PC, open **Reports** from Home.
