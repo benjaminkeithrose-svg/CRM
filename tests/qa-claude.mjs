@@ -92,13 +92,27 @@ ok(belt.ref === 0 && belt.asset === 'CV-200' && belt.series === '800' && belt.ph
 ok(saved.account && saved.account.mgr === 'Alex Example' && saved.account.contacts[0].name === 'Jo Bloggs' && saved.account.contacts[0].in_crm === true, 'the account\'s CRM contacts go with it');
 ok(saved.call.contacts[0].in_crm === true && /Saved for Claude/.test(g('window.__t')), 'the call\'s contacts and a toast naming the folder');
 
-// ---- on a phone: one file to download, photos inside it
+// ---- on a phone: the share sheet (v187), so it can go straight to OneDrive
 phone = true;
+let shared = null;
+w.navigator.canShare = o => !!(o && o.files && o.files.every(f => /\.txt$/.test(f.name) && f.type === 'text/plain'));
+w.navigator.share = async o => { shared = o; };
+await g(`clSave(call)`); await tick(80);
+ok(shared && shared.files.length === 1 && shared.files[0].name === 'Example Foods - Smithfield - 2026-10-29 - Field CRM call.txt', 'on a phone it opens the share sheet, as a .txt the share sheet takes: ' + (shared && shared.files[0].name));
+const sh = shared ? JSON.parse(await shared.files[0].text()) : {};
+ok(sh.kind === 'field-crm-call-for-claude' && sh.photosInline && /^data:image\/jpeg/.test(sh.call.entries[0].photos[0].data), 'the same call, photos inside');
+ok(/OneDrive Inbox/.test(g('window.__t')), 'a toast says where to save it');
+w.navigator.share = async () => { throw Object.assign(new Error('x'), {name: 'AbortError'}); };
 w.eval(`downloadFile = (n, t) => { window.__dl = {n, t}; }`);
+await g(`clSave(call)`); await tick(50);
+ok(!g('window.__dl'), 'backing out of the share sheet does not download as well');
+// ---- and where the phone cannot share files: one file to download
+w.navigator.canShare = () => false;
 await g(`clSave(call)`); await tick(50);
 const dl = g('window.__dl');
 const inl = JSON.parse(dl.t);
-ok(/Example Foods - Smithfield - 2026-10-29 - Field CRM call\.json/.test(dl.n) && inl.photosInline && /^data:image\/jpeg/.test(inl.call.entries[0].photos[0].data), 'on a phone it downloads, photos inside: ' + dl.n);
+ok(/Example Foods - Smithfield - 2026-10-29 - Field CRM call\.json/.test(dl.n) && inl.photosInline && /^data:image\/jpeg/.test(inl.call.entries[0].photos[0].data), 'it downloads instead, photos inside: ' + dl.n);
+delete w.navigator.canShare; delete w.navigator.share;
 phone = false;
 
 // ---- Claude's report, left in the visit's folder

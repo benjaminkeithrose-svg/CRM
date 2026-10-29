@@ -1003,7 +1003,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v186';
+const APP_BUILD = 'v187';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -21524,7 +21524,21 @@ async function clSave(c){
   const day = isoFromDdmmyyyy(c.date) || iso(new Date());
   if(!pcFolderOk()){
     const {data} = await clCallFile(c, true);
-    downloadFile(pcName(c.customer, 'Call') + ' - ' + day + ' - ' + CL_CALL_FILE, JSON.stringify(data), 'application/json');
+    const base = pcName(c.customer, 'Call') + ' - ' + day + ' - ' + CL_CALL_FILE.replace(/\.json$/, '');
+    /* v187: on a phone the share sheet, so it can go straight to OneDrive. The
+       share sheet takes a short list of file types and JSON is not on it, so
+       the same text goes as .txt; the end-game skill reads it by what it holds. */
+    const file = typeof File === 'function' ? new File([JSON.stringify(data)], base + '.txt', {type: 'text/plain'}) : null;
+    if(file && navigator.canShare && navigator.canShare({files: [file]})){
+      try {
+        await navigator.share({files: [file], title: base});
+        toast('Shared for Claude: save it in your OneDrive Inbox');
+        return;
+      } catch(e){
+        if(e && e.name === 'AbortError') return;   // backed out of the share sheet
+      }
+    }
+    downloadFile(base + '.json', JSON.stringify(data), 'application/json');
     toast('Saved for Claude as a download: put it in the visit\'s folder on the PC');
     return;
   }
@@ -23005,6 +23019,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v187', 'On the phone, Save for Claude opens the share sheet: tap OneDrive and save it in your Inbox folder, and Claude finds it there. Where the phone cannot share the file, it downloads as before.'],
   ['v186', 'The call report with Claude, from the PC: in a call, ⋯ then Save for Claude puts the call, its belts and photos in the visit\'s folder; once Claude has written the report, Import call report brings it back into the call: the notes, internal notes, belts, photos, contacts and follow-ups as next steps, with the documents kept on the call. Nothing you typed is changed.'],
   ['v185', 'Tidying: an example in Help now uses a made-up name. Nothing you use has changed.'],
   ['v184', 'Order sheet: a new belt favourite can start from a belt already logged at the customer. Tap it under From a belt logged here, then add the other materials, colours and widths they may choose.'],

@@ -36,7 +36,7 @@
 | **Email tasks to Outlook** | Open in Outlook | A new email (mailto): To, Subject (or the title), Body |
 | **Planning weeks** | The planner | .ics calendar file of week markers |
 | **PC folder** | Reports | Each done call saved as files in a folder on the PC |
-| **Save for Claude** (v186) | A call's ⋯ | The call for the end-game skill: `Field CRM call.json` (kind `field-crm-call-for-claude`, version 1: the call with every entry and its place in the call as `ref`, its contacts, and the account's CRM contacts and account manager) in the visit's PC folder (`Customer\Site\date`, as Save to PC folder), its photos beside it in `from Field CRM`. On a phone, or without folder access, one file to download with the photos inside it. Not on a quote request |
+| **Save for Claude** (v186) | A call's ⋯ | The call for the end-game skill: `Field CRM call.json` (kind `field-crm-call-for-claude`, version 1: the call with every entry and its place in the call as `ref`, its contacts, and the account's CRM contacts and account manager) in the visit's PC folder (`Customer\Site\date`, as Save to PC folder), its photos beside it in `from Field CRM`. On a phone (v187), the share sheet, so it can be saved straight into OneDrive: the same file as text (`… - Field CRM call.txt`, since the share sheet does not take JSON), photos inside it; where the phone cannot share files, or without folder access, one file to download (`.json`). Not on a quote request |
 | **Export for Claude** | Reports | Text files for a Claude Project |
 | **Backup** | Settings | One JSON file of everything on the device, photos optional |
 

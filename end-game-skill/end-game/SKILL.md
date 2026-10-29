@@ -38,9 +38,11 @@ Everything you make goes in the same folder:
 ```
 
 **Settings.** The PC folder, the camera roll folder and the CRM export are
-the same every time. Look for `end-game settings.json` in the PC folder:
-`{"pc_folder": "...", "camera_roll": "...", "crm_export": "..."}`. If it is not
-there, ask for the three once and offer to save the file.
+the same every time, and so is the Inbox, the OneDrive folder the person
+saves things into from the phone. Look for `end-game settings.json` in the
+PC folder: `{"pc_folder": "...", "camera_roll": "...", "inbox": "...",
+"crm_export": "..."}`. If it is not there, ask for them once and offer to save
+the file.
 
 **Two ways to reach the files.**
 1. You can open the person's PC folders (Claude Desktop with folder access):
@@ -77,6 +79,14 @@ differs.
    people, each belt with its `ref`, notes and photos. That is the customer:
    no lookup needed. If it says the photos are inside the file (saved on a
    phone), run it again with `--photos-out "<visit folder>/from Field CRM"`.
+
+   Not there? Look in the Inbox for the call saved from the phone: a file
+   named `<Customer> - <date> - Field CRM call.txt` (or `.json`; the phone's
+   share sheet only takes text, the contents are the same). Copy it into the
+   visit folder as `Field CRM call.json` (make the folder by the rule above
+   if it is not there yet), then run `fieldcrm_call.py` on it with
+   `--photos-out "<visit folder>/from Field CRM"`: its photos are inside it.
+   Leave the Inbox copy where it is.
 
    No Field CRM call (they did not log one): find the customer in the CRM
    export with `scripts/find_customer.py` (see `DOCUMENTATION.md`), and make
