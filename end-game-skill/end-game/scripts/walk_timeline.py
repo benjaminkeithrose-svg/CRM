@@ -176,6 +176,22 @@ def exif_time(path):
     return None
 
 
+def exif_place(path):
+    """(lat, lon) from the photo's GPS data, or None. Field CRM (v188) writes it into
+    photos added to a call; phone photos usually have it."""
+    try:
+        from PIL import Image
+        g = Image.open(path).getexif().get_ifd(0x8825)
+        if 2 not in g or 4 not in g:
+            return None
+        dec = lambda v: sum(float(x) / 60 ** i for i, x in enumerate(v))
+        lat = dec(g[2]) * (-1 if g.get(1) == 'S' else 1)
+        lon = dec(g[4]) * (-1 if g.get(3) == 'W' else 1)
+        return (round(lat, 6), round(lon, 6)) if (lat or lon) else None
+    except Exception:
+        return None
+
+
 def read_photos(folder):
     out = []
     for root, _, files in os.walk(folder):
@@ -188,7 +204,7 @@ def read_photos(folder):
             if t is None:
                 t = dt.datetime.fromtimestamp(os.path.getmtime(p))
                 src = 'file date (less reliable)'
-            out.append({'file': os.path.relpath(p, folder).replace('\\', '/'), 'path': p, 'taken': t, 'time_from': src})
+            out.append({'file': os.path.relpath(p, folder).replace('\\', '/'), 'path': p, 'taken': t, 'time_from': src, 'place': exif_place(p)})
     out.sort(key=lambda x: x['taken'])
     return out
 
@@ -237,6 +253,7 @@ def build(segs, photos, start, window, shift):
             'nearest_speech_s': None if gap is None else round(gap, 1),
             'confidence': conf,
             'note': note,
+            'location': {'lat': ph['place'][0], 'lon': ph['place'][1]} if ph.get('place') else None,
         })
     return {
         'recording_start': start.isoformat(timespec='seconds'),

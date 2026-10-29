@@ -1003,7 +1003,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v187';
+const APP_BUILD = 'v188';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -10923,7 +10923,105 @@ document.addEventListener('drop', e => {
   picturesIn(files, 'added').catch(reportErr);
 });
 $('galInput').addEventListener('change', e => addPhotos([...e.target.files]));
+/* ---------- when and where a photo was taken (v188) ----------
+   Shrinking redraws a photo on a canvas, which drops everything but the
+   pixels: the time it was taken and where. Ben, 2026-10-29: keep both, so a
+   photo on a call can be matched to the Plaud recording on the PC (the
+   end-game skill) like a phone photo. They are read from the original before
+   it is shrunk, or taken at the tap for the app's own camera, and written back
+   into the small copy as standard EXIF (DateTimeOriginal and GPS), so they
+   travel inside the photo: sync, Save to PC folder, Save for Claude, and the
+   documents (Ben's choice: location included). Orientation is never written:
+   the canvas has already turned the picture upright. */
+const exifStamp = d => d.getFullYear() + ':' + String(d.getMonth() + 1).padStart(2, '0') + ':' + String(d.getDate()).padStart(2, '0') + ' ' +
+  [d.getHours(), d.getMinutes(), d.getSeconds()].map(x => String(x).padStart(2, '0')).join(':');
+// {time: 'YYYY:MM:DD HH:MM:SS', lat, lon} from a JPEG's bytes; {} when it has none
+function exifRead(bytes){
+  const out = {};
+  try {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if(v.getUint16(0) !== 0xFFD8) return out;
+    let p = 2;
+    while(p + 4 <= v.byteLength){
+      const m = v.getUint16(p), len = v.getUint16(p + 2);
+      if(m === 0xFFDA || (m & 0xFF00) !== 0xFF00) break;            // start of the picture itself: no more headers
+      if(m === 0xFFE1 && v.getUint32(p + 4) === 0x45786966){        // 'Exif'
+        const t = p + 10, le = v.getUint16(t) === 0x4949;
+        const u16 = o => v.getUint16(t + o, le), u32 = o => v.getUint32(t + o, le);
+        const ifd = o => { const n = u16(o), m2 = {}; for(let i = 0; i < n; i++){ const e = o + 2 + i * 12; m2[u16(e)] = {type: u16(e + 2), count: u32(e + 4), at: e + 8}; } return m2; };
+        const ascii = e => { const off = e.count > 4 ? u32(e.at) : e.at; let s = ''; for(let i = 0; i < e.count - 1; i++) s += String.fromCharCode(v.getUint8(t + off + i)); return s.trim(); };
+        const rat3 = e => { const off = u32(e.at); let r = 0; for(let i = 0; i < 3; i++){ const d = u32(off + i * 8 + 4); r += (d ? u32(off + i * 8) / d : 0) / Math.pow(60, i); } return r; };
+        const ifd0 = ifd(u32(4));
+        const ex = ifd0[0x8769] ? ifd(u32(ifd0[0x8769].at)) : {};
+        const tm = ex[0x9003] || ifd0[0x0132];
+        if(tm && /^\d{4}:\d\d:\d\d \d\d:\d\d:\d\d$/.test(ascii(tm).slice(0, 19))) out.time = ascii(tm).slice(0, 19);
+        if(ifd0[0x8825]){
+          const g = ifd(u32(ifd0[0x8825].at));
+          if(g[2] && g[4]){
+            const lat = rat3(g[2]) * (g[1] && ascii(g[1]) === 'S' ? -1 : 1), lon = rat3(g[4]) * (g[3] && ascii(g[3]) === 'W' ? -1 : 1);
+            if(isFinite(lat) && isFinite(lon) && (lat || lon)){ out.lat = lat; out.lon = lon; }
+          }
+        }
+        return out;
+      }
+      p += 2 + len;
+    }
+  } catch(e){ /* a damaged header: no time, no place */ }
+  return out;
+}
+// the same written into a JPEG (bytes in, Blob out): after SOI and any JFIF APP0, before the rest
+function exifWrite(bytes, meta){
+  if(!meta || !(meta.time || meta.lat != null)) return new Blob([bytes], {type: 'image/jpeg'});
+  const gps = meta.lat != null && meta.lon != null && isFinite(meta.lat) && isFinite(meta.lon);
+  const n0 = (meta.time ? 1 : 0) + (gps ? 1 : 0);
+  const ifd0At = 8, exAt = ifd0At + 2 + n0 * 12 + 4, exLen = meta.time ? 2 + 12 + 4 : 0;
+  const gpsAt = exAt + exLen, gpsLen = gps ? 2 + 5 * 12 + 4 : 0;
+  const timeAt = gpsAt + gpsLen, latAt = timeAt + (meta.time ? 20 : 0), lonAt = latAt + 24;
+  const size = lonAt + (gps ? 24 : 0);
+  const t = new DataView(new ArrayBuffer(size));
+  t.setUint16(0, 0x4949); t.setUint16(2, 42, true); t.setUint32(4, ifd0At, true);
+  const entry = (at, tag, type, count, value) => { t.setUint16(at, tag, true); t.setUint16(at + 2, type, true); t.setUint32(at + 4, count, true); t.setUint32(at + 8, value, true); };
+  t.setUint16(ifd0At, n0, true);
+  let e = ifd0At + 2;
+  if(meta.time){ entry(e, 0x8769, 4, 1, exAt); e += 12; }
+  if(gps){ entry(e, 0x8825, 4, 1, gpsAt); e += 12; }
+  t.setUint32(e, 0, true);
+  if(meta.time){
+    t.setUint16(exAt, 1, true); entry(exAt + 2, 0x9003, 2, 20, timeAt); t.setUint32(exAt + 14, 0, true);
+    for(let i = 0; i < 19; i++) t.setUint8(timeAt + i, meta.time.charCodeAt(i));
+  }
+  if(gps){
+    const dms = (at, x) => { x = Math.abs(x); const d = Math.floor(x), mf = (x - d) * 60, m = Math.floor(mf), s = Math.round((mf - m) * 60 * 1000);
+      [[d, 1], [m, 1], [s, 1000]].forEach(([a, b], i) => { t.setUint32(at + i * 8, a, true); t.setUint32(at + i * 8 + 4, b, true); }); };
+    t.setUint16(gpsAt, 5, true);
+    let g = gpsAt + 2;
+    entry(g, 0x0000, 1, 4, 0); t.setUint8(g + 8, 2); t.setUint8(g + 9, 2); g += 12;           // GPS version 2.2.0.0
+    entry(g, 0x0001, 2, 2, 0); t.setUint8(g + 8, meta.lat < 0 ? 83 : 78); g += 12;           // S or N
+    entry(g, 0x0002, 5, 3, latAt); g += 12;
+    entry(g, 0x0003, 2, 2, 0); t.setUint8(g + 8, meta.lon < 0 ? 87 : 69); g += 12;           // W or E
+    entry(g, 0x0004, 5, 3, lonAt); g += 12;
+    t.setUint32(g, 0, true);
+    dms(latAt, meta.lat); dms(lonAt, meta.lon);
+  }
+  const head = new Uint8Array(10);
+  const hv = new DataView(head.buffer);
+  hv.setUint16(0, 0xFFE1); hv.setUint16(2, size + 8); hv.setUint32(4, 0x45786966); hv.setUint16(8, 0);
+  let cut = 2;
+  if(bytes.length > 6 && bytes[2] === 0xFF && bytes[3] === 0xE0) cut = 4 + ((bytes[4] << 8) | bytes[5]);   // keep JFIF first
+  return new Blob([bytes.subarray(0, cut), head, new Uint8Array(t.buffer), bytes.subarray(cut)], {type: 'image/jpeg'});
+}
+// what to write into the small copy: the original's own, else what the app's camera noted at the tap
+async function photoMeta(file){
+  let m = {};
+  try { m = exifRead(await blobBytes(file)); } catch(e){}
+  const own = file && file.fcrmMeta;
+  if(own){ if(!m.time && own.time) m.time = own.time; if(m.lat == null && own.lat != null){ m.lat = own.lat; m.lon = own.lon; } }
+  return m;
+}
 function shrink(file, max=1400, q=0.72){
+  return photoMeta(file).then(meta => shrinkPixels(file, max, q).then(async b => (meta.time || meta.lat != null) ? exifWrite(await blobBytes(b), meta) : b));
+}
+function shrinkPixels(file, max, q){
   return new Promise((res,rej)=>{
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = ()=>{
@@ -21299,8 +21397,16 @@ function camFallback(inp, err){
 }
 async function camOpen(inp){
   if(CAM) return;
-  const c = CAM = {input: inp, shots: [], urls: [], stream: null, busy: false};
+  const c = CAM = {input: inp, shots: [], urls: [], stream: null, busy: false, pos: null};
   camRender();
+  /* v188: where the photos are taken, asked once as the camera opens. The
+     phone asks the first time; no answer, or No, and the photos still carry
+     their time. */
+  try {
+    if(navigator.geolocation) navigator.geolocation.getCurrentPosition(
+      p => { if(CAM === c) c.pos = {lat: p.coords.latitude, lon: p.coords.longitude, at: Date.now()}; },
+      () => {}, {enableHighAccuracy: false, maximumAge: 10 * 60000, timeout: 20000});
+  } catch(_){}
   const dlg = $('camdlg');
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   pushDialog('camdlg');
@@ -21334,7 +21440,11 @@ async function camShoot(){
   try {
     const blob = await camGrab();
     if(!blob || CAM !== c) return;
-    c.shots.push(new File([blob], 'photo-' + Date.now() + '.jpg', {type: 'image/jpeg'}));
+    const shot = new File([blob], 'photo-' + Date.now() + '.jpg', {type: 'image/jpeg'});
+    // v188: when, and where if the phone said, kept for the small copy (shrink writes them in)
+    const pos = c.pos && Date.now() - c.pos.at < 15 * 60000 ? c.pos : null;
+    shot.fcrmMeta = {time: exifStamp(new Date()), lat: pos ? pos.lat : null, lon: pos ? pos.lon : null};
+    c.shots.push(shot);
     camRender();
   } finally { c.busy = false; }
 }
@@ -23019,6 +23129,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v188', 'Photos keep when and where they were taken. A photo added to a call from the gallery or the app\'s camera keeps its time and location inside it, so Claude can match it to the Plaud recording like a phone photo. The app\'s camera asks once to use your location; say No and photos still keep their time. Photos added before this have neither.'],
   ['v187', 'On the phone, Save for Claude opens the share sheet: tap OneDrive and save it in your Inbox folder, and Claude finds it there. Where the phone cannot share the file, it downloads as before.'],
   ['v186', 'The call report with Claude, from the PC: in a call, ⋯ then Save for Claude puts the call, its belts and photos in the visit\'s folder; once Claude has written the report, Import call report brings it back into the call: the notes, internal notes, belts, photos, contacts and follow-ups as next steps, with the documents kept on the call. Nothing you typed is changed.'],
   ['v185', 'Tidying: an example in Help now uses a made-up name. Nothing you use has changed.'],

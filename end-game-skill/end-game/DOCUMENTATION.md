@@ -1,6 +1,6 @@
 # End game: documentation
 
-Version 1.1, 29 October 2026.
+Version 1.2, 29 October 2026.
 
 A Claude skill for Claude Enterprise on the PC. It writes the call report
 for a site call from the call in Field CRM, the Plaud recording, the phone
@@ -400,7 +400,10 @@ Each photo is put with whichever was named last before it. That is a
 starting point: Claude moves a photo when what was said, the picture or the
 notes show it is of something else.
 
-**Photo times** come from the photo's own EXIF date (DateTimeOriginal). If a
+**Photo times** come from the photo's own EXIF date (DateTimeOriginal). Photos
+added to a call in Field CRM v188 or later keep their time and location too
+(Field CRM writes them back into the small copy it keeps), so its loose
+photos can be lined up like phone photos; older ones have neither. If a
 photo has none, the file's modified date is used and the photo is noted
 "time from the file date, not the photo": treat its match as doubtful.
 
@@ -422,7 +425,7 @@ photo has none, the file's modified date is used and the photo is noted
 | `window_s` | The window used |
 | `conveyors[]` | Each conveyor named: `conveyor`, `description` (words after the name), `at` (into the recording), `clock` (time of day), `said` (the remark) |
 | `projects[]` | Each project named: `project`, `at`, `clock`, `said` |
-| `photos[]` | Each photo: `file`, `taken`, `into_recording`, `conveyor` or `project` (last named before it), `said_near` (remarks within the window, each with its time), `nearest_speech_s`, `confidence`, `note` |
+| `photos[]` | Each photo: `file`, `taken`, `into_recording`, `conveyor` or `project` (last named before it), `said_near` (remarks within the window, each with its time), `nearest_speech_s`, `confidence`, `note`, `location` (`lat`, `lon` from the photo's GPS data, or null) |
 | `transcript[]` | Every remark: `at`, `clock`, `speaker`, `text` |
 
 ### build_report.py
@@ -718,5 +721,6 @@ Add a line to section 14.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.2 | 29 October 2026 | Field CRM v188 photos keep their time and location: its loose photos join the timeline; each photo's location is in timeline.json |
 | 1.1 | 29 October 2026 | The call saved from the phone (Field CRM v187's share sheet) is found in the Inbox, as `… - Field CRM call.txt`; the settings file has the Inbox |
 | 1.0 | 29 October 2026 | First version, from site-walk-report 1.2: reads the call Field CRM saved for Claude, collects photos from the camera roll by time, works in the visit's PC folder, follow-ups and review list, and writes fieldcrm-import.json for Field CRM's Import call report (Field CRM v186) |
