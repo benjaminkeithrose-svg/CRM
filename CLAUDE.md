@@ -74,7 +74,10 @@ the reference is Intralox's internal wording, so both are imported on a device
 from a file and sync encrypted. `cip` is private: never add it to the shared
 stores in the team migrations. Since v134 a call's MBO and initiative ticks live
 in the `mbo` record too (by call id), never on the call, because calls are
-shared with the team.
+shared with the team. The business plan (v189, record `bizplan`) lives in
+`cip` for the same reason: it names customers and holds Intralox's targets,
+so it is imported on the device from the tracker's file and never committed,
+not even as a test fixture (`tests/qa-bizplan.mjs` uses a made-up plan).
 
 **Contacts added in the app live in store `people`, never in `accounts`**
 (v125). A CRM import replaces the account list wholesale, so `peopleMerge()`

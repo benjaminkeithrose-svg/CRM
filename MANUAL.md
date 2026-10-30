@@ -546,6 +546,36 @@ To plan next year's MBOs while this year's run:
 
 Next year's list says **Planning** until 1 January, then it is that year's list. Add the values once they're agreed.
 
+### Run the business plan
+
+To bring the plan in the first time:
+
+1. Tap **Business plan** on Home.
+2. Tap **⋯**, then **Import plan**.
+3. Pick the plan's HTML file. The app shows how many outcomes and actions it brought in.
+
+Importing again replaces the whole plan, check-ins included. The app asks first.
+
+To log the month's check-in on an action:
+
+1. Tap the action.
+2. Pick the month under **Monthly check-ins**. It starts on this month.
+3. Tap **Achieved**, **Partly** or **Not yet**.
+4. Type a note if there is one.
+5. Tap **Add check-in**.
+6. Tap **Done**.
+
+When an action is finished, set its status to **Done**. It moves to the **Done** tab. **Retired** is for an action dropped from the plan.
+
+To add an action, tap **Add an action** under its outcome, or tap **⋯**, then **Add an action**. To copy one, open it, tap **⋯**, then **Duplicate**. Tap an outcome's name to change its objective, why, value, focus or accounts.
+
+To send a copy of the plan:
+
+1. Tap **Share** at the top of the plan.
+2. Pick where to send it. On the PC it saves as an HTML file instead.
+
+The copy is an A4 page that opens in any browser and prints. Retired outcomes and actions are left out. The plan is yours only: it goes to your own devices, encrypted, and never to the team.
+
 ### Count calls towards your MBOs and initiatives
 
 1. In the call, tap **MBOs and initiatives**, under the summary.

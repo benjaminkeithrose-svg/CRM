@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v188">
+<meta name="build" content="v189">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -754,6 +754,27 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 /* Some card bars carry one wide labelled action rather than icons. */
 .cardbar.wide button{width:auto;height:auto;padding:9px 14px;font-size:12px;font-weight:700;color:var(--ink)}
 .cardbar .phc{margin-left:auto;font-size:11px;color:var(--ink-3)}
+/* v189: the business plan */
+.bphead{margin:4px 0 12px}
+.bphead .bpeye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan-dk);margin:0}
+.bphead h2{margin:2px 0 0;font-size:20px}
+.bphead .bptot{margin:4px 0 0;font-size:14px;color:var(--ink-2)}
+.bphead .bptot b{font-size:18px;color:var(--ink)}
+.card.bpo{padding:0;overflow:hidden}
+.bpo .bpoopen{display:flex;justify-content:space-between;gap:10px;align-items:baseline;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line-2);padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.bpo .bpoopen:active,.bparow:active{background:var(--sunk)}
+.bpo .bpmoney{font-weight:700;color:var(--cyan-dk);white-space:nowrap}
+.bparow{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line-2);padding:10px 14px;cursor:pointer;font:inherit;color:inherit;min-height:44px}
+.bparow b{font-weight:600}
+.bparow.done b{text-decoration:line-through;color:var(--ink-3)}
+.bparow .tag{margin-right:6px}
+.bparow .meta{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.bpo .bpfoot{padding:8px 14px}
+.bpo .bpnone{padding:10px 14px;margin:0;font-size:13px;color:var(--ink-3)}
+.bpadd{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.bpchk{display:flex;gap:8px;align-items:flex-start;border-bottom:1px solid var(--line-2);padding:8px 0}
+.bpchk .bpcm{flex:1;font-size:14px}
+.bpchk .bpcm .meta{display:block;font-size:12px;color:var(--ink-3)}
 .tag{
   display:inline-block;font-size:10px;font-weight:700;letter-spacing:.02em;
   background:var(--cyan-lt);color:var(--cyan-dk);border:1px solid var(--cyan-md);
@@ -1944,7 +1965,7 @@ details.bsx > .msg{margin:8px 12px}
 <!-- HOME -->
 <section class="scr on" id="s-home">
   <p class="msg" id="buildStat"></p>
-  <div class="tiles"><button data-go="capture"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/></svg></span><b>Capture</b><span class="tbadge" id="capBadge" hidden></span></button><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button></div>
+  <div class="tiles"><button data-go="capture"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/></svg></span><b>Capture</b><span class="tbadge" id="capBadge" hidden></span></button><button data-go="newcall"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span><b>New</b></button><button data-go="resume"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg></span><b>Resume</b></button><button data-go="plan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><b>Plan</b></button><button data-go="directory"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><b>Directory</b></button><button data-go="reference"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><b>Reference</b></button><button data-go="reports"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span><b>Reports</b></button><button data-go="strategy"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><b>Strategy</b></button><button data-go="perf"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span><b>Performance</b></button><button data-go="bizplan"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg></span><b>Business plan</b></button></div>
 
   <p class="msg" id="homeSetup"></p>
   <!-- v152: Home arranged your way: move, hide, show again -->
@@ -1985,6 +2006,59 @@ details.bsx > .msg{margin:8px 12px}
   <div class="fld"><label>To</label><div class="chips" id="osTo"></div></div>
   <div class="fld"><label>Favourites in the form</label><div class="ospick" id="osPick"></div></div>
   <p class="msg" id="osSendMsg"></p>
+</section>
+<!-- BUSINESS PLAN (v189): the half's plan, its outcomes and the actions behind them. Private to you,
+     imported once from the Claude tracker; nothing of it ships in the repo. -->
+<section class="scr" id="s-bp">
+  <div class="opptools">
+    <button type="button" class="btn go" id="bpShare">Share</button>
+    <span class="spacer"></span>
+    <button type="button" class="tvi" id="bpMore" aria-label="More" title="More"><span class="dots" aria-hidden="true">&#8943;</span></button>
+  </div>
+  <div class="seg tabs" id="bpTabs" role="group" aria-label="Actions"><button type="button" data-v="open" class="on">Open</button><button type="button" data-v="done">Done</button></div>
+  <div id="bpBody"></div>
+  <input type="file" id="bpFile" accept=".html,.htm,.json,text/html,application/json" hidden>
+</section>
+<section class="scr" id="s-bpact">
+  <div class="opptools">
+    <button type="button" class="btn go" id="bpaDone">Done</button>
+    <span class="spacer"></span>
+    <button type="button" class="tvi" id="bpaMore" aria-label="More" title="More"><span class="dots" aria-hidden="true">&#8943;</span></button>
+  </div>
+  <div class="fld"><label for="bpaTitle">The action</label><textarea id="bpaTitle" rows="2"></textarea></div>
+  <div class="fld"><label for="bpaOut">Outcome</label><select id="bpaOut"></select></div>
+  <div class="fld"><label>Team</label><div class="chips" id="bpaTeam"></div></div>
+  <div class="fld"><label for="bpaHow">How they will do it</label><textarea id="bpaHow" rows="2"></textarea></div>
+  <div class="fld"><label for="bpaAgreed">What they have agreed to</label><textarea id="bpaAgreed" rows="2"></textarea></div>
+  <div class="fld"><label for="bpaOwner">Who owns it</label><input type="text" id="bpaOwner" autocomplete="off"></div>
+  <div class="fld"><label for="bpaDue">By when</label><input type="date" id="bpaDue"><p class="hint" id="bpaCarried" hidden></p></div>
+  <div class="fld"><label>Status</label><div class="seg" id="bpaStatus" role="group" aria-label="Status"><button type="button" data-v="open">Open</button><button type="button" data-v="done">Done</button><button type="button" data-v="retired">Retired</button></div></div>
+  <div class="fld">
+    <label>Monthly check-ins</label>
+    <div id="bpaChecks"></div>
+    <div class="bpadd">
+      <select id="bpaMonth" aria-label="Month"></select>
+      <div class="chips" id="bpaResult"></div>
+      <input type="text" id="bpaNote" placeholder="What happened" autocomplete="off" aria-label="Check-in note">
+      <button type="button" class="btn act2" id="bpaAdd">Add check-in</button>
+    </div>
+  </div>
+</section>
+<section class="scr" id="s-bpout">
+  <div class="opptools">
+    <button type="button" class="btn go" id="bpoDone">Done</button>
+    <span class="spacer"></span>
+    <button type="button" class="tvi" id="bpoMore" aria-label="More" title="More"><span class="dots" aria-hidden="true">&#8943;</span></button>
+  </div>
+  <div class="fld"><label for="bpoName">Outcome</label><textarea id="bpoName" rows="2"></textarea></div>
+  <div class="fld"><label for="bpoBucket">Bucket</label><select id="bpoBucket"></select></div>
+  <div class="fld"><label for="bpoObj">Objective, in dollars</label><input type="text" id="bpoObj" inputmode="numeric" autocomplete="off"><p class="hint" id="bpoObjHint"></p></div>
+  <div class="fld"><label for="bpoWhy">Why</label><textarea id="bpoWhy" rows="3"></textarea></div>
+  <div class="fld"><label for="bpoCust">Customer value</label><textarea id="bpoCust" rows="2"></textarea></div>
+  <div class="fld"><label for="bpoIx">Intralox value</label><textarea id="bpoIx" rows="2"></textarea></div>
+  <div class="fld"><label for="bpoFocus">How we'll achieve it <span class="sublab">one per line</span></label><textarea id="bpoFocus" rows="4"></textarea></div>
+  <div class="fld"><label for="bpoAcc">Accounts <span class="sublab">one per line</span></label><textarea id="bpoAcc" rows="3"></textarea></div>
+  <div class="fld"><label>Status</label><div class="seg" id="bpoStatus" role="group" aria-label="Status"><button type="button" data-v="active">Active</button><button type="button" data-v="achieved">Achieved</button><button type="button" data-v="retired">Retired</button></div></div>
 </section>
 <section class="scr" id="s-ofav">
   <button type="button" class="big" id="ofDone">Done</button>
@@ -2932,6 +3006,35 @@ details.bsx > .msg{margin:8px 12px}
         <li>To make an initiative one of next year's MBOs, tap its name, then <b>Make it one of the</b> next year's <b>MBOs</b>.</li>
       </ol>
       <p>Next year's list says <b>Planning</b> until 1 January, then it is that year's list. Add the values once they're agreed.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Run the business plan</b><span class="sxs">The Business plan tile</span></summary>
+    <div class="fld help">
+      <p>To bring the plan in the first time:</p>
+      <ol>
+        <li>Tap <b>Business plan</b> on Home.</li>
+        <li>Tap <b>&#8943;</b>, then <b>Import plan</b>.</li>
+        <li>Pick the plan's HTML file. The app shows how many outcomes and actions it brought in.</li>
+      </ol>
+      <p>Importing again replaces the whole plan, check-ins included. The app asks first.</p>
+      <p>To log the month's check-in on an action:</p>
+      <ol>
+        <li>Tap the action.</li>
+        <li>Pick the month under <b>Monthly check-ins</b>. It starts on this month.</li>
+        <li>Tap <b>Achieved</b>, <b>Partly</b> or <b>Not yet</b>.</li>
+        <li>Type a note if there is one.</li>
+        <li>Tap <b>Add check-in</b>.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+      <p>When an action is finished, set its status to <b>Done</b>. It moves to the <b>Done</b> tab. <b>Retired</b> is for an action dropped from the plan.</p>
+      <p>To add an action, tap <b>Add an action</b> under its outcome, or tap <b>&#8943;</b>, then <b>Add an action</b>. To copy one, open it, tap <b>&#8943;</b>, then <b>Duplicate</b>. Tap an outcome's name to change its objective, why, value, focus or accounts.</p>
+      <p>To send a copy of the plan:</p>
+      <ol>
+        <li>Tap <b>Share</b> at the top of the plan.</li>
+        <li>Pick where to send it. On the PC it saves as an HTML file instead.</li>
+      </ol>
+      <p>The copy is an A4 page that opens in any browser and prints. Retired outcomes and actions are left out. The plan is yours only: it goes to your own devices, encrypted, and never to the team.</p>
     </div>
   </details>
   <details class="sx hx">
