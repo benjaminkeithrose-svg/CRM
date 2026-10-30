@@ -115,8 +115,15 @@ differs.
    python3 scripts/walk_timeline.py --transcript "<visit folder>/source/transcript.json" --start "<recording start>" --photos "<visit folder>/photos" --out "<visit folder>/source/timeline.json"
    ```
 
+   Before running it, copy Field CRM's loose photos (`from Field CRM/Additional - *.jpg`)
+   into `photos/` too: since Field CRM v188 they keep the time they were
+   taken, so they line up with the recording like phone photos. (Field CRM's
+   belt and note photos are already with their belt or note.)
+
    It gives each photo the conveyor (or project) being talked about when it
-   was taken, what was said around it, and a confidence.
+   was taken, what was said around it, a confidence, and its `location` when
+   the photo has one: use it to confirm the site, and to set aside a photo
+   taken somewhere else.
 
 6. **Read everything else.** Handwritten note pages, data sheets, drawings
    (as PDF), anything the customer gave. The handwritten notes and what was

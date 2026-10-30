@@ -934,6 +934,8 @@ The first time the app opens after an update, it says so once at the bottom of t
 
 The back arrow or the phone's back adds what you have taken too; **Cancel** asks before leaving photos out. **Phone camera** adds what you have taken and opens the phone's own camera instead, for its zoom or flash. If the app is not allowed the camera, the phone's camera opens as before; allow the camera for Field CRM in the phone's settings to take several at once. **Add from photos** picks from the gallery as before.
 
+Each photo keeps when and where it was taken, so Claude can match it to your Plaud recording. The first time the camera opens, the phone asks whether Field CRM can use your location: tap **Allow** to keep where photos were taken, or **Don't allow** and they keep only their time. A photo picked from the gallery keeps its own time and place. The time and place stay in the photo when it goes into documents.
+
 Photos with nothing logged yet go in **Loose photos** and come out at the end of the notes. Tap a photo to look at it. The × on it deletes it.
 
 On the PC, to add a picture you have copied (a screenshot, or a picture from an email, a drawing or a web page):
