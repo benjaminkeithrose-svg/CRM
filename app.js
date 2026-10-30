@@ -1003,7 +1003,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v188';
+const APP_BUILD = 'v189';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1375,7 +1375,7 @@ const TITLES = {
   manuals:['Manuals',''], people:['Contacts',''], reports:['Reports',''],
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
-  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['Performance','CIP'], mbo:['Performance','MBOs'],
+  ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['Performance','CIP'], mbo:['Performance','MBOs'], bp:['Business plan',''], bpact:['Business plan','Action'], bpout:['Business plan','Outcome'],
   note:['General note',''], health:['Health check',''], walk:['Health check',''], wfault:['Fault',''], step:['Next step',''], opp:['Opportunity',''], tasks:['Plan','Tasks'], products:['Plan','Products'], capture:['Capture',''], belts:['Belts',''], orders:['Order sheet',''], ofav:['Favourite',''], osend:['Send order form','']
 };
 /* ---------- navigation ----------
@@ -1475,6 +1475,8 @@ function showScreen(name){
   if(screen === 'belt' && name !== 'belt'){ beltBackTo = null; beltWalkId = null; }
   if(screen === 'step' && name !== 'step') stepLeave().catch(reportErr);   // v174: on the planner on the way out
   if(screen === 'ofav' && name !== 'ofav') ofLeave().catch(reportErr);    // v183: a favourite saves as it goes
+  if(screen === 'bpact' && name !== 'bpact') bpActLeave().catch(reportErr);   // v189: an action saves on leaving
+  if(screen === 'bpout' && name !== 'bpout') bpOutLeave().catch(reportErr);
   screen = name;
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   $('s-'+name).classList.add('on');
@@ -1513,6 +1515,9 @@ function showScreen(name){
   if(name==='strategy' || name === 'home' || name === 'acct') stOpened = '';
   if(name==='strategy') renderStrategy().catch(e => console.error('strategy', e));
   if(name==='cip') renderCip();
+  if(name==='bp') renderBp();            // v189
+  if(name==='bpact') renderBpAct();
+  if(name==='bpout') renderBpOut();
   if(name==='mbo'){ renderMbo(); mboSweepSoon(); }
   if(name==='acct') try { renderOppsCard(); renderLapCard(); } catch(e){ console.error('opportunities', e); }
   if(name==='today') renderToday();   // renderToday sets the title, which moves with the date
@@ -1576,7 +1581,7 @@ const PARENT = {
   belt:'dash', project:'dash', note:'dash', health:'dash', walk:'dash', wfault:'walk', step:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
-  today:'home', settings:'home', help:'home', products:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home', capture:'home', belts:'acct', orders:'acct', ofav:'orders', osend:'orders'
+  today:'home', settings:'home', help:'home', products:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home', bp:'home', bpact:'bp', bpout:'bp', capture:'home', belts:'acct', orders:'acct', ofav:'orders', osend:'orders'
 };
 function parentOf(name){
   if(name === 'belt' && beltBackTo && call) return beltBackTo;
@@ -7799,6 +7804,8 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
     go(t);
   } else if(t==='perf'){
     go(perfLast());                               // v152: CIP and MBO, under Performance
+  } else if(t==='bizplan'){
+    go('bp');                                     // v189
   } else if(t==='reports'){
     go('reports');
   } else if(t==='manuals'){
@@ -17859,6 +17866,7 @@ async function cipLoad(){
   CIP = all.find(r => r.id === 'me') || null;
   MBO = all.find(r => r.id === 'mbo') || null;
   CIPREF = all.find(r => r.id === 'ref') || null;
+  BP = all.find(r => r.id === BP_ID) || null;       // v189: the business plan
   if(CIP) CIP.pillars = cipPillarFix(CIP.pillars);
 }
 
@@ -17908,6 +17916,8 @@ async function cipCloudIn(){
   await homeLayoutLoad();
   if(cipTimer) return;
   await cipLoad();
+  // v189: a newer business plan from another device, unless an action or outcome is open
+  if(screen === 'bp' && !(document.activeElement && $('bpBody').contains(document.activeElement))) renderBp();
   if(screen !== 'cip' && screen !== 'mbo') return;
   const body = $(screen === 'cip' ? 'cipBody' : 'mboBody');
   if(document.activeElement && body.contains(document.activeElement)) return;
@@ -21811,6 +21821,367 @@ function clOpenDoc(c, k){
   setTimeout(() => URL.revokeObjectURL(u), 60000);
 }
 
+/* ================= the business plan (v189) =================
+   Ben, 2026-10-30: the MPS team's half-year plan, moved in from the tracker he
+   kept in Claude, which it replaces. Outcomes in three buckets, each with a
+   dollar objective, and the actions behind them by team, with monthly
+   check-ins. Private for now: one record in store 'cip' (id 'bizplan'), which
+   syncs encrypted to his own devices only, like the CIP. None of it ships in
+   the repo - it names customers and holds Intralox's targets - so it comes in
+   from the tracker's own file (Import plan) and goes out as an HTML copy
+   (Share). Not linked to calls (his choice). */
+const BP_TEAMS = ['AMs', 'BDA', 'CS', 'Technical Support', 'P2P', 'CFS'];
+const BP_RESULTS = {yes: 'Achieved', partly: 'Partly', no: 'Not yet'};
+const BP_ID = 'bizplan', BP_KIND = 'field-crm-bizplan';
+let BP = null, BPA = null, BPO = null;
+let bpTab = 'open';
+const bpMoney = v => {
+  if(typeof v !== 'number' || !isFinite(v)) return '';
+  const t = n => String(+n.toFixed(2));
+  return v >= 1e6 ? '$' + t(v / 1e6) + 'M' : v >= 1e3 ? '$' + t(v / 1e3) + 'K' : '$' + v;
+};
+const bpNewId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const bpLive = o => o.status !== 'retired';
+const bpSum = outs => outs.filter(bpLive).reduce((n, o) => n + (typeof o.objective === 'number' ? o.objective : 0), 0);
+const bpBuckets = () => (BP ? BP.buckets.slice() : []).sort((a, b) => (a.order || 0) - (b.order || 0));
+const bpOuts = b => BP.outcomes.filter(o => o.bucket === b).sort((x, y) => (x.order || 0) - (y.order || 0));
+const bpMonthLabel = m => { const [y, mo] = String(m || '').split('-').map(Number); return y && mo ? new Date(y, mo - 1, 1).toLocaleDateString('en-AU', {month: 'long', year: 'numeric'}) : String(m || ''); };
+const bpDue = s => { const d = /^\d{4}-\d\d-\d\d$/.test(s || '') ? new Date(s + 'T00:00:00') : null; return d ? d.toLocaleDateString('en-AU', {day: 'numeric', month: 'short'}) : ''; };
+async function bpSave(){ if(!BP) return; BP.updated = Date.now(); await cipPut(BP); }
+
+/* ---------- reading the Claude tracker's file ----------
+   The tracker keeps its plan as documents by path ('plan/meta', 'buckets/x',
+   'outcomes/x', 'actions/x'); its preview HTML carries them as "const docs =".
+   A JSON file of the same documents, or this app's own record, reads too. */
+function bpFromDocs(docs, name){
+  const pick = pre => Object.keys(docs).filter(k => k.startsWith(pre + '/') && k.split('/').length === 2).map(k => Object.assign({id: k.split('/')[1]}, docs[k]));
+  const arr = v => Array.isArray(v) ? v.map(String) : [];
+  const str = v => v == null ? '' : String(v);
+  const meta = docs['plan/meta'] || {};
+  const rec = {
+    id: BP_ID, kind: BP_KIND, name: name || 'Business plan', period: str(meta.period), note: str(meta.note),
+    buckets: pick('buckets').map(b => ({id: b.id, name: str(b.name) || b.id, short: str(b.short), order: +b.order || 0})),
+    outcomes: pick('outcomes').map(o => ({id: o.id, bucket: str(o.bucket), name: str(o.name), objective: typeof o.objective === 'number' ? o.objective : null,
+      why: str(o.why), customerValue: str(o.customerValue), intraloxValue: str(o.intraloxValue), focus: arr(o.focus), accounts: arr(o.accounts),
+      status: ['active', 'achieved', 'retired'].includes(o.status) ? o.status : 'active', order: +o.order || 0})),
+    actions: pick('actions').map(a => ({id: a.id, outcome: str(a.outcome), team: str(a.team), title: str(a.title), how: str(a.how), agreed: str(a.agreed),
+      owner: str(a.owner), due: str(a.due), carried: str(a.carried), status: ['open', 'done', 'retired'].includes(a.status) ? a.status : 'open',
+      doneAt: str(a.doneAt), order: +a.order || 0,
+      checkins: (Array.isArray(a.checkins) ? a.checkins : []).filter(c => c && c.month).map(c => ({month: str(c.month), result: BP_RESULTS[c.result] ? c.result : '', note: str(c.note), by: str(c.by), at: str(c.at)}))}))
+  };
+  // a bucket an outcome names but the file left out still shows
+  for(const o of rec.outcomes) if(o.bucket && !rec.buckets.some(b => b.id === o.bucket)) rec.buckets.push({id: o.bucket, name: o.bucket, short: '', order: 99});
+  return rec;
+}
+function bpParse(text){
+  const t = String(text || '').trim();
+  if(t.startsWith('{')){
+    const j = JSON.parse(t);
+    if(j.kind === BP_KIND && Array.isArray(j.outcomes)) return Object.assign({}, j, {id: BP_ID});
+    return bpFromDocs(j.docs || j, j.name);
+  }
+  const m = t.match(/const docs\s*=\s*(\{[\s\S]*?\});\s*\n/);
+  if(!m) throw new Error('no business plan found in that file');
+  const title = (t.match(/<title>([^<]*)<\/title>/i) || [])[1];
+  return bpFromDocs(JSON.parse(m[1]), title ? title.trim() : '');
+}
+async function bpImportFile(file){
+  let rec;
+  try { rec = bpParse(await file.text()); }
+  catch(e){ toast('That file does not hold a business plan: ' + e.message); return; }
+  if(!rec.outcomes.length && !rec.actions.length){ toast('That file does not hold a business plan'); return; }
+  const what = r => r.outcomes.length + (r.outcomes.length === 1 ? ' outcome' : ' outcomes') + ', ' + r.actions.length + (r.actions.length === 1 ? ' action' : ' actions');
+  if(BP && !confirm('Replace the business plan on this device (' + what(BP) + ') with the one in the file (' + what(rec) + ')?\n\nThis cannot be undone.')) return;
+  rec.imported = {at: Date.now(), from: file.name || ''};
+  BP = rec;
+  await bpSave();
+  try { await logLoad(file.name || 'business plan', 'bizplan', 'Business plan: ' + what(rec)); } catch(e){}
+  bpTab = 'open';
+  if(screen === 'bp') renderBp(); else go('bp');
+  toast('Business plan brought in: ' + what(rec));
+}
+$('bpFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) bpImportFile(f).catch(reportErr); });
+
+/* ---------- the plan ---------- */
+function bpActionRow(a){
+  const last = (a.checkins || []).slice().sort((x, y) => y.month.localeCompare(x.month))[0];
+  const meta = [a.owner, a.due ? 'by ' + bpDue(a.due) : (a.carried && a.status === 'open' ? 'was ' + a.carried : ''),
+    last ? bpMonthLabel(last.month).split(' ')[0] + ': ' + (BP_RESULTS[last.result] || '') : ''].filter(Boolean).join(' · ');
+  return '<button type="button" class="bparow' + (a.status === 'done' ? ' done' : '') + '" data-bpa="' + esc(a.id) + '">' +
+    (a.team ? '<span class="tag">' + esc(a.team) + '</span>' : '') + '<b>' + esc(a.title || 'Untitled action') + '</b>' +
+    (meta ? '<span class="meta">' + esc(meta) + '</span>' : '') + '</button>';
+}
+function bpTeamSort(x, y){
+  const t = a => { const i = BP_TEAMS.indexOf(a.team); return i < 0 ? 99 : i; };
+  return t(x) - t(y) || (x.order || 0) - (y.order || 0);
+}
+function renderBp(){
+  const body = $('bpBody');
+  $('bpTabs').hidden = $('bpShare').hidden = !BP;
+  if(!BP){
+    body.innerHTML = '<p class="hint">No business plan on this device. Tap <b>&#8943;</b> at the top, then <b>Import plan</b>, and pick the file saved from the Claude tracker.</p>';
+    return;
+  }
+  $('title').textContent = BP.name || 'Business plan';
+  $('bpTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === bpTab));
+  const p = ['<div class="bphead"><p class="bpeye">' + esc(BP.name || 'Business plan') + '</p><h2>' + esc(BP.period || 'Plan') + '</h2>' +
+    '<p class="bptot"><b>' + esc(bpMoney(bpSum(BP.outcomes)) || '$0') + '</b> objective</p>' + (BP.note ? '<p class="hint">' + esc(BP.note) + '</p>' : '') + '</div>'];
+  const want = a => bpTab === 'open' ? a.status === 'open' : a.status === 'done';
+  for(const b of bpBuckets()){
+    const outs = bpOuts(b.id).filter(bpLive);
+    if(!outs.length) continue;
+    p.push('<h2>' + esc(b.name) + ' <span class="sxs">' + esc(bpMoney(bpSum(outs))) + '</span></h2>');
+    for(const o of outs){
+      const acts = BP.actions.filter(a => a.outcome === o.id && want(a)).sort(bpTeamSort);
+      p.push('<div class="card bpo"><button type="button" class="bpoopen" data-bpo="' + esc(o.id) + '"><span class="t">' + esc(o.name || 'Untitled outcome') +
+        (o.status === 'achieved' ? ' <span class="tag bt-open">Achieved</span>' : '') + '</span><span class="bpmoney">' + esc(bpMoney(o.objective)) + '</span></button>' +
+        (acts.length ? acts.map(bpActionRow).join('') : '<p class="bpnone">' + (bpTab === 'open' ? 'No open actions.' : 'Nothing done yet.') + '</p>') +
+        (bpTab === 'open' ? '<div class="bpfoot"><button type="button" class="x" data-bpnew="' + esc(o.id) + '">Add an action</button></div>' : '') + '</div>');
+    }
+  }
+  const orphans = BP.actions.filter(a => want(a) && !BP.outcomes.some(o => o.id === a.outcome && bpLive(o)));
+  if(orphans.length) p.push('<h2>Not under an active outcome</h2><div class="card bpo">' + orphans.sort(bpTeamSort).map(bpActionRow).join('') + '</div>');
+  if(bpTab === 'done'){
+    const gone = BP.outcomes.filter(o => o.status === 'retired'), retA = BP.actions.filter(a => a.status === 'retired');
+    if(gone.length || retA.length){
+      p.push('<h2>Retired</h2><div class="card bpo">' + gone.map(o => '<button type="button" class="bparow done" data-bpo="' + esc(o.id) + '"><b>' + esc(o.name || 'Untitled outcome') + '</b><span class="meta">Outcome' + (o.objective ? ' · ' + esc(bpMoney(o.objective)) : '') + '</span></button>').join('') +
+        retA.map(bpActionRow).join('') + '</div>');
+    }
+  }
+  body.innerHTML = p.join('');
+  body.querySelectorAll('[data-bpa]').forEach(x => x.addEventListener('click', () => bpOpenAction(x.dataset.bpa)));
+  body.querySelectorAll('[data-bpo]').forEach(x => x.addEventListener('click', () => bpOpenOutcome(x.dataset.bpo)));
+  body.querySelectorAll('[data-bpnew]').forEach(x => x.addEventListener('click', () => bpOpenAction(null, x.dataset.bpnew)));
+}
+$('bpTabs').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if(!b) return; bpTab = b.dataset.v; renderBp(); });
+$('bpMore').addEventListener('click', () => {
+  const acts = [{label: 'Import plan', icon: 'folder', run: () => $('bpFile').click()}];
+  if(BP){
+    acts.push({label: 'Add an outcome', icon: 'plus', run: () => bpOpenOutcome(null)});
+    acts.push({label: 'Add an action', icon: 'plus', run: () => bpOpenAction(null)});
+    acts.push({label: 'Change the period', icon: 'edit', run: () => bpPeriod().catch(reportErr)});
+  } else {
+    acts.push({label: 'Start an empty plan', icon: 'plus', run: () => bpStart().catch(reportErr)});
+  }
+  openCardMenu('Business plan', BP ? (BP.period || '') : '', acts);
+});
+async function bpStart(){
+  BP = {id: BP_ID, kind: BP_KIND, name: 'Business plan', period: '', note: '', outcomes: [], actions: [],
+    buckets: [{id: 'annuity', name: 'Annuity', short: '', order: 1}, {id: 'projects', name: 'Projects', short: '', order: 2}, {id: 'growth', name: 'Growth', short: '', order: 3}]};
+  await bpSave(); renderBp();
+  bpPeriod().catch(reportErr);
+}
+async function bpPeriod(){
+  if(!BP) return;
+  const per = prompt('The period, for example H1 2027', BP.period || '');
+  if(per == null) return;
+  const note = prompt('A note under the total (leave empty for none)', BP.note || '');
+  BP.period = per.trim();
+  if(note != null) BP.note = note.trim();
+  await bpSave(); renderBp();
+}
+$('bpShare').addEventListener('click', () => bpShare().catch(reportErr));
+
+/* ---------- an action: saves on leaving; a new one left empty leaves nothing ---------- */
+function bpOpenAction(id, outcome, copy){
+  if(!BP) return;
+  const found = id && BP.actions.find(a => a.id === id);
+  const firstOut = (bpBuckets().map(b => bpOuts(b.id).filter(bpLive)).flat()[0] || {}).id || '';
+  const d = copy || (found ? JSON.parse(JSON.stringify(found)) : {id: '', outcome: outcome || firstOut, team: '', title: '', how: '', agreed: '', owner: '', due: '', carried: '', status: 'open', checkins: [], order: Date.now()});
+  BPA = {isNew: !found, id: found ? found.id : bpNewId('a'), d, orig: found ? JSON.stringify(found) : '', result: ''};
+  go('bpact');
+}
+function renderBpAct(){
+  if(!BPA) return;
+  const d = BPA.d;
+  $('title').textContent = BPA.isNew ? 'New action' : 'Action';
+  $('bpaTitle').value = d.title; $('bpaHow').value = d.how; $('bpaAgreed').value = d.agreed; $('bpaOwner').value = d.owner; $('bpaDue').value = d.due;
+  $('bpaOut').innerHTML = bpBuckets().map(b => bpOuts(b.id).filter(o => bpLive(o) || o.id === d.outcome).map(o =>
+    '<option value="' + esc(o.id) + '"' + (o.id === d.outcome ? ' selected' : '') + '>' + esc(o.name || 'Untitled outcome') + '</option>').join('')).join('') +
+    (d.outcome && !BP.outcomes.some(o => o.id === d.outcome) ? '<option value="' + esc(d.outcome) + '" selected>No outcome</option>' : '');
+  bpaChips();
+  $('bpaCarried').hidden = !d.carried;
+  $('bpaCarried').textContent = d.carried ? 'Carried from the last plan: ' + d.carried : '';
+  bpaStatus();
+  const now = new Date(), months = [];
+  for(let k = -6; k <= 1; k++){ const m = new Date(now.getFullYear(), now.getMonth() + k, 1); months.push(m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0')); }
+  const cur = months[6];
+  $('bpaMonth').innerHTML = months.reverse().map(m => '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + esc(bpMonthLabel(m)) + '</option>').join('');
+  $('bpaNote').value = '';
+  BPA.result = '';
+  bpaResultChips();
+  bpaChecks();
+}
+function bpaChips(){
+  const d = BPA.d;
+  $('bpaTeam').innerHTML = BP_TEAMS.concat(d.team && !BP_TEAMS.includes(d.team) ? [d.team] : []).map(t =>
+    '<button type="button" data-t="' + esc(t) + '"' + (d.team === t ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + esc(t) + '</button>').join('');
+}
+function bpaStatus(){ $('bpaStatus').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === BPA.d.status)); }
+function bpaResultChips(){
+  $('bpaResult').innerHTML = Object.entries(BP_RESULTS).map(([k, l]) => '<button type="button" data-r="' + k + '"' + (BPA.result === k ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + l + '</button>').join('');
+}
+function bpaChecks(){
+  const list = (BPA.d.checkins || []).map((c, i) => ({c, i})).sort((x, y) => y.c.month.localeCompare(x.c.month));
+  $('bpaChecks').innerHTML = list.length ? list.map(({c, i}) => '<div class="bpchk"><span class="bpcm"><b>' + esc(bpMonthLabel(c.month)) + '</b> · ' + esc(BP_RESULTS[c.result] || '') +
+    (c.note ? '<span class="meta">' + esc(c.note) + '</span>' : '') + '</span><button type="button" class="x bin" data-rm="' + i + '" aria-label="Remove the ' + esc(bpMonthLabel(c.month)) + ' check-in">' + icon('trash') + '</button></div>').join('')
+    : '<p class="hint">No check-ins yet. Add one at each monthly meeting.</p>';
+  $('bpaChecks').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    const c = BPA.d.checkins[+b.dataset.rm];
+    if(!c || !confirm('Remove the ' + bpMonthLabel(c.month) + ' check-in?')) return;
+    BPA.d.checkins.splice(+b.dataset.rm, 1); bpaChecks();
+  }));
+}
+$('bpaTeam').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if(!b || !BPA) return; BPA.d.team = BPA.d.team === b.dataset.t ? '' : b.dataset.t; bpaChips(); });
+$('bpaStatus').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if(!b || !BPA) return; BPA.d.status = b.dataset.v; bpaStatus(); });
+$('bpaResult').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if(!b || !BPA) return; BPA.result = BPA.result === b.dataset.r ? '' : b.dataset.r; bpaResultChips(); });
+$('bpaAdd').addEventListener('click', () => {
+  if(!BPA) return;
+  if(!BPA.result){ toast('Pick Achieved, Partly or Not yet first'); return; }
+  BPA.d.checkins = BPA.d.checkins || [];
+  BPA.d.checkins.push({month: $('bpaMonth').value, result: BPA.result, note: $('bpaNote').value.trim(), by: '', at: new Date().toISOString()});
+  BPA.result = ''; $('bpaNote').value = ''; bpaResultChips(); bpaChecks();
+});
+$('bpaDone').addEventListener('click', () => go('bp'));
+function bpaRead(){
+  const d = BPA.d;
+  d.title = $('bpaTitle').value.trim(); d.how = $('bpaHow').value.trim(); d.agreed = $('bpaAgreed').value.trim();
+  d.owner = $('bpaOwner').value.trim(); d.due = $('bpaDue').value; d.outcome = $('bpaOut').value || d.outcome;
+  return d;
+}
+async function bpActLeave(){
+  const A = BPA;
+  if(!A || !BP) return;
+  const d = bpaRead();
+  BPA = null;
+  const blank = !d.title && !d.how && !d.agreed && !d.owner && !d.due && !(d.checkins || []).length;
+  if(A.isNew && blank) return;                                    // nothing entered: nothing kept
+  if(!d.title){ d.title = 'Untitled action'; toast('Saved without a name. Tap it to add one.'); }
+  const was = A.isNew ? null : BP.actions.find(a => a.id === A.id);
+  if(d.status === 'done' && (!was || was.status !== 'done')) d.doneAt = iso(new Date());
+  if(d.status !== 'done') delete d.doneAt;
+  const rec = Object.assign({}, d, {id: A.id});
+  if(!A.isNew && JSON.stringify(rec) === A.orig) return;          // opened and left
+  BP.actions = BP.actions.filter(a => a.id !== A.id).concat([rec]);
+  await bpSave();
+}
+$('bpaMore').addEventListener('click', () => {
+  if(!BPA) return;
+  const A = BPA, n = (A.d.checkins || []).length, acts = [];
+  if(!A.isNew) acts.push({label: 'Duplicate', icon: 'copy', run: () => {
+    const c = JSON.parse(JSON.stringify(bpaRead()));
+    bpActLeave().then(() => { delete c.doneAt; delete c.carried; bpOpenAction(null, c.outcome, Object.assign(c, {title: c.title + ' (copy)', status: 'open', checkins: [], order: Date.now()})); }).catch(reportErr);
+  }});
+  acts.push({label: 'Delete', icon: 'trash', danger: true, run: async () => {
+    const t = $('bpaTitle').value.trim() || 'Untitled action';
+    if(!confirm('Delete the action "' + t + '"' + (n ? ' and its ' + n + (n === 1 ? ' check-in' : ' check-ins') : '') + '?\n\nThis cannot be undone.')) return;
+    BPA = null;
+    if(!A.isNew){ BP.actions = BP.actions.filter(a => a.id !== A.id); await bpSave(); }
+    go('bp'); toast('Action deleted');
+  }});
+  openCardMenu(A.isNew ? 'New action' : 'Action', '', acts);
+});
+
+/* ---------- an outcome ---------- */
+function bpOpenOutcome(id){
+  if(!BP) return;
+  const found = id && BP.outcomes.find(o => o.id === id);
+  const d = found ? JSON.parse(JSON.stringify(found)) : {bucket: (bpBuckets()[0] || {}).id || '', name: '', objective: null, why: '', customerValue: '', intraloxValue: '', focus: [], accounts: [], status: 'active', order: Date.now()};
+  BPO = {isNew: !found, id: found ? found.id : bpNewId('o'), d, orig: found ? JSON.stringify(found) : ''};
+  go('bpout');
+}
+function renderBpOut(){
+  if(!BPO) return;
+  const d = BPO.d;
+  $('title').textContent = BPO.isNew ? 'New outcome' : 'Outcome';
+  $('bpoName').value = d.name; $('bpoWhy').value = d.why; $('bpoCust').value = d.customerValue; $('bpoIx').value = d.intraloxValue;
+  $('bpoFocus').value = (d.focus || []).join('\n'); $('bpoAcc').value = (d.accounts || []).join('\n');
+  $('bpoObj').value = typeof d.objective === 'number' ? String(d.objective) : '';
+  $('bpoBucket').innerHTML = bpBuckets().map(b => '<option value="' + esc(b.id) + '"' + (b.id === d.bucket ? ' selected' : '') + '>' + esc(b.name) + '</option>').join('');
+  bpoObjHint(); bpoStatus();
+}
+function bpoObjHint(){ const n = bpoObjVal(); $('bpoObjHint').textContent = n == null ? 'No objective set' : bpMoney(n); }
+function bpoObjVal(){ const s = $('bpoObj').value.replace(/[^0-9.]/g, ''); const n = Number(s); return s && isFinite(n) ? n : null; }
+function bpoStatus(){ $('bpoStatus').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === BPO.d.status)); }
+$('bpoObj').addEventListener('input', bpoObjHint);
+$('bpoStatus').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if(!b || !BPO) return; BPO.d.status = b.dataset.v; bpoStatus(); });
+$('bpoDone').addEventListener('click', () => go('bp'));
+const bpLines = v => String(v || '').split('\n').map(x => x.trim()).filter(Boolean);
+async function bpOutLeave(){
+  const O = BPO;
+  if(!O || !BP) return;
+  BPO = null;
+  const d = O.d;
+  d.name = $('bpoName').value.trim(); d.why = $('bpoWhy').value.trim(); d.customerValue = $('bpoCust').value.trim(); d.intraloxValue = $('bpoIx').value.trim();
+  d.focus = bpLines($('bpoFocus').value); d.accounts = bpLines($('bpoAcc').value); d.objective = bpoObjVal(); d.bucket = $('bpoBucket').value || d.bucket;
+  if(O.isNew && !d.name && !d.why && !d.customerValue && !d.intraloxValue && !d.focus.length && !d.accounts.length && d.objective == null) return;
+  if(!d.name){ d.name = 'Untitled outcome'; toast('Saved without a name. Tap it to add one.'); }
+  const rec = Object.assign({}, d, {id: O.id});
+  if(!O.isNew && JSON.stringify(rec) === O.orig) return;
+  BP.outcomes = BP.outcomes.filter(o => o.id !== O.id).concat([rec]);
+  await bpSave();
+}
+$('bpoMore').addEventListener('click', () => {
+  if(!BPO) return;
+  const O = BPO, acts = [];
+  if(!O.isNew) acts.push({label: 'Add an action to it', icon: 'plus', run: () => { bpOutLeave().then(() => bpOpenAction(null, O.id)).catch(reportErr); }});
+  acts.push({label: 'Delete', icon: 'trash', danger: true, run: async () => {
+    const n = BP.actions.filter(a => a.outcome === O.id).length, t = $('bpoName').value.trim() || 'Untitled outcome';
+    if(!confirm('Delete the outcome "' + t + '"' + (n ? ' and its ' + n + (n === 1 ? ' action' : ' actions') : '') + '?\n\nThis cannot be undone.')) return;
+    BPO = null;
+    if(!O.isNew){ BP.outcomes = BP.outcomes.filter(o => o.id !== O.id); BP.actions = BP.actions.filter(a => a.outcome !== O.id); await bpSave(); }
+    go('bp'); toast('Outcome deleted');
+  }});
+  openCardMenu(O.isNew ? 'New outcome' : 'Outcome', '', acts);
+});
+
+/* ---------- Share: an A4 copy for the team, in the house style ---------- */
+function buildBpHTML(){
+  const V2 = v => esc(String(v == null ? '' : v).trim()) || DASH_CH;
+  const p = ['<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc((BP.name || 'Business plan') + (BP.period ? ' ' + DASH_CH + ' ' + BP.period : '')) +
+    '</title><link rel="icon" href="' + NOTES_FAVICON + '"><style>' + NOTES_CSS + '</style></head><body>',
+    '<div class="mast"><img src="' + NOTES_LOGO + '" alt="Intralox"></div><div class="pg">',
+    '<p class="eyebrow">Intralox</p><h1>' + esc(BP.name || 'Business plan') + (BP.period ? ' ' + DASH_CH + ' ' + esc(BP.period) : '') + '</h1>',
+    '<p class="sub">' + esc(bpMoney(bpSum(BP.outcomes)) || '$0') + ' objective' + (BP.note ? ' &middot; ' + esc(BP.note) : '') + '</p>'];
+  for(const b of bpBuckets()){
+    const outs = bpOuts(b.id).filter(bpLive);
+    if(!outs.length) continue;
+    p.push('<h2>' + esc(b.name) + (bpSum(outs) ? ' &middot; ' + esc(bpMoney(bpSum(outs))) : '') + '</h2>');
+    for(const o of outs){
+      p.push('<div class="blk"><h3>' + esc(o.name || 'Untitled outcome') + (o.objective != null ? ' ' + DASH_CH + ' ' + esc(bpMoney(o.objective)) : '') + (o.status === 'achieved' ? ' (achieved)' : '') + '</h3><table>');
+      [['Why', o.why], ['Customer value', o.customerValue], ['Intralox value', o.intraloxValue]].forEach(([k, v]) => { if(String(v || '').trim()) p.push('<tr><td class="l">' + k + '</td><td>' + esc(v) + '</td></tr>'); });
+      if((o.focus || []).length) p.push('<tr><td class="l">How we\'ll achieve it</td><td><ul>' + o.focus.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul></td></tr>');
+      if((o.accounts || []).length) p.push('<tr><td class="l">Accounts</td><td>' + esc(o.accounts.join(', ')) + '</td></tr>');
+      p.push('</table>');
+      const acts = BP.actions.filter(a => a.outcome === o.id && a.status !== 'retired').sort(bpTeamSort);
+      if(acts.length){
+        p.push('<table><tr><th>Team</th><th>Action</th><th>Owner</th><th>By when</th><th>Status</th><th>Latest check-in</th></tr>');
+        for(const a of acts){
+          const c = (a.checkins || []).slice().sort((x, y) => y.month.localeCompare(x.month))[0];
+          p.push('<tr><td>' + V2(a.team) + '</td><td>' + V2(a.title) + (a.agreed ? '<br><span class="sent">Agreed: ' + esc(a.agreed) + '</span>' : '') + '</td><td>' + V2(a.owner) + '</td><td>' + V2(bpDue(a.due) || (a.carried ? 'was ' + a.carried : '')) +
+            '</td><td>' + (a.status === 'done' ? 'Done' : 'Open') + '</td><td>' + (c ? esc(bpMonthLabel(c.month) + ': ' + (BP_RESULTS[c.result] || '')) + (c.note ? '<br>' + esc(c.note) : '') : DASH_CH) + '</td></tr>');
+        }
+        p.push('</table>');
+      }
+      p.push('</div>');
+    }
+  }
+  p.push('</div><p class="ft">' + esc([BP.name || 'Business plan', BP.period].filter(Boolean).join(' · ')) + ' · Intralox</p></body></html>');
+  return p.join('');
+}
+async function bpShare(){
+  if(!BP) return;
+  const html = buildBpHTML();
+  const name = pcName([BP.name || 'Business plan', BP.period].filter(Boolean).join(' - '), 'Business plan') + '.html';
+  const file = typeof File === 'function' ? new File([html], name, {type: 'text/html'}) : null;
+  if(file && isPhone() && navigator.canShare && navigator.canShare({files: [file]})){
+    try { await navigator.share({files: [file], title: name}); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; }
+  }
+  downloadFile(name, html, 'text/html');
+  toast('Saved: ' + name);
+}
+
 // the ⋯ on the call: the forms
 $('barMore').innerHTML = '<span class="dots" aria-hidden="true">&#8943;</span>';
 $('barMore').addEventListener('click', () => {
@@ -23129,6 +23500,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v189', 'Business plan. A new tile on Home holds the business plan: outcomes under Annuity, Projects and Growth, each with its objective, and the actions agreed for them, with team, owner and due date. Tap an action to update it and log the month\'s check-in (Achieved, Partly or Not yet). ⋯, Import plan brings in the plan from the tracker\'s HTML file. Share makes an A4 HTML copy to send. The plan is yours only: it syncs, encrypted, to your own devices and never to the team.'],
   ['v188', 'Photos keep when and where they were taken. A photo added to a call from the gallery or the app\'s camera keeps its time and location inside it, so Claude can match it to the Plaud recording like a phone photo. The app\'s camera asks once to use your location; say No and photos still keep their time. Photos added before this have neither.'],
   ['v187', 'On the phone, Save for Claude opens the share sheet: tap OneDrive and save it in your Inbox folder, and Claude finds it there. Where the phone cannot share the file, it downloads as before.'],
   ['v186', 'The call report with Claude, from the PC: in a call, ⋯ then Save for Claude puts the call, its belts and photos in the visit\'s folder; once Claude has written the report, Import call report brings it back into the call: the notes, internal notes, belts, photos, contacts and follow-ups as next steps, with the documents kept on the call. Nothing you typed is changed.'],

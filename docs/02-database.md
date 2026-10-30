@@ -23,7 +23,7 @@ an older database forward by itself (see [Running it](06-running-it.md#when-the-
 | `products` | `id` | A product not stocked, new or requested | record by record | Yes |
 | `plans` | `id` | An account plan, a large account plan (`kind: 'large'`), or an account's order sheet (`kind: 'orders'`, v183) | record by record | Yes |
 | `opps` | `id` | An opportunity: its Blue Sheet and relationship map | record by record | Yes |
-| `cip` | `me`, `mbo`, `ref`, `home` | Your CIP, your MBOs, the CIP reference, and how you arranged Home | record by record | **No, private** |
+| `cip` | `me`, `mbo`, `ref`, `home`, `bizplan` | Your CIP, your MBOs, the CIP reference, how you arranged Home, and your business plan | record by record | **No, private** |
 | `people` | `id` | A contact added on a Blue Sheet map who is not in the CRM export yet | record by record | Yes |
 | `kv` | a name | Settings and whole datasets (see 2.2) | some, as datasets | See 2.2 |
 
@@ -185,6 +185,22 @@ localStorage (`homeLayout`) so Home opens already arranged; the newer of the
 two wins. Two other device-only keys came with it: `perfTab` (whether the
 Performance tile opens on CIP or MBO) and `seenBuild` (the last build this
 device opened, so the app says once that it was updated).
+
+Since v189 a fifth record, `bizplan`, holds your business plan (the Business
+plan tile). It is here for the same reason: it is yours, it follows you to your
+other devices, and it never reaches the team. Its fields:
+
+| Field | Meaning |
+|---|---|
+| `kind`, `name`, `period`, `note` | `field-crm-bizplan`; the plan's name, its half (for example H1 2027), a note under the heading |
+| `buckets` | The groups the outcomes sit under: `id`, `name`, `short`, `order` (an empty plan starts with Annuity, Projects and Growth) |
+| `outcomes` | `id`, `bucket`, `name`, `objective` (dollars), `why`, `customerValue`, `intraloxValue`, `focus` (how we'll achieve it, a list), `accounts` (a list of names, as typed), `status` (`active`, `achieved`, `retired`), `order` |
+| `actions` | `id`, `outcome`, `team` (AMs, BDA, CS, Technical Support, P2P, CFS), `title`, `how`, `agreed`, `owner`, `due` (YYYY-MM-DD), `carried` (the date it was moved from, as text), `status` (`open`, `done`, `retired`), `doneAt`, `order`, and `checkins`, a list: `month` (YYYY-MM), `result` (`yes` Achieved, `partly`, `no` Not yet), `note`, `by` (who, kept from the tracker; empty when added in the app), `at` |
+| `imported` | `at` and `from` (the file's name), when the plan came in from a file |
+| `updated` | When it last changed, so the newer copy wins between devices |
+
+The accounts on an outcome are plain names, not links to `accounts`. Nothing of
+the plan is in the repo: it is imported on the device from the tracker's file.
 
 The `mbo` record, one entry per year under `years`:
 

@@ -9,6 +9,7 @@
 | **Plant audit register** | `Copy_of_Plant_Audit_Master_Database.xlsx` | `kv` `assets` | Installed belts by asset number. Replaced whole on each import |
 | **Zone overrides** | A JSON file | `kv` `overrides` | Zone corrections and spellings |
 | **CIP and MBO** | The CIP/MBO artifact's "Save HTML copy" | `cip` `me`, `mbo`, `ref` | Personal and private |
+| **Business plan** (v189) | The business plan tracker's HTML file (the documents it carries), or a Field CRM business plan file | `cip` `bizplan` | Replaces the whole plan, check-ins included, after asking with the counts. Personal and private |
 | **Blue Sheet** | A Miller Heiman Blue Sheet .xls or .xlsx | a new record in `opps` | Read by its labels, so a moved row still reads |
 | **Belt Order Builder favourites** (v183) | Its Export favourites .json | the open account's order sheet | Belts and sprockets join the sheet; one already there (same id) is left as it is; older single choices become one-item lists. Accessories wait for a later version |
 | **Task Slaughterer** | Its export, once | `tasks`, `snippets`, `products` | The old separate tasks page |
@@ -29,6 +30,7 @@
 | **Quote request (RFQ)** | Create and share on a quote | A4 HTML. Since v159 there is no Required by or Your reference (an older quote that has them still prints them), a belt needs no asset number (it is named by its line description, else "No asset no."), and an account not in the CRM is typed in the same box as the search |
 | **Order form** (v183) | Send order form, on an account's order sheet | One self-contained HTML file for the customer: the ticked favourites only, with the catalogue's answers baked in (the colours made in each material, each sprocket's description and part number), and no notes for sales. The customer picks Quote or Order, builds the request and copies it into an email as inline-styled tables (and plain text) that survive Outlook |
 | **Blue Sheet** | Create and share | PDF (the print screen's Save as PDF) or Excel in Miller Heiman's template layout |
+| **Business plan** (v189) | Share, on the Business plan screen | One self-contained A4 HTML page: per bucket, each outcome with its why, values, how we'll achieve it and accounts, then its actions (team, action and what was agreed, owner, by when, status, latest check-in). Retired outcomes and actions are left out. On a phone the share sheet; on the PC a download |
 | **Large account plan** | Create and share | A4 HTML in Dynamics' order |
 | **Copy for Dynamics** | The large account plan | Each Dynamics field with its own Copy button |
 | **Changes for CAG** (v144; its own section of Settings since v158) | Settings, Changes for CAG | .xlsx for CAG: new contacts, moved contacts, changed details, left the company (v145) and account owners (account managers, ATL), a sheet each. Since v158 each row has what Dynamics has now beside what it changes to (job role, job title, email, mobile, owner), when it was made and by whom, and a Check column for a job role or title Dynamics does not hold. Then marked sent; the To send tab shows the same before downloading |
