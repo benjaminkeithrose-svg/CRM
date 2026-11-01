@@ -104,6 +104,24 @@ The database schema is the numbered files in `supabase/migrations/`, applied
 in order. A new rule or table is a new numbered file, never an edit to an
 applied one.
 
+## Keeping the cloud awake
+
+Supabase pauses a free project after a week with no activity, and a paused
+project stops cloud sync and the AI until it is restored from the Supabase
+dashboard. A scheduled GitHub job, `.github/workflows/supabase-keepalive.yml`,
+pings it on Sunday and Wednesday at 20:41 UTC (Monday and Thursday morning in
+Sydney), so the gap is never more than four days. It calls `keepalive()`
+(migration `0009`), which returns the database's time and reads no data; the
+publishable key still cannot read any table.
+
+The job reads two repository secrets, set once in GitHub (Settings, Secrets
+and variables, Actions): `SUPABASE_URL`, the project address, and
+`SUPABASE_KEY`, the publishable key. Neither is in the repository. A failed
+run emails the repository's owner; to run it by hand, open the Actions tab,
+pick Keep Supabase awake, then Run workflow. GitHub turns a scheduled job off
+in a public repository after 60 days without a commit, and emails a warning
+first; any merge starts the count again.
+
 ## Recovery
 
 | Problem | What to do |
@@ -115,6 +133,7 @@ applied one.
 | Something was deleted by mistake | Restore from a backup file (Settings, Backup and restore). It adds back what is missing and never deletes. Cloud sync cannot undo it: a delete reaches every device |
 | The AI says the day's limit is reached | It resets at midnight UTC (10 or 11 am in Australia, noon or 1 pm in New Zealand) |
 | A device seems out of step | Check signal, then open Settings: **Cloud sync** says when it last synced |
+| Cloud sync stopped everywhere and Supabase says the project is paused | Sign in to supabase.com, open the project, and restore it. Then check why the keep-awake job stopped (above) |
 
 Keep a backup file from time to time anyway, somewhere other than the phone.
 

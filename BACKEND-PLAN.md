@@ -659,5 +659,5 @@ shows usage against each limit.
 | Lost passphrase | Password manager; local copies unaffected; cloud copy unrecoverable by design |
 | Same call edited on both devices while both offline | Newest edit wins, same as today; the other edit is lost. Rare for one person; worth knowing |
 | Device clocks disagree | Server time used for "what's new since last sync"; device time only to decide which edit is newer |
-| Free project paused after inactivity | Confirm the rule in Step 0; restart from the dashboard if it happens |
+| Free project paused after inactivity | Paused after a week without activity. Since 2026-10-31 a GitHub job pings it twice a week (`.github/workflows/supabase-keepalive.yml`, migration `0009_keepalive.sql`); restore from the dashboard if it happens anyway |
 | Supabase library updates | Shipped as a fixed version inside the app; updated deliberately, not automatically |
