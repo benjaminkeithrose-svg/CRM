@@ -1,0 +1,39 @@
+# Keeps Field CRM's Supabase project awake. A free project is paused after a
+# week with no activity; this pings it twice a week, three or four days apart.
+# The project address and publishable key are repository secrets, never in
+# this public repo: SUPABASE_URL (https://xxxx.supabase.co) and SUPABASE_KEY
+# (sb_publishable_...). It calls public.keepalive() (migration 0009), which
+# reads no data. A failed run emails the repo owner. Run it by hand from the
+# Actions tab, "Keep Supabase awake", Run workflow.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: '41 20 * * 0,3'   # Sunday and Wednesday 20:41 UTC: Monday and Thursday morning in Sydney
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::Add the repository secrets SUPABASE_URL and SUPABASE_KEY (Settings, Secrets and variables, Actions)."
+            exit 1
+          fi
+          for i in 1 2 3; do
+            code=$(curl -s -o reply.txt -w '%{http_code}' -X POST "${SUPABASE_URL%/}/rest/v1/rpc/keepalive" \
+              -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}') || code=000
+            if [ "$code" = 200 ]; then echo "Awake. Database time: $(cat reply.txt)"; exit 0; fi
+            echo "Attempt $i: HTTP $code"
+            sleep 30
+          done
+          echo "::error::Supabase did not answer. If the project is already paused, restore it from the Supabase dashboard."
+          exit 1
