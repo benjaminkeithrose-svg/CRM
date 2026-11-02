@@ -1,0 +1,23 @@
+{
+  "template": "sprocket-quote",
+  "customer": "Example Foods - Smithfield",
+  "site": "Packing hall",
+  "date": "2026-11-02",
+  "account_manager": "Jo Bloggs",
+  "contacts": [
+    {"name": "Pat Example", "role": "Maintenance Manager", "email": "pat@example.com", "in_crm": true}
+  ],
+  "sprockets": [
+    {"qty": 12, "line": "Conveyor 4 drive and idle", "series": "100", "bore": "40 MM SQ", "pd": "5.1 IN 16T",
+     "material": "ACETAL", "description": "SPLIT SPROCKET", "part_number": "EX-100-0013", "drive_qty": 6, "idle_qty": 6},
+    {"qty": 4, "series": "200", "bore": "60 MM SQ", "pd": "8.0 IN 12T", "material": "ACETAL",
+     "description": "SPLIT SPROCKET", "part_number": "EX-200-0018", "comment": "Spares for the store."}
+  ],
+  "parts": [
+    {"qty": 2, "description": "Wear strip, 3 m lengths", "material": "UHMW", "comment": "Customer to confirm the profile."}
+  ],
+  "changes": {
+    "add_rows": [{"section": "Request", "label": "Delivery address", "value": "1 Example Street, Smithfield", "after": "Site or area"}],
+    "hide": ["Photos from the customer"]
+  }
+}

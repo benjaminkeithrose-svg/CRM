@@ -1,0 +1,44 @@
+{
+  "template": "belt-quote",
+  "customer": "Example Foods - Smithfield",
+  "site": "Packing hall",
+  "date": "2026-11-02",
+  "account_manager": "Jo Bloggs",
+  "customer_ref": "Email from Pat Example, 2 November",
+  "contacts": [
+    {"name": "Pat Example", "role": "Maintenance Manager", "email": "pat@example.com", "mobile": "0400 000 000", "in_crm": true},
+    {"name": "Alex Example", "role": "Engineer", "email": "alex@example.com", "in_crm": false}
+  ],
+  "checks": [
+    "Belt 1: width 600 mm is not a standard built width for this spec; nearest 559 mm or 610 mm. Customer asked for 600 mm."
+  ],
+  "belts": [
+    {
+      "asset": "Conveyor 4",
+      "qty": "1",
+      "beltdesc": "Packing line infeed",
+      "series": "100",
+      "style": "FLAT TOP",
+      "beltmat": "POLYPROPYLENE",
+      "colour": "BLUE",
+      "rodmat": "POLYPROPYLENE",
+      "width": 600,
+      "beltlen": 12.5,
+      "sprpn": "EX-100-0013",
+      "sprocket": "SPLIT SPROCKET",
+      "sprbore": "40 MM SQ",
+      "sprpd": "5.1 IN 16T",
+      "sprmat": "ACETAL",
+      "sprdrive": 6,
+      "comment": "Replacing the existing belt at the next shutdown.\n- Customer would like delivery before 20 November\n- Same belt as fitted now",
+      "tsg": false,
+      "photos": ["p1"]
+    }
+  ],
+  "notes": [
+    {"topic": "Delivery", "text": "Deliver to the Smithfield store, attention Pat Example."}
+  ],
+  "photos": {
+    "p1": {"file": "photos/example-belt.jpg", "caption": "Conveyor 4: the belt fitted now"}
+  }
+}

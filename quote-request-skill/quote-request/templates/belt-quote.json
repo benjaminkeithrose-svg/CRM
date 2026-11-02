@@ -1,0 +1,65 @@
+{
+  "id": "belt-quote",
+  "title": "Belt request for quote",
+  "file_label": "Belt RFQ",
+  "about": "Field CRM's belt request for quote: the request, who asked, each belt with Field CRM's fields in Field CRM's order, notes, photos. Fields marked required print an em dash when not given, so customer service sees what is missing.",
+  "sections": [
+    {"type": "details", "heading": "Request", "rows": [
+      {"label": "Customer", "key": "customer", "required": true},
+      {"label": "Site or area", "key": "site", "required": true},
+      {"label": "Date raised", "key": "date", "required": true, "format": "date"},
+      {"label": "Account manager", "key": "account_manager", "required": true},
+      {"label": "Customer reference", "key": "customer_ref"},
+      {"label": "Required by", "key": "required_by", "format": "date"}
+    ]},
+    {"type": "contacts", "heading": "Requested by"},
+    {"type": "checks", "heading": "To confirm"},
+    {"type": "items", "heading": "Belts to quote", "items": "belts", "item_label": "Belt",
+     "name_from": ["asset", "beltdesc"], "unnamed": "No asset no.", "empty": "No belt was specified on this request.",
+     "comment_label": "General comments", "tsg": true, "photos": true,
+     "groups": [
+       {"name": "Belt", "fields": [
+         {"label": "Quantity", "key": "qty", "required": true},
+         {"label": "Line / description", "key": "beltdesc"},
+         {"label": "Series", "key": "series", "required": true},
+         {"label": "Style / surface", "key": "style", "required": true},
+         {"label": "Belt material", "key": "beltmat", "required": true},
+         {"label": "Colour", "key": "colour"},
+         {"label": "Rod material", "key": "rodmat", "required": true},
+         {"label": "Belt width (mm)", "key": "width", "required": true},
+         {"label": "Belt length (m)", "key": "beltlen"},
+         {"label": "Conveyor length (m)", "key": "clength"},
+         {"label": "Inside frame width (mm)", "key": "frame"},
+         {"label": "Retrofit", "key": "retrofit"},
+         {"label": "Quote contact", "key": "qcontact"}
+       ]},
+       {"name": "Sprockets", "fields": [
+         {"label": "Description", "key": "sprocket"},
+         {"label": "Part number", "key": "sprpn"},
+         {"label": "Bore", "key": "sprbore"},
+         {"label": "Pitch diameter", "key": "sprpd"},
+         {"label": "Material", "key": "sprmat"},
+         {"label": "Build type or variant", "key": "sprvar"},
+         {"label": "Drive quantity", "key": "sprdrive"},
+         {"label": "Idle quantity", "key": "spridle"},
+         {"label": "Spacers fitted", "key": "sprspacers", "format": "yes"},
+         {"label": "Heavy duty retainers", "key": "sprhdret", "format": "yes"}
+       ]},
+       {"name": "Flights and sideguards", "fields": [
+         {"label": "Flight type", "key": "fstyle"},
+         {"label": "Flight material", "key": "flmat"},
+         {"label": "Flight height (mm)", "key": "fheight"},
+         {"label": "Every N rows", "key": "frows"},
+         {"label": "Flight spacing (mm)", "key": "fspacing"},
+         {"label": "Indent (mm)", "key": "findent"},
+         {"label": "Centre notch (mm)", "key": "cnotch"},
+         {"label": "Sideguard type", "key": "sgtype"},
+         {"label": "Sideguard material", "key": "sgmat"},
+         {"label": "Sideguard height (mm)", "key": "sgheight"}
+       ]}
+     ]},
+    {"type": "notes", "heading": "Notes"},
+    {"type": "photos", "heading": "Photos from the customer"}
+  ],
+  "footer": "Quote request raised from the field. Final belt selection subject to Intralox review."
+}
