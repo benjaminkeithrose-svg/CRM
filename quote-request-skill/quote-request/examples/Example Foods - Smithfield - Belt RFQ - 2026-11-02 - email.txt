@@ -1,0 +1,50 @@
+Belt request for quote - Example Foods - Smithfield
+Packing hall - 2 November 2026
+
+REQUEST
+Customer: Example Foods - Smithfield
+Site or area: Packing hall
+Date raised: 2 November 2026
+Account manager: Jo Bloggs
+Customer reference: Email from Pat Example, 2 November
+
+REQUESTED BY
+Name | Role | Email | Mobile | CRM
+Pat Example | Maintenance Manager | pat@example.com | 0400 000 000 | On file
+Alex Example | Engineer | alex@example.com | — | Needs adding to Dynamics
+
+TO CONFIRM
+- Belt 1: width 600 mm is not a standard built width for this spec; nearest 559 mm or 610 mm. Customer asked for 600 mm.
+
+BELTS TO QUOTE
+
+Belt 1 — Conveyor 4
+[Belt]
+  Quantity: 1
+  Line / description: Packing line infeed
+  Series: 100
+  Style / surface: FLAT TOP
+  Belt material: POLYPROPYLENE
+  Colour: BLUE
+  Rod material: POLYPROPYLENE
+  Belt width (mm): 600
+  Belt length (m): 12.5
+[Sprockets]
+  Description: SPLIT SPROCKET
+  Part number: EX-100-0013
+  Bore: 40 MM SQ
+  Pitch diameter: 5.1 IN 16T
+  Material: ACETAL
+  Drive quantity: 6
+General comments:
+Replacing the existing belt at the next shutdown.
+- Customer would like delivery before 20 November
+- Same belt as fitted now
+Belt ID not yet confirmed with TSG.
+1 photo is in the attached request file.
+
+NOTES
+Topic | Note
+Delivery | Deliver to the Smithfield store, attention Pat Example.
+
+Quote request raised from the field. Final belt selection subject to Intralox review.

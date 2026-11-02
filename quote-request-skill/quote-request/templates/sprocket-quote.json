@@ -1,0 +1,55 @@
+{
+  "id": "sprocket-quote",
+  "title": "Sprocket and parts request for quote",
+  "file_label": "Sprocket RFQ",
+  "about": "Sprockets by series, bore, pitch diameter and material, with the catalogue's description and part number, and any other parts by description and part number. Same look as the belt request for quote.",
+  "sections": [
+    {"type": "details", "heading": "Request", "rows": [
+      {"label": "Customer", "key": "customer", "required": true},
+      {"label": "Site or area", "key": "site", "required": true},
+      {"label": "Date raised", "key": "date", "required": true, "format": "date"},
+      {"label": "Account manager", "key": "account_manager", "required": true},
+      {"label": "Customer reference", "key": "customer_ref"},
+      {"label": "Required by", "key": "required_by", "format": "date"}
+    ]},
+    {"type": "contacts", "heading": "Requested by"},
+    {"type": "checks", "heading": "To confirm"},
+    {"type": "items", "heading": "Sprockets to quote", "items": "sprockets", "item_label": "Sprocket",
+     "name_from": ["asset", "line", "description"], "unnamed": "Sprocket", "empty": "",
+     "comment_label": "Comments", "tsg": false, "photos": true,
+     "groups": [
+       {"name": "Sprocket", "fields": [
+         {"label": "Quantity", "key": "qty", "required": true},
+         {"label": "Line / description", "key": "line"},
+         {"label": "Belt series", "key": "series", "required": true},
+         {"label": "Bore", "key": "bore", "required": true},
+         {"label": "Pitch diameter", "key": "pd", "required": true},
+         {"label": "Material", "key": "material", "required": true},
+         {"label": "Description", "key": "description"},
+         {"label": "Part number", "key": "part_number"},
+         {"label": "Build type or variant", "key": "variant"},
+         {"label": "Drive quantity", "key": "drive_qty"},
+         {"label": "Idle quantity", "key": "idle_qty"},
+         {"label": "Shaft size", "key": "shaft"},
+         {"label": "Quote contact", "key": "qcontact"}
+       ]}
+     ]},
+    {"type": "items", "heading": "Other parts to quote", "items": "parts", "item_label": "Part",
+     "name_from": ["description", "part_number"], "unnamed": "Part", "empty": "",
+     "comment_label": "Comments", "tsg": false, "photos": true,
+     "groups": [
+       {"name": "Part", "fields": [
+         {"label": "Quantity", "key": "qty", "required": true},
+         {"label": "Description", "key": "description", "required": true},
+         {"label": "Part number", "key": "part_number"},
+         {"label": "Belt series", "key": "series"},
+         {"label": "Material", "key": "material"},
+         {"label": "Size", "key": "size"},
+         {"label": "Line / description", "key": "line"}
+       ]}
+     ]},
+    {"type": "notes", "heading": "Notes"},
+    {"type": "photos", "heading": "Photos from the customer"}
+  ],
+  "footer": "Quote request raised from the field. Final selection subject to Intralox review."
+}

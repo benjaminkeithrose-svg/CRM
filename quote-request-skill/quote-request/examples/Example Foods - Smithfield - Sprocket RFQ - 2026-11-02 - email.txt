@@ -1,0 +1,52 @@
+Sprocket and parts request for quote - Example Foods - Smithfield
+Packing hall - 2 November 2026
+
+REQUEST
+Customer: Example Foods - Smithfield
+Site or area: Packing hall
+Delivery address: 1 Example Street, Smithfield
+Date raised: 2 November 2026
+Account manager: Jo Bloggs
+
+REQUESTED BY
+Name | Role | Email | Mobile | CRM
+Pat Example | Maintenance Manager | pat@example.com | — | On file
+
+SPROCKETS TO QUOTE
+
+Sprocket 1 — Conveyor 4 drive and idle
+[Sprocket]
+  Quantity: 12
+  Line / description: Conveyor 4 drive and idle
+  Belt series: 100
+  Bore: 40 MM SQ
+  Pitch diameter: 5.1 IN 16T
+  Material: ACETAL
+  Description: SPLIT SPROCKET
+  Part number: EX-100-0013
+  Drive quantity: 6
+  Idle quantity: 6
+
+Sprocket 2 — SPLIT SPROCKET
+[Sprocket]
+  Quantity: 4
+  Belt series: 200
+  Bore: 60 MM SQ
+  Pitch diameter: 8.0 IN 12T
+  Material: ACETAL
+  Description: SPLIT SPROCKET
+  Part number: EX-200-0018
+Comments:
+Spares for the store.
+
+OTHER PARTS TO QUOTE
+
+Part 1 — Wear strip, 3 m lengths
+[Part]
+  Quantity: 2
+  Description: Wear strip, 3 m lengths
+  Material: UHMW
+Comments:
+Customer to confirm the profile.
+
+Quote request raised from the field. Final selection subject to Intralox review.
