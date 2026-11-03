@@ -70,7 +70,7 @@ CSS = (
     '.cmt p{margin:0 0 6px}.cmt p:last-child{margin-bottom:0}.cmt ul{margin:0 0 6px 18px;padding:0}'
     '.chk{margin:0 0 14px 18px;padding:0}.chk li{margin:0 0 4px;color:#B2232F;font-weight:bold}'
     'td p{margin:0 0 6px}td p:last-child{margin-bottom:0}td ul{margin:0 0 6px 18px;padding:0}'
-    'img{max-width:100%}td,th{word-wrap:break-word;overflow-wrap:break-word}'
+    'img{max-width:100%}td,th{word-wrap:break-word;overflow-wrap:anywhere}'
     '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'
     '.ph{font-size:0;margin:10px 0 16px}'
     '.ph figure{display:inline-block;vertical-align:top;width:48.5%;margin:0 3% 12px 0;font-size:11pt}'
@@ -92,7 +92,7 @@ INLINE = {
     'table': FONT + 'border-collapse:collapse;width:100%;font-size:10pt;border:1px solid #B9BCBF;margin:0 0 12px',
     'th': FONT + 'background:#E3F0F5;color:#00708D;text-align:left;padding:6px 9px;border:1px solid #B9BCBF;font-size:9pt;font-weight:bold;text-transform:uppercase',
     'grp': FONT + 'background:#ACD3E1;color:#222222;text-align:left;padding:6px 9px;border:1px solid #B9BCBF;font-size:9.5pt;font-weight:bold;text-transform:uppercase',
-    'td': FONT + 'padding:6px 9px;border:1px solid #D4D6D8;vertical-align:top',
+    'td': FONT + 'padding:6px 9px;border:1px solid #D4D6D8;vertical-align:top;word-break:break-word',
     'l': FONT + 'padding:6px 9px;border:1px solid #D4D6D8;vertical-align:top;background:#F7F8F8;width:38%;color:#4D4D4F;font-weight:bold;font-size:9.5pt',
     'flag': 'color:#B2232F;font-weight:bold',
     'sent': FONT + 'font-size:9.5pt;color:#77787A;font-style:italic;margin:2px 0 12px',
@@ -397,14 +397,20 @@ class Doc:
         if not people:
             return
         self.h2(sec['heading'])
-        rows = []
+        # one person under another, as Field CRM's quote request (v190): five columns ran off a phone's screen
+        out = ['<table%s%s>' % (self.a('table'), ' width="100%" cellpadding="0" cellspacing="0"' if self.email else ' class="spec"')]
         for c in people:
             crm = c.get('in_crm')
-            last = (self.flag('Needs adding to Dynamics'), 'Needs adding to Dynamics') if crm is False else \
-                ('On file', 'On file') if crm else (DASH, DASH)
-            rows.append([self.value(c.get('name')), self.value(c.get('role')), self.value(c.get('email')),
-                         self.value(c.get('mobile')), last])
-        self.table(rows, ['Name', 'Role', 'Email', 'Mobile', 'CRM'])
+            rows = [(k, self.value(c.get(f))) for k, f in (('Role', 'role'), ('Email', 'email'), ('Mobile', 'mobile')) if given(c.get(f))]
+            if crm is not None:
+                rows.append(('CRM', (self.flag('Needs adding to Dynamics'), 'Needs adding to Dynamics') if crm is False else ('On file', 'On file')))
+            out.append('<tr><th%s colspan="2">%s</th></tr>' % (self.a('grp', 'th'), esc(c['name'])))
+            self.txt.append(c['name'])
+            for label, (h, t) in rows:
+                out.append('<tr><td%s>%s</td><td%s>%s</td></tr>' % (self.a('l'), esc(label), self.a('v', 'td'), h))
+                self.txt.append('  %s: %s' % (label, t))
+        out.append('</table>')
+        self.p.append(''.join(out))
 
     def checks(self, sec):
         items = [c for c in self.r.get('checks') or [] if given(c)]
@@ -466,13 +472,10 @@ class Doc:
                 self.txt.append(lab + ':')
                 body = self.text_block(it['comment'])
                 self.p.append('<div%s><b%s>%s</b>%s</div>' % (self.a('cmt'), ' style="%s"' % INLINE['cmtb'] if self.email else '', esc(lab), body))
-            if sec.get('tsg'):
-                if it.get('tsg'):
-                    self.p.append('<p%s>Belt ID confirmed with TSG.</p>' % self.a('sent'))
-                    self.txt.append('Belt ID confirmed with TSG.')
-                else:
-                    self.p.append('<p%s>%s</p>' % (self.a('sent'), self.flag('Belt ID not yet confirmed with TSG.')))
-                    self.txt.append('Belt ID not yet confirmed with TSG.')
+            # said only when confirmed, as Field CRM since v190: most requests need no TSG check
+            if sec.get('tsg') and it.get('tsg'):
+                self.p.append('<p%s>Belt ID confirmed with TSG.</p>' % self.a('sent'))
+                self.txt.append('Belt ID confirmed with TSG.')
             if sec.get('photos'):
                 self.photos(it.get('photos'))
             self.p.append('</div>')

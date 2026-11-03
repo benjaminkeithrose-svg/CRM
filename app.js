@@ -1003,7 +1003,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v189';
+const APP_BUILD = 'v190';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -9638,7 +9638,7 @@ function beltSummaries(){
   set('sumWhy', [bWhyOn.join(', '), wt && (wt.length > 50 ? wt.slice(0, 50) + '…' : wt)].filter(Boolean).join(' · '), 'Not filled in');
   const q = call && isQuote(call);
   if($('bxQuoHead')) $('bxQuoHead').textContent = q ? 'For the quote' : 'Quote contact';
-  set('sumQuo', [q && v('bQty') && 'Qty ' + v('bQty'), q && ($('bTsg').checked ? 'ID confirmed with TSG' : 'ID not confirmed'),
+  set('sumQuo', [q && v('bQty') && 'Qty ' + v('bQty'), q && $('bTsg').checked && 'ID confirmed with TSG',
     v('bQc') ? 'Contact: ' + v('bQc') : 'Uses the call contacts'].filter(Boolean).join(' · '), '');
 }
 // typing, a chip or a picker anywhere on the form brings the lines up to date
@@ -10846,9 +10846,24 @@ function releaseAllPhotos(){
   OBJ_URLS.clear();
 }
 
+/* v190: on a belt, project, note or health item being written, the toolbar's
+   photo icons do what that form's own photo buttons do: the photos join the
+   item, saved with it on Done. Before, they went to the last item already
+   logged, or to the loose photos while nothing was, never to the one open.
+   A fault on a walk takes them as its own buttons do. A conveyor walk and a
+   next step hold no photos, so there they are the call's loose photos; on the
+   call itself, as before. */
+const BAR_SHOT = {belt: 'belt', project: 'project', note: 'note', health: 'health'};
 function barPhotoTap(input){
   if(!call){ toast('Open a call first'); return; }
-  photoTarget = call.entries.length ? null : 'loose';
+  const kind = BAR_SHOT[screen];
+  if(kind){
+    const el = $(input === $('camInput') ? 'entCamIn' : 'entGalIn');
+    shotsTarget = kind; el.value = ''; el.click();
+    return;
+  }
+  if(screen === 'wfault' && WF){ wfPhoto(input); return; }
+  photoTarget = (screen === 'walk' || screen === 'step' || !call.entries.length) ? 'loose' : null;
   input.value=''; input.click();
 }
 $('barCamera').innerHTML = icon('camera');
@@ -11326,7 +11341,8 @@ const NOTES_CSS =
   '.ph img{max-width:420px;width:auto;height:auto;border:1px solid #E3E3E3;'+
     'border-radius:3px;margin:0 10px 10px 0}'+
   'img{max-width:100%}'+
-  'td,th{word-wrap:break-word;overflow-wrap:break-word}'+
+  // v190: anywhere, so one long word (an email, a code in a title) wraps inside the page on a phone
+  'td,th{word-wrap:break-word;overflow-wrap:anywhere}'+
   '.ft{background:#363738;color:#FFFFFF;font-size:8pt;letter-spacing:.04em;padding:9px 18px;margin:32px 0 0}'+
   /* Fault cards. The app stylesheet is not available here, so the rules are
      repeated with print in mind: one finding per page, so the sheet handed to
@@ -20781,10 +20797,16 @@ async function buildRFQHTML(mode, c){
   // everyone who was on the phone
   const rfqContacts = (c.contacts || []).filter(docContact);
   if(rfqContacts.length){
-    p.push('<h2>Requested by</h2><table><tr><th>Name</th><th>Role</th><th>Email</th><th>Mobile</th><th>CRM</th></tr>');
-    rfqContacts.forEach(x => p.push('<tr><td>'+V(x.name)+'</td><td>'+V(x.role)+'</td><td>'+V(x.email)+
-      '</td><td>'+V(x.mobile)+'</td><td>'+(x.crm ? 'On file'
-        : '<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>'));
+    /* v190: one person under another, each a band with their details below it,
+       rather than five columns across: on a phone the columns ran off the page. */
+    p.push('<h2>Requested by</h2><table class="spec">');
+    rfqContacts.forEach(x => {
+      p.push('<tr><th class="grp" colspan="2">'+V(x.name)+'</th></tr>');
+      [['Role', x.role], ['Email', x.email], ['Mobile', x.mobile]].filter(r => String(r[1] || '').trim())
+        .forEach(r => p.push('<tr><td class="l">'+r[0]+'</td><td class="v">'+V(r[1])+'</td></tr>'));
+      p.push('<tr><td class="l">CRM</td><td class="v">'+(x.crm ? 'On file'
+        : '<span class="flag">Needs adding to Dynamics</span>')+'</td></tr>');
+    });
     p.push('</table>');
   }
 
@@ -20798,11 +20820,10 @@ async function buildRFQHTML(mode, c){
          customer service needs to see it was not given rather than guess. */
       p.push(beltSpecTableHTML(beltSpecGroups(b, {qty: true, qcontact: true})));
       p.push(commentHTML(b));
-      /* Unticked and deliberately-not-confirmed look the same, which is fine
-         here: the safe reading and the default reading are both "check it". */
-      p.push(b.tsg
-        ? '<p class="sent">Belt ID confirmed with TSG.</p>'
-        : '<p class="sent"><span class="flag">Belt ID not yet confirmed with TSG.</span></p>');
+      /* v190: said only when it was confirmed. Ben: most requests are worked
+         up by the sales reps and need no TSG check, so "not yet confirmed" on
+         every one of them was a flag about nothing. */
+      if(b.tsg) p.push('<p class="sent">Belt ID confirmed with TSG.</p>');
       if(b.photos && b.photos.length) p.push('<div class="ph">'+(await photoImgs(b.photos, mode))+'</div>');
       else if(b.detached) p.push('<p class="sent">'+b.detached.n+' photo'+(b.detached.n===1?'':'s')+
         ' were sent with the request issued '+new Date(b.detached.at).toLocaleDateString('en-AU')+
@@ -23500,6 +23521,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v190', 'The photo icons at the top of a call now add to what you have open. In a belt, project, note or health item, the photos join that item (kept when you tap Done), the same as its own photo buttons. Before, they went to the last item logged, or to the loose photos. On a conveyor walk\'s list and a next step, which hold no photos, they go to the loose photos. On a quote request, a belt no longer says "not yet confirmed with TSG": the TSG line appears only when you tick it. Requested by lists each person under the other, so a long email or job title stays on the page on a phone.'],
   ['v189', 'Business plan. A new tile on Home holds the business plan: outcomes under Annuity, Projects and Growth, each with its objective, and the actions agreed for them, with team, owner and due date. Tap an action to update it and log the month\'s check-in (Achieved, Partly or Not yet). ⋯, Import plan brings in the plan from the tracker\'s HTML file. Share makes an A4 HTML copy to send. The plan is yours only: it syncs, encrypted, to your own devices and never to the team.'],
   ['v188', 'Photos keep when and where they were taken. A photo added to a call from the gallery or the app\'s camera keeps its time and location inside it, so Claude can match it to the Plaud recording like a phone photo. The app\'s camera asks once to use your location; say No and photos still keep their time. Photos added before this have neither.'],
   ['v187', 'On the phone, Save for Claude opens the share sheet: tap OneDrive and save it in your Inbox folder, and Claude finds it there. Where the phone cannot share the file, it downloads as before.'],

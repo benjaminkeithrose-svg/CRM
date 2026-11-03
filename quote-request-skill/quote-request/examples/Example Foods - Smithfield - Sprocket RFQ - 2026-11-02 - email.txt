@@ -9,8 +9,10 @@ Date raised: 2 November 2026
 Account manager: Jo Bloggs
 
 REQUESTED BY
-Name | Role | Email | Mobile | CRM
-Pat Example | Maintenance Manager | pat@example.com | — | On file
+Pat Example
+  Role: Maintenance Manager
+  Email: pat@example.com
+  CRM: On file
 
 SPROCKETS TO QUOTE
 

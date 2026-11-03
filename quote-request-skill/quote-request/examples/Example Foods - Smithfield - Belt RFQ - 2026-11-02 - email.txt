@@ -9,9 +9,15 @@ Account manager: Jo Bloggs
 Customer reference: Email from Pat Example, 2 November
 
 REQUESTED BY
-Name | Role | Email | Mobile | CRM
-Pat Example | Maintenance Manager | pat@example.com | 0400 000 000 | On file
-Alex Example | Engineer | alex@example.com | — | Needs adding to Dynamics
+Pat Example
+  Role: Maintenance Manager
+  Email: pat@example.com
+  Mobile: 0400 000 000
+  CRM: On file
+Alex Example
+  Role: Engineer
+  Email: alex@example.com
+  CRM: Needs adding to Dynamics
 
 TO CONFIRM
 - Belt 1: width 600 mm is not a standard built width for this spec; nearest 559 mm or 610 mm. Customer asked for 600 mm.
@@ -40,7 +46,6 @@ General comments:
 Replacing the existing belt at the next shutdown.
 - Customer would like delivery before 20 November
 - Same belt as fitted now
-Belt ID not yet confirmed with TSG.
 1 photo is in the attached request file.
 
 NOTES
