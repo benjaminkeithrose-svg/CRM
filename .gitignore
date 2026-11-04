@@ -5,3 +5,6 @@ node_modules/
 *.xls
 *.csv
 *.eml
+
+# Python leaves compiled copies of the skills' scripts here when they run
+__pycache__/
