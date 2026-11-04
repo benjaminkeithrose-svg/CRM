@@ -121,6 +121,11 @@ t('RFQ contact rows: role, email, mobile and CRM, empty ones left out', reqBy.in
   reqBy.includes('<td class="l">Mobile</td><td class="v">0400 000 000</td>') && (reqBy.match(/>Role</g) || []).length === 1 &&
   reqBy.includes('Needs adding to Dynamics') && reqBy.includes('On file'));
 t('a long word wraps inside a table cell', g('NOTES_CSS').includes('overflow-wrap:anywhere'));
+const bandsOf = b => w.eval('beltSpecGroups(' + JSON.stringify(b) + ', {qty: true})').map(x => x[0]);
+const bare = {type:'belt', series:'100', style:'FLAT TOP', beltmat:'POLYPROPYLENE', width:'600', sprbore:'40 mm square', sprdrive:'5', spridle:'5'};
+t('no sprocket chosen: no Sprockets band, though the bore and counts were filled in for it (v191)', !bandsOf(bare).includes('Sprockets'));
+t('a sprocket size given: the Sprockets band, bore and counts included', bandsOf(Object.assign({}, bare, {sprpd:'5.1 in'})).includes('Sprockets'));
+t('a part number alone is enough to keep it', bandsOf(Object.assign({}, bare, {sprpn:'EX-0001'})).includes('Sprockets'));
 g('call').contacts = [];
 g('call').entries[0] = Object.assign({}, belt, {tsg:true});
 const rfq2 = await w.buildRFQHTML('full');

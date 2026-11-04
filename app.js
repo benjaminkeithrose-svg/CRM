@@ -1003,7 +1003,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v190';
+const APP_BUILD = 'v191';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -11479,8 +11479,13 @@ function beltSpecGroups(b, opts){
     ['Sideguard height (mm)', b.sgheight, 0]
   ];
   const keep = r => r[2] || (r[1] !== '' && r[1] != null && r[1] !== false);
+  /* v191: no sprocket chosen, no Sprockets band. The bore starts at 40 mm
+     square and the drive and idle counts are worked out from the width, so a
+     belt logged without a sprocket still carried those three, and printed a
+     band of estimates about a sprocket nobody picked. */
+  const sprChosen = [b.sprocket, b.sprpn, b.sprpd, b.sprmat].some(x => String(x == null ? '' : x).trim());
   return [['Belt', belt.filter(keep)],
-          ['Sprockets', spr.filter(keep)],
+          ['Sprockets', sprChosen ? spr.filter(keep) : []],
           ['Flights and sideguards', acc.filter(keep)]]
     .filter(g => g[1].length);
 }
@@ -23521,6 +23526,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v191', 'A belt with no sprocket chosen no longer prints a Sprockets section of the bore and the counts filled in for it. The section appears once you give a sprocket size, material, description or part number. Belts already logged follow too; nothing you entered is changed.'],
   ['v190', 'The photo icons at the top of a call now add to what you have open. In a belt, project, note or health item, the photos join that item (kept when you tap Done), the same as its own photo buttons. Before, they went to the last item logged, or to the loose photos. On a conveyor walk\'s list and a next step, which hold no photos, they go to the loose photos. On a quote request, a belt no longer says "not yet confirmed with TSG": the TSG line appears only when you tick it. Requested by lists each person under the other, so a long email or job title stays on the page on a phone.'],
   ['v189', 'Business plan. A new tile on Home holds the business plan: outcomes under Annuity, Projects and Growth, each with its objective, and the actions agreed for them, with team, owner and due date. Tap an action to update it and log the month\'s check-in (Achieved, Partly or Not yet). ⋯, Import plan brings in the plan from the tracker\'s HTML file. Share makes an A4 HTML copy to send. The plan is yours only: it syncs, encrypted, to your own devices and never to the team.'],
   ['v188', 'Photos keep when and where they were taken. A photo added to a call from the gallery or the app\'s camera keeps its time and location inside it, so Claude can match it to the Plaud recording like a phone photo. The app\'s camera asks once to use your location; say No and photos still keep their time. Photos added before this have neither.'],
