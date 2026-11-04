@@ -1,0 +1,35 @@
+{
+ "kind": "field-crm-intake-ticket",
+ "v": 1,
+ "made": 1762210009000,
+ "app": "v193",
+ "again": false,
+ "callId": "q-example-2",
+ "customer": "Example Foods - Smithfield",
+ "site": "",
+ "date": "2026-11-03",
+ "type": "",
+ "quote": true,
+ "noReport": false,
+ "mgr": "Jo Bloggs",
+ "folder": "Example Foods\\Quote requests\\2026-11-03",
+ "folderParts": [
+  "Example Foods",
+  "Quote requests",
+  "2026-11-03"
+ ],
+ "files": {
+  "call": "Field CRM call.json",
+  "notes": "Example_Foods_Smithfield_03-11-2026_belt_RFQ.html",
+  "photos": "from Field CRM",
+  "report": "fieldcrm-import.json"
+ },
+ "contacts": [
+  {
+   "name": "Pat Example",
+   "email": "pat@example.com",
+   "role": "Maintenance Manager"
+  }
+ ],
+ "steps": []
+}

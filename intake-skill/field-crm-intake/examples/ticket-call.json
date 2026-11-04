@@ -1,0 +1,48 @@
+{
+ "kind": "field-crm-intake-ticket",
+ "v": 1,
+ "made": 1762210005000,
+ "app": "v193",
+ "again": false,
+ "callId": "c-example-1",
+ "customer": "Example Foods - Smithfield",
+ "site": "",
+ "date": "2026-11-03",
+ "type": "Site call",
+ "quote": false,
+ "noReport": false,
+ "mgr": "Jo Bloggs",
+ "folder": "Example Foods\\Smithfield\\2026-11-03",
+ "folderParts": [
+  "Example Foods",
+  "Smithfield",
+  "2026-11-03"
+ ],
+ "files": {
+  "call": "Field CRM call.json",
+  "notes": "Example_Foods_Smithfield_03-11-2026_call_notes.html",
+  "photos": "from Field CRM",
+  "report": "fieldcrm-import.json"
+ },
+ "contacts": [
+  {
+   "name": "Pat Example",
+   "email": "pat@example.com",
+   "role": "Maintenance Manager"
+  }
+ ],
+ "steps": [
+  {
+   "what": "Send the CV-200 belt quote",
+   "type": "Quote",
+   "project": "",
+   "date": "2026-11-07"
+  },
+  {
+   "what": "Book the spiral site measure",
+   "type": "Visit",
+   "project": "Spiral upgrade",
+   "date": "2026-11-20"
+  }
+ ]
+}

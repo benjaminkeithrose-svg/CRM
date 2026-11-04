@@ -1,0 +1,36 @@
+{
+ "made": [
+  "Example Foods - Smithfield - Site walk notes - 2026-11-03.html",
+  "Example Foods - Smithfield - Site walk report - 2026-11-03.html",
+  "fieldcrm-import.json"
+ ],
+ "drafts": [
+  {
+   "kind": "customer",
+   "to": [
+    "pat@example.com"
+   ],
+   "subject": "Our visit on 3 November 2026: Example Foods - Smithfield",
+   "outlook_id": "AAMkExample1",
+   "file": "drafts/customer - Example Foods - Smithfield.json"
+  }
+ ],
+ "booked": [],
+ "skipped": [
+  {
+   "job": "quote_ask",
+   "why": "Jo said the quote comes after the shutdown"
+  }
+ ],
+ "to_check": [
+  "CV-200: the width was read off a photo, 610 mm"
+ ],
+ "projects": [
+  {
+   "project": "Spiral upgrade",
+   "status": "Discovery",
+   "next": "Site measure",
+   "target": "2027-03"
+  }
+ ]
+}
