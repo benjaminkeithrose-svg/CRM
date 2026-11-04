@@ -110,7 +110,18 @@ t('RFQ titled as a quote request', rfq.includes('Belt request for quote'));
 t('RFQ carries required-by', rfq.includes('Required by') && rfq.includes('next week'));
 t('RFQ carries your reference', rfq.includes('PO123'));
 t('RFQ carries quantity', rfq.includes('Quantity'));
-t('RFQ flags an unconfirmed belt ID', rfq.includes('Belt ID not yet confirmed with TSG'));
+t('RFQ says nothing about TSG when the belt ID was not confirmed (v190)', !rfq.includes('confirmed with TSG'));
+g('call').contacts = [{name:'Pat Example', role:'Maintenance Manager', email:'pat.example.with.a.long.address@example.com', mobile:'0400 000 000', crm:true},
+  {name:'Alex Example', role:'', email:'alex@example.com', crm:false}];
+const rfqC = await w.buildRFQHTML('full');
+const reqBy = rfqC.slice(rfqC.indexOf('<h2>Requested by</h2>'), rfqC.indexOf('<h2>Belts to quote</h2>'));
+t('RFQ lists each contact under the other, a band per person (v190)', /<th class="grp" colspan="2">Pat Example<\/th>/.test(reqBy) &&
+  /<th class="grp" colspan="2">Alex Example<\/th>/.test(reqBy) && !reqBy.includes('<th>Role</th>'));
+t('RFQ contact rows: role, email, mobile and CRM, empty ones left out', reqBy.includes('<td class="l">Role</td><td class="v">Maintenance Manager</td>') &&
+  reqBy.includes('<td class="l">Mobile</td><td class="v">0400 000 000</td>') && (reqBy.match(/>Role</g) || []).length === 1 &&
+  reqBy.includes('Needs adding to Dynamics') && reqBy.includes('On file'));
+t('a long word wraps inside a table cell', g('NOTES_CSS').includes('overflow-wrap:anywhere'));
+g('call').contacts = [];
 g('call').entries[0] = Object.assign({}, belt, {tsg:true});
 const rfq2 = await w.buildRFQHTML('full');
 t('RFQ states a confirmed belt ID', rfq2.includes('Belt ID confirmed with TSG') && !rfq2.includes('not yet confirmed'));

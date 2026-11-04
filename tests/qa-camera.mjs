@@ -70,6 +70,33 @@ $('camShot').click(); await tick(30); $('camShot').click(); await tick(30);
 $('camDone').click(); await tick(150);
 ok(g(`SHOTS.belt.length`) === 2, 'and both go to the belt being written');
 
+// ---- v190: the toolbar's photo icons go to the item open, not loose or the last item logged
+const looseNow = g('call.loose.length');
+$('barCamera').click(); await tick(100);
+ok($('camdlg').hasAttribute('open'), 'on a belt, the toolbar camera opens the camera');
+$('camShot').click(); await tick(30);
+$('camDone').click(); await tick(150);
+ok(g(`SHOTS.belt.length`) === 3 && g('call.loose.length') === looseNow, 'and the photo joins the belt being written, not the loose photos');
+const pick = async (id, n) => {
+  const el = $(id);
+  Object.defineProperty(el, 'files', { value: Array.from({ length: n }, () => new w.Blob(['jpeg'], { type: 'image/jpeg' })), configurable: true });
+  el.dispatchEvent(new w.Event('change')); await tick(100);
+};
+let galClicked = '';
+for (const id of ['entGalIn', 'galInput']) $(id).addEventListener('click', e => { galClicked = id; e.preventDefault(); });
+await g(`(async () => { openEntry('note', true); })()`); await tick(100);
+$('barGallery').click(); await tick(50);
+ok(galClicked === 'entGalIn', 'on a note, the toolbar gallery picks for the note');
+await pick('entGalIn', 2);
+ok(g(`SHOTS.note.length`) === 2 && g('call.loose.length') === looseNow, 'and both photos join the note being written');
+await g(`(async () => { openEntry('project', true); })()`); await tick(100);
+galClicked = ''; $('barGallery').click(); await tick(50); await pick('entGalIn', 1);
+ok(galClicked === 'entGalIn' && g(`SHOTS.project.length`) === 1, 'on a project, they join the project');
+await g(`(async () => { go('step'); })()`); await tick(100);
+galClicked = ''; $('barGallery').click(); await tick(50); await pick('galInput', 1);
+ok(galClicked === 'galInput' && g('call.loose.length') === looseNow + 1, 'a next step holds no photos: they are the call\'s loose photos');
+await g(`(async () => { go('dash'); })()`); await tick(100);
+
 // ---- Cancel with photos taken asks first, naming how many
 $('barCamera').click(); await tick(100);
 $('camShot').click(); await tick(30);

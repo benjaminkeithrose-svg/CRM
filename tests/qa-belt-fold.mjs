@@ -78,8 +78,8 @@ ok(secs.every(x => !x.open), 'a copy opens folded too');
 // on a quote request the last section is For the quote
 await g(`(async () => { call = {id: 'q1', rectype: 'quote', customer: 'Acme', date: '10/10/2026', contacts: [], entries: [], loose: [], updated: 1}; openEntry('belt', true); })()`);
 await tick(100);
-ok($('bxQuoHead').textContent === 'For the quote' && !$('bQuoteRow').hidden && /ID not confirmed/.test($('sumQuo').textContent),
-  'quote request: For the quote, with the TSG line: ' + $('sumQuo').textContent);
+ok($('bxQuoHead').textContent === 'For the quote' && !$('bQuoteRow').hidden && !/TSG|not confirmed/.test($('sumQuo').textContent),
+  'quote request: For the quote, with nothing said about TSG until it is ticked (v190): ' + $('sumQuo').textContent);
 input('bQty', '2'); $('bTsg').checked = true; $('bTsg').dispatchEvent(new w.Event('change', { bubbles: true })); await tick(120);
 ok(/Qty 2/.test($('sumQuo').textContent) && /ID confirmed with TSG/.test($('sumQuo').textContent), 'and follows them: ' + $('sumQuo').textContent);
 

@@ -133,8 +133,8 @@ the belt; else `beltdesc`), `qty`, `beltdesc`, `series`, `style`, `beltmat`,
 `sprmat`, `sprvar`, `sprdrive`, `spridle`, `sprspacers`, `sprhdret`
 (`sprhdretqty`); flights and sideguards `fstyle`, `flmat`, `fheight`, `frows`,
 `fspacing`, `findent`, `cnotch`, `sgtype`, `sgmat`, `sgheight`; and `tsg`
-(`true` when the belt ID was confirmed with TSG; otherwise it prints as not
-yet confirmed).
+(`true` when the belt ID was confirmed with TSG, which the request then says; otherwise it
+says nothing about TSG).
 
 **A sprocket** (`sprockets`): `qty`, `line`, `series`, `bore`, `pd`, `material`,
 `description`, `part_number`, `variant`, `drive_qty`, `idle_qty`, `shaft`,
@@ -167,7 +167,7 @@ Sections, by `type`:
 | Type | What it draws |
 |---|---|
 | `details` | A two-column table. `rows`: `{"label", "key", "required", "format"}`, where `key` is a field of request.json, and `format` is `date` or `yes` |
-| `contacts` | The Requested by table, from `contacts` |
+| `contacts` | Requested by, from `contacts`: each person a band, with their role, email, mobile and CRM below |
 | `checks` | The "To confirm" list, from `checks`; left out when empty |
 | `items` | One block per item in request.json's `items` list (`belts`, `sprockets`, ...). `item_label` ("Belt 1 — ..."), `name_from` (fields that name the item, first given wins), `unnamed`, `empty` (a line when there are none; empty to leave the section out), `comment_label`, `tsg` (the TSG line), `photos`, and `groups`: bands of `fields`, each `{"label", "key", "required", "format"}` |
 | `notes` | The Notes table, from `notes` |
@@ -217,3 +217,4 @@ Example Foods, Jo Bloggs, Series 100 and 200, part numbers EX-....
 | Version | Date | What changed |
 |---|---|---|
 | 1 | 2026-11-02 | First version: belt request for quote and sprocket and parts request for quote; catalogue lookups with Field CRM's width check; file, email body and plain text. |
+| 2 | 2026-11-03 | As Field CRM v190: no "not yet confirmed with TSG" line (only a confirmed belt ID is mentioned), contacts one under another instead of five columns, and long words wrap inside the page. |

@@ -263,8 +263,8 @@ the belt; else <code>beltdesc</code>), <code>qty</code>, <code>beltdesc</code>, 
 <code>sprmat</code>, <code>sprvar</code>, <code>sprdrive</code>, <code>spridle</code>, <code>sprspacers</code>, <code>sprhdret</code>
 (<code>sprhdretqty</code>); flights and sideguards <code>fstyle</code>, <code>flmat</code>, <code>fheight</code>, <code>frows</code>,
 <code>fspacing</code>, <code>findent</code>, <code>cnotch</code>, <code>sgtype</code>, <code>sgmat</code>, <code>sgheight</code>; and <code>tsg</code>
-(<code>true</code> when the belt ID was confirmed with TSG; otherwise it prints as not
-yet confirmed).</p>
+(<code>true</code> when the belt ID was confirmed with TSG, which the request then says; otherwise it
+says nothing about TSG).</p>
 <p><strong>A sprocket</strong> (<code>sprockets</code>): <code>qty</code>, <code>line</code>, <code>series</code>, <code>bore</code>, <code>pd</code>, <code>material</code>,
 <code>description</code>, <code>part_number</code>, <code>variant</code>, <code>drive_qty</code>, <code>idle_qty</code>, <code>shaft</code>,
 <code>qcontact</code>. <strong>A part</strong> (<code>parts</code>): <code>qty</code>, <code>description</code>, <code>part_number</code>,
@@ -327,7 +327,7 @@ templates folder wins, and a new name there is a new kind of request.
 </tr>
 <tr>
 <td><code>contacts</code></td>
-<td>The Requested by table, from <code>contacts</code></td>
+<td>Requested by, from <code>contacts</code>: each person a band, with their role, email, mobile and CRM below</td>
 </tr>
 <tr>
 <td><code>checks</code></td>
@@ -461,6 +461,11 @@ Example Foods, Jo Bloggs, Series 100 and 200, part numbers EX-....</p>
 <td>1</td>
 <td>2026-11-02</td>
 <td>First version: belt request for quote and sprocket and parts request for quote; catalogue lookups with Field CRM's width check; file, email body and plain text.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2026-11-03</td>
+<td>As Field CRM v190: no "not yet confirmed with TSG" line (only a confirmed belt ID is mentioned), contacts one under another instead of five columns, and long words wrap inside the page.</td>
 </tr>
 </tbody>
 </table></div><div class="ft">Quote request skill · Intralox</div></body></html>

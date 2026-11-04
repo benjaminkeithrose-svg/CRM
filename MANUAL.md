@@ -957,7 +957,7 @@ The first time the app opens after an update, it says so once at the bottom of t
 
 ### Add photos
 
-1. Tap the camera icon at the top of the call to photograph whatever you logged last. Or tap **⋯** on an entry's card, then **Take a photo**.
+1. In a belt, project, note or health item you are writing, tap the camera icon at the top. The photos join that item, and are kept when you tap **Done**. On the call itself, the camera icon photographs whatever you logged last; or tap **⋯** on an entry's card, then **Take a photo**.
 2. The camera opens inside the app. Tap the round button once for each photo.
 3. To leave one out, tap the × on it along the bottom.
 4. Tap **Add**. They are all added at once.
@@ -966,7 +966,7 @@ The back arrow or the phone's back adds what you have taken too; **Cancel** asks
 
 Each photo keeps when and where it was taken, so Claude can match it to your Plaud recording. The first time the camera opens, the phone asks whether Field CRM can use your location: tap **Allow** to keep where photos were taken, or **Don't allow** and they keep only their time. A photo picked from the gallery keeps its own time and place. The time and place stay in the photo when it goes into documents.
 
-Photos with nothing logged yet go in **Loose photos** and come out at the end of the notes. Tap a photo to look at it. The × on it deletes it.
+Photos with nothing logged yet go in **Loose photos** and come out at the end of the notes, and so do photos taken on a conveyor walk's list or a next step, which hold no photos of their own. Tap a photo to look at it. The × on it deletes it.
 
 On the PC, to add a picture you have copied (a screenshot, or a picture from an email, a drawing or a web page):
 
