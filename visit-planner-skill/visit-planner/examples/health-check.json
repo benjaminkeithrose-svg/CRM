@@ -1,0 +1,9 @@
+{
+  "template": "health-check",
+  "customer": "Example Dairy - Wetherill Park",
+  "date": "2026-11-11",
+  "start": "08:30",
+  "lines": ["Line 1 filler infeed", "Line 2 case packer", "Spiral to cold store"],
+  "contacts": [{"name": "Sam Example", "role": "Production Manager", "email": "sam@example.com"}],
+  "invite": true
+}

@@ -1,0 +1,19 @@
+{
+  "id": "site-visit",
+  "title": "Site visit",
+  "subject": "Site visit: {customer}",
+  "about": "A visit at the customer's site: out of office, at the site, the agenda, the follow-ups to close and the people to see.",
+  "minutes": 90,
+  "busy": "oof",
+  "reminder": 60,
+  "location": "{site_full}",
+  "categories": ["Customer visit"],
+  "online": false,
+  "sections": [
+    {"type": "rows", "rows": [["Customer", "customer"], ["Site", "site"], ["Zone", "zone"], ["Account manager", "account_manager"]]},
+    {"type": "text", "heading": "Agenda", "key": "agenda", "empty": "No agenda yet."},
+    {"type": "list", "heading": "Follow-ups to close", "key": "follow_ups"},
+    {"type": "contacts", "heading": "Seeing"},
+    {"type": "text", "heading": "Notes", "key": "notes"}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "template": "teams-call",
+  "customer": "Example Snacks - Brisbane",
+  "date": "2026-11-12",
+  "start": "14:00",
+  "topic": "Follow up the quote for the seasoning line belts",
+  "follow_ups": ["Lead time", "Sprocket bore"],
+  "contacts": [{"name": "Robin Example", "role": "Maintenance Lead", "email": "robin@example.com"}],
+  "invite": true,
+  "changes": {"minutes": 20}
+}
