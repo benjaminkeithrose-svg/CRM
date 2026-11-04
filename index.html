@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v192">
+<meta name="build" content="v193">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -3742,6 +3742,28 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Hand finished calls to Claude</b><span class="sxs">The intake, on the PC</span></summary>
+    <div class="fld help">
+      <p>Every call or quote request you finish goes to Claude on its own. Claude makes the report, the emails and the quote requests as drafts, and you check them before anything is sent.</p>
+      <ol>
+        <li>Finish the call on the phone as usual: tap <b>Done</b>, then mark it done.</li>
+        <li>On the PC, open Field CRM. Finished calls go to the intake by themselves after it syncs.</li>
+        <li>If the number on <b>Send to intake</b> in <b>Reports</b> isn't zero, Chrome wants the folder allowed again. Click <b>Send to intake</b>.</li>
+        <li>When Chrome asks whether the app can edit files there, click <b>Allow this time</b>.</li>
+        <li>In Claude, type: <b>Work through my intake.</b></li>
+        <li>Check the review page Claude gives you: the report, the email drafts in Outlook and the quote requests.</li>
+        <li>Back in Field CRM, open <b>Reports</b> and click <b>Bring in from Claude</b>.</li>
+        <li>Read the message listing each call and what it adds, and click <b>OK</b>.</li>
+      </ol>
+      <p>Each call is filed in your PC folder as Save to PC folder files it, in <b>Customer\Site\2026-11-04</b>, with the file Save for Claude writes. A small ticket goes in the <b>Intake</b> folder inside your PC folder. Claude moves each ticket to <b>Intake\Done</b> when it has dealt with it.</p>
+      <p>A call marked done on the PC goes straight away. A call changed after it went goes again, marked as changed.</p>
+      <p>Only your own calls go, never a colleague's from the team. A call closed with nothing to report doesn't go. The first time, only calls from the last two weeks go.</p>
+      <p>When Field CRM opens and Claude's reports are ready, a message says so. Bring in from Claude only fills what is empty: nothing you typed is changed.</p>
+      <p>Nothing is sent to a customer by Field CRM or by Claude. Claude only makes drafts.</p>
+      <p>The buttons aren't on the phone.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Archive old photos</b><span class="sxs">Frees space, on the PC</span></summary>
     <div class="fld help">
       <ol>
@@ -3984,6 +4006,9 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   <!-- PC only (v94): done calls into a folder, Customer\Site\date. Hidden on the phone. -->
   <button type="button" class="btn act2" id="rpFolder" hidden></button>
+  <!-- v193: the intake for Claude, and Claude's reports back in. PC only. -->
+  <button type="button" class="btn act2" id="rpIntake" hidden></button>
+  <button type="button" class="btn act2" id="rpBringIn" hidden></button>
   <!-- Compiled and done are separate states in the data and always have been:
        compiled means a document was produced, done means the call is finished.
        This used to collapse both into "Finished". -->

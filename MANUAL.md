@@ -1210,6 +1210,31 @@ On the phone, Save for Claude opens the share sheet. Tap **OneDrive** and save i
 
 Tip: make the Inbox folder at the top of your OneDrive and start its name with an underscore, for example **_Inbox**. It is then first in the list, a tap or two away.
 
+### Hand finished calls to Claude
+
+Every call or quote request you finish goes to Claude on its own. Claude makes the report, the emails and the quote requests as drafts, and you check them before anything is sent.
+
+1. Finish the call on the phone as usual: tap **Done**, then mark it done.
+2. On the PC, open Field CRM. Finished calls go to the intake by themselves after it syncs.
+3. If the number on **Send to intake** in **Reports** isn't zero, Chrome wants the folder allowed again. Click **Send to intake**.
+4. When Chrome asks whether the app can edit files there, click **Allow this time**.
+5. In Claude, type: **Work through my intake.**
+6. Check the review page Claude gives you: the report, the email drafts in Outlook and the quote requests.
+7. Back in Field CRM, open **Reports** and click **Bring in from Claude**.
+8. Read the message listing each call and what it adds, and click **OK**.
+
+Each call is filed in your PC folder as Save to PC folder files it, in **Customer\Site\2026-11-04**, with the file Save for Claude writes. A small ticket goes in the **Intake** folder inside your PC folder. Claude moves each ticket to **Intake\Done** when it has dealt with it.
+
+A call marked done on the PC goes straight away. A call changed after it went goes again, marked as changed.
+
+Only your own calls go, never a colleague's from the team. A call closed with nothing to report doesn't go. The first time, only calls from the last two weeks go.
+
+When Field CRM opens and Claude's reports are ready, a message says so. Bring in from Claude only fills what is empty: nothing you typed is changed.
+
+Nothing is sent to a customer by Field CRM or by Claude. Claude only makes drafts.
+
+The buttons aren't on the phone.
+
 ### Archive old photos
 
 1. On the PC, open **Reports** from Home.

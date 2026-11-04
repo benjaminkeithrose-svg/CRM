@@ -1,0 +1,105 @@
+{
+ "kind": "field-crm-call-for-claude",
+ "v": 1,
+ "made": 1762210000000,
+ "app": "v193",
+ "photosInline": false,
+ "call": {
+  "id": "c-example-1",
+  "customer": "Example Foods - Smithfield",
+  "site": "",
+  "type": "Site call",
+  "date": "03/11/2026",
+  "iso": "2026-11-03",
+  "mgr": "Jo Bloggs",
+  "manualAccount": false,
+  "summary": "",
+  "status": "done",
+  "contacts": [
+   {
+    "name": "Pat Example",
+    "role": "Maintenance Manager",
+    "email": "pat@example.com",
+    "mobile": "0400 000 000",
+    "in_crm": true
+   },
+   {
+    "name": "Sam Example",
+    "role": "Engineer",
+    "email": "",
+    "mobile": "",
+    "in_crm": false
+   }
+  ],
+  "entries": [
+   {
+    "type": "belt",
+    "asset": "CV-200",
+    "beltdesc": "Spiral exit",
+    "series": "800",
+    "style": "FLAT TOP",
+    "beltmat": "POLYPROPYLENE",
+    "colour": "BLUE",
+    "width": 610,
+    "beltlen": 14.2,
+    "qty": "1",
+    "sprbore": "40 MM SQ",
+    "comment": "Rods walking out on the left side",
+    "tsg": false,
+    "ref": 0,
+    "acc": [
+     {
+      "id": "a1",
+      "group": "wearstrip",
+      "desc": "Snap-on wearstrip, 500 ft, for a 1/4 in frame",
+      "item": "EX-W5",
+      "qty": 2,
+      "note": "Carryway"
+     }
+    ],
+    "photos": [
+     {
+      "file": "from Field CRM/Belt 1 CV-200 - 1.jpg"
+     }
+    ]
+   },
+   {
+    "type": "note",
+    "topic": "Other",
+    "text": "Shutdown planned for the week of 1 December.",
+    "ref": 1,
+    "photos": []
+   },
+   {
+    "type": "project",
+    "project": "Spiral upgrade",
+    "status": "Discovery",
+    "next": "Site measure",
+    "target": "2027-03",
+    "owner": "Pat Example",
+    "notes": "",
+    "ref": 2,
+    "photos": []
+   }
+  ],
+  "loose": [
+   {
+    "file": "from Field CRM/Additional - 1.jpg"
+   }
+  ]
+ },
+ "account": {
+  "name": "Example Foods - Smithfield",
+  "site": "Smithfield",
+  "mgr": "Jo Bloggs",
+  "contacts": [
+   {
+    "name": "Pat Example",
+    "role": "Maintenance Manager",
+    "email": "pat@example.com",
+    "mobile": "0400 000 000",
+    "in_crm": true
+   }
+  ]
+ }
+}

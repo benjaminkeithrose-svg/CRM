@@ -235,6 +235,8 @@ import brings the same name at that account.
 | `cloud`, `cloudKey`, `cloudTeam`, `cloudLater` | Sign-in, the unlocked key on this device, the team | No |
 | `cloudSets`, `cloudDirty`, `cloudCursor`, `cloudSeeded`, `cloudOwners` | The sync's own bookkeeping (what is waiting to send, how far it has read) | No |
 | `manualSrc`, `ixDocs`, `loadLog`, `usage` | Manuals downloaded, the import log, usage counts | No |
+| `pcFolder`, `pcSaved` | The PC folder picked on this PC (the browser's handle to it), and what Save to PC folder last wrote for each call (`u` the call's `updated`, `dir`, `files`, `keep`, `map`, `photos`) | No |
+| `intakeSent`, `intakeImported`, `intakeSince` | The intake (v193), on this PC: for each call sent, `u` (its `updated` when sent), `at`, `ticket` (the ticket's file name) and `dir` (its visit folder); for each call whose Claude report was brought in, that report's `made`; and when the intake started (the first time it was used, less 14 days), so older calls are not sent | No |
 
 The engineering manuals themselves are kept as page images in the browser's
 storage by `manuals.js`; the health-check fault library ships with the app

@@ -17,6 +17,7 @@
 | **Engineering manuals** | intralox.com (found by the `intralox-manuals` function) or a PDF you pick | the browser's storage, as page images | pdf.js loads from a CDN the first time |
 | **A shared file** | Android's share sheet | the call or form it was shared to | |
 | **Shared words** (v177) | Android's share sheet, from any app (a Plaud transcript or summary, an email): text, or a .txt file | With a call open, a note on that call or cards in Capture (his choice each time); otherwise cards in Capture | The service worker parks shared text in the `fieldcrm-share` cache (`./shared-text`) for the page to collect. Sorting sends the words to `ai-tidy` (kind `capture`) in pieces of up to 5,500 characters, 12 at most |
+| **Bring in from Claude** (v193) | `fieldcrm-import.json` in the visit folder of each call sent to the intake in the last 120 days; Reports, Bring in from Claude (a message on opening says how many are ready) | The call, as Import call report: the summary, `report` with the documents, belts, photos, contacts, next steps | Only a report newer than the one last brought in, and made for that call (one made for another call is left for Import call report, which asks). One confirmation lists each call and what it adds. Brought in is not a change to send to the intake again; the call's filed notes are written again |
 | **Claude's call report** (v186) | `fieldcrm-import.json`, written by the end-game skill (Claude Enterprise on the PC) into the visit's PC folder; Import call report on the call's ⋯ reads it from there, or asks for the file on a phone | The same call: Claude's notes as `summary`, the internal notes as a `note` (`src` `claude`), belts (empty fields filled, new ones added with `src` `claude`), photos (any already on the call skipped), contacts (flagged not in the CRM where so), follow-ups marked as tasks as next steps on the planner, and the two documents in `report` | Asks first, saying what it adds. Never changes anything typed in Field CRM; importing the same report again adds nothing. A report made for another call asks before going in. The file kind is `field-crm-claude-report`, version 1 |
 | **A copied or dragged picture** (v156) | The clipboard (Ctrl+V) or a picture file dragged onto a call, on the PC | the open entry's `photos`, or the call's `loose` | Shrunk like any photo; text on the clipboard pastes as text |
 
@@ -40,6 +41,7 @@
 | **Planning weeks** | The planner | .ics calendar file of week markers |
 | **PC folder** | Reports | Each done call saved as files in a folder on the PC |
 | **Save for Claude** (v186) | A call's ⋯ | The call for the end-game skill: `Field CRM call.json` (kind `field-crm-call-for-claude`, version 1: the call with every entry and its place in the call as `ref`, its contacts, and the account's CRM contacts and account manager) in the visit's PC folder (`Customer\Site\date`, as Save to PC folder), its photos beside it in `from Field CRM`. On a phone (v187), the share sheet, so it can be saved straight into OneDrive: the same file as text (`… - Field CRM call.txt`, since the share sheet does not take JSON), photos inside it; where the phone cannot share files, or without folder access, one file to download (`.json`). Not on a quote request |
+| **The intake** (v193) | By itself on the PC: after a sync, on opening, when a call is marked done; and Reports, Send to intake | Each of your own finished calls and quote requests not yet sent, or changed since (not a colleague's, not one closed with nothing to report; the first time, the last 14 days'): filed in the PC folder as Save to PC folder files it, `Field CRM call.json` and its photos written as Save for Claude writes them, and a ticket in `Intake\` there: `<date> <customer> (<id>).json`, kind `field-crm-intake-ticket`, version 1, with the call's id, customer, day, type, whether it is a quote request, its visit folder, its file names, the contacts ticked for documents and the call's open next steps. A changed call replaces its ticket, marked `again`. Run quietly, it sends only while the browser still allows the folder; otherwise the button shows how many wait. PC only (Chrome or Edge). The intake skill (`intake-skill/`) works through the tickets and moves each to `Intake\Done` |
 | **Export for Claude** | Reports | Text files for a Claude Project |
 | **Backup** | Settings | One JSON file of everything on the device, photos optional |
 
@@ -64,24 +66,32 @@ flowchart LR
     FPC[Field CRM on the PC]
     CR[Camera roll]
     VF[Visit folder<br>Customer / Site / date]
-    CL[Claude Enterprise:<br>end-game skill<br>builds the report]
+    IN[Intake folder:<br>a ticket per call]
+    CL[Claude Enterprise:<br>intake skill, with<br>end-game, quote request,<br>visit planner]
+    OL[Outlook:<br>drafts, never sent]
   end
   FC <-->|encrypted sync| SB
   SB <-->|encrypted sync| FPC
   PH --> CR
   HN --> CR
   P --> PL
-  FPC -->|Save for Claude:<br>call, belts, photos| VF
+  FPC -->|the intake, or Save for Claude:<br>call, belts, photos| VF
+  FPC -->|the intake: ticket| IN
+  IN --> CL
   CR -->|photos, by time| VF
   PL -->|Plaud connector| CL
   VF -->|everything for the visit| CL
   CL -->|notes, customer copy,<br>fieldcrm-import.json| VF
-  VF -->|Import call report| FPC
-  VF -.->|3 · you send| CUS[Customer and<br>customer service]
+  VF -->|Bring in from Claude,<br>or Import call report| FPC
+  CL -->|email drafts| OL
+  OL -.->|3 · you check and send| CUS[Customer and<br>customer service]
   VF -.->|3 · you attach| DY[Dynamics]
 ```
 
-Solid lines happen in the apps; dotted lines are done by hand today. The two
+Solid lines happen in the apps; dotted lines are done by hand. Since v193
+the intake does the first step on the PC by itself: each finished call is
+filed in its visit folder with a ticket in `Intake\`, and the intake skill
+works through the tickets, leaving every email as a draft in Outlook. The two
 lines to and from the database are Field CRM's own sync, encrypted on the
 device: Claude is never on them. Claude reads and writes only the visit
 folder (and the Plaud recording), so the call reaches the database the way

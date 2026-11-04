@@ -36,11 +36,13 @@ their contents, so the same photo is only ever sent once. Since v188 a photo
 carries the time and place it was taken inside it (see
 [Database architecture](02-database.md)); in the cloud that is encrypted with
 the rest of the photo, but the documents made from a call (Create and share,
-Save to PC folder, Save for Claude, Claude's documents) carry the photos as
+Save to PC folder, Save for Claude, the intake, Claude's documents) carry the photos as
 they are, time and place included, wherever they are sent.
 
 **What is not sent.** Settings that belong to one device: sign-in details, the
-manuals' page images, the import log.
+manuals' page images, the import log, the PC folder and the intake's record of
+what it sent (v193). The intake writes only to the PC folder, which OneDrive
+may then sync as it syncs any folder; Field CRM sends it nowhere.
 
 ## When two devices change the same thing
 

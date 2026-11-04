@@ -1216,7 +1216,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v192';
+const APP_BUILD = 'v193';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1722,7 +1722,7 @@ function showScreen(name){
   if(name==='settings'){ staffFill().catch(e => console.error('people', e)); renderStaff(); renderExchange(); renderDbStat(); renderBackupStat(); fillManagers(); renderPeopleStat();
     if($('setImgMode')) $('setImgMode').value = defaultImgMode();
     renderSettingsSummary(); }
-  if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); }
+  if(name==='reports'){ renderReports().catch(e=>console.error('reports', e)); renderPcFolder().catch(e=>console.error('pc folder', e)); renderIntake().catch(e=>console.error('intake', e)); }
   if(name==='plan') renderPlan();
   if(name==='opp') renderOpp();
   if(name==='lap') renderLap();
@@ -6612,7 +6612,8 @@ async function cloudSync(){
     return out;
   })();
   renderSb();       // "syncing..." and the button greyed out while it runs
-  try { return await cloudRun; } finally { cloudRun = null; renderSb(); }
+  try { const out = await cloudRun; inSoon(); return out; }   // v193: what came down goes to the intake
+  finally { cloudRun = null; renderSb(); }
 }
 async function cloudSyncOnce(){
   if(!cloudCan()) throw new Error(!navigator.onLine ? 'no connection' : 'sign in and unlock first');
@@ -8991,6 +8992,7 @@ async function markCallDone(c, sure){
   /* The open call and the row can be the same record reached two ways, so the
      working copy is dropped rather than left pointing at a closed call. */
   if(call && call.id === c.id){ releaseAllPhotos(); call = null; rememberCall(); }
+  if(pcFolderOk()) inSoon();     // v193: a call finished on the PC goes to the intake
   return true;
 }
 /* The menu behind the card. Contacts first with their numbers, then the actions
@@ -22028,6 +22030,11 @@ async function clSave(c){
   try { root = await pcRoot(false); }
   catch(e){ console.error('claude save', e); toast('Could not open the folder: ' + e.message); return; }
   if(!root){ toast('Nothing saved — the folder was not allowed'); return; }
+  const w = await clWriteVisit(root, c);
+  toast('Saved for Claude in ' + [root.name].concat(w.parts).join('\\') + (w.photos ? ', with ' + w.photos + (w.photos === 1 ? ' photo' : ' photos') : ''));
+}
+// the call file and its photos, in the visit's folder (Save for Claude, and the intake since v193)
+async function clWriteVisit(root, c){
   const parts = await clVisitDir(c);
   const dir = await pcSub(root, parts, true);
   const {data, blobs} = await clCallFile(c, false);
@@ -22036,7 +22043,7 @@ async function clSave(c){
     for(const b of blobs) await pcWrite(pdir, b.name, b.blob);
   }
   await pcWrite(dir, CL_CALL_FILE, new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'}));
-  toast('Saved for Claude in ' + [root.name].concat(parts).join('\\') + (blobs.length ? ', with ' + blobs.length + (blobs.length === 1 ? ' photo' : ' photos') : ''));
+  return {parts, photos: blobs.length};
 }
 // Claude's report for this call, from the visit's folder when the PC folder can be read
 async function clFindImport(c){
@@ -22182,6 +22189,179 @@ function clOpenDoc(c, k){
   if(!w) toast('The browser blocked the new tab: allow pop-ups for this app');
   setTimeout(() => URL.revokeObjectURL(u), 60000);
 }
+
+/* ================= the intake (v193) =================
+   Ben, 2026-11-04: one way in for Claude. Each finished call or quote request
+   is filed in the PC folder as Save to PC folder files it (Customer\Site\date:
+   the documents and photos) with the file Save for Claude writes, and a small
+   ticket goes in the Intake folder inside the PC folder: "this call is
+   waiting, in that folder". The intake dispatcher skill on the PC works
+   through the tickets, makes the drafts and the report, and moves each to
+   Intake\Done. When Claude's report (fieldcrm-import.json) is in a call's
+   folder, Bring in from Claude lays it into the call, as Import call report.
+
+   PC only (Edge or Chrome: the folder). Only your own calls, never a
+   colleague's from the team. It runs after a sync (so a call finished on the
+   phone arrives first), when a call is marked done on the PC, and from Send to
+   intake on Reports. After a sync it runs only if the browser still has the
+   folder allowed; otherwise the button shows what is waiting, and one tap
+   allows it again. None of this goes to the cloud. */
+const IN_SENT = 'intakeSent', IN_GOT = 'intakeImported', IN_DIR = 'Intake', IN_KIND = 'field-crm-intake-ticket';
+const IN_LOOK_DAYS = 120;     // how far back Bring in looks for Claude's reports
+const IN_SINCE = 'intakeSince', IN_FIRST_DAYS = 14;
+async function inMap(k){ try { return (await kvGet(k)) || {}; } catch(e){ return {}; } }
+/* Where the intake starts: the first time it is used, the last fortnight, so
+   opening the PC once does not send every call ever finished. A call changed
+   after that goes in again, however old. */
+async function inSince(){
+  let t = null;
+  try { t = await kvGet(IN_SINCE); } catch(e){}
+  if(!t){ t = Date.now() - IN_FIRST_DAYS * 86400000; try { await kvSet(IN_SINCE, t); } catch(e){} }
+  return t;
+}
+/* Your own finished calls and quote requests not yet sent, or changed since.
+   Closed with nothing to report is a finished state with nothing for Claude. */
+async function inPending(sent){
+  sent = sent || await inMap(IN_SENT);
+  const since = await inSince();
+  return (await recordsAll()).filter(c => c.closed && !c.test && !c.noReport && isMine('calls', c.id) && (c.updated || 0) >= since &&
+    (!sent[c.id] || sent[c.id].u !== (c.updated || 0)));
+}
+// the PC folder, without asking: null when the browser wants a tap to allow it again
+async function inRootQuiet(){
+  const h = await pcStored();
+  if(!h) return null;
+  try { return h.queryPermission && await h.queryPermission({mode: 'readwrite'}) === 'granted' ? h : null; } catch(e){ return null; }
+}
+function inTicketName(c){
+  const day = isoFromDdmmyyyy(c.date) || iso(new Date(c.updated || Date.now()));
+  return pcName(day + ' ' + (c.customer || 'Call'), 'Call') + ' (' + String(c.id).slice(-5) + ').json';
+}
+function inTicket(c, parts, saved, again){
+  const day = isoFromDdmmyyyy(c.date) || '';
+  return {kind: IN_KIND, v: 1, made: Date.now(), app: APP_BUILD, again: !!again,
+    callId: c.id, customer: c.customer || '', site: c.site || '', date: day, type: c.type || '', quote: isQuote(c),
+    noReport: !!c.noReport, mgr: c.mgr || '', folder: parts.join('\\'), folderParts: parts,
+    files: {call: CL_CALL_FILE, notes: (saved && saved.files && saved.files[0]) || '', photos: CL_PHOTO_DIR, report: CL_IMPORT_FILE},
+    contacts: (c.contacts || []).filter(docContact).map(x => ({name: x.name || '', email: x.email || '', role: x.role || ''})),
+    // the next steps raised in it, still open: they are tasks, so not in the call file
+    steps: (typeof TASKS !== 'undefined' ? tasksReal(TASKS) : []).filter(t => t.callId === c.id && !t.done)
+      .map(t => ({what: taskTitle(t), type: t.type || '', project: t.project || '', date: t.date || ''}))};
+}
+let inBusy = false;
+/* Every own finished call not yet sent, or changed since: filed, its file for
+   Claude written, and its ticket. ask: the button, which may ask to allow the
+   folder (or to pick one); otherwise only when already allowed, and quietly. */
+async function inSendAll(ask){
+  if(!pcFolderOk() || inBusy) return null;
+  inBusy = true;
+  try {
+    let root;
+    if(ask){
+      try { root = await pcRoot(!(await pcStored())); } catch(e){ console.error('intake', e); toast('Could not open that folder: ' + e.message); return null; }
+      if(!root){ toast('Nothing sent: the folder was not allowed'); return null; }
+    } else if(!(root = await inRootQuiet())) return null;
+    const sent = await inMap(IN_SENT), todo = await inPending(sent);
+    if(!todo.length){ if(ask) toast('Every finished call is already in the intake'); renderIntake(); return {n: 0}; }
+    const saved = await pcSavedMap(), idir = await root.getDirectoryHandle(IN_DIR, {create: true});
+    let n = 0, failed = 0;
+    for(const c of todo){
+      try {
+        if(!saved[c.id] || saved[c.id].u !== (c.updated || 0)){ saved[c.id] = await pcSaveOne(root, c, saved); await kvSet(PC_SAVED, saved); }
+        const w = await clWriteVisit(root, c);
+        const name = inTicketName(c);
+        await pcWrite(idir, name, new Blob([JSON.stringify(inTicket(c, w.parts, saved[c.id], sent[c.id]), null, 1)], {type: 'application/json'}));
+        sent[c.id] = {u: c.updated || 0, at: Date.now(), ticket: name, dir: w.parts};
+        await kvSet(IN_SENT, sent);
+        n++;
+      } catch(e){ console.error('intake', c.id, e); failed++; }
+    }
+    if(n || failed) toast((n ? 'Sent ' + n + (n === 1 ? ' call' : ' calls') + ' to the intake in ' + (root.name || 'the PC folder') : 'Nothing sent') +
+      (failed ? '. ' + failed + ' could not be sent: try Send to intake' : ''));
+    renderIntake(); renderPcFolder();
+    return {n, failed};
+  } finally { inBusy = false; }
+}
+let inT = null;
+function inSoon(){ clearTimeout(inT); inT = setTimeout(() => inAuto().catch(e => console.error('intake', e)), 2500); }
+async function inAuto(){
+  if(!pcFolderOk() || !(await pcStored())) return;
+  await inSendAll(false);
+  const ready = await inReady(true);
+  if(ready && ready.length) toast(ready.length + (ready.length === 1 ? ' call report from Claude is' : ' call reports from Claude are') + ' ready: Reports, Bring in from Claude');
+  renderIntake();
+}
+/* Claude's reports waiting in the folders of calls sent to the intake: those
+   whose fieldcrm-import.json is new since it was last brought in. */
+async function inReady(quiet){
+  const root = quiet ? await inRootQuiet() : await pcRoot(false);
+  if(!root) return null;
+  const sent = await inMap(IN_SENT), got = await inMap(IN_GOT), cut = Date.now() - IN_LOOK_DAYS * 86400000;
+  const calls = new Map((await recordsAll()).map(c => [c.id, c]));
+  const out = [];
+  for(const [id, s] of Object.entries(sent)){
+    const c = calls.get(id);
+    if(!c || (s.at || 0) < cut || !s.dir) continue;
+    let f, d;
+    try { f = await (await (await pcSub(root, s.dir)).getFileHandle(CL_IMPORT_FILE)).getFile(); d = JSON.parse(await f.text()); } catch(e){ continue; }
+    if(!d || d.kind !== CL_IN_KIND || d.v !== 1) continue;
+    const mark = String(d.made || f.lastModified || '');
+    if(got[id] === mark) continue;
+    if(d.callId && d.callId !== id) continue;     // made for another call: left for Import call report, which asks
+    out.push({c, d, mark});
+  }
+  return out;
+}
+async function inBringIn(){
+  const ready = await inReady(false);
+  if(!ready){ toast('The PC folder was not allowed'); return; }
+  const plans = [];
+  for(const x of ready){
+    if(call && call.id === x.c.id) x.c = call;      // the open call: brought into it, so nothing typed is lost
+    const p = clSummary(await clApply(x.c, x.d, true)); if(p.length) plans.push(Object.assign(x, {plan: p}));
+  }
+  const got = await inMap(IN_GOT);
+  // a report with nothing new is marked brought in, so it is not offered again
+  ready.filter(x => !plans.includes(x)).forEach(x => { got[x.c.id] = x.mark; });
+  await kvSet(IN_GOT, got);
+  if(!plans.length){ toast('Nothing new from Claude'); renderIntake(); return; }
+  if(!confirm('Bring in Claude\'s reports for ' + plans.length + (plans.length === 1 ? ' call' : ' calls') + '?\n\n' +
+      plans.map(x => '- ' + x.c.customer + ', ' + x.c.date + ': ' + x.plan.join(', ')).join('\n') + '\n\nNothing you typed in Field CRM is changed.')) return;
+  const sent = await inMap(IN_SENT), root = await inRootQuiet();
+  let n = 0;
+  for(const x of plans){
+    try {
+      await clApply(x.c, x.d, false);
+      if(x.c === call) await saveCall(); else await callsPut(x.c);
+      got[x.c.id] = x.mark;
+      // brought in is not a change to send again; the filed notes follow it
+      if(sent[x.c.id]) sent[x.c.id].u = x.c.updated || 0;
+      if(root){ const saved = await pcSavedMap(); saved[x.c.id] = await pcSaveOne(root, x.c, saved); await kvSet(PC_SAVED, saved); }
+      n++;
+    } catch(e){ console.error('bring in', x.c.id, e); }
+  }
+  await kvSet(IN_GOT, got); await kvSet(IN_SENT, sent);
+  indexCalls(await callsAll());
+  taskRefresh();
+  if(screen === 'dash') renderDash();
+  if(screen === 'reports') renderReports().catch(e => console.error('reports', e));
+  toast('Brought in ' + n + (n === 1 ? ' call report' : ' call reports') + ' from Claude');
+  renderIntake();
+}
+// the two buttons on Reports: PC only, each saying how many
+async function renderIntake(){
+  const s = $('rpIntake'), b = $('rpBringIn');
+  if(!s || !b) return;
+  s.hidden = b.hidden = !pcFolderOk();
+  if(s.hidden) return;
+  const n = (await inPending()).length;
+  s.innerHTML = icon('folder') + '<span>Send to intake' + (n ? ' (' + n + ')' : '') + '</span>';
+  const r = await inReady(true);
+  b.hidden = !(r && r.length);
+  if(!b.hidden) b.innerHTML = icon('plus') + '<span>Bring in from Claude (' + r.length + ')</span>';
+}
+$('rpIntake') && $('rpIntake').addEventListener('click', () => inSendAll(true).catch(reportErr));
+$('rpBringIn') && $('rpBringIn').addEventListener('click', () => inBringIn().catch(reportErr));
 
 /* ================= the business plan (v189) =================
    Ben, 2026-10-30: the MPS team's half-year plan, moved in from the tracker he
@@ -23113,6 +23293,7 @@ $('rsBtn').addEventListener('click', async ()=>{
   paintHeaderMenu(screen);
   headerHeight(); window.addEventListener('resize', headerHeight);
   try { await restoreCall(); renderCallStrip(); } catch(e){ console.error('open call', e); }   // v178
+  if(pcFolderOk()) inSoon();      // v193: on opening, the intake and Claude's reports
   try { await renderHome(); } catch(e){ console.error('home', e); }
   try { await consumeSharedFile(); } catch(e){ console.error('shared file', e); }
   try { await consumeJoin(); } catch(e){ console.error('set-up link', e); }
@@ -23864,6 +24045,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v193', 'The intake, on the PC: each call or quote request you finish goes to Claude by itself. After a sync, or when you mark a call done on the PC, it is filed in your PC folder with the file for Claude, and a ticket goes in the Intake folder there. In Claude, the intake skill works through them: the call report, the emails as Outlook drafts (nothing is sent), quote requests and follow-ups. Reports has Send to intake, and Bring in from Claude when Claude\'s reports are ready. Only your own calls go; the first time, the last two weeks\'.'],
   ['v192', 'Accessories, from the OneTrack list: wearstrips, retainer rings, CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, each with its part number. Load the list in Settings, CRM and belt data, Accessories. In a call or quote request, tap Accessories for those not tied to one belt; a belt has its own Accessories section. Tap a choice in each row until the part number shows; a wearstrip starts on the snap-on, 500 ft, for a 1/4 in frame, and items for the belts\' series come first. They print in the quote request and the call notes. Reference has a OneTrack tab, and an order sheet can hold accessory favourites for the customer\'s form. Also fixed: Add from a description on a Blue Sheet, and the contact form\'s title, which shared names with other parts of the app.'],
   ['v191', 'A belt with no sprocket chosen no longer prints a Sprockets section of the bore and the counts filled in for it. The section appears once you give a sprocket size, material, description or part number. Belts already logged follow too; nothing you entered is changed.'],
   ['v190', 'The photo icons at the top of a call now add to what you have open. In a belt, project, note or health item, the photos join that item (kept when you tap Done), the same as its own photo buttons. Before, they went to the last item logged, or to the loose photos. On a conveyor walk\'s list and a next step, which hold no photos, they go to the loose photos. On a quote request, a belt no longer says "not yet confirmed with TSG": the TSG line appears only when you tick it. Requested by lists each person under the other, so a long email or job title stays on the page on a phone.'],
