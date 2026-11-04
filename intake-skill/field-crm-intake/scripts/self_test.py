@@ -89,6 +89,17 @@ def main():
         ok(p.returncode == 0 and '2 in the intake' in p.stdout and 'call report (end-game skill)' in p.stdout and 'Next step: Send the CV-200 belt quote, by 2026-11-07' in p.stdout,
            'the command line lists them')
 
+        # photos dropped in the intake from Google Photos: counted, Done left out
+        os.makedirs(os.path.join(tmp, 'Intake', 'Google Photos'))
+        for n in ('Intake/PXL_20261103_221501.jpg', 'Intake/Google Photos/PXL_20261103_221630.jpg', 'Intake/Done/old.jpg'):
+            os.makedirs(os.path.dirname(os.path.join(tmp, n)), exist_ok=True)
+            open(os.path.join(tmp, n), 'wb').close()
+        pics = [os.path.basename(x) for x in list_tickets.dropped_photos(tmp)]
+        ok(sorted(pics) == ['PXL_20261103_221501.jpg', 'PXL_20261103_221630.jpg'],
+           'photos dropped in the intake, subfolders too, not Done: ' + str(pics))
+        p = subprocess.run([sys.executable, os.path.join(HERE, 'list_tickets.py'), '--root', tmp], capture_output=True, text=True)
+        ok('2 photos dropped in the intake' in p.stdout, 'the list says so')
+
         # a report already made, newer than the ticket: no report job
         vd = c['folder']
         common.write_json(os.path.join(vd, 'fieldcrm-import.json'), {'kind': common.REPORT_KIND, 'v': 1, 'made': c['made'] + 1, 'callId': c['callId']})
@@ -125,6 +136,10 @@ def main():
         ok(d['to'] == ['quotes@example.com'] and d['subject'] == 'Quote request: Example Foods - Smithfield (3 November 2026)' and not d['send'],
            'the quote email: to customer service, its subject, never sent')
         ok(len(d['attachments']) == 1 and d['attachments'][0].endswith('_belt_RFQ.html') and not d['warnings'], 'Field CRM\'s quote request attached')
+        fp = os.path.join(q['folder'], d['saved'])
+        filed = open(fp, encoding='utf-8').read() if os.path.exists(fp) else ''
+        ok(d['saved'].endswith('Email - quote - Example Foods - Smithfield.html') and 'quotes@example.com' in filed and 'Please quote the attached request' in filed and 'class=' not in filed,
+           'the email is filed in the visit folder, beside the quote request: ' + d['saved'])
         ok('Jo Bloggs<br>Account Manager' in d['body_html'] and 'style=' in d['body_html'] and 'class=' not in d['body_html'], 'inline styles only, with the signature')
         out, d = draft_email.build(tmp, call_t, 'customer')
         ok(d['to'] == ['pat@example.com'] and d['subject'] == 'Our visit on 3 November 2026: Example Foods - Smithfield' and 'Hi Pat,' in d['body_text'],
@@ -182,6 +197,7 @@ def main():
         for k in ('Nothing has been sent', 'draft, not sent', 'Bring in from Claude', 'Spiral upgrade', 'file:'):
             ok(k in doc, 'the review page has: ' + k)
         ok('class=' not in doc and '@page{size:A4' in doc, 'inline styles, A4')
+        ok('2 photos are still in the Intake folder' in doc, 'the review page says what photos are left')
         p = subprocess.run([sys.executable, os.path.join(HERE, 'review.py'), '--root', tmp, '--date', day], capture_output=True, text=True)
         ok(p.returncode == 0 and os.path.exists(os.path.join(tmp, 'Intake', 'Review ' + day + '.html')), 'the command line writes Intake\\Review <date>.html')
         p = subprocess.run([sys.executable, os.path.join(HERE, 'check_setup.py'), '--root', tmp], capture_output=True, text=True)

@@ -4,6 +4,11 @@
     python3 draft_email.py --root "<PC folder>" --ticket "<ticket name>" --kind quote|customer|other
                            [--to a@b,c@d] [--cc ...] [--subject "..."] [--body body.txt] [--attach file ...]
 
+Files the email itself in the visit folder, beside the call report, as
+<date> Email - <kind> - <customer>.html (to, cc, subject, attachments, then
+the body), so the folder holds what was said to whom for the next pre-call.
+Made again, the file is written again.
+
 Writes drafts\\<kind> - <customer>.json in the call's visit folder: to, cc,
 subject, the body as inline-styled HTML (Outlook keeps nothing else) and as
 plain text, and the attachments, full paths. Claude then creates the draft in
@@ -131,8 +136,28 @@ def build(root, ticket, kind, to=None, cc=None, subject=None, body=None, attach=
     prev = common.read_json(out) if os.path.exists(out) else {}
     if prev.get('outlook_id'):
         d['outlook_id'] = prev['outlook_id']     # made again: update that draft, not a second one
+    # the email itself, filed beside the call report, so the visit folder holds
+    # what was said to whom for the next pre-call (Ben, 2026-11-04)
+    d['saved'] = save_html(vd, t, d)
     common.write_json(out, d)
     return out, d
+
+
+def save_html(vd, t, d):
+    """<date> Email - <kind> - <customer>.html in the visit folder: who, subject, attachments, then the body."""
+    day = d['made'][:10]
+    name = re.sub(r'[<>:"/\\|?*]+', ' ', '%s Email - %s - %s.html' % (day, d['email_kind'], t.get('customer') or 'call')).strip()
+    head = [('To', ', '.join(d['to'])), ('Cc', ', '.join(d['cc'])), ('Subject', d['subject']),
+            ('Attachments', ', '.join(os.path.basename(a) for a in d['attachments'])), ('Made', d['made'].replace('T', ' ') + ', as a draft in Outlook')]
+    th = 'text-align:left;padding:4px 10px 4px 0;color:#77787A;font-weight:normal;vertical-align:top;white-space:nowrap'
+    doc = ('<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><title>' + html.escape(d['subject']) + '</title>'
+           '<style>@page{size:A4;margin:14mm}</style></head><body style="margin:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact">'
+           '<table style="' + FONT + ';font-size:13px;border-collapse:collapse;margin:0 0 14px;border-bottom:1px solid #D4D6D8;width:100%">' +
+           ''.join('<tr><th style="' + th + '">' + k + '</th><td style="padding:4px 0">' + html.escape(v) + '</td></tr>' for k, v in head if v) +
+           '</table>' + d['body_html'] + '</body></html>')
+    with open(os.path.join(vd, name), 'w', encoding='utf-8') as f:
+        f.write(doc)
+    return name
 
 
 def main():

@@ -26,6 +26,10 @@ each, oldest first:
                     visit planner skill, or leave them on Field CRM's planner
       projects      projects raised, for Dynamics (kept with the ticket)
 
+Photos dropped anywhere in the Intake folder (downloaded from Google Photos)
+are counted: the call report collects each visit's from there by the time
+each was taken. --json prints {"tickets": [...], "dropped_photos": [...]}.
+
 --done lists Intake\\Done instead. Nothing is changed.
 """
 import argparse
@@ -123,6 +127,15 @@ def look(root, path):
     return out
 
 
+def dropped_photos(root):
+    """Photos the person dropped anywhere in the Intake folder (from Google Photos), not in Done."""
+    out, base = [], common.intake_dir(root)
+    for d, dirs, files in os.walk(base):
+        dirs[:] = [x for x in dirs if not (d == base and x == common.DONE)]
+        out += [os.path.join(d, f) for f in files if f.lower().endswith(common.PICTURE)]
+    return sorted(out)
+
+
 def tickets(root, done=False):
     d = os.path.join(common.intake_dir(root), common.DONE) if done else common.intake_dir(root)
     out = []
@@ -154,9 +167,12 @@ def main():
     if not os.path.isdir(common.intake_dir(root)):
         sys.exit('No Intake folder in ' + root + '. Field CRM makes it the first time it sends a call (Reports, Send to intake).')
     rows = tickets(root, a.done)
+    pics = [] if a.done else dropped_photos(root)
     if a.json:
-        print(json.dumps(rows, indent=1, ensure_ascii=False))
+        print(json.dumps(rows if a.done else {'tickets': rows, 'dropped_photos': pics}, indent=1, ensure_ascii=False))
         return
+    if pics:
+        print('%d photo%s dropped in the intake (from Google Photos): each call report collects its visit\'s by time.\n' % (len(pics), '' if len(pics) == 1 else 's'))
     if not rows:
         print('Nothing in the intake.' if not a.done else 'Nothing in Intake\\Done.')
         return

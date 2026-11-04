@@ -34,6 +34,7 @@ CRM sends, it sends the last fortnight's.
 | File | Written by | What it is |
 |---|---|---|
 | `Intake\<date> <customer> (<id>).json` | Field CRM | The ticket: one per call, replaced if the call changes |
+| `Intake\` (any picture, any subfolder) | the person | Photos downloaded from Google Photos. The call report collects each visit's by the time it was taken; they are never moved or deleted |
 | `Intake\intake settings.json` | the person (or Claude, asked) | `me`, `email`, `customer_service` (where quote requests go), `signature` |
 | `Intake\Done\<ticket>.json` | `done.py` | The ticket, with `handled`: what was done |
 | `Intake\Review <date>.html` | `review.py` | The day's review page |
@@ -41,6 +42,7 @@ CRM sends, it sends the last fortnight's.
 | `<visit folder>\<Field CRM document>.html` | Field CRM | The call notes, or the quote request |
 | `<visit folder>\from Field CRM\` | Field CRM | The call's photos |
 | `<visit folder>\fieldcrm-import.json` | end-game skill | Claude's report, for Bring in from Claude |
+| `<visit folder>\<date> Email - <kind> - <customer>.html` | `draft_email.py` | The email itself, filed beside the call report: to, cc, subject, attachments, then the body. For the next pre-call |
 | `<visit folder>\drafts\<kind> - <customer>.json` | `draft_email.py` | An email draft: what went into Outlook, and its `outlook_id` |
 | `<visit folder>\request.json` | `to_quote.py` | A call's belts as a quote request, for the quote request skill |
 
@@ -105,4 +107,4 @@ change.
 
 | Version | Date | What changed |
 |---|---|---|
-| 1 | 2026-11-04 | First version, with Field CRM v193: tickets, jobs, drafts, done, review. |
+| 1 | 2026-11-04 | First version, with Field CRM v193: tickets, jobs, drafts, done, review. Photos downloaded from Google Photos into the Intake folder are counted, and the call report collects each visit's from there. Every email is filed as HTML in the visit folder, beside the call report. |

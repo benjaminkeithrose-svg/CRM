@@ -46,7 +46,11 @@ signature, and offer to save it. Pass `--root "<PC folder>"` to every script.
      folder (`folder` in the list): it reads `Field CRM call.json`, the
      recording and the photos, writes the site walk notes, the customer copy
      and `fieldcrm-import.json`. If end-game is not installed, say so and
-     leave this job.
+     leave this job. **Photos from Google Photos:** the person downloads them
+     into the Intake folder (anywhere in it). When the list says photos were
+     dropped there, use `<PC folder>\Intake` as the camera roll in end-game's
+     collect-photos step (`--from`); it copies each visit's by the time they
+     were taken and leaves the rest. Never move or delete them.
    - `quote_email`: `python3 scripts/draft_email.py --root ... --ticket "<ticket>" --kind quote`,
      then create the Outlook draft with exactly the printed fields (to,
      subject, the HTML body, the attachments). Keep the draft's id: put it
@@ -62,6 +66,12 @@ signature, and offer to save it. Pass `--root "<PC folder>"` to every script.
      the report and the next steps; no prices, no internal notes) into a
      text file, then `draft_email.py ... --kind customer --body "<file>"`.
      It attaches the customer copy. Create the Outlook draft.
+   - **Every email is filed.** `draft_email.py` saves each email as HTML in
+     the visit folder, beside the call report (`<date> Email - <kind> - <customer>.html`),
+     so the next pre-call has it. An email another skill makes for this call
+     (the quote request skill's email body) is copied into the visit folder
+     too. If the person changed an email in Outlook before sending and asks,
+     save the sent one again from Sent Items through the connection.
    - `follow_ups`: the dated next steps. For a visit or call, offer to book
      it with the **visit-planner** skill; ask first. Others stay on Field
      CRM's planner: nothing to do.

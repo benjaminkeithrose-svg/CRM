@@ -1218,12 +1218,15 @@ Every call or quote request you finish goes to Claude on its own. Claude makes t
 2. On the PC, open Field CRM. Finished calls go to the intake by themselves after it syncs.
 3. If the number on **Send to intake** in **Reports** isn't zero, Chrome wants the folder allowed again. Click **Send to intake**.
 4. When Chrome asks whether the app can edit files there, click **Allow this time**.
-5. In Claude, type: **Work through my intake.**
-6. Check the review page Claude gives you: the report, the email drafts in Outlook and the quote requests.
-7. Back in Field CRM, open **Reports** and click **Bring in from Claude**.
-8. Read the message listing each call and what it adds, and click **OK**.
+5. If the photos are in Google Photos, download the visit's photos and put them in the **Intake** folder.
+6. In Claude, type: **Work through my intake.**
+7. Check the review page Claude gives you: the report, the email drafts in Outlook and the quote requests.
+8. Back in Field CRM, open **Reports** and click **Bring in from Claude**.
+9. Read the message listing each call and what it adds, and click **OK**.
 
 Each call is filed in your PC folder as Save to PC folder files it, in **Customer\Site\2026-11-04**, with the file Save for Claude writes. A small ticket goes in the **Intake** folder inside your PC folder. Claude moves each ticket to **Intake\Done** when it has dealt with it.
+
+Photos you put in the Intake folder can be in any folder inside it. Claude copies each visit's photos into its folder by the time they were taken, and leaves the files where you put them. Delete them when you're done.
 
 A call marked done on the PC goes straight away. A call changed after it went goes again, marked as changed.
 
@@ -1232,6 +1235,8 @@ Only your own calls go, never a colleague's from the team. A call closed with no
 When Field CRM opens and Claude's reports are ready, a message says so. Bring in from Claude only fills what is empty: nothing you typed is changed.
 
 Nothing is sent to a customer by Field CRM or by Claude. Claude only makes drafts.
+
+Each email Claude makes is also saved in the visit's folder, next to the call report, so it's there for the next pre-call.
 
 The buttons aren't on the phone.
 

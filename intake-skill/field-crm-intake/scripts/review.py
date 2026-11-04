@@ -74,6 +74,10 @@ def page(root, day):
             ('Into Field CRM', 'Reports, Bring in from Claude' if any(str(m).endswith('fieldcrm-import.json') for m in h.get('made') or []) else ''),
         ]))
         p.append('</table>')
+    pics = list_tickets.dropped_photos(root)
+    if pics:
+        p.append('<p style="margin:18px 0 0;font-size:14px">' + str(len(pics)) + (' photo is' if len(pics) == 1 else ' photos are') +
+                 ' still in the Intake folder. Each call report copied the ones from its visit; delete the rest when you are done with them.</p>')
     if waiting:
         p.append('<h2 style="' + H2 + '">Still in the intake</h2><table style="border-collapse:collapse;width:100%;border:1px solid #B9BCBF">')
         p.append('<tr><th style="' + TH + '">Call</th><th style="' + TH + '">Waiting for</th></tr>')

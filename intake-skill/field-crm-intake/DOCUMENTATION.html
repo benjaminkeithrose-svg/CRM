@@ -64,6 +64,11 @@ CRM sends, it sends the last fortnight's.</p>
 <td>The ticket: one per call, replaced if the call changes</td>
 </tr>
 <tr>
+<td><code>Intake\</code> (any picture, any subfolder)</td>
+<td>the person</td>
+<td>Photos downloaded from Google Photos. The call report collects each visit's by the time it was taken; they are never moved or deleted</td>
+</tr>
+<tr>
 <td><code>Intake\intake settings.json</code></td>
 <td>the person (or Claude, asked)</td>
 <td><code>me</code>, <code>email</code>, <code>customer_service</code> (where quote requests go), <code>signature</code></td>
@@ -97,6 +102,11 @@ CRM sends, it sends the last fortnight's.</p>
 <td><code>&lt;visit folder&gt;\fieldcrm-import.json</code></td>
 <td>end-game skill</td>
 <td>Claude's report, for Bring in from Claude</td>
+</tr>
+<tr>
+<td><code>&lt;visit folder&gt;\&lt;date&gt; Email - &lt;kind&gt; - &lt;customer&gt;.html</code></td>
+<td><code>draft_email.py</code></td>
+<td>The email itself, filed beside the call report: to, cc, subject, attachments, then the body. For the next pre-call</td>
 </tr>
 <tr>
 <td><code>&lt;visit folder&gt;\drafts\&lt;kind&gt; - &lt;customer&gt;.json</code></td>
@@ -259,7 +269,7 @@ change.</p>
 <tr>
 <td>1</td>
 <td>2026-11-04</td>
-<td>First version, with Field CRM v193: tickets, jobs, drafts, done, review.</td>
+<td>First version, with Field CRM v193: tickets, jobs, drafts, done, review. Photos downloaded from Google Photos into the Intake folder are counted, and the call report collects each visit's from there. Every email is filed as HTML in the visit folder, beside the call report.</td>
 </tr>
 </tbody>
 </table></div><div class="ft">Field CRM intake · Intralox</div></body></html>
