@@ -1,0 +1,20 @@
+{
+  "id": "health-check",
+  "title": "Health check",
+  "subject": "Health check: {customer}",
+  "about": "A conveyor health check or site walk: longer, out of office, the lines to walk and what to bring.",
+  "minutes": 180,
+  "busy": "oof",
+  "reminder": 1440,
+  "location": "{site_full}",
+  "categories": ["Customer visit", "Health check"],
+  "online": false,
+  "sections": [
+    {"type": "rows", "rows": [["Customer", "customer"], ["Site", "site"], ["Zone", "zone"], ["Account manager", "account_manager"]]},
+    {"type": "text", "heading": "Agenda", "key": "agenda", "empty": "Walk each conveyor: belt, sprockets, carryway, returnway, transfers. Agree what to fix on site, what to watch and what to quote."},
+    {"type": "list", "heading": "Lines to walk", "key": "lines"},
+    {"type": "list", "heading": "Bring", "key": "bring", "default": ["PPE: safety boots, glasses, hi-vis, hearing protection", "Belt replacement ruler", "Tape measure", "Phone for photos", "Plaud recorder"]},
+    {"type": "contacts", "heading": "Seeing"},
+    {"type": "text", "heading": "Notes", "key": "notes"}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "teams-call",
+  "title": "Teams call",
+  "subject": "Teams call: {customer}",
+  "about": "A Teams or phone call: a quote follow-up or a project update; busy, not out of office; the Teams link added by Outlook.",
+  "minutes": 30,
+  "busy": "busy",
+  "reminder": 15,
+  "location": "Microsoft Teams",
+  "categories": ["Customer call"],
+  "online": true,
+  "sections": [
+    {"type": "rows", "rows": [["Customer", "customer"], ["About", "topic"], ["Account manager", "account_manager"]]},
+    {"type": "text", "heading": "Agenda", "key": "agenda", "empty": "No agenda yet."},
+    {"type": "list", "heading": "To cover", "key": "follow_ups"},
+    {"type": "contacts", "heading": "With"},
+    {"type": "text", "heading": "Join", "key": "teams_link", "empty": "The Teams link: turn on Teams meeting in Outlook, or the Outlook connection adds it."}
+  ]
+}

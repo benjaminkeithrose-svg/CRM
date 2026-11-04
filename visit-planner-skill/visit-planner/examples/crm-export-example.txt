@@ -1,0 +1,9 @@
+Account Name,Full Name,Job Title,Email 1,Mobile,Account Manager,Account Focus,Last Appointment,Last Activity Date
+Example Foods - Smithfield,Pat Example,Maintenance Manager,pat@example.com,0400 000 001,Jo Bloggs,High,2026-06-02,2026-09-20
+Example Foods - Smithfield,Alex Example,Engineer,alex@example.com,0400 000 002,Jo Bloggs,High,2026-06-02,2026-09-20
+Example Dairy - Wetherill Park,Sam Example,Production Manager,sam@example.com,,Jo Bloggs,Medium,2026-01-15,
+Example Pies - Penrith,Lee Example,Engineering Manager,lee@example.com,0400 000 003,Jo Bloggs,High,2026-10-20,
+Example Meats - Dandenong,Chris Example,Site Manager,chris@example.com,,Jo Bloggs,Low,,2025-08-01
+Example Snacks - Brisbane,Robin Example,Maintenance Lead,robin@example.com,,Jo Bloggs,High,,
+Example Bakery - Geelong,Kim Example,Engineer,kim@example.com,,Taylor Other,High,2025-01-01,
+Example Seafood - Auckland,Drew Example,Plant Engineer,drew@example.com,,Jo Bloggs,No Focus,,

@@ -1,0 +1,13 @@
+{
+  "template": "site-visit",
+  "customer": "Example Foods - Smithfield",
+  "date": "2026-11-10",
+  "start": "10:00",
+  "agenda": "Walk the packing line infeed with Pat. Review the quote for the Conveyor 4 belt.",
+  "follow_ups": ["Send the belt quote for Conveyor 4", "Book the health check for Line 2"],
+  "contacts": [
+    {"name": "Pat Example", "role": "Maintenance Manager", "email": "pat@example.com", "mobile": "0400 000 001"},
+    {"name": "Alex Example", "role": "Engineer", "email": "alex@example.com"}
+  ],
+  "invite": false
+}
