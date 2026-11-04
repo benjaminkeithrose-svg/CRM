@@ -52,7 +52,7 @@ await g(`(async () => {
 // ---- the account's card
 ok(/Order sheet/.test($('avOrders').textContent) && /No favourites yet/.test($('avOrders').textContent), 'the account has an Order sheet card');
 $('avOrders').click(); await tick(50);
-ok(g('screen') === 'orders' && $('osHead').textContent === A && $('osSend').disabled, 'it opens the sheet; nothing to send yet');
+ok(g('screen') === 'orders' && $('oshHead').textContent === A && $('osSend').disabled, 'it opens the sheet; nothing to send yet');
 
 // ---- a belt favourite
 $('osAdd').click(); await tick(50);
@@ -81,7 +81,7 @@ $('ofDone').click(); await tick(800);
 const sheet = () => g(`osFor('${A}')`);
 ok(g('screen') === 'orders' && sheet() && sheet().belts.length === 1 && sheet().belts[0].label === 'Infeed belt' && sheet().kind === 'orders', 'Done: on the sheet, in the plans store');
 ok(sheet().belts[0].materials.join() === 'POLYPROPYLENE,ACETAL' && sheet().belts[0].colours.length === 2, 'with every choice given');
-ok(/Infeed belt/.test($('osList').textContent) && /Series 800/.test($('osList').textContent) && /Sales: Check the side transfer/.test($('osList').textContent), 'listed under its series, the sales note shown here');
+ok(/Infeed belt/.test($('oshList').textContent) && /Series 800/.test($('oshList').textContent) && /Sales: Check the side transfer/.test($('oshList').textContent), 'listed under its series, the sales note shown here');
 ok((await g(`plansAll()`)).some(p => p.kind === 'orders' && p.acct === '${A}'.replace('${A}', A)), 'saved on the device');
 ok(!g(`planFor('${A}')`), 'and it is not taken for the account plan');
 
@@ -92,15 +92,15 @@ $('ofSSeries').value = '800'; $('ofSSeries').dispatchEvent(new w.Event('change')
 ok($('ofSBore').value === '40 mm square', 'a sprocket starts at 40 mm square');
 chip('ofSPds', '11T 85 mm').click(); await tick(20);
 g(`go('orders')`); await tick(800);
-ok(sheet().sprockets.length === 1 && /Still needs a material/.test($('osList').textContent) && /still needs a material/.test(w.__t), 'left half done: kept, and it says what it still needs');
+ok(sheet().sprockets.length === 1 && /Still needs a material/.test($('oshList').textContent) && /still needs a material/.test(w.__t), 'left half done: kept, and it says what it still needs');
 // finish it from the list
-d.querySelector('#osList [data-osopen="' + sheet().sprockets[0].id + '"]').click(); await tick(50);
+d.querySelector('#oshList [data-osopen="' + sheet().sprockets[0].id + '"]').click(); await tick(50);
 ok($('ofKindW').hidden, 'an existing favourite stays the kind it is');
 chip('ofSPds', '19T 154 mm').click(); await tick(20);
 ok([...$('ofSMats').querySelectorAll('[data-v]')].map(b => b.dataset.v).join('|') === 'ACETAL|POLYPROPYLENE', 'materials for every pitch diameter picked');
 chip('ofSMats', 'ACETAL').click(); await tick(20);
 $('ofDone').click(); await tick(800);
-ok(!/Still needs/.test($('osList').textContent) && !$('osSend').disabled, 'finished, and the form can be sent');
+ok(!/Still needs/.test($('oshList').textContent) && !$('osSend').disabled, 'finished, and the form can be sent');
 
 // ---- an empty new one leaves nothing
 const n0 = g(`osList(osFor('${A}')).length`);
@@ -108,14 +108,14 @@ $('osAdd').click(); await tick(50); $('ofDone').click(); await tick(800);
 ok(g(`osList(osFor('${A}')).length`) === n0, 'opened and left empty: nothing added');
 
 // ---- Duplicate opens a copy
-d.querySelector('#osList [data-osmenu="' + sheet().belts[0].id + '"]').click(); await tick(30);
+d.querySelector('#oshList [data-osmenu="' + sheet().belts[0].id + '"]').click(); await tick(30);
 [...d.querySelectorAll('#vmBody [data-cm]')].find(b => /Duplicate/.test(b.textContent)).click(); await tick(50);
 ok(g('screen') === 'ofav' && g('OF.f.id') !== sheet().belts[0].id && g('OF.f.series') === '800' && !g('OF.f.label'), 'Duplicate opens a copy to change');
 chip('ofCols', 'BLUE').click(); await tick(20);
 $('ofDone').click(); await tick(800);
 ok(sheet().belts.length === 2, 'and it is saved as a second favourite');
 // Remove asks, naming it
-d.querySelector('#osList [data-osmenu="' + sheet().belts[1].id + '"]').click(); await tick(30);
+d.querySelector('#oshList [data-osmenu="' + sheet().belts[1].id + '"]').click(); await tick(30);
 [...d.querySelectorAll('#vmBody [data-cm]')].find(b => /Remove/.test(b.textContent)).click(); await tick(300);
 ok(/Remove S800 FLAT TOP from the order sheet for Example Foods/.test(asked) && sheet().belts.length === 1, 'Remove asks, naming it, then takes it off');
 
@@ -123,7 +123,7 @@ ok(/Remove S800 FLAT TOP from the order sheet for Example Foods/.test(asked) && 
 $('osSend').click(); await tick(50);
 ok(g('screen') === 'osend' && d.querySelector('#osTo .on').dataset.to === 'Jo Bloggs', 'the form goes to the contact with an email');
 ok(d.querySelectorAll('#osPick input:checked').length === 2 && /the sales note stays out/.test($('osPick').textContent), 'both favourites ticked; the sales note says it stays out');
-$('osGo').click(); await tick(800);
+$('oshGo').click(); await tick(800);
 const file = w.__file;
 ok(file && /^Example-Foods.*_order-form_\d{4}-\d{2}-\d{2}\.html$/.test(file.name) || (file && /order-form/.test(file.name)), 'a file is made: ' + (file && file.name));
 ok(!/side transfer/.test(file.text) && !/internalNote/.test(file.text), 'the sales note is not in the file at all');
@@ -169,7 +169,7 @@ Object.defineProperty($('osFile'), 'files', { value: [fileIn], configurable: tru
 $('osFile').dispatchEvent(new w.Event('change')); await tick(300);
 const old = sheet().belts.find(f => f.id === 'f1');
 ok(old && old.materials.join() === 'POLYPROPYLENE' && old.widths.join() === '300', 'its favourites join the sheet, older single choices made into lists');
-ok(/Brought in 1 favourite; 1 accessories wait/.test(w.__t), 'and it says what came in: ' + w.__t);
+ok(/Brought in 1 favourite; 1 accessory from the builder left out: add it here/.test(w.__t), 'and it says what came in, and that an accessory in the builder\'s older shape is left out (v192): ' + w.__t);
 
 // ---- v184: a new belt favourite from a belt logged at the customer
 await g(`(async () => { await callsPut({id: 'c9', customer: '${A}', date: '12/10/2026', when: Date.now() - 86400000 * 15, type: 'Site call', mgr: 'Ben', contacts: [], loose: [], status: 'done', closed: true, updated: Date.now(),

@@ -44,7 +44,7 @@ ok(g(`(() => { const f = fridayOf(new Date()); return iso(addDays(f, 7)) === ste
 // ---- the tiles
 await g(`(async () => { ${mkCall('c1')} })()`); await tick(150);
 const tiles = [...d.querySelectorAll('#s-dash .tiles [data-go]')].map(b => b.dataset.go).join(',');
-ok(tiles === 'belt,health,note,step', 'the call has Belt, Health check, Note, Next step: ' + tiles);
+ok(tiles === 'belt,health,note,step,acc', 'the call has Belt, Health check, Note, Next step, and Accessories since v192: ' + tiles);
 
 // ---- a new next step, with a new project
 d.querySelector('#s-dash [data-go="step"]').click(); await tick(100);

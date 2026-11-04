@@ -10,6 +10,7 @@
     python3 lookup.py part <part number>
     python3 lookup.py search <words...>
     python3 lookup.py lists
+    python3 lookup.py accessories [--group wearstrip] [--series 800] [words...]
 
 Each takes --settings <folder or file> (or --workbook / --catalogue) and --json.
 
@@ -299,6 +300,47 @@ def cmd_search(cat, a):
     out(a, data, '\n'.join(lines))
 
 
+def accessory_list(a):
+    """Field CRM's accessory list (OneTrack): the "accessories" file in the settings, or --accessories."""
+    s = common.settings(a.settings)
+    path = a.accessories or s['accessories']
+    if not path or not os.path.exists(path):
+        sys.exit('No accessory list: set "accessories" in ' + common.SETTINGS_NAME + ' to the OneTrack accessory list (.json), or give --accessories.')
+    with open(path, encoding='utf-8') as f:
+        d = json.load(f)
+    if d.get('kind') != 'field-crm-accessories':
+        sys.exit('That file is not an accessory list.')
+    return d
+
+
+def cmd_accessories(cat, a):
+    d = accessory_list(a)
+    groups = {g['id']: g for g in d.get('groups', [])}
+    items = d.get('items', [])
+    if a.group:
+        g = groups.get(a.group) or next((x for x in groups.values() if loose(x['name']) == loose(a.group)), None)
+        if not g:
+            sys.exit('No group "%s". Groups: %s' % (a.group, ', '.join(groups)))
+        items = [it for it in items if it['group'] == g['id']]
+    ser = series_key(a.series) if a.series else ''
+    if ser:
+        fit = [it for it in items if not it.get('series') or ser in [series_key(x) for x in it['series']]]
+        items = fit or items
+    words = [loose(w) for w in a.words if loose(w)]
+    if words:
+        items = [it for it in items if all(w in loose(it['desc'] + ' ' + ' '.join(it.get('opts', {}).values()) + ' ' + it.get('item', '')) for w in words)]
+    if not a.group and not words:
+        rows = [{'group': g['id'], 'name': g['name'], 'fields': g['fields'], 'items': sum(1 for it in items if it['group'] == g['id']),
+                 'defaults': g.get('defaults', {}), 'note': g.get('note', '')} for g in groups.values()]
+        out(a, rows, 'Accessory groups (' + d.get('source', '') + '):\n' + '\n'.join('  %s: %s, %d items, chosen by %s%s' % (
+            r['group'], r['name'], r['items'], ', '.join(r['fields']),
+            ('; usual: ' + ', '.join('%s %s' % kv for kv in r['defaults'].items())) if r['defaults'] else '') for r in rows))
+        return
+    out(a, items, '%d item(s):\n' % len(items) + '\n'.join('  %s | part %s%s%s' % (
+        it['desc'], it.get('item') or 'none', (' | Series ' + ', '.join(it['series'])) if it.get('series') else '',
+        (' | ' + it['note']) if it.get('note') else '') for it in items[:60]))
+
+
 def cmd_lists(cat, a):
     c = cat.c
     data = {k: uniq_sort(c.get(k, [])) for k in ('rods', 'flightTypes', 'sideguardTypes', 'materials', 'colours')}
@@ -340,15 +382,20 @@ def main():
     p = sub.add_parser('search')
     p.add_argument('words', nargs='+')
     sub.add_parser('lists')
+    p = sub.add_parser('accessories', help='the OneTrack accessories in Field CRM\'s accessory list')
+    p.add_argument('--group')
+    p.add_argument('--series')
+    p.add_argument('words', nargs='*')
+    ap.add_argument('--accessories', help='the accessory list (.json), if not in the settings')
     # options before or after the command both work
     a = ap.parse_args(move_globals(sys.argv[1:]))
-    cat = Cat(common.catalogue(a))
+    cat = None if a.cmd == 'accessories' else Cat(common.catalogue(a))
     globals()['cmd_' + a.cmd](cat, a)
 
 
 def move_globals(argv):
     """Let --settings/--workbook/--catalogue/--json/--refresh come after the command too."""
-    flags1, flags0 = {'--settings', '--workbook', '--catalogue'}, {'--json', '--refresh'}
+    flags1, flags0 = {'--settings', '--workbook', '--catalogue', '--accessories'}, {'--json', '--refresh'}
     front, rest, i = [], [], 0
     while i < len(argv):
         t = argv[i]

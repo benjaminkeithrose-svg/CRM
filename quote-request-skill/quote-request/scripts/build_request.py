@@ -448,6 +448,11 @@ class Doc:
             other = [(k, v) for k, v in (it.get('other') or {}).items() if given(v)]
             if other:
                 groups = groups + [{'name': 'Other', 'fields': [{'label': k, 'value': v} for k, v in other]}]
+            # its accessories from the OneTrack list, a line each, as Field CRM prints them (v192)
+            acc = [x for x in it.get('accessories') or [] if given(x.get('desc'))]
+            if acc:
+                groups = groups + [{'name': 'Accessories', 'fields': [{'label': x['desc'], 'value': ' \u00b7 '.join(
+                    v for v in ['Qty ' + str(x.get('qty') or 1), x.get('part_number') or 'part number to confirm', x.get('note')] if v)} for x in acc]}]
             for g in groups:
                 rows = []
                 for f in g['fields']:

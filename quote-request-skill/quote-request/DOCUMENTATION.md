@@ -41,6 +41,7 @@ folder, which Claude may only be able to read:
 |---|---|
 | `workbook` | The plant audit workbook (`Plant_Audit_Template_1.xlsm`). Needed. |
 | `crm_export` | The CRM export Field CRM imports (.xlsx or .csv). Optional: lets Claude find the customer, the account manager and the contacts, and flag anyone not in the CRM. |
+| `accessories` | Field CRM's OneTrack accessory list (.json), the same file Field CRM imports in Settings. Optional: for `lookup.py accessories`. |
 | `customer_service_email` | Where requests go. Optional: used when Claude can make an email draft. |
 | `out` | Where the requests are written. Default: the folder itself. |
 | `templates` | Your own templates. Default: the folder's `templates` subfolder. |
@@ -87,6 +88,7 @@ template, with a different layout, does not read yet.
 | `part EX-100-0013` | The sprocket with that part number, or one containing it |
 | `search 200 raised rib` | Belts and sprockets matching the words, best first |
 | `lists` | Rod materials, flight types, sideguard types, materials, colours, indents |
+| `accessories [--group G] [--series S] [words]` | Field CRM's OneTrack accessory list: without a group or words, the groups with what each is chosen by and its usual choice; otherwise the items, with part numbers and notes, those for the series first |
 
 Names match loosely: case, spaces and punctuation don't matter, and "S800",
 "Series 800" and "800" are the same series. A name that is part of one name
@@ -132,7 +134,9 @@ the belt; else `beltdesc`), `qty`, `beltdesc`, `series`, `style`, `beltmat`,
 `retrofit`, `qcontact`; sprockets `sprocket`, `sprpn`, `sprbore`, `sprpd`,
 `sprmat`, `sprvar`, `sprdrive`, `spridle`, `sprspacers`, `sprhdret`
 (`sprhdretqty`); flights and sideguards `fstyle`, `flmat`, `fheight`, `frows`,
-`fspacing`, `findent`, `cnotch`, `sgtype`, `sgmat`, `sgheight`; and `tsg`
+`fspacing`, `findent`, `cnotch`, `sgtype`, `sgmat`, `sgheight`; `accessories`, a list
+of `{desc, part_number, qty, note}` from the accessory list, printed as an Accessories
+band under the belt as Field CRM does; and `tsg`
 (`true` when the belt ID was confirmed with TSG, which the request then says; otherwise it
 says nothing about TSG).
 
@@ -217,4 +221,5 @@ Example Foods, Jo Bloggs, Series 100 and 200, part numbers EX-....
 | Version | Date | What changed |
 |---|---|---|
 | 1 | 2026-11-02 | First version: belt request for quote and sprocket and parts request for quote; catalogue lookups with Field CRM's width check; file, email body and plain text. |
+| 3 | 2026-11-04 | Accessories, as Field CRM v192: `lookup.py accessories` reads the OneTrack accessory list; a belt's `accessories` print as a band under it. |
 | 2 | 2026-11-03 | As Field CRM v190: no "not yet confirmed with TSG" line (only a confirmed belt ID is mentioned), contacts one under another instead of five columns, and long words wrap inside the page. |

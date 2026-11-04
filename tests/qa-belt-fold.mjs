@@ -34,8 +34,8 @@ const isOpen = id => $(id).open;
 // ---- the sections
 const secs = [...d.querySelectorAll('#s-belt details.bsx')];
 // v173: Why replace it comes first, the reason for the quote
-ok(secs.map(x => x.querySelector('summary b').textContent).join('|') === 'Why replace it|Belt data|Sprockets|Flights and sideguards|Photos and comments|Quote contact',
-  'six sections: ' + secs.map(x => x.querySelector('summary b').textContent).join('|'));
+ok(secs.map(x => x.querySelector('summary b').textContent).join('|') === 'Why replace it|Belt data|Sprockets|Flights and sideguards|Accessories|Photos and comments|Quote contact',
+  'seven sections, Accessories after flights and sideguards (v192): ' + secs.map(x => x.querySelector('summary b').textContent).join('|'));
 ok(!d.querySelector('#s-belt h2'), 'no loose headings left');
 ok(!$('bAsset').closest('details'), 'the asset field sits above them, always showing');
 

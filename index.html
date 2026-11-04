@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v191">
+<meta name="build" content="v192">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -754,6 +754,21 @@ input.alert,select.alert{border-color:var(--warn);box-shadow:0 0 0 2px rgba(178,
 /* Some card bars carry one wide labelled action rather than icons. */
 .cardbar.wide button{width:auto;height:auto;padding:9px 14px;font-size:12px;font-weight:700;color:var(--ink)}
 .cardbar .phc{margin-left:auto;font-size:11px;color:var(--ink-3)}
+/* v192: accessory lines and the OneTrack list */
+.axlist{display:flex;flex-direction:column;gap:8px;margin:10px 0 0}
+.axlist .card{margin:0}
+.axlist .t{white-space:normal}
+#axSteps .f{margin-top:12px}
+.axpick{display:flex;flex-direction:column;gap:6px}
+.axpick button{text-align:left;padding:10px 12px;border:1px solid var(--line,#D4D6D8);border-radius:8px;background:#fff;font:inherit;color:inherit;min-height:44px}
+.axpick button.on{border-color:#00287B;background:#EEF2FA;box-shadow:inset 3px 0 0 #00287B}
+.axpick small{display:block;color:#77787A}
+.otg summary{padding:12px 0;font-weight:bold}
+.otrow{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #EDEDED}
+.otrow > span:first-child{min-width:0;overflow-wrap:anywhere}
+.otrow b{font-weight:normal;color:#00287B;white-space:nowrap}
+.otrow small{display:block;color:#77787A}
+
 /* v189: the business plan */
 .bphead{margin:4px 0 12px}
 .bphead .bpeye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan-dk);margin:0}
@@ -1993,15 +2008,15 @@ details.bsx > .msg{margin:8px 12px}
 
 <!-- ORDER SHEET (v183): the customer's favourites, the form made from them, and one favourite -->
 <section class="scr" id="s-orders">
-  <h2 id="osHead"></h2>
+  <h2 id="oshHead"></h2>
   <div class="osacts"><button type="button" class="big" id="osSend">Send order form</button><button type="button" class="btn act2" id="osAdd">Add favourite</button><button type="button" class="btn osmore" id="osMore" aria-label="More">&#8943;</button></div>
   <p class="hint" id="osHint"></p>
-  <div id="osList"></div>
+  <div id="oshList"></div>
   <input type="file" id="osFile" accept=".json,application/json" hidden>
 </section>
 <section class="scr" id="s-osend">
   <h2 id="osSendHead"></h2>
-  <button type="button" class="big" id="osGo">Create and share</button>
+  <button type="button" class="big" id="oshGo">Create and share</button>
   <p class="hint">Makes one file to attach to an email. It holds only the favourites ticked here, never the notes for sales.</p>
   <div class="fld"><label>To</label><div class="chips" id="osTo"></div></div>
   <div class="fld"><label>Favourites in the form</label><div class="ospick" id="osPick"></div></div>
@@ -2063,7 +2078,7 @@ details.bsx > .msg{margin:8px 12px}
 <section class="scr" id="s-ofav">
   <button type="button" class="big" id="ofDone">Done</button>
   <p class="msg" id="ofMsg"></p>
-  <div class="fld" id="ofKindW"><div class="seg" id="ofKind" role="group" aria-label="What it is"><button type="button" data-v="belt">Belt</button><button type="button" data-v="sprocket">Sprocket</button></div></div>
+  <div class="fld" id="ofKindW"><div class="seg" id="ofKind" role="group" aria-label="What it is"><button type="button" data-v="belt">Belt</button><button type="button" data-v="sprocket">Sprocket</button><button type="button" data-v="accessory">Accessory</button></div></div>
   <div class="fld" id="ofFromW" hidden><label>From a belt logged here</label><div class="offrom" id="ofFrom"></div></div>
   <div id="ofBelt">
     <div class="fld ofrow">
@@ -2111,6 +2126,13 @@ details.bsx > .msg{margin:8px 12px}
     </div>
     <div class="fld"><label>Pitch diameters they can choose</label><div class="chips" id="ofSPds"></div></div>
     <div class="fld"><label>Materials they can choose</label><div class="chips" id="ofSMats"></div></div>
+  </div>
+  <div id="ofAcc" hidden>
+    <p class="msg info" id="ofAccNone">Load the accessory list first: Settings, CRM and belt data, Accessories.</p>
+    <div id="ofAccBody">
+      <div class="fld"><label>What it is</label><div class="chips" id="ofAxGroup"></div></div>
+      <div class="fld"><label>Which ones they can choose <span class="sublab">tap to tick</span></label><div class="axpick" id="ofAxItems"></div></div>
+    </div>
   </div>
   <div class="fld"><label for="ofLabel">Name <span class="sublab">what the customer sees it called</span></label><input type="text" id="ofLabel" autocomplete="off"></div>
   <div class="fld">
@@ -2240,6 +2262,13 @@ details.bsx > .msg{margin:8px 12px}
     <input type="file" class="adminonly" id="refFile" accept=".xlsm,.xlsx" style="margin-top:10px">
     <button class="ghost adminonly" id="refBtn">Import plant audit workbook</button>
     <p class="hint adminonly">Plant_Audit_Template_1.xlsm. This is what drives the series, style, material, sprocket and flight pickers on the belt form. It is the bigger of the two files &mdash; the app will sit still for a few seconds while it reads. Leave the screen on until it says it is done.</p>
+  </div>
+  <div class="fld">
+    <label>Accessories</label>
+    <p class="stat" id="axStat">No list loaded.</p>
+    <input type="file" class="adminonly" id="axFile" accept=".json,.txt,application/json,text/plain" style="margin-top:10px">
+    <button class="ghost adminonly" id="axBtn">Import accessory list</button>
+    <p class="hint adminonly">The OneTrack accessory list (a .json file): wearstrips, retainer rings, CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, with their part numbers. It travels with the belt reference data, so import the workbook first.</p>
   </div>
   </details>
 
@@ -2571,15 +2600,39 @@ details.bsx > .msg{margin:8px 12px}
     </div>
   </details>
   <details class="sx hx">
+    <summary><b>Add accessories</b><span class="sxs">Wearstrips, retainer rings, tools and more</span></summary>
+    <div class="fld help">
+      <p>Accessories come from the OneTrack accessory list: wearstrips, retainer rings, CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, each with its part number. Load the list once:</p>
+      <ol>
+        <li>Tap <b>&#8943;</b> on Home, then <b>Settings</b>, then <b>CRM and belt data</b>.</li>
+        <li>Under <b>Accessories</b>, choose the accessory list (<b>OneTrack accessories.json</b>).</li>
+        <li>Tap <b>Import accessory list</b>.</li>
+      </ol>
+      <p>It goes with the belt reference data, so load the plant audit workbook first. It reaches your other devices and your team the same way.</p>
+      <p>To add accessories that are not for one belt (wearstrips for the conveyor, tools):</p>
+      <ol>
+        <li>In the call or quote request, tap <b>Accessories</b>.</li>
+        <li>Tap what it is, for example <b>Wearstrip</b>.</li>
+        <li>Tap a choice in each row until the part number shows. A wearstrip starts on the snap-on, 500 ft, for a 1/4 in frame.</li>
+        <li>Type the quantity, and a note if there is one.</li>
+        <li>Tap <b>Done</b>.</li>
+        <li>Tap <b>Add an accessory</b> for the next one.</li>
+      </ol>
+      <p>To add one to a belt, open the belt, open <b>Accessories</b>, and tap <b>Add an accessory</b>. It is kept with the belt when you tap <b>Done</b>.</p>
+      <p>Items made for the series of the belts on the call come first. To see those for other series too, tick <b>Show those for every series</b>. Tap a choice again to take it off. If more than one still fits, the line can be kept as it is, and customer service picks. Tap a line to change it. Its <b>&#8943;</b> has <b>Duplicate</b> and <b>Remove</b>.</p>
+      <p>They print in the quote request under <b>Accessories to quote</b> (a belt's own under that belt), and in the call notes.</p>
+    </div>
+  </details>
+  <details class="sx hx">
     <summary><b>Send a customer an order form</b><span class="sxs">The Order sheet card on the account</span></summary>
     <div class="fld help">
-      <p>An account's order sheet holds the belts and sprockets that customer orders, each with the choices they may make. From it you make a form to email them. They pick from it and copy the request back to you.</p>
+      <p>An account's order sheet holds the belts, sprockets and accessories that customer orders, each with the choices they may make. From it you make a form to email them. They pick from it and copy the request back to you.</p>
       <p>To add a favourite:</p>
       <ol>
         <li>Open the account.</li>
         <li>Tap the <b>Order sheet</b> card.</li>
         <li>Tap <b>Add favourite</b>.</li>
-        <li>Tap <b>Belt</b> or <b>Sprocket</b>.</li>
+        <li>Tap <b>Belt</b>, <b>Sprocket</b> or <b>Accessory</b>. For an accessory, tap what it is (a wearstrip comes with the usual snap-on ticked), tap every one they may choose, then tap <b>Done</b>.</li>
         <li>If the belt has been logged at this customer, tap it under <b>From a belt logged here</b>. Its series, style, material, colour, rod, width, flights and sprocket are filled in, and its name from the line description.</li>
         <li>If not, pick the series and style (for a sprocket, the series and bore).</li>
         <li>Tap every material, colour and rod they may choose. Tap one again to take it off.</li>
@@ -3726,6 +3779,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Tap <b>Reference</b> on Home for the manuals and the fault library.</li>
         <li>Tap <b>Intralox website</b> there for Belt Finder, the how-to videos and the resource pages. These need signal.</li>
         <li>Tap <b>Mission</b> there for Intralox's mission, commitment and business philosophy.</li>
+        <li>Tap <b>OneTrack</b> there for the accessories and their part numbers, group by group. It needs the accessory list loaded.</li>
         <li>Tap <b>Directory</b> on Home for accounts and contacts.</li>
         <li>To find one, tap the search icon at the top of Accounts or Contacts and type.</li>
       </ol>
@@ -3871,7 +3925,7 @@ details.bsx > .msg{margin:8px 12px}
 <section class="scr" id="s-contacts">
   <h2 id="ctAcc">Contacts</h2>
   <p class="hint" id="ctSub"></p>
-  <p class="hint" id="ctHead">Who did you see?</p>
+  <p class="hint" id="ctWho">Who did you see?</p>
   <div class="fld">
     <input type="text" id="ctQ" placeholder="Filter by name or role" autocomplete="off">
   </div>
@@ -4184,6 +4238,27 @@ details.bsx > .msg{margin:8px 12px}
 </dialog>
 
 <!-- A product idea (v97; v155 tracked from idea to stocked). -->
+<!-- v192: one accessory line from the OneTrack list: what it is, then a row of chips per choice, then how many -->
+<dialog id="axdlg">
+  <div class="dlg-h tkh">
+    <button type="button" class="tkdel" id="axDel" aria-label="Remove this accessory" title="Remove this accessory"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    <b id="axHead">Accessory</b>
+    <button type="button" class="btn go" id="axOk">Done</button>
+  </div>
+  <div class="dlg-b">
+    <p class="msg info" id="axNone">Load the accessory list first: Settings, CRM and belt data, Accessories.</p>
+    <div class="f"><label>What it is</label><div class="chips" id="axGroup"></div></div>
+    <div id="axSteps"></div>
+    <label class="chk" id="axAllW" hidden><input type="checkbox" id="axAll"> <span id="axAllT">Show those for every series</span></label>
+    <p class="msg" id="axHit"></p>
+    <div class="row">
+      <div class="f"><label for="axQty">Quantity</label><input type="number" id="axQty" inputmode="numeric" min="1" step="1"></div>
+      <div class="f"></div>
+    </div>
+    <div class="f"><label for="axNote">Note <span class="sublab">optional</span></label><input type="text" id="axNote" autocomplete="off" placeholder="Length, where it goes, anything to say"></div>
+  </div>
+</dialog>
+
 <dialog id="proddlg">
   <div class="dlg-h tkh">
     <button type="button" class="tkdel" id="prDel" aria-label="Delete product" title="Delete product"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
@@ -4707,6 +4782,7 @@ details.bsx > .msg{margin:8px 12px}
     <button data-go="health"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><b>Health check</b><span class="cnt" id="cntHealth">0 logged</span></button>
     <button data-go="note"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span><b>Note</b></button>
     <button data-go="step"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="M13 6l6 6-6 6"/></svg></span><b>Next step</b><span class="cnt" id="cntStep"></span></button>
+    <button data-go="acc"><span class="tw"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><b>Accessories</b><span class="cnt" id="cntAcc"></span></button>
   </div>
   <!-- Project and note counts are still assigned in a few places; keeping the
        elements avoids guarding every one of those assignments. -->
@@ -4922,6 +4998,14 @@ details.bsx > .msg{margin:8px 12px}
   </div>
   </details>
 
+  <details class="sx bsx" id="bxAx">
+  <summary><b>Accessories</b><span class="sxs" id="sumAx"></span></summary>
+  <div class="fld">
+    <button type="button" class="btn act2" id="bAxAdd">Add an accessory</button>
+    <div class="axlist" id="bAxList"></div>
+  </div>
+  </details>
+
   <details class="sx bsx" id="bxPho">
   <summary><b>Photos and comments</b><span class="sxs" id="sumPho"></span></summary>
   <div class="fld">
@@ -5078,6 +5162,12 @@ details.bsx > .msg{margin:8px 12px}
 </section>
 
 <!-- v174: the next step on a customer's work: what, the project it moves, when. A task on the planner. -->
+<!-- v192: the call's accessories not tied to one belt: wearstrips, tools, rollers... one list for the call -->
+<section class="scr" id="s-acc">
+  <button type="button" class="big" id="acAdd">Add an accessory</button>
+  <div class="axlist" id="acList"></div>
+</section>
+
 <section class="scr" id="s-step">
   <div class="fld">
     <label for="nsWhat">What needs doing</label>
@@ -5264,6 +5354,11 @@ details.bsx > .msg{margin:8px 12px}
     <button type="button" data-pane="flt">Fault library</button>
     <button type="button" data-pane="web">Intralox website</button>
     <button type="button" data-pane="mis">Mission</button>
+    <button type="button" data-pane="ot">OneTrack</button>
+  </div>
+  <div class="pane" id="paneOt" hidden>
+    <p class="hint" id="otStat"></p>
+    <div id="otList"></div>
   </div>
   <div class="pane" id="paneMan">
   <div class="fld">

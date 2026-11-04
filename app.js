@@ -521,6 +521,7 @@ async function importRef(file){
   const payload = {
     combos, geom, sprockets, pitch, indentGroups,
     materials, colours, rods, flightTypes, sideguardTypes,
+    accessories: (REF && REF.accessories) || undefined,   // v192: loaded on its own, kept across a workbook re-import
     imported: Date.now(),
     counts: {combos:combos.length, geom:geom.length, sprockets:sprockets.length,
              series:new Set(combos.map(c=>c[0])).size}
@@ -540,6 +541,217 @@ function renderRefStat(){
   el.innerHTML = '<b>'+REF.counts.combos+'</b> belt specs across <b>'+REF.counts.series+'</b> series, <b>'+
     REF.counts.sprockets+'</b> sprockets, <b>'+REF.counts.geom+'</b> geometry rows<br>Imported '+
     d.toLocaleDateString('en-AU')+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  renderAxStat();
+}
+/* ================= accessories (v192) =================
+   Intralox's OneTrack tools and components: wearstrips, retainer rings,
+   CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, each with
+   its part number. Intralox's own codes, so like the belt catalogue the list is
+   never in the repository: a file (kind field-crm-accessories) loaded in
+   Settings, kept in the belt data (REF.accessories) and synced with it.
+
+   The list is groups ({id, name, fields, note, defaults}) and items ({group,
+   desc, opts: {field: value}, item, series, note}). Picking one is a row of
+   chips per field of its group, each offering only what still fits.
+
+   A line on a belt (e.acc) or on the call's accessories (an entry of type
+   'acc', e.lines) is {id, group, opts, item, desc, info, qty, note}. It keeps its
+   description and part number, so it prints the same if the list changes or is
+   not on the device. */
+const AX_KIND = 'field-crm-accessories';
+const axList = () => (REF && REF.accessories && Array.isArray(REF.accessories.items)) ? REF.accessories : null;
+const axGroups = () => (axList() || {}).groups || [];
+const axGroup = id => axGroups().find(g => g.id === id) || null;
+const axItems = gid => ((axList() || {}).items || []).filter(it => it.group === gid);
+const axSerKey = s => String(s == null ? '' : s).replace(/^\s*(series\s*|s(?=\d))/i, '').trim();
+const axFits = (it, ctx) => !ctx.length || !(it.series || []).length || it.series.some(s => ctx.includes(axSerKey(s)));
+const axUniq = a => [...new Set(a.filter(v => v != null && v !== ''))];
+
+function renderAxStat(){
+  const el = $('axStat'); if(!el) return;
+  const ax = axList();
+  el.innerHTML = ax ? '<b>' + ax.items.length + '</b> accessories in <b>' + ax.groups.length + '</b> groups' +
+    (ax.source ? ', from ' + esc(ax.source) : '') + '<br>Imported ' + new Date(ax.imported).toLocaleDateString('en-AU') : 'No list loaded.';
+}
+function axParse(d){
+  const str = v => String(v == null ? '' : v).trim();
+  if(!d || d.kind !== AX_KIND) throw new Error('that is not an accessory list');
+  const groups = (Array.isArray(d.groups) ? d.groups : []).filter(g => g && str(g.id) && str(g.name) && Array.isArray(g.fields))
+    .map(g => ({id: str(g.id), name: str(g.name), fields: g.fields.map(str).filter(Boolean), note: str(g.note),
+      defaults: (g.defaults && typeof g.defaults === 'object') ? Object.fromEntries(Object.entries(g.defaults).map(([k, v]) => [str(k), str(v)])) : {}}));
+  const ids = new Set(groups.map(g => g.id));
+  const items = (Array.isArray(d.items) ? d.items : []).filter(it => it && ids.has(str(it.group)) && str(it.desc))
+    .map(it => ({group: str(it.group), desc: str(it.desc), item: str(it.item), note: str(it.note),
+      opts: Object.fromEntries(Object.entries(it.opts || {}).map(([k, v]) => [str(k), str(v)]).filter(([, v]) => v)),
+      series: (Array.isArray(it.series) ? it.series : []).map(axSerKey).filter(Boolean)}));
+  if(!items.length) throw new Error('there are no accessories in it');
+  return {groups: groups.filter(g => items.some(it => it.group === g.id)), items, source: str(d.source), version: d.version || 1};
+}
+async function importAccessories(file){
+  if(!REF) throw new Error('import the plant audit workbook first; the list travels with it');
+  const list = axParse(JSON.parse(await file.text()));
+  const payload = Object.assign({}, REF, {accessories: Object.assign(list, {imported: Date.now()})});
+  await kvSet('beltref', payload);
+  await logLoad(file.name || 'accessory list', 'beltref', list.items.length + ' accessories');
+  REF = payload;
+  renderAxStat();
+  toast('Loaded ' + list.items.length + ' accessories in ' + list.groups.length + ' groups');
+}
+
+/* ---- the choices for a line: one step per field, each offering what still fits ---- */
+function axSteps(g, picks, ctx, all){
+  const own = axItems(g.id), fit = own.filter(it => axFits(it, ctx));
+  let pool = (all || !fit.length) ? own : fit;
+  /* picks holds what was tapped (or the group's defaults); a row with one
+     choice left is taken as chosen without being kept, so it follows when an
+     earlier choice changes */
+  const steps = [], eff = {};
+  g.fields.forEach(f => {
+    const vals = axUniq(pool.map(it => it.opts[f]));
+    if(!vals.length) return;
+    if(picks[f] && !vals.includes(picks[f])) delete picks[f];
+    const v = picks[f] || (vals.length === 1 ? vals[0] : '');
+    steps.push({f, vals, v});
+    if(v){ eff[f] = v; pool = pool.filter(it => it.opts[f] === v); }
+  });
+  return {steps, pool, eff, filtered: !all && fit.length && fit.length < own.length};
+}
+function axLineFrom(g, eff, pool, qty, note, id){
+  const hit = pool.length === 1 ? pool[0] : null;
+  const opts = {};
+  g.fields.forEach(f => { if(eff[f]) opts[f] = eff[f]; });
+  return {id: id || newId('ax'), group: g.id, opts, item: hit ? hit.item : '',
+    desc: hit ? hit.desc : [g.name].concat(Object.values(opts)).join(', '), info: hit ? hit.note : '',
+    qty: String(qty || '').trim() || '1', note: String(note || '').trim()};
+}
+
+/* ---- the picker ---- */
+let AXD = null;   // {line, isNew, ctx, picks, group, all, onSave, onRemove}
+function openAx(o){
+  const line = o.line ? JSON.parse(JSON.stringify(o.line)) : null;
+  AXD = {isNew: !line, line, ctx: (o.ctx || []).map(axSerKey).filter(Boolean), all: false,
+    group: line ? line.group : '', picks: line ? Object.assign({}, line.opts) : {}, onSave: o.onSave, onRemove: o.onRemove};
+  $('axHead').textContent = AXD.isNew ? 'Add an accessory' : 'Accessory';
+  $('axDel').hidden = AXD.isNew || !o.onRemove;
+  $('axQty').value = line ? line.qty || '1' : '1';
+  $('axNote').value = line ? line.note || '' : '';
+  $('axAll').checked = false;
+  if(AXD.isNew && axGroups().length === 1) axChoose(axGroups()[0].id);
+  renderAx();
+  const d = $('axdlg');
+  if(!d.open){
+    if(d.showModal) d.showModal(); else d.setAttribute('open', '');
+    pushDialog('axdlg');
+  }
+}
+function axChoose(gid){
+  const g = axGroup(gid);
+  AXD.group = gid;
+  AXD.picks = Object.assign({}, g ? g.defaults : {});
+  if(g && g.fields.includes('Series') && AXD.ctx.length === 1) AXD.picks.Series = AXD.ctx[0];
+}
+function renderAx(){
+  if(!AXD) return;
+  const none = !axList();
+  $('axNone').hidden = !none;
+  const known = axGroups(), g = axGroup(AXD.group);
+  $('axGroup').innerHTML = known.map(x => '<button type="button" data-v="' + esc(x.id) + '"' + (x.id === AXD.group ? ' class="on"' : '') + '>' + esc(x.name) + '</button>').join('');
+  if(!g){
+    $('axSteps').innerHTML = ''; $('axAllW').hidden = true;
+    // a line from a list no longer on this device: it keeps what it says
+    showMsg($('axHit'), AXD.line ? 'info' : '', AXD.line ? esc(AXD.line.desc) + (AXD.line.item ? '<br>Part number <b>' + esc(AXD.line.item) + '</b>' : '') : '');
+    return;
+  }
+  const s = axSteps(g, AXD.picks, AXD.ctx, AXD.all);
+  $('axSteps').innerHTML = s.steps.map((st, i) => '<div class="f"><label>' + esc(st.f) + '</label><div class="chips" data-axf="' + i + '">' +
+    st.vals.map(v => '<button type="button" data-v="' + esc(v) + '"' + (v === st.v ? ' class="on"' : '') + '>' + esc(v) + '</button>').join('') + '</div></div>').join('');
+  $('axSteps').querySelectorAll('[data-axf]').forEach(row => row.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    const st = s.steps[+row.dataset.axf];
+    if(AXD.picks[st.f] === b.dataset.v) delete AXD.picks[st.f]; else AXD.picks[st.f] = b.dataset.v;   // tap again to clear
+    renderAx();
+  }));
+  $('axAllW').hidden = !(s.filtered || AXD.all);
+  $('axAllT').textContent = 'Show those for every series' + (AXD.ctx.length ? ', not only ' + AXD.ctx.map(x => 'S' + x).join(', ') : '');
+  const hit = s.pool.length === 1 ? s.pool[0] : null;
+  if(hit) showMsg($('axHit'), 'ok', esc(hit.desc) + '<br>Part number <b>' + (hit.item ? esc(hit.item) : 'none: ' + esc(hit.note || 'made to order')) + '</b>' +
+    (hit.item && hit.note ? '<br>' + esc(hit.note) : ''));
+  else if(!s.pool.length) showMsg($('axHit'), 'warn', 'Nothing on the list fits those choices.');
+  else showMsg($('axHit'), 'info', s.pool.length + ' fit. ' + (g.note ? esc(g.note) + '. ' : '') + 'Pick from each row to narrow it to one, or leave it for customer service.');
+}
+$('axGroup').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || !AXD) return;
+  if(AXD.group === b.dataset.v) return;
+  axChoose(b.dataset.v); renderAx();
+});
+$('axAll').addEventListener('change', () => { if(AXD){ AXD.all = $('axAll').checked; renderAx(); } });
+function axFinish(){
+  if(!AXD) return;
+  if($('axdlg').open && history.state && history.state.dialog === 'axdlg'){ history.back(); return; }
+  const a = AXD; AXD = null;
+  const d = $('axdlg');
+  if(d.open){ if(d.close) d.close(); else d.removeAttribute('open'); }
+  const g = axGroup(a.group);
+  if(!g){   // nothing chosen, or a line from a list not on this device: only its quantity and note can change
+    if(a.line) a.onSave(Object.assign(a.line, {qty: $('axQty').value.trim() || '1', note: $('axNote').value.trim()}));
+    return;
+  }
+  const s = axSteps(g, a.picks, a.ctx, a.all);
+  a.onSave(axLineFrom(g, s.eff, s.pool, $('axQty').value, $('axNote').value, a.line && a.line.id));
+}
+$('axOk').addEventListener('click', () => axFinish());
+$('axdlg').addEventListener('cancel', e => { e.preventDefault(); axFinish(); });
+$('axdlg').addEventListener('close', () => { if(AXD) axFinish(); });
+$('axDel').addEventListener('click', () => {
+  const a = AXD; if(!a || !a.line) return;
+  if(!confirm('Remove ' + a.line.desc + ' (quantity ' + (a.line.qty || 1) + ')?')) return;
+  AXD = null;
+  const d = $('axdlg');
+  if(history.state && history.state.dialog === 'axdlg') history.back();
+  else if(d.close) d.close(); else d.removeAttribute('open');
+  a.onRemove(a.line);
+});
+
+/* ---- a list of lines, as cards: tap to change, ⋯ to duplicate or remove ---- */
+function axMeta(l){ return ['Qty ' + (l.qty || 1), l.item || 'part number to confirm', l.note].filter(Boolean).join(' · '); }
+function axCards(el, lines, o){
+  el.innerHTML = lines.map((l, i) => '<div class="card entry"><div class="ehd"><button type="button" class="eopen" data-axo="' + i + '">' +
+    '<span class="t">' + esc(l.desc || 'Accessory') + '</span><span class="meta">' + esc(axMeta(l)) + '</span></button>' +
+    '<button type="button" class="emore" data-axm="' + i + '" aria-label="More for ' + esc(l.desc || 'this accessory') + '">&#8943;</button></div></div>').join('');
+  el.querySelectorAll('[data-axo]').forEach(b => b.addEventListener('click', () => o.edit(+b.dataset.axo)));
+  el.querySelectorAll('[data-axm]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.axm, l = lines[i];
+    openCardMenu(l.desc || 'Accessory', axMeta(l), [
+      {label: 'Duplicate', icon: 'copy', run: () => o.copy(i)},
+      {label: 'Remove', icon: 'trash', danger: true, run: () => { if(confirm('Remove ' + (l.desc || 'this accessory') + ' (quantity ' + (l.qty || 1) + ')?')) o.remove(i); }}
+    ]);
+  }));
+}
+const axCopy = l => Object.assign(JSON.parse(JSON.stringify(l)), {id: newId('ax')});
+
+/* ---- on paper ---- */
+// a belt's lines, as a band of its spec table: what it is, then quantity and part number
+function axSpecRows(lines){
+  return (lines || []).map(l => [esc(l.desc || 'Accessory'), ['Qty ' + (l.qty || 1), l.item || 'part number to confirm', l.info, l.note].filter(Boolean).join(' · '), 0]);
+}
+// the call's own lines, as a table
+function axTableHTML(lines){
+  return '<table><tr><th>Accessory</th><th>Part number</th><th>Qty</th></tr>' + lines.map(l => '<tr><td>' + esc(l.desc || 'Accessory') +
+    ([l.info, l.note].filter(Boolean).length ? '<br><span class="sent">' + esc([l.info, l.note].filter(Boolean).join(' · ')) + '</span>' : '') +
+    '</td><td>' + V(l.item) + '</td><td>' + V(l.qty || '1') + '</td></tr>').join('') + '</table>';
+}
+
+/* ---- the OneTrack tab in Reference ---- */
+function renderOneTrack(){
+  const ax = axList();
+  $('otStat').textContent = ax ? (ax.source || 'OneTrack') + '. Tap a group to see its items and part numbers.' : 'Load the accessory list first: Settings, CRM and belt data, Accessories.';
+  $('otList').innerHTML = ax ? ax.groups.map(g => {
+    const its = axItems(g.id);
+    return '<details class="otg"><summary>' + esc(g.name) + ' <span class="sxs">' + its.length + '</span></summary>' +
+      (g.note ? '<p class="hint">' + esc(g.note) + '</p>' : '') +
+      its.map(it => '<div class="otrow"><span>' + esc(it.desc) + ((it.series || []).length ? '<small>Series ' + esc(it.series.join(', ')) + '</small>' : '') +
+        (it.note ? '<small>' + esc(it.note) + '</small>' : '') + '</span><b>' + (it.item ? esc(it.item) : DASH_CH) + '</b></div>').join('') + '</details>';
+  }).join('') : '';
 }
 function renderManStat(){
   const el = $('manStat');
@@ -916,6 +1128,7 @@ function applyAssetRecord(r, opts){
    register names it expects. */
 function fillBeltFromEntry(e){
   $('bAsset').value = e.asset || '';
+  BAX = (e.acc || []).map(l => JSON.parse(JSON.stringify(l))); renderBAx();   // v192
   applyAssetRecord({
     no: e.asset, series: e.series, style: e.style, material: e.beltmat,
     colour: e.colour, rod: e.rodmat, cvlen: e.clength, frame: e.frame,
@@ -1003,7 +1216,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v191';
+const APP_BUILD = 'v192';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1376,7 +1589,7 @@ const TITLES = {
   dash:['Call','Menu'], belt:['Add belt',''], project:['Add project',''],
   settings:['Settings',''], help:['Help',''], directory:['Directory',''], reference:['Reference',''],
   ccontacts:['People on this call','Call'], lap:['Large account',''], strategy:['Strategy',''], cip:['Performance','CIP'], mbo:['Performance','MBOs'], bp:['Business plan',''], bpact:['Business plan','Action'], bpout:['Business plan','Outcome'],
-  note:['General note',''], health:['Health check',''], walk:['Health check',''], wfault:['Fault',''], step:['Next step',''], opp:['Opportunity',''], tasks:['Plan','Tasks'], products:['Plan','Products'], capture:['Capture',''], belts:['Belts',''], orders:['Order sheet',''], ofav:['Favourite',''], osend:['Send order form','']
+  note:['General note',''], health:['Health check',''], walk:['Health check',''], wfault:['Fault',''], step:['Next step',''], acc:['Accessories',''], opp:['Opportunity',''], tasks:['Plan','Tasks'], products:['Plan','Products'], capture:['Capture',''], belts:['Belts',''], orders:['Order sheet',''], ofav:['Favourite',''], osend:['Send order form','']
 };
 /* ---------- navigation ----------
    Screens are swapped, but every move is also pushed onto the browser history,
@@ -1391,7 +1604,7 @@ const TITLES = {
    Dialogs get their own entry, so a back gesture with the appointment dialog
    open closes the dialog rather than leaving the screen behind it. */
 
-const DIALOGS = ['camdlg','capdlg','dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg','evaldlg'];
+const DIALOGS = ['camdlg','capdlg','dlg','mvdlg','rdlg','opendlg','planmenu','outdlg','vmdlg','taskdlg','srchdlg','aidlg','proddlg','tidydlg','coachdlg','plandlg','rvdlg','teamdlg','oppdlg','cipmenu','cipbubdlg','mboentdlg','mboinfodlg','cipoutdlg','bsoutdlg','optbl','osdlg','dyndlg','mbotickdlg','staffdlg','ctdlg','evaldlg','axdlg'];
 function openDialogs(){
   return DIALOGS.filter(id => { const d = $(id); return d && d.hasAttribute('open'); });
 }
@@ -1438,7 +1651,7 @@ function staleEntry(){
 /* Screens that read the open call. Reaching one without a call - a stale history
    entry after the call was closed, a back gesture into a finished call - threw on
    the first property read and left a blank screen with no way forward. */
-const CALL_SCREENS = ['dash','belt','project','note','health','walk','wfault','step'];
+const CALL_SCREENS = ['dash','belt','project','note','health','walk','wfault','step','acc'];
 /* On Home the right-hand header button is the ⋯ menu (Settings); everywhere
    else it goes home. Also run at boot, which shows Home without showScreen. */
 function paintHeaderMenu(name){
@@ -1498,6 +1711,7 @@ function showScreen(name){
   if(name==='walk') renderWalk();
   if(name==='wfault') renderFault();
   if(name==='step') renderStep();
+  if(name==='acc') renderAcc();              // v192
   if(name==='orders') renderOrders();   // v183
   if(name==='ofav') renderOfav();
   if(name==='osend') renderOsend();
@@ -1578,7 +1792,7 @@ window.addEventListener('popstate', e => {
    Anything not listed goes home, so a screen added later fails safe rather than
    trapping you on it. */
 const PARENT = {
-  belt:'dash', project:'dash', note:'dash', health:'dash', walk:'dash', wfault:'walk', step:'dash', ccontacts:'dash',
+  belt:'dash', project:'dash', note:'dash', health:'dash', walk:'dash', wfault:'walk', step:'dash', acc:'dash', ccontacts:'dash',
   dash:'home', contacts:'account', account:'home', acct:'directory',
   directory:'home', reference:'home', reports:'home', plan:'home',
   today:'home', settings:'home', help:'home', products:'home', tasks:'home', opp:'acct', lap:'acct', strategy:'home', cip:'home', mbo:'home', bp:'home', bpact:'bp', bpout:'bp', capture:'home', belts:'acct', orders:'acct', ofav:'orders', osend:'orders'
@@ -7846,6 +8060,7 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', as
   else if(t==='note'){ openEntry('note'); }
   else if(t==='health'){ openWalk(null); }
   else if(t==='step'){ openStep(null); }   // v174   // v173: a walk along a conveyor
+  else if(t==='acc'){ openAcc(); }       // v192
   else if(t==='settings'){ go('settings'); }
   else if(t==='directory'){ showDir('acc'); }
   else if(t==='reference'){ showRef('man'); }
@@ -7888,6 +8103,12 @@ $('refBtn').addEventListener('click', async ()=>{
   if(!f){ toast('Choose the plant audit workbook first'); return; }
   try { await importRef(f); }
   catch(e){ console.error(e); toast('Belt reference import failed: '+e.message); }
+});
+$('axBtn').addEventListener('click', async () => {   // v192
+  const f = $('axFile').files[0];
+  if(!f){ toast('Choose the accessory list first'); return; }
+  try { await importAccessories(f); }
+  catch(e){ console.error(e); toast('The accessory list did not load: ' + e.message); }
 });
 $('ovBtn').addEventListener('click', async ()=>{
   const f = $('ovFile').files[0];
@@ -8018,7 +8239,7 @@ function applyQuoteMode(){
   if(dl) dl.textContent = q ? 'Date raised' : 'Date';
   const t = $('acctHead');
   if(t) t.textContent = q ? 'Quote request details' : 'Call details';
-  const ct = $('ctHead');
+  const ct = $('ctWho');
   if(ct) ct.textContent = q ? 'Who rang?' : 'Who did you see?';
   const ob = $('openCall');
   if(ob) ob.textContent = q ? 'Start the quote request' : 'Start the call';
@@ -8195,6 +8416,8 @@ function renderDash(){
   $('cntBelt').textContent = n('belt')+' logged';
   $('cntProj').textContent = n('project')+' logged';
   $('cntNote').textContent = n('note')+' logged';
+  const nax = (c.entries.find(e => e.type === 'acc') || {lines: []}).lines.length;   // v192
+  $('cntAcc').textContent = nax ? nax + ' listed' : '';
   // v173: a conveyor walked counts once, however many faults it has
   const nh = walksOf(c).length + c.entries.filter(e => e.type === 'health' && !(e.walk && walkById(e.walk, c))).length;
   $('cntHealth').textContent = nh + ' logged';
@@ -8248,6 +8471,8 @@ function renderDash(){
     if(e.type==='project'){ head='Project - '+e.project; body=line([e.status,e.next,e.target]); }
     if(e.type==='note'){ head='Note - '+e.topic; body=esc(e.text); }
     if(e.type==='health'){ head='Health - '+(e.asset||'unspecified'); body=line([e.fault,e.severity]); }
+    if(e.type==='acc'){ head='Accessories'; const L = e.lines || [];   // v192
+      body=line(L.slice(0, 3).map(l => (l.qty || 1) + ' \u00d7 ' + l.desc).concat(L.length > 3 ? ['and ' + (L.length - 3) + ' more'] : [])); }
     if(e.type==='eval'){ const f = evForm(e.form), m = f ? evMissing(e, f).length : 0; head = evTitle(e);   // v161
       body = line([e.v && e.v.apptype, (e.conv||[]).length + ((e.conv||[]).length === 1 ? ' conveyor' : ' conveyors'), m ? m + ' starred still to fill' : 'every starred answer in']); }
     /* A comment is the thing most worth knowing is there, and it would otherwise
@@ -8306,11 +8531,13 @@ function entryHead(e){
   if(e.type==='note') return 'Note - ' + e.topic;
   if(e.type==='health') return 'Health - ' + (e.asset || 'unspecified');
   if(e.type==='eval') return evTitle(e);
+  if(e.type==='acc'){ const n = (e.lines || []).length; return 'Accessories (' + n + (n === 1 ? ' line' : ' lines') + ')'; }   // v192
   return 'Entry';
 }
 function openEntryMenu(i){
   const e = call && call.entries[i];
   if(!e) return;
+  if(e.type === 'acc'){ openCardMenu(entryHead(e), 'On this ' + (isQuote(call) ? 'request' : 'call'), [{label: 'Delete', icon: 'trash', danger: true, run: () => deleteEntry(i)}]); return; }   // v192
   const n = (e.photos || []).length;
   openCardMenu(entryHead(e), n ? n + ' photo' + (n===1?'':'s') : 'No photos', [
     {label: 'Take a photo', icon: 'camera', run: () => { photoTarget = i; $('camInput').value=''; $('camInput').click(); }},
@@ -8336,6 +8563,7 @@ function openLogged(i, copy){
   const e = call && call.entries[i];
   if(!e) return;
   if(e.type === 'eval'){ evEdit(i, copy); return; }        // v161: its own screen
+  if(e.type === 'acc'){ go('acc'); return; }               // v192: its own screen
   editingIdx = i;
   if(e.type==='belt'){
     resetBelt(); editingIdx = i;      // resetBelt clears it, so set it back
@@ -9566,6 +9794,7 @@ function applyBeltQuoteFields(){
 }
 function resetBelt(){
   try { showMsg($('bAssetHit'), '', ''); } catch(e){}
+  BAX = []; renderBAx();   // v192
   ['bAsset','bDesc','bCvLen','bFrame','bWidth','bLen','bSprDesc','bSprPn','bSprDrive','bSprIdle',
    'bFlHeight','bFlRows','bFlMm','bNotch','bSgHeight','bQc','bQty','bComment','bRodOther','bFlTypeOther',
    'bSgTypeOther','bIndentOther','bWhy'].forEach(i => { if($(i)) $(i).value = ''; });
@@ -9830,6 +10059,7 @@ $('bSave').addEventListener('click', async () => {
     tsg: $('bTsg').checked,
     // v173: the condition behind the quote, and the walk it was logged from
     why: (bWhyOn.length || v('bWhy')) ? {c: bWhyOn.slice(), t: v('bWhy')} : undefined,
+    acc: BAX.map(l => JSON.parse(JSON.stringify(l))),   // v192
     photos:[]
   };
   const wasEdit = editingIdx != null;
@@ -10683,6 +10913,59 @@ const STEP_WHEN = [['week', 'This week'], ['next', 'Next week'], ['month', 'In a
 // open steps at a customer, oldest date first
 const stepsOpenAt = acct => tasksReal(TASKS).filter(t => isStep(t) && !t.done && t.acct === acct).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 const stepMeta = t => [t.project, t.done ? 'Done' : t.date ? dayLabel(t.date) : ''].filter(Boolean).join(' · ');
+/* ---------- v192: the call's own accessories ----------
+   One entry of type 'acc' holds them all (e.lines), so the call log has one
+   card for them however many there are: wearstrips, tools and rollers for the
+   conveyor rather than one belt. A belt's own go on the belt. The series of
+   the belts on the call put the items made for them first. */
+const accEntry = () => call ? call.entries.find(e => e.type === 'acc') || null : null;
+const callSeries = () => call ? axUniq(call.entries.filter(e => e.type === 'belt').map(e => axSerKey(e.series))) : [];
+function openAcc(){
+  if(!call){ toast('Open a call first'); return; }
+  go('acc');
+  if(!(accEntry() || {lines: []}).lines.length) accAdd();
+}
+function accAdd(){ openAx({ctx: callSeries(), onSave: l => accPut(l).catch(reportErr)}); }
+async function accPut(l, after){
+  let e = accEntry();
+  if(!e){ e = {type: 'acc', lines: []}; call.entries.push(e); }
+  const i = e.lines.findIndex(x => x.id === l.id);
+  if(i >= 0) e.lines[i] = l; else if(after != null) e.lines.splice(after + 1, 0, l); else e.lines.push(l);
+  await saveCall();
+  if(screen === 'acc') renderAcc();
+}
+async function accDrop(id){
+  const e = accEntry(); if(!e) return;
+  e.lines = e.lines.filter(x => x.id !== id);
+  if(!e.lines.length) call.entries.splice(call.entries.indexOf(e), 1);   // nothing left: no empty card
+  await saveCall();
+  if(screen === 'acc') renderAcc();
+}
+function renderAcc(){
+  const e = accEntry(), lines = e ? e.lines : [];
+  axCards($('acList'), lines, {
+    edit: i => openAx({line: lines[i], ctx: callSeries(), onSave: l => accPut(l).catch(reportErr), onRemove: l => accDrop(l.id).catch(reportErr)}),
+    copy: i => openAx({line: axCopy(lines[i]), ctx: callSeries(), onSave: l => accPut(l, i).catch(reportErr)}),
+    remove: i => accDrop(lines[i].id).catch(reportErr)
+  });
+  if(!lines.length) $('acList').innerHTML = '<p class="empty">No accessories on this ' + (isQuote(call) ? 'request' : 'call') + ' yet.</p>';
+}
+$('acAdd').addEventListener('click', accAdd);
+
+/* ---------- v192: a belt's own accessories, held with the form until Done ---------- */
+let BAX = [];
+function renderBAx(){
+  const ctx = () => [serSel().value];
+  axCards($('bAxList'), BAX, {
+    edit: i => openAx({line: BAX[i], ctx: ctx(), onSave: l => { const j = BAX.findIndex(x => x.id === l.id); if(j >= 0) BAX[j] = l; renderBAx(); },
+      onRemove: l => { BAX = BAX.filter(x => x.id !== l.id); renderBAx(); }}),
+    copy: i => openAx({line: axCopy(BAX[i]), ctx: ctx(), onSave: l => { BAX.splice(i + 1, 0, l); renderBAx(); }}),
+    remove: i => { BAX.splice(i, 1); renderBAx(); }
+  });
+  $('sumAx').textContent = BAX.length ? BAX.length + (BAX.length === 1 ? ' accessory' : ' accessories') : '';
+}
+$('bAxAdd').addEventListener('click', () => openAx({ctx: [serSel().value], onSave: l => { BAX.push(l); renderBAx(); }}));
+
 function openStep(id){
   if(!call) return;
   const t = id ? TASKS.find(x => x.id === id) : null;
@@ -10863,7 +11146,7 @@ function barPhotoTap(input){
     return;
   }
   if(screen === 'wfault' && WF){ wfPhoto(input); return; }
-  photoTarget = (screen === 'walk' || screen === 'step' || !call.entries.length) ? 'loose' : null;
+  photoTarget = (screen === 'walk' || screen === 'step' || screen === 'acc' || !call.entries.length) ? 'loose' : null;
   input.value=''; input.click();
 }
 $('barCamera').innerHTML = icon('camera');
@@ -11486,6 +11769,7 @@ function beltSpecGroups(b, opts){
   const sprChosen = [b.sprocket, b.sprpn, b.sprpd, b.sprmat].some(x => String(x == null ? '' : x).trim());
   return [['Belt', belt.filter(keep)],
           ['Sprockets', sprChosen ? spr.filter(keep) : []],
+          ['Accessories', axSpecRows(b.acc)],            // v192: the belt's own, a line each
           ['Flights and sideguards', acc.filter(keep)]]
     .filter(g => g[1].length);
 }
@@ -12323,8 +12607,13 @@ let OF = null;          // the favourite being changed: {acct, kind, f, isNew}
 let OSEND = null;       // the form being sent: {acct, to, off: Set of favourite ids left out}
 let ofSaveT = null;
 const osFor = acct => PLANS.filter(p => p.kind === OS_KIND && p.acct === acct).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0] || null;
-const osList = r => r ? (r.belts || []).map(f => ({kind: 'belt', f})).concat((r.sprockets || []).map(f => ({kind: 'sprocket', f}))) : [];
-const osKey = kind => kind === 'belt' ? 'belts' : 'sprockets';
+const osList = r => r ? (r.belts || []).map(f => ({kind: 'belt', f})).concat((r.sprockets || []).map(f => ({kind: 'sprocket', f})), (r.accessories || []).map(f => ({kind: 'accessory', f}))) : [];
+const osKey = kind => ({belt: 'belts', sprocket: 'sprockets', accessory: 'accessories'})[kind];
+const OF_KIND = {belt: 'Belt', sprocket: 'Sprocket', accessory: 'Accessory'};
+/* v192: an accessory favourite is a group of the OneTrack list and the items
+   in it the customer may choose: {group, groupName, choices: [{label, desc, item}]}.
+   The choice keeps its description and part number, so the form bakes without the list. */
+const axChoiceLabel = (g, it) => (g ? g.fields : Object.keys(it.opts)).map(f => it.opts[f]).filter(Boolean).join(' \u00b7 ') || it.desc;
 // newest wins between devices, so every change is made to the latest copy of the sheet
 async function osWrite(acct, change){
   const cur = osFor(acct);
@@ -12376,6 +12665,8 @@ function ofNeeds(kind, f){
       if(!(f.widths || []).length) n.push('a width');
       if(ofNeedsRoll(f.series, f.style) && !f.rollerConfig) n.push('the passive roller set-up');
     }
+  } else if(kind === 'accessory'){
+    if(!f.group) n.push('what it is'); else if(!(f.choices || []).length) n.push('at least one to choose from');
   } else if(!f.series || !f.bore) n.push('a series and bore');
   else {
     if(!(f.pds || []).length) n.push('a pitch diameter');
@@ -12384,11 +12675,13 @@ function ofNeeds(kind, f){
   return n;
 }
 function ofDefaultLabel(kind, f){
+  if(kind === 'accessory') return f.groupName || '';
   if(kind === 'sprocket') return ['S' + (f.series || ''), 'sprocket', f.bore].filter(x => x && x !== 'S').join(' ').replace(/^S /, '');
   return [f.series && 'S' + f.series, f.style].filter(Boolean).join(' ');
 }
-const ofLabel = (kind, f) => String(f.label || '').trim() || ofDefaultLabel(kind, f) || (kind === 'belt' ? 'Belt' : 'Sprocket');
+const ofLabel = (kind, f) => String(f.label || '').trim() || ofDefaultLabel(kind, f) || OF_KIND[kind];
 function ofLine(kind, f){
+  if(kind === 'accessory'){ const c = f.choices || []; return c.length > 3 ? c.length + ' to choose from' : c.map(x => x.label).join(' or '); }
   if(kind === 'sprocket') return [(f.pds || []).join(' or '), (f.materials || []).join(' or ')].filter(Boolean).join(' · ');
   return [(f.materials || []).join(' or '), (f.colours || []).join(' or '), (f.widths || []).length ? f.widths.join(', ') + ' mm' : '',
     f.hasFlights && 'flights', f.hasSideguards && 'sideguards', f.hasSprocket && 'sprocket'].filter(Boolean).join(' · ');
@@ -12412,37 +12705,38 @@ function openOrders(acct){
 function renderOrders(){
   if(!OSH) return;
   const r = osFor(OSH.acct), favs = osList(r), last = r && (r.sent || []).slice(-1)[0];
-  $('osHead').textContent = OSH.acct;
+  $('oshHead').textContent = OSH.acct;
   $('osSend').disabled = !favs.some(x => !ofNeeds(x.kind, x.f).length);
   $('osHint').textContent = favs.length
     ? favs.length + (favs.length === 1 ? ' favourite' : ' favourites') + (last ? ' · form last sent to ' + (last.to || 'the customer') + ', ' + btDay(last.at) : '') +
       (inTeam() ? ' · your team sees this sheet too' : '')
     : '';
-  if(!favs.length){ $('osList').innerHTML = ''; return; }
-  const groups = [...new Set(favs.map(x => x.f.series || ''))].sort((a, b) => osSeriesNum(a) - osSeriesNum(b) || a.localeCompare(b));
-  $('osList').innerHTML = groups.map(s => {
-    const own = favs.filter(x => (x.f.series || '') === s), nb = own.filter(x => x.kind === 'belt').length, ns = own.length - nb;
-    return '<div class="osser"><span>' + (s ? 'Series ' + esc(s) : 'No series yet') + '</span><span>' +
-      [nb && nb + (nb === 1 ? ' belt' : ' belts'), ns && ns + (ns === 1 ? ' sprocket' : ' sprockets')].filter(Boolean).join(', ') + '</span></div>' +
+  if(!favs.length){ $('oshList').innerHTML = ''; return; }
+  const AXG = '\uffffaccessories', grp = x => x.kind === 'accessory' ? AXG : x.f.series || '';   // v192: accessories last, together
+  const groups = [...new Set(favs.map(grp))].sort((a, b) => (a === AXG) - (b === AXG) || osSeriesNum(a) - osSeriesNum(b) || a.localeCompare(b));
+  $('oshList').innerHTML = groups.map(s => {
+    const own = favs.filter(x => grp(x) === s), nb = own.filter(x => x.kind === 'belt').length, ns = own.filter(x => x.kind === 'sprocket').length;
+    return '<div class="osser"><span>' + (s === AXG ? 'Accessories' : s ? 'Series ' + esc(s) : 'No series yet') + '</span><span>' +
+      (s === AXG ? own.length : [nb && nb + (nb === 1 ? ' belt' : ' belts'), ns && ns + (ns === 1 ? ' sprocket' : ' sprockets')].filter(Boolean).join(', ')) + '</span></div>' +
       own.map(x => {
         const need = ofNeeds(x.kind, x.f), line = ofLine(x.kind, x.f), name = ofLabel(x.kind, x.f);
         return '<div class="card entry"><div class="ehd"><button type="button" class="eopen" data-osopen="' + esc(x.f.id) + '">' +
           '<span class="t">' + esc(name) + '</span>' +
-          '<span class="meta"><span class="ostag">' + (x.kind === 'belt' ? 'Belt' : 'Sprocket') + '</span>' + esc(line) + '</span>' +
+          '<span class="meta"><span class="ostag">' + OF_KIND[x.kind] + '</span>' + esc(line) + '</span>' +
           (need.length ? '<span class="osneed">Still needs ' + esc(andList(need)) + '; left out of the form until then</span>' : '') +
           (x.f.internalNote ? '<span class="osnote">Sales: ' + esc(x.f.internalNote) + '</span>' : '') + '</button>' +
           '<button type="button" class="emore" data-osmenu="' + esc(x.f.id) + '" aria-label="More for ' + esc(name) + '">&#8943;</button></div></div>';
       }).join('');
   }).join('');
-  $('osList').querySelectorAll('[data-osopen]').forEach(b => b.addEventListener('click', () => {
+  $('oshList').querySelectorAll('[data-osopen]').forEach(b => b.addEventListener('click', () => {
     const x = osList(osFor(OSH.acct)).find(y => y.f.id === b.dataset.osopen);
     if(x) openOfav(OSH.acct, x.kind, x.f);
   }));
-  $('osList').querySelectorAll('[data-osmenu]').forEach(b => b.addEventListener('click', () => {
+  $('oshList').querySelectorAll('[data-osmenu]').forEach(b => b.addEventListener('click', () => {
     const x = osList(osFor(OSH.acct)).find(y => y.f.id === b.dataset.osmenu);
     if(!x) return;
     const name = ofLabel(x.kind, x.f);
-    openCardMenu(name, x.kind === 'belt' ? 'Belt favourite' : 'Sprocket favourite', [
+    openCardMenu(name, OF_KIND[x.kind] + ' favourite', [
       {label: 'Duplicate', icon: 'copy', run: () => { const f = JSON.parse(JSON.stringify(x.f)); f.id = newId('f'); f.label = ''; openOfav(OSH.acct, x.kind, f, true); }},
       {label: 'Remove', icon: 'trash', danger: true, run: () => {
         if(!confirm('Remove ' + name + ' from the order sheet for ' + OSH.acct + '?\n\nForms already sent keep it. ' +
@@ -12493,7 +12787,7 @@ function ofFromBelt(g){
 }
 function ofTouched(){
   const f = OF.f;
-  return !!(f.series || f.style || f.label || f.internalNote || (f.materials || []).length);
+  return !!(f.series || f.style || f.group || f.label || f.internalNote || (f.materials || []).length);
 }
 function ofSaveSoon(){ clearTimeout(ofSaveT); ofSaveT = setTimeout(() => ofSaveNow().catch(reportErr), 600); }
 async function ofSaveNow(){
@@ -12501,10 +12795,10 @@ async function ofSaveNow(){
   if(!OF) return;
   const of = OF;
   if(!of.saved && !ofTouched()) return;      // nothing chosen yet: nothing kept
-  const f = JSON.parse(JSON.stringify(of.f)), other = of.kind === 'belt' ? 'sprockets' : 'belts';
+  const f = JSON.parse(JSON.stringify(of.f));
   await osWrite(of.acct, r => {
     const k = osKey(of.kind);
-    r[other] = (r[other] || []).filter(x => x.id !== f.id);          // switched between belt and sprocket
+    ['belts', 'sprockets', 'accessories'].filter(o => o !== k).forEach(o => { r[o] = (r[o] || []).filter(x => x.id !== f.id); });   // switched kind
     const list = r[k] = r[k] || [], at = list.findIndex(x => x.id === f.id);
     if(at >= 0) list[at] = f; else list.push(f);
   });
@@ -12540,11 +12834,11 @@ function ofFlag(id, on){
 function renderOfav(){
   if(!OF) return;
   const f = OF.f, belt = OF.kind === 'belt';
-  $('title').textContent = OF.isNew ? 'New favourite' : (belt ? 'Belt favourite' : 'Sprocket favourite');
+  $('title').textContent = OF.isNew ? 'New favourite' : OF_KIND[OF.kind] + ' favourite';
   $('subtitle').textContent = OF.acct;
   $('ofKindW').hidden = !OF.isNew || OF.saved && !!f.series;
   $('ofKind').querySelectorAll('button').forEach(b => { const on = b.dataset.v === OF.kind; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
-  $('ofBelt').hidden = !belt; $('ofSpro').hidden = belt;
+  $('ofBelt').hidden = !belt; $('ofSpro').hidden = OF.kind !== 'sprocket'; $('ofAcc').hidden = OF.kind !== 'accessory';
   const logged = belt && OF.isNew ? OF.logged || [] : [];
   $('ofFromW').hidden = !logged.length;
   $('ofFrom').innerHTML = logged.map((g, i) => { const e = g.latest.e;
@@ -12562,7 +12856,23 @@ function renderOfav(){
     f.internalNote = (t ? t + (/[.;:]$/.test(t) ? ' ' : '; ') : '') + b.dataset.q;
     $('ofNote').value = f.internalNote; ofSaveSoon();
   }));
-  if(belt) renderOfBelt(); else renderOfSpro();
+  if(belt) renderOfBelt(); else if(OF.kind === 'sprocket') renderOfSpro(); else renderOfAcc();
+}
+function renderOfAcc(){   // v192
+  const f = OF.f, none = !axList();
+  $('ofAccNone').hidden = !none; $('ofAccBody').hidden = none && !f.group;
+  $('ofAxGroup').innerHTML = axGroups().map(g => '<button type="button" data-v="' + esc(g.id) + '"' + (g.id === f.group ? ' class="on"' : '') + '>' + esc(g.name) + '</button>').join('');
+  const g = axGroup(f.group), on = new Set((f.choices || []).map(c => c.item || c.desc));
+  // the group's items, and any already chosen that the list on this device no longer has
+  const its = g ? axItems(g.id).map(it => ({label: axChoiceLabel(g, it), desc: it.desc, item: it.item, series: it.series})) : [];
+  (f.choices || []).forEach(c => { if(!its.some(x => (x.item || x.desc) === (c.item || c.desc))) its.push(c); });
+  $('ofAxItems').innerHTML = its.map((c, i) => '<button type="button" data-axi="' + i + '"' + (on.has(c.item || c.desc) ? ' class="on"' : '') + ' aria-pressed="' + on.has(c.item || c.desc) + '">' +
+    esc(c.label) + '<small>' + esc([c.item || 'no part number', (c.series || []).length ? 'Series ' + c.series.join(', ') : ''].filter(Boolean).join(' \u00b7 ')) + '</small></button>').join('');
+  $('ofAxItems').querySelectorAll('[data-axi]').forEach(b => b.addEventListener('click', () => {
+    const c = its[+b.dataset.axi], k = c.item || c.desc, cur = f.choices || [];
+    f.choices = cur.some(x => (x.item || x.desc) === k) ? cur.filter(x => (x.item || x.desc) !== k) : cur.concat([{label: c.label, desc: c.desc, item: c.item || ''}]);
+    ofChanged();
+  }));
 }
 function renderOfBelt(){
   const f = OF.f;
@@ -12663,6 +12973,7 @@ $('ofKind').querySelectorAll('button').forEach(b => b.addEventListener('click', 
   OF.kind = b.dataset.v;
   const id = OF.f.id, label = OF.f.label, note = OF.f.internalNote;
   OF.f = OF.kind === 'belt' ? {id, label, series: '', style: '', materials: [], colours: [], rods: [], widths: [], internalNote: note}
+    : OF.kind === 'accessory' ? {id, label, group: '', groupName: '', choices: [], internalNote: note}
     : {id, label, series: '', bore: '', pds: [], materials: [], internalNote: note};
   ofChanged();
 }));
@@ -12691,6 +13002,15 @@ $('ofSSeries').addEventListener('change', () => { const f = OF.f; f.series = $('
   f.bore = ofBores(f.series).includes(DEFAULT_BORE) ? DEFAULT_BORE : ''; ofChanged(); });
 $('ofSBore').addEventListener('change', () => { const f = OF.f; f.bore = $('ofSBore').value; f.pds = []; f.materials = []; ofChanged(); });
 $('ofDone').addEventListener('click', () => go('orders'));
+$('ofAxGroup').addEventListener('click', e => {   // v192: a different group starts its choices afresh
+  const b = e.target.closest('button'), f = OF && OF.f; if(!b || !f || f.group === b.dataset.v) return;
+  const g = axGroup(b.dataset.v);
+  Object.assign(f, {group: b.dataset.v, groupName: g ? g.name : '', choices: []});
+  // the wearstrip's own default comes ticked: one fewer tap for the usual one
+  const d = g && Object.keys(g.defaults || {}).length ? axItems(g.id).filter(it => Object.entries(g.defaults).every(([k, v]) => it.opts[k] === v)) : [];
+  if(d.length === 1) f.choices = [{label: axChoiceLabel(g, d[0]), desc: d[0].desc, item: d[0].item}];
+  ofChanged();
+});
 
 /* ---- sending the form ---- */
 function openOsend(acct){
@@ -12711,13 +13031,13 @@ function renderOsend(){
   $('osPick').innerHTML = osList(r).map(x => {
     const need = ofNeeds(x.kind, x.f);
     return '<label><input type="checkbox" data-pick="' + esc(x.f.id) + '"' + (OSEND.off.has(x.f.id) ? '' : ' checked') + (need.length ? ' disabled' : '') + '><span>' + esc(ofLabel(x.kind, x.f)) +
-      '<small>' + (x.kind === 'belt' ? 'Belt' : 'Sprocket') + (need.length ? ' · still needs ' + esc(andList(need)) : x.f.internalNote ? ' · the sales note stays out' : '') + '</small></span></label>';
+      '<small>' + OF_KIND[x.kind] + (need.length ? ' · still needs ' + esc(andList(need)) : x.f.internalNote ? ' · the sales note stays out' : '') + '</small></span></label>';
   }).join('');
   $('osPick').querySelectorAll('[data-pick]').forEach(c => c.addEventListener('change', () => {
     if(c.checked) OSEND.off.delete(c.dataset.pick); else OSEND.off.add(c.dataset.pick);
-    $('osGo').disabled = !osPicked().length;
+    $('oshGo').disabled = !osPicked().length;
   }));
-  $('osGo').disabled = !osPicked().length;
+  $('oshGo').disabled = !osPicked().length;
   showMsg($('osSendMsg'), '', '');
 }
 const osPicked = () => OSEND ? osList(osFor(OSEND.acct)).filter(x => !OSEND.off.has(x.f.id) && !ofNeeds(x.kind, x.f).length) : [];
@@ -12726,7 +13046,9 @@ function osBake(kind, f){
   const out = JSON.parse(JSON.stringify(f));
   delete out.internalNote;
   out.label = ofLabel(kind, f);
-  if(kind === 'belt'){
+  if(kind === 'accessory'){   // v192: the choices already carry their descriptions and part numbers
+    out.choices = (f.choices || []).map(c => ({label: c.label, desc: c.desc, item: c.item || ''}));
+  } else if(kind === 'belt'){
     out.materialColours = {};
     (f.materials || []).forEach(m => { out.materialColours[m] = ofColsFor(f.series, f.style, m).filter(c => (f.colours || []).includes(c)); });
   } else {
@@ -12741,9 +13063,10 @@ function osFormData(acct, to, picked){
   const img = document.querySelector('header .redbox img'), logo = img ? String(img.src).replace(/^data:image\/png;base64,/, '') : '';
   return {formId: newId('of'), customer: acct, company: acct, contact: to || '', email: (c && c.e && c.e[0]) || '',
     manager: effMgr(a) || $('cMgr').value || '', managerEmail: (sbUser && sbUser.email) || '', logo,
-    belts: picked.filter(x => x.kind === 'belt').map(x => osBake('belt', x.f)), sprockets: picked.filter(x => x.kind === 'sprocket').map(x => osBake('sprocket', x.f))};
+    belts: picked.filter(x => x.kind === 'belt').map(x => osBake('belt', x.f)), sprockets: picked.filter(x => x.kind === 'sprocket').map(x => osBake('sprocket', x.f)),
+    accessories: picked.filter(x => x.kind === 'accessory').map(x => osBake('accessory', x.f))};
 }
-$('osGo').addEventListener('click', async () => {
+$('oshGo').addEventListener('click', async () => {
   if(!OSEND) return;
   const picked = osPicked();
   if(!picked.length){ showMsg($('osSendMsg'), 'warn', 'Tick at least one favourite.'); return; }
@@ -12757,14 +13080,17 @@ $('osGo').addEventListener('click', async () => {
 /* ---- bringing in the Belt Order Builder's favourites ----
    Its Export favourites file: {belts, sprockets, accessories}, no customer
    name. They join this account's sheet; one already there (the same id) is
-   left as it is. Accessories come with a later version. */
+   left as it is. Accessories since v192, when they are in this app's own
+   shape (group and choices); the builder's older wear strip and retainer
+   favourites are not, and are counted and left out. */
 $('osFile').addEventListener('change', async () => {
   const file = $('osFile').files[0];
   if(!file || !OSH) return;
   try {
     const d = JSON.parse(await file.text());
     const belts = Array.isArray(d && d.belts) ? d.belts : [], sprs = Array.isArray(d && d.sprockets) ? d.sprockets : [];
-    if(!belts.length && !sprs.length) throw new Error('there are no belt or sprocket favourites in it');
+    const allAcc = Array.isArray(d && d.accessories) ? d.accessories : [], accs = allAcc.filter(f => f && f.group && Array.isArray(f.choices));
+    if(!belts.length && !sprs.length && !accs.length) throw new Error('there are no belt or sprocket favourites in it');
     const norm = (f, kind) => {
       const x = Object.assign({}, f, {id: String(f.id || newId('f'))});
       if(kind === 'belt'){
@@ -12773,6 +13099,8 @@ $('osFile').addEventListener('change', async () => {
         if(!Array.isArray(x.widths)) x.widths = x.width ? [String(x.width)] : [];
         if(!Array.isArray(x.rods)) x.rods = x.rod ? [x.rod] : [];
         x.widths = x.widths.map(String);
+      } else if(kind === 'accessory'){
+        x.groupName = x.groupName || ''; x.choices = x.choices.filter(c => c && c.desc);
       } else {
         if(!Array.isArray(x.materials)) x.materials = x.material ? [x.material] : [];
         if(!Array.isArray(x.pds)) x.pds = x.pd ? [x.pd] : [];
@@ -12782,13 +13110,13 @@ $('osFile').addEventListener('change', async () => {
     };
     let added = 0;
     await osWrite(OSH.acct, r => {
-      [['belts', belts, 'belt'], ['sprockets', sprs, 'sprocket']].forEach(([k, list, kind]) => {
+      [['belts', belts, 'belt'], ['sprockets', sprs, 'sprocket'], ['accessories', accs, 'accessory']].forEach(([k, list, kind]) => {
         r[k] = r[k] || [];
         list.forEach(f => { const x = norm(f, kind); if(!r[k].some(y => y.id === x.id)){ r[k].push(x); added++; } });
       });
     });
-    const acc = Array.isArray(d.accessories) ? d.accessories.length : 0;
-    toast('Brought in ' + added + (added === 1 ? ' favourite' : ' favourites') + (acc ? '; ' + acc + ' accessories wait for a later version' : ''));
+    const acc = allAcc.length - accs.length;
+    toast('Brought in ' + added + (added === 1 ? ' favourite' : ' favourites') + (acc ? '; ' + acc + (acc === 1 ? ' accessory' : ' accessories') + ' from the builder left out: add ' + (acc === 1 ? 'it' : 'them') + ' here' : ''));
     renderOrders();
   } catch(e){ toast('That file could not be read: ' + (e.message || e)); }
 });
@@ -20740,6 +21068,9 @@ async function buildNotesHTML(scope, mode, c){
   const cvParts = [];
   if(wantBelts || wantHealth) for(const g of conveyorGroups(c)){ const h = await conveyorHTML(g, scope, mode, c); if(h) cvParts.push(h); }
   if(cvParts.length) p.push('<h2>' + (scope === 'belts' ? 'Belts to quote' : 'Conveyors') + '</h2>' + cvParts.join(''));
+  // v192: the call's own accessories, in the call notes and the belt requirements
+  const axCall = wantBelts ? ((c.entries || []).find(e => e.type === 'acc') || {lines: []}).lines : [];
+  if(axCall.length) p.push('<h2>Accessories</h2>' + axTableHTML(axCall));
 
   if(scope === 'full' && c.loose && c.loose.length){
     p.push('<h2>Additional photos</h2>');
@@ -20836,8 +21167,11 @@ async function buildRFQHTML(mode, c){
       p.push('</div>');
     }
   } else {
-    p.push('<h2>Belts to quote</h2><p class="sub">No belt was specified on this request.</p>');
+    if(!(c.entries.find(e => e.type === 'acc') || {lines: []}).lines.length)   // v192: a request for accessories alone is not missing a belt
+      p.push('<h2>Belts to quote</h2><p class="sub">No belt was specified on this request.</p>');
   }
+  const axReq = (c.entries.find(e => e.type === 'acc') || {lines: []}).lines;   // v192
+  if(axReq.length) p.push('<h2>Accessories to quote</h2>' + axTableHTML(axReq));
 
   const notes = c.entries.filter(e => e.type === 'note');
   if(notes.length){
@@ -20889,6 +21223,8 @@ function histLine(c){
   const proj = E('project');
   if(proj.length) bits.push(proj.length+' project'+(proj.length===1?'':'s')+': '+
     trimList(proj.map(e => e.project || 'unnamed')));
+  const axl = (E('acc')[0] || {lines: []}).lines;   // v192
+  if(axl.length) bits.push(axl.length + (axl.length === 1 ? ' accessory' : ' accessories'));
   const notes = E('note');
   if(notes.length) bits.push(notes.length+' note'+(notes.length===1?'':'s')+
     ' ('+trimList([...new Set(notes.map(e => e.topic || 'Other'))])+')');
@@ -23352,7 +23688,9 @@ function renderRefPane(){
   $('paneFlt').hidden = refPane !== 'flt';
   $('paneWeb').hidden = refPane !== 'web';
   $('paneMis').hidden = refPane !== 'mis';
+  $('paneOt').hidden = refPane !== 'ot';
   if(refPane === 'web') renderWebLinks();
+  if(refPane === 'ot') renderOneTrack();   // v192
   document.querySelectorAll('#refTabs button').forEach(b =>
     b.classList.toggle('on', b.dataset.pane === refPane));
   if(man){ if(window.Manuals) Manuals.render().catch(e=>console.error('manuals', e)); }
@@ -23526,6 +23864,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v192', 'Accessories, from the OneTrack list: wearstrips, retainer rings, CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, each with its part number. Load the list in Settings, CRM and belt data, Accessories. In a call or quote request, tap Accessories for those not tied to one belt; a belt has its own Accessories section. Tap a choice in each row until the part number shows; a wearstrip starts on the snap-on, 500 ft, for a 1/4 in frame, and items for the belts\' series come first. They print in the quote request and the call notes. Reference has a OneTrack tab, and an order sheet can hold accessory favourites for the customer\'s form. Also fixed: Add from a description on a Blue Sheet, and the contact form\'s title, which shared names with other parts of the app.'],
   ['v191', 'A belt with no sprocket chosen no longer prints a Sprockets section of the bore and the counts filled in for it. The section appears once you give a sprocket size, material, description or part number. Belts already logged follow too; nothing you entered is changed.'],
   ['v190', 'The photo icons at the top of a call now add to what you have open. In a belt, project, note or health item, the photos join that item (kept when you tap Done), the same as its own photo buttons. Before, they went to the last item logged, or to the loose photos. On a conveyor walk\'s list and a next step, which hold no photos, they go to the loose photos. On a quote request, a belt no longer says "not yet confirmed with TSG": the TSG line appears only when you tick it. Requested by lists each person under the other, so a long email or job title stays on the page on a phone.'],
   ['v189', 'Business plan. A new tile on Home holds the business plan: outcomes under Annuity, Projects and Growth, each with its objective, and the actions agreed for them, with team, owner and due date. Tap an action to update it and log the month\'s check-in (Achieved, Partly or Not yet). ⋯, Import plan brings in the plan from the tracker\'s HTML file. Share makes an A4 HTML copy to send. The plan is yours only: it syncs, encrypted, to your own devices and never to the team.'],

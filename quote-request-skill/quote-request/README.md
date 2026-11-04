@@ -35,7 +35,8 @@ The full guide is `DOCUMENTATION.html` (open it in Edge).
 3. Also give it access to the folder that holds `Plant_Audit_Template_1.xlsm`.
 4. In Claude, type: **Set up the quote request skill.**
 5. When Claude asks, tell it where the folder and the workbook are, and
-   where your CRM export is (the one Field CRM imports). Claude saves these
+   where your CRM export is (the one Field CRM imports), and where you keep
+   the OneTrack accessory list. Claude saves these
    as `quote-request settings.json` in the folder.
 
 The catalogue and your CRM export stay where they are on your PC. Nothing

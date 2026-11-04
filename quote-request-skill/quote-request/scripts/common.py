@@ -4,7 +4,7 @@ The settings live in a folder on the person's PC (the "quote requests folder"),
 never in this skill's folder, which may be read only:
 
     <quote requests folder>/
-      quote-request settings.json   {"workbook": "...", "crm_export": "...", "out": "...",
+      quote-request settings.json   {"workbook": "...", "crm_export": "...", "accessories": "...", "out": "...",
                                      "templates": "...", "customer_service_email": "..."}
       belt-catalogue.json           the catalogue read from the workbook (catalogue.py)
       templates/                    their own copies of templates, which win over the built-in ones
@@ -35,7 +35,7 @@ def find_settings(path=None):
 
 
 def settings(path=None):
-    """{'folder', 'file', 'workbook', 'catalogue', 'templates', 'out', 'crm_export', 'customer_service_email'}:
+    """{'folder', 'file', 'workbook', 'catalogue', 'templates', 'out', 'crm_export', 'accessories', 'customer_service_email'}:
     paths absolute; empty strings where not known."""
     sp = find_settings(path)
     s = {}
@@ -57,6 +57,7 @@ def settings(path=None):
             'templates': where(s.get('templates'), 'templates' if folder else ''),
             'out': where(s.get('out'), folder),
             'crm_export': where(s.get('crm_export')),
+            'accessories': where(s.get('accessories')),
             'customer_service_email': s.get('customer_service_email') or ''}
 
 

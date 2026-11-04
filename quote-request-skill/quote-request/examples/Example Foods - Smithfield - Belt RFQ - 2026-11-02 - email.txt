@@ -42,6 +42,8 @@ Belt 1 — Conveyor 4
   Pitch diameter: 5.1 IN 16T
   Material: ACETAL
   Drive quantity: 6
+[Accessories]
+  Snap-on wearstrip, 500 ft, for a 1/4 in frame: Qty 2 · EX-W5 · Carryway, both sides
 General comments:
 Replacing the existing belt at the next shutdown.
 - Customer would like delivery before 20 November
