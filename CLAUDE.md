@@ -92,7 +92,10 @@ at that account.
 same public-Pages reason, even though it isn't customer data — it's Intralox's
 own part numbers. It is imported on a device and travels between devices
 encrypted through cloud sync (dataset `beltref`). The old GitHub-repo and
-OneDrive-folder syncs were removed in v78.
+OneDrive-folder syncs were removed in v78. The OneTrack accessory list (v192,
+`REF.accessories`, kind `field-crm-accessories`) is the same: Intralox's part
+numbers, made into a .json file outside the repo and imported in Settings,
+travelling inside `beltref`. Tests use a made-up list (`EX-` part numbers).
 
 **Storage is promise-gated.** `openDB()` returns a cached promise and clears
 itself on failure so the next call retries. Every store operation awaits it.

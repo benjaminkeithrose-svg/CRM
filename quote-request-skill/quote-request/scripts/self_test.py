@@ -145,6 +145,24 @@ def main():
         code, out = run(os.path.join(HERE, 'build_request.py'), '--list-templates', '--settings', tmp)
         ok(code == 0 and 'your own copy' in out and 'sprocket-quote' in out, 'templates listed')
 
+        # the accessories: Field CRM's OneTrack list, made up here
+        al = os.path.join(tmp, 'accessories.json')
+        with open(al, 'w', encoding='utf-8') as f:
+            json.dump({'kind': 'field-crm-accessories', 'version': 1, 'source': 'Made-up list',
+                       'groups': [{'id': 'wearstrip', 'name': 'Wearstrip', 'fields': ['Type', 'Frame size'], 'defaults': {'Type': 'Snap-on', 'Frame size': '1/4 in'}},
+                                  {'id': 'tool', 'name': 'Tool', 'fields': ['Type', 'For']}],
+                       'items': [{'group': 'wearstrip', 'desc': 'Snap-on wearstrip, 1/4 in frame', 'opts': {'Type': 'Snap-on', 'Frame size': '1/4 in'}, 'item': 'EX-W5'},
+                                 {'group': 'tool', 'desc': '3-link belt puller set', 'opts': {'Type': 'Belt puller', 'For': '3-link'}, 'item': 'EX-T1', 'series': ['100']},
+                                 {'group': 'tool', 'desc': '5-link belt puller set', 'opts': {'Type': 'Belt puller', 'For': '5-link'}, 'item': 'EX-T2', 'series': ['200']}]}, f)
+        code, out = run(os.path.join(HERE, 'lookup.py'), '--settings', tmp, '--accessories', al, 'accessories')
+        ok(code == 0 and 'usual: Type Snap-on, Frame size 1/4 in' in out, 'accessory groups, with the usual wearstrip: ' + out[-160:])
+        code, out = run(os.path.join(HERE, 'lookup.py'), '--settings', tmp, '--accessories', al, 'accessories', '--group', 'tool', '--series', 'S100')
+        ok(code == 0 and 'EX-T1' in out and 'EX-T2' not in out, 'accessories for a series: ' + out[-160:])
+        os.remove(os.path.join(s['templates'], 'belt-quote.json'))   # the built-in template again
+        res = build_request.build(os.path.join(ex, 'example-belt-request.json'), s)
+        page = open(res['files']['file'], encoding='utf-8').read()
+        ok('<th class="grp" colspan="2">Accessories</th>' in page and 'Qty 2 \u00b7 EX-W5 \u00b7 Carryway, both sides' in page, 'a belt\'s accessories print as a band')
+
         # the built-in templates match each other's shape
         for fn in os.listdir(os.path.join(ROOT, 'templates')):
             tt = json.load(open(os.path.join(ROOT, 'templates', fn), encoding='utf-8'))

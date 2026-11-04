@@ -26,6 +26,7 @@ PC, never in this skill's folder (it may be read only):
 ```json
 {"workbook": "C:/.../Plant_Audit_Template_1.xlsm",
  "crm_export": "C:/.../CRM export.xlsx",
+ "accessories": "C:/.../OneTrack accessories.json",
  "customer_service_email": "...",
  "out": "", "templates": ""}
 ```
@@ -75,6 +76,12 @@ folder of your own, and give them the files at the end.
      part number of each that fits. `lookup.py part <number>` finds a part
      number from the email.
    - `lookup.py lists` gives rod materials, flight and sideguard types and indents.
+   - Accessories (wearstrips, retainer rings, CleanLock sprockets, rollers,
+     shafts, spacers, scrapers, tools): `lookup.py accessories` reads Field CRM's
+     OneTrack accessory list (`accessories` in the settings). `--group` and
+     `--series` narrow it; words search it. The usual wearstrip is the snap-on,
+     500 ft, for a 1/4 in frame, unless the email says otherwise. A belt's go in
+     its `accessories`; on their own, in the sprocket and parts request's `parts`.
    - Write the catalogue's own names, spelt as it spells them.
    - Only what the email, the person or the catalogue establishes. Never pick
      between several that fit (split or solid, two pitch diameters): ask, or

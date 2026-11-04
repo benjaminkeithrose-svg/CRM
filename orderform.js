@@ -131,6 +131,8 @@ function ofFormRuntime(D){
         item.hasRetainers && ('heavy-duty retainers' + (item.retainerQty ? ' x' + esc(item.retainerQty) : ''))].filter(Boolean).join(' &middot; '));
       return {kind: 'Belt', main: main || '(not chosen yet)', extra: extra.join(' &middot; ')};
     }
+    if(item.type === 'accessory')   // v192
+      return {kind: 'Accessory', main: esc(item.desc) + (item.qty ? ' &middot; ' + esc(item.qty) + ' off' : ''), extra: item.partNumber ? 'Part number ' + esc(item.partNumber) : ''};
     const main = [item.series && ('Series ' + item.series), item.bore, item.pd, item.material, item.qty && (item.qty + ' off')].filter(Boolean).map(esc).join(' &middot; ');
     return {kind: 'Sprocket', main: main || '(not chosen yet)', extra: esc(item.description || '')};
   }
@@ -225,6 +227,29 @@ function ofFormRuntime(D){
       $('notes_' + f.id).value = '';
     });
   }
+  /* v192: an accessory - wearstrips, retainer rings, tools - with the choices
+     sales ticked for this customer, each with its description and part number */
+  function accHTML(f){
+    return '<div class="spec">' + head(f, esc(f.groupName || '')) + '<div class="specBody hide" id="body_' + f.id + '">' +
+      (f.choices.length > 1 ? '<div class="field"><label>Which one</label><div class="chips" id="ch_' + f.id + '"></div></div>' : '') +
+      '<div class="locked" id="desc_' + f.id + '"></div>' +
+      '<div class="row"><div class="field"><label for="qty_' + f.id + '">Quantity</label><input type="number" min="1" value="1" id="qty_' + f.id + '"></div>' +
+      '<div class="field"><label for="notes_' + f.id + '">Notes</label><input type="text" id="notes_' + f.id + '"></div></div>' +
+      '<button type="button" class="btn go" id="add_' + f.id + '">Add to order</button></div></div>';
+  }
+  function wireAcc(f){
+    wireFold(f.id);
+    const chC = $('ch_' + f.id);
+    const pick = () => (chC ? f.choices.find(c => c.label === chipValue(chC)) : f.choices[0]) || f.choices[0];
+    const desc = () => { const c = pick(); $('desc_' + f.id).innerHTML = esc(c.desc) + (c.item ? '<br>Part number ' + esc(c.item) : ''); };
+    if(chC){ renderChips(chC, f.choices.map(c => c.label), f.choices[0].label); wireChips(chC, desc); }
+    desc();
+    $('add_' + f.id).addEventListener('click', () => {
+      const c = pick();
+      addItem({type: 'accessory', label: f.label, desc: c.desc, partNumber: c.item || '', qty: $('qty_' + f.id).value || 1, notes: $('notes_' + f.id).value.trim()});
+      $('notes_' + f.id).value = '';
+    });
+  }
   const num = s => { const n = parseFloat(s); return isNaN(n) ? Infinity : n; };
   const series = [...new Set(D.belts.map(f => f.series).concat(D.sprockets.map(f => f.series)))].sort((a, b) => num(a) - num(b) || String(a).localeCompare(String(b)));
   series.forEach(s => {
@@ -232,6 +257,11 @@ function ofFormRuntime(D){
     $('specCards').insertAdjacentHTML('beforeend', '<div class="card"><h2>Series ' + esc(s) + '</h2>' + bs.map(beltHTML).join('') + ss.map(sprocketHTML).join('') + '</div>');
     bs.forEach(wireBelt); ss.forEach(wireSprocket);
   });
+  const accs = (D.accessories || []).filter(f => f.choices && f.choices.length);
+  if(accs.length){
+    $('specCards').insertAdjacentHTML('beforeend', '<div class="card"><h2>Accessories</h2>' + accs.map(accHTML).join('') + '</div>');
+    accs.forEach(wireAcc);
+  }
 
   /* ---- the request as an email: inline styles only, so it survives Outlook ---- */
   const W = 640;
@@ -278,6 +308,13 @@ function ofFormRuntime(D){
       '<td style="padding:6px 10px;border:1px solid #D4D6D8;font-size:12px;color:#222222;">' + dash(v) + '</td>').join('') + '</tr>').join('');
     return '<table style="border-collapse:collapse;width:' + W + 'px;max-width:100%;margin:0 0 20px;border:1px solid #B9BCBF;">' + th + rows + '</table>';
   }
+  function accTable(items){
+    const th = '<tr>' + ['#', 'Accessory', 'Part number', 'Qty', 'Notes'].map(h =>
+      '<th style="text-align:left;background:#E3F0F5;color:#00708D;padding:7px 10px;border:1px solid #B9BCBF;font-size:10px;font-weight:bold;letter-spacing:.05em;text-transform:uppercase;">' + h + '</th>').join('') + '</tr>';
+    const rows = items.map((a, i) => '<tr>' + [i + 1, a.desc, a.partNumber, a.qty, a.notes].map(v =>
+      '<td style="padding:6px 10px;border:1px solid #D4D6D8;font-size:12px;color:#222222;">' + dash(v) + '</td>').join('') + '</tr>').join('');
+    return '<table style="border-collapse:collapse;width:' + W + 'px;max-width:100%;margin:0 0 20px;border:1px solid #B9BCBF;">' + th + rows + '</table>';
+  }
   function orderHTML(){
     const q = order.orderType === 'quote';
     const meta = '<table style="border-collapse:collapse;width:auto;max-width:100%;margin:0 0 4px;border:1px solid #B9BCBF;">' + kvRows([
@@ -291,6 +328,8 @@ function ofFormRuntime(D){
     const belts = order.items.filter(i => i.type === 'belt'), sprs = order.items.filter(i => i.type === 'sprocket');
     if(belts.length){ html += h2('Belts'); belts.forEach((b, i) => { if(i) html += '<div style="height:14px;line-height:14px;font-size:1px;">&nbsp;</div>'; html += beltBlock(b, i + 1); }); }
     if(sprs.length) html += h2('Sprockets') + sprocketTable(sprs);
+    const accs = order.items.filter(i => i.type === 'accessory');
+    if(accs.length) html += h2('Accessories') + accTable(accs);
     html += '</div><div style="background:#363738;color:#FFFFFF;font-size:10px;letter-spacing:.03em;padding:9px 16px;margin:20px 0 0;">Belt ' + (q ? 'quote' : 'order') +
       ' request made from the Intralox order form' + (D.manager ? ' prepared by ' + esc(D.manager) : '') + '.</div></div>';
     return html;
@@ -317,6 +356,11 @@ function ofFormRuntime(D){
       L.push('--- Sprocket ' + (i + 1) + ' ---', [s.series, s.bore, s.pd, s.material, s.variant].filter(Boolean).join(' / '),
         (s.description || '') + (s.partNumber ? ' (' + s.partNumber + ')' : ''), 'Qty: ' + s.qty);
       if(s.notes) L.push('Notes: ' + s.notes);
+      L.push('');
+    });
+    order.items.filter(i => i.type === 'accessory').forEach((a, i) => {
+      L.push('--- Accessory ' + (i + 1) + ' ---', a.desc + (a.partNumber ? ' (' + a.partNumber + ')' : ''), 'Qty: ' + a.qty);
+      if(a.notes) L.push('Notes: ' + a.notes);
       L.push('');
     });
     return L.join('\n');
@@ -359,7 +403,7 @@ function ofFormRuntime(D){
 }
 
 /* The file itself. d: {formId, customer, contact, email, company, manager,
-   managerEmail, logo (PNG as base64), belts, sprockets}, the favourites
+   managerEmail, logo (PNG as base64), belts, sprockets, accessories}, the favourites
    already baked by the app (allowed colours per material, sprocket
    descriptions and part numbers per pitch diameter and material) and with
    no note for sales in them. */
@@ -369,7 +413,7 @@ function orderFormHTML(d){
   return '<!DOCTYPE html><html lang="en-AU"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>Order form - ' + esc(d.customer) + '</title><style>' + OF_CSS + '</style></head><body>' +
     '<header><div class="redbox"><img src="data:image/png;base64,' + d.logo + '" alt="Intralox"></div>' +
-    '<div class="hdt"><h1>Order form &mdash; ' + esc(d.customer) + '</h1><div class="sub">Pick from the belts and sprockets below, then copy the request into an email.' +
+    '<div class="hdt"><h1>Order form &mdash; ' + esc(d.customer) + '</h1><div class="sub">Pick from the ' + ((d.accessories || []).length ? 'belts, sprockets and accessories' : 'belts and sprockets') + ' below, then copy the request into an email.' +
     (d.manager ? ' Prepared by ' + esc(d.manager) + '.' : '') + '</div></div></header><div class="wrap">' +
     '<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Your request</h2>' +
     '<button type="button" class="btn act2 small" id="clearBtn">Clear</button></div>' +

@@ -82,6 +82,10 @@ folder, which Claude may only be able to read:</p>
 <td>The CRM export Field CRM imports (.xlsx or .csv). Optional: lets Claude find the customer, the account manager and the contacts, and flag anyone not in the CRM.</td>
 </tr>
 <tr>
+<td><code>accessories</code></td>
+<td>Field CRM's OneTrack accessory list (.json), the same file Field CRM imports in Settings. Optional: for <code>lookup.py accessories</code>.</td>
+</tr>
+<tr>
 <td><code>customer_service_email</code></td>
 <td>Where requests go. Optional: used when Claude can make an email draft.</td>
 </tr>
@@ -165,6 +169,10 @@ template, with a different layout, does not read yet.</p>
 <tr>
 <td><code>lists</code></td>
 <td>Rod materials, flight types, sideguard types, materials, colours, indents</td>
+</tr>
+<tr>
+<td><code>accessories [--group G] [--series S] [words]</code></td>
+<td>Field CRM's OneTrack accessory list: without a group or words, the groups with what each is chosen by and its usual choice; otherwise the items, with part numbers and notes, those for the series first</td>
 </tr>
 </tbody>
 </table>
@@ -262,7 +270,9 @@ the belt; else <code>beltdesc</code>), <code>qty</code>, <code>beltdesc</code>, 
 <code>retrofit</code>, <code>qcontact</code>; sprockets <code>sprocket</code>, <code>sprpn</code>, <code>sprbore</code>, <code>sprpd</code>,
 <code>sprmat</code>, <code>sprvar</code>, <code>sprdrive</code>, <code>spridle</code>, <code>sprspacers</code>, <code>sprhdret</code>
 (<code>sprhdretqty</code>); flights and sideguards <code>fstyle</code>, <code>flmat</code>, <code>fheight</code>, <code>frows</code>,
-<code>fspacing</code>, <code>findent</code>, <code>cnotch</code>, <code>sgtype</code>, <code>sgmat</code>, <code>sgheight</code>; and <code>tsg</code>
+<code>fspacing</code>, <code>findent</code>, <code>cnotch</code>, <code>sgtype</code>, <code>sgmat</code>, <code>sgheight</code>; <code>accessories</code>, a list
+of <code>{desc, part_number, qty, note}</code> from the accessory list, printed as an Accessories
+band under the belt as Field CRM does; and <code>tsg</code>
 (<code>true</code> when the belt ID was confirmed with TSG, which the request then says; otherwise it
 says nothing about TSG).</p>
 <p><strong>A sprocket</strong> (<code>sprockets</code>): <code>qty</code>, <code>line</code>, <code>series</code>, <code>bore</code>, <code>pd</code>, <code>material</code>,
@@ -461,6 +471,11 @@ Example Foods, Jo Bloggs, Series 100 and 200, part numbers EX-....</p>
 <td>1</td>
 <td>2026-11-02</td>
 <td>First version: belt request for quote and sprocket and parts request for quote; catalogue lookups with Field CRM's width check; file, email body and plain text.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>2026-11-04</td>
+<td>Accessories, as Field CRM v192: <code>lookup.py accessories</code> reads the OneTrack accessory list; a belt's <code>accessories</code> print as a band under it.</td>
 </tr>
 <tr>
 <td>2</td>

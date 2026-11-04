@@ -157,16 +157,41 @@ The status is kept with the belt in its call, so your team sees it too. If the b
 
 While a call or quote request is still being written, the same list opens from the call screen: tap **Belts at this customer**, above the call log. The back arrow returns you to the call. The button shows once a belt has been logged at the customer.
 
+### Add accessories
+
+Accessories come from the OneTrack accessory list: wearstrips, retainer rings, CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, each with its part number. Load the list once:
+
+1. Tap **⋯** on Home, then **Settings**, then **CRM and belt data**.
+2. Under **Accessories**, choose the accessory list (**OneTrack accessories.json**).
+3. Tap **Import accessory list**.
+
+It goes with the belt reference data, so load the plant audit workbook first. It reaches your other devices and your team the same way.
+
+To add accessories that are not for one belt (wearstrips for the conveyor, tools):
+
+1. In the call or quote request, tap **Accessories**.
+2. Tap what it is, for example **Wearstrip**.
+3. Tap a choice in each row until the part number shows. A wearstrip starts on the snap-on, 500 ft, for a 1/4 in frame.
+4. Type the quantity, and a note if there is one.
+5. Tap **Done**.
+6. Tap **Add an accessory** for the next one.
+
+To add one to a belt, open the belt, open **Accessories**, and tap **Add an accessory**. It is kept with the belt when you tap **Done**.
+
+Items made for the series of the belts on the call come first. To see those for other series too, tick **Show those for every series**. Tap a choice again to take it off. If more than one still fits, the line can be kept as it is, and customer service picks. Tap a line to change it. Its **⋯** has **Duplicate** and **Remove**.
+
+They print in the quote request under **Accessories to quote** (a belt's own under that belt), and in the call notes.
+
 ### Send a customer an order form
 
-An account's order sheet holds the belts and sprockets that customer orders, each with the choices they may make. From it you make a form to email them. They pick from it and copy the request back to you.
+An account's order sheet holds the belts, sprockets and accessories that customer orders, each with the choices they may make. From it you make a form to email them. They pick from it and copy the request back to you.
 
 To add a favourite:
 
 1. Open the account.
 2. Tap the **Order sheet** card.
 3. Tap **Add favourite**.
-4. Tap **Belt** or **Sprocket**.
+4. Tap **Belt**, **Sprocket** or **Accessory**. For an accessory, tap what it is (a wearstrip comes with the usual snap-on ticked), tap every one they may choose, then tap **Done**.
 5. If the belt has been logged at this customer, tap it under **From a belt logged here**. Its series, style, material, colour, rod, width, flights and sprocket are filled in, and its name from the line description.
 6. If not, pick the series and style (for a sprocket, the series and bore).
 7. Tap every material, colour and rod they may choose. Tap one again to take it off.
@@ -1219,8 +1244,9 @@ When signed in to cloud sync, the app checks the Intralox website once a week fo
 1. Tap **Reference** on Home for the manuals and the fault library.
 2. Tap **Intralox website** there for Belt Finder, the how-to videos and the resource pages. These need signal.
 3. Tap **Mission** there for Intralox's mission, commitment and business philosophy.
-4. Tap **Directory** on Home for accounts and contacts.
-5. To find one, tap the search icon at the top of Accounts or Contacts and type.
+4. Tap **OneTrack** there for the accessories and their part numbers, group by group. It needs the accessory list loaded.
+5. Tap **Directory** on Home for accounts and contacts.
+6. To find one, tap the search icon at the top of Accounts or Contacts and type.
 
 In a call, the book icon at the top opens the manuals without leaving the call.
 
