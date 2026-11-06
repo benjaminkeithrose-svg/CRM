@@ -231,7 +231,7 @@ import brings the same name at that account.
 | `assets` | The plant audit register (installed belts by asset number) | Yes, dataset `assets` (admin's, shared) |
 | `overrides` | Zone corrections and spellings | Yes, dataset `overrides` (admin's, shared) |
 | `mgrOf` | Account reassignments between managers | Yes, dataset `mgrOf` (admin's, shared) |
-| `weeks` | Your planning weeks (which zone each week) | Yes, dataset `weeks`, private |
+| `weeks` | Your planning weeks, by Monday. Since v194 a week holds `spans`, the zones you'll be in that week, each `id`, `zone`, `from` and `to` (days of the week, 0 Monday to 6 Sunday), with `seq` and `exp` for its last download; `zone` is the first one's, which older builds read. A week from before v194 reads as one block, Monday to Friday | Yes, dataset `weeks`, private |
 | `cloud`, `cloudKey`, `cloudTeam`, `cloudLater` | Sign-in, the unlocked key on this device, the team | No |
 | `cloudSets`, `cloudDirty`, `cloudCursor`, `cloudSeeded`, `cloudOwners` | The sync's own bookkeeping (what is waiting to send, how far it has read) | No |
 | `manualSrc`, `ixDocs`, `loadLog`, `usage` | Manuals downloaded, the import log, usage counts | No |

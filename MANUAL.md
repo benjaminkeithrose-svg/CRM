@@ -276,17 +276,40 @@ To go back to the way it was, set Talking into the app to **Live**.
 
 Drag a visit to another day to move it. The coloured chips filter by focus. To end a search, click **×** beside the box, or press Esc.
 
-Under the zone, click **Add** to mark it as this week's territory. Once it is marked, it says so with a tick. Further down, **Territory this week** still downloads the week markers.
-
 Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. A visit booked on a weekend stays there.
+
+### Mark the week's territory
+
+1. On **Plan**, go to the week.
+2. Pick the **Zone** you'll be in.
+3. Click **Add** under the zone, for example **Add Z1 to this week**.
+4. The zone shows as a bar across the top of the week, Monday to Friday.
+5. For a second zone the same week, pick it in **Zone**.
+6. Click **Add** under it.
+7. To change the days a zone covers, drag the end of its bar left or right.
+
+A second zone takes the days you've booked visits in it that week. With none booked, it takes the free weekdays, or else Thursday and Friday. The zone already there gives those days up.
+
+A bar can go onto Saturday or Sunday. Dragging stops one day short of the next zone. To take a zone off the week, click its bar, then **Remove**, then **OK**.
+
+In Month, each week's bar sits above its row. In Day, the day's zone shows at the top.
+
+The bars go to Outlook with **Download current view**, each as an all-day appointment shown as free. A bar you remove stays in Outlook until you delete it there.
 
 ### Put visits and tasks in Outlook
 
-1. On **Plan**, click **⋯** at the top right of the calendar.
-2. Click **Download to Outlook**.
-3. Open the file it gives you, and accept it in Outlook.
+1. Open **Plan** from Home.
+2. Click **Day**, **Week** or **Month** at the top of the calendar.
+3. Use **‹** and **›** to go to the one you want.
+4. Click **⋯** at the top right of the calendar.
+5. Click **Download current view**.
+6. Open the file it gives you, and accept it in Outlook.
 
-Only visits that changed since last time are in the file, and downloading again updates Outlook rather than adding a second copy. The colour on a visit: blue is not in Outlook yet, green is in Outlook, orange has changed since. Download again.
+Everything in the view goes, every time: the visits, the tasks and the week's territory. Day is that day; Week is Monday to Sunday; Month is the month.
+
+Download as often as you like. Outlook updates what it already has rather than adding a second copy. If you deleted things in Outlook to start again, downloading puts them back.
+
+The colour on a visit says what the app knows: blue is not downloaded yet, green is downloaded, orange has changed since you downloaded it. The app can't see your Outlook.
 
 Nobody is invited. Each visit goes in as an appointment for you alone, with the people ticked under **Who to see** listed in its notes. Moving or deleting it in Outlook never emails a customer. To invite someone, open the appointment in Outlook, add them, and press Send.
 
@@ -368,7 +391,7 @@ The time stays the same; only the day changes. The list scrolls when you reach t
 3. Change the date, the start time or the minutes.
 4. Tap **Done**.
 
-If the call has already been started and isn't compiled or done, its date moves with the visit. Download to Outlook again afterwards so the calendar follows.
+If the call has already been started and isn't compiled or done, its date moves with the visit. Click **Download current view** again afterwards so Outlook follows.
 
 ### Log a belt, note or health check
 

@@ -1216,7 +1216,7 @@ $('bAsset').addEventListener('input', () => renderWhyWalk());   // v173
 /* Must match the build meta in index.html and CACHE in sw.js. All three are
    uploaded together and all three must agree; the app says so on the home
    screen when they do not. */
-const APP_BUILD = 'v193';
+const APP_BUILD = 'v194';
 /* Feather icons, inline. Same set as the home tiles - one place to change if
    the icon language ever moves. */
 const ICONS = {
@@ -1511,7 +1511,11 @@ async function importCrm(file){
     await saveMgrOf();
     meta.orphanedMoves = lostMoves.length;
   }
-  Object.keys(WEEKS).forEach(k => { if(!ZONES[(WEEKS[k]||{}).zone]) delete WEEKS[k]; });
+  for(const k of Object.keys(WEEKS)){
+    const sp = wkSpans(k), keep = sp.filter(x => ZONES[x.zone]);
+    if(!keep.length) delete WEEKS[k];
+    else if(keep.length !== sp.length) await wkSave(k, keep);
+  }
   await saveWeeks();
   plan.zone = '';
   renderDbStat();
@@ -2157,8 +2161,8 @@ function apState(ap){
   if(!ap.exp) return 'new';
   return ap.exp === apRev(ap) ? 'synced' : 'changed';
 }
-const ST_LABEL = {new:'Not in Outlook yet', changed:'Edited since last download', synced:'In your Outlook calendar'};
-const ST_SHORT = {new:'not downloaded', changed:'changed', synced:'in Outlook'};
+const ST_LABEL = {new:'Not downloaded yet', changed:'Changed since you downloaded it', synced:'Downloaded'};
+const ST_SHORT = {new:'not downloaded', changed:'changed', synced:'downloaded'};
 function pendingAppts(list){ return (list||APPTS).filter(ap => apState(ap) !== 'synced'); }
 /* v162 - Ben, 2026-10-16: "changing the task to be appointment suits me
    better ... I only use a single function in the calendar ... separate in our
@@ -2478,6 +2482,14 @@ function renderCalendar(){
     const grid = document.createElement('div');
     grid.className = 'week' + (oneDay ? ' oneday' : '');
     fitDayHours(days.map(iso));
+    // v194: the week's territory across the top
+    const wmon = iso(startOfWeek(days[0]));
+    if(oneDay){
+      const n = (days[0].getDay() + 6) % 7, sp = wkSpans(wmon).find(x => n >= x.from && n <= x.to);
+      if(sp){ const t = document.createElement('div'); t.className = 'tday s-' + spanState(sp, WEEKS[wmon]);
+        t.innerHTML = '<i class="stx"></i>'; t.appendChild(document.createTextNode(zoneName(sp.zone) + ' · ' + spanDays(sp)));
+        body.appendChild(t); }
+    } else { const tb = terrBar(wmon, true); if(tb) body.appendChild(tb); }
     grid.appendChild(hourGutter());
     days.forEach((d,i)=>{
       const k = iso(d);
@@ -2568,6 +2580,8 @@ function renderCalendar(){
     let cur = startOfWeek(new Date(y,m,1));
     const last = new Date(y,m+1,0);
     while(cur <= last || cur.getMonth() === m){
+      const tb = terrBar(iso(cur), false);     // v194: each week's territory over its row
+      if(tb) grid.appendChild(tb);
       for(let i=0;i<7;i++){
         const d = addDays(cur,i), k = iso(d);
         const cell = document.createElement('div');
@@ -2831,8 +2845,8 @@ function renderPlanCount(){
   const el = $('planInfo');
   if(!el) return;
   const p = pendingAppts(APPTS).length + pendingTasks().length;     // v162: tasks go to Outlook too
-  if(!APPTS.length){ el.textContent = 'Nothing planned' + (p ? ', ' + p + ' not in Outlook' : ''); return; }
-  el.textContent = APPTS.length+' planned'+(p ? ', '+p+' not in Outlook' : '');
+  if(!APPTS.length){ el.textContent = 'Nothing planned' + (p ? ', ' + p + ' not downloaded' : ''); return; }
+  el.textContent = APPTS.length+' planned'+(p ? ', '+p+' not downloaded' : '');
 }
 $('pDueOnly').addEventListener('click', ()=>{ plan.dueOnly = !plan.dueOnly; renderPlan(); });
 $('pSearch').innerHTML = icon('search') + '<span>Search the whole account book</span>';
@@ -2935,13 +2949,81 @@ function allManagers(){
 // is to split the zone, not to carry the load.
 const HIGH_CAP = 5;
 
-function wkRev(w){ return (w.zone||'')+'|'+(w.note||''); }
-function wkState(w){ return !w.exp ? 'new' : (w.exp === wkRev(w) ? 'synced' : 'changed'); }
-function weeksList(){
-  return Object.keys(WEEKS).filter(k => WEEKS[k] && WEEKS[k].zone)
-    .sort().map(k => Object.assign({mon:k}, WEEKS[k]));
+/* v194 - the week's territory as blocks of days. Ben, 2026-11-06: "a week
+   where I have 3 days of Sydney and 2 days of Melbourne". WEEKS[monday] keeps
+   `zone` (the first block's, which older builds read) and gains `spans`: each
+   {id, zone, from, to} (days of the week, 0 Monday to 6 Sunday), with `seq`
+   and `exp` for Outlook. A week from before v194 is one block, Monday to
+   Friday, and keeps the UID its marker already has in Outlook. */
+const WK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function spanRev(sp, w){ return sp.zone + '|' + sp.from + '|' + sp.to + '|' + ((w && w.note) || ''); }
+function spanState(sp, w){ return !sp.exp ? 'new' : (sp.exp === spanRev(sp, w) ? 'synced' : 'changed'); }
+function wkSpans(mon){
+  const w = WEEKS[mon];
+  if(!w || typeof w !== 'object') return [];
+  if(Array.isArray(w.spans)) return w.spans.filter(sp => sp && sp.zone).map(sp => Object.assign({}, sp));
+  if(!w.zone) return [];
+  // before v194: the whole week, and downloaded if its old marker was
+  const sp = {id: '', zone: w.zone, from: 0, to: 4, seq: w.icsSeq || 0};
+  if(w.exp && w.exp === (w.zone || '') + '|' + (w.note || '')) sp.exp = spanRev(sp, w);
+  return [sp];
 }
-function pendingWeeks(list){ return list.filter(w => wkState(w) !== 'synced'); }
+async function wkSave(mon, spans){
+  spans = spans.filter(sp => sp.zone && sp.from <= sp.to).sort((a, b) => a.from - b.from);
+  if(!spans.length) delete WEEKS[mon];
+  else {
+    const w = Object.assign({}, WEEKS[mon] && typeof WEEKS[mon] === 'object' ? WEEKS[mon] : {});
+    delete w.exp; delete w.expAt; delete w.icsSeq;
+    WEEKS[mon] = Object.assign(w, {zone: spans[0].zone, spans});
+  }
+  await saveWeeks();
+}
+// the block given wins its days; the others give them up, keeping their longer side
+function spanFit(spans, keep){
+  const out = [];
+  spans.forEach(sp => {
+    if(sp === keep || sp.id === keep.id){ return; }
+    if(sp.to < keep.from || sp.from > keep.to){ out.push(sp); return; }
+    const left = keep.from - sp.from, right = sp.to - keep.to;
+    if(left <= 0 && right <= 0) return;
+    if(left >= right) out.push(Object.assign(sp, {to: keep.from - 1}));
+    else out.push(Object.assign(sp, {from: keep.to + 1}));
+  });
+  out.push(keep);
+  return out;
+}
+/* Adding a zone to a week (Ben's answer): the days its visits are booked on
+   that week; with none, the free weekdays; with none free, Thursday and Friday. */
+function spanDaysFor(mon, zone, spans){
+  if(!spans.length) return {from: 0, to: 4};     // the first zone: the working week
+  const start = parseIso(mon), days = [];
+  APPTS.forEach(ap => {
+    const n = Math.round((parseIso(ap.date) - start) / 86400000);
+    const a = ACC_BY_NAME.get(ap.acct);
+    if(n >= 0 && n <= 6 && a && a.z === zone) days.push(n);
+  });
+  if(days.length) return {from: Math.min(...days), to: Math.max(...days)};
+  const used = d => spans.some(sp => d >= sp.from && d <= sp.to);
+  let best = null, cur = null;
+  for(let d = 0; d <= 4; d++){
+    if(used(d)){ cur = null; continue; }
+    cur = cur ? {from: cur.from, to: d} : {from: d, to: d};
+    if(!best || cur.to - cur.from > best.to - best.from) best = Object.assign({}, cur);
+  }
+  return best || {from: 3, to: 4};
+}
+async function wkAdd(mon, zone){
+  const spans = wkSpans(mon);
+  const days = spanDaysFor(mon, zone, spans);
+  const sp = {id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), zone, from: days.from, to: days.to};
+  if(!spans.length) sp.id = '';    // a week's first block keeps the week's own UID in Outlook
+  await wkSave(mon, spanFit(spans, sp));
+  return sp;
+}
+const spanDays = sp => sp.from === sp.to ? WK_DAYS[sp.from] : WK_DAYS[sp.from] + '–' + WK_DAYS[sp.to];
+function weeksList(){
+  return Object.keys(WEEKS).filter(k => wkSpans(k).length).sort().map(k => Object.assign({mon:k}, WEEKS[k]));
+}
 async function saveWeeks(){ await kvSet('weeks', WEEKS); }
 async function saveMgrOf(){ await kvSet('mgrOf', MGR_OF); }
 
@@ -2976,175 +3058,163 @@ function suggestZone(mon){
 
 /* v162 - Ben: "add the zone marker to the zone we're currently searching. And
    then just put an add to this week button next to it". Beside the Zone
-   picker: whether the week on screen is marked for this zone, and one tap to
-   mark it. The full list of week markers stays under Territory. */
+   picker: whether the zone is in the week on screen, and one tap to add it.
+   v194: a week can hold several zones, each over its own days, drawn as a bar
+   across the top of the calendar. */
+function wkWord(mon){
+  return mon === iso(startOfWeek(new Date())) ? 'this week'
+    : 'the week of ' + parseIso(mon).getDate() + ' ' + MONNM[parseIso(mon).getMonth()].slice(0, 3);
+}
 function renderZoneMark(){
   const el = $('pZoneMark'); if(!el) return;
   if(!plan.zone || !ZONES[plan.zone]){ el.innerHTML = ''; return; }
-  const mon = iso(startOfWeek(plan.anchor)), cur = (WEEKS[mon] || {}).zone || '';
-  const thisWk = mon === iso(startOfWeek(new Date()));
-  const wk = thisWk ? 'this week' : 'the week of ' + parseIso(mon).getDate() + ' ' + MONNM[parseIso(mon).getMonth()].slice(0, 3);
-  el.innerHTML = cur === plan.zone
-    ? '<span class="on">\u2713 ' + esc(plan.zone) + ' is ' + esc(wk) + '\u2019s territory</span>'
+  const mon = iso(startOfWeek(plan.anchor)), spans = wkSpans(mon), wk = wkWord(mon);
+  const mine = spans.find(sp => sp.zone === plan.zone);
+  const others = spans.filter(sp => sp.zone !== plan.zone);
+  el.innerHTML = mine
+    ? '<span class="on">✓ ' + esc(plan.zone) + ' is in ' + esc(wk) + '’s territory, ' + esc(spanDays(mine)) + '</span>'
     : '<button type="button" class="btn act2" id="pZoneAdd">Add ' + esc(plan.zone) + ' to ' + esc(wk) + '</button>' +
-      (cur ? '<span>' + esc(wk.charAt(0).toUpperCase() + wk.slice(1)) + ' is marked ' + esc(cur) + '</span>' : '');
+      (others.length ? '<span>' + esc(wk.charAt(0).toUpperCase() + wk.slice(1)) + ' has ' +
+        esc(others.map(sp => sp.zone + ' ' + spanDays(sp)).join(', ')) + '</span>' : '');
   const b = $('pZoneAdd');
   if(b) b.onclick = async () => {
-    WEEKS[mon] = Object.assign({}, WEEKS[mon] || {}, {zone: plan.zone});
-    await saveWeeks();
-    renderTerritory();
-    toast(plan.zone + ' marked as ' + wk + '\u2019s territory');
+    const sp = await wkAdd(mon, plan.zone);
+    renderCalendar(); renderZoneMark();
+    toast(plan.zone + ' added to ' + wk + ', ' + spanDays(sp) + '. Drag its ends on the calendar to change the days');
   };
 }
-function renderTerritory(){
-  renderZoneMark();
-  const bar = $('terr');
-  if(!bar) return;
-  const mons = viewWeeks();
-  bar.innerHTML = '';
-  bar.className = 'terr';
+function renderTerritory(){ renderZoneMark(); }
 
-  const lab = document.createElement('div');
-  lab.className = 'tl';
-  lab.textContent = plan.view === 'week' ? 'Territory this week' : 'Territory weeks';
-  bar.appendChild(lab);
-
-  mons.forEach(mon=>{
-    const w = WEEKS[mon] || {};
-    const box = document.createElement('div'); box.className = 'wk';
-    if(plan.view !== 'week'){
-      const l = document.createElement('label');
-      const d = parseIso(mon);
-      l.textContent = 'wk '+d.getDate()+' '+MONNM[d.getMonth()].slice(0,3);
-      box.appendChild(l);
-    }
-    const sel = document.createElement('select');
-    const none = document.createElement('option');
-    none.value = ''; none.textContent = '\u2014 no marker \u2014';
-    sel.appendChild(none);
-    const sug = suggestZone(mon);
-    ZONE_ORDER.filter(z => ZONES[z]).forEach(z=>{
-      const o = document.createElement('option');
-      o.value = z;
-      o.textContent = zoneName(z) +
-        (sug && sug.zone === z ? '  ('+sug.n+' call'+(sug.n===1?'':'s')+' booked)' : '');
-      sel.appendChild(o);
-    });
-    sel.value = w.zone || '';
-    /* Z12 is the unresolved bucket, not a geography. A week marker saying you
-       are "in Z12" tells a colleague nothing about where you actually are. */
-    if(w.zone === 'Z12') sel.title = 'Z12 is the catch-all for accounts whose suburb would not resolve. '+
-      'It is not a place - pick the real region you will be in.';
-    else if(!w.zone && sug) sel.title = 'Suggestion: '+sug.zone+' - '+sug.n+' call'+(sug.n===1?'':'s')+' booked that week';
-    sel.onchange = async ()=>{
-      if(!sel.value) delete WEEKS[mon];
-      else WEEKS[mon] = Object.assign({}, WEEKS[mon]||{}, {zone: sel.value});
-      await saveWeeks();
-      renderTerritory();
-    };
-    box.appendChild(sel);
-    bar.appendChild(box);
-  });
-
-  const list = weeksList().filter(w => mons.includes(w.mon));
-  if(plan.view === 'week' && list.length){
-    const w = list[0], st = wkState(w), z = ZONES[w.zone];
-    const s = document.createElement('div');
-    s.className = 'sum s-'+st;
-    s.innerHTML = '<i class="stx"></i>';
-    s.appendChild(document.createTextNode(
-      (z && z.hub !== 'n/a' ? 'Hub '+z.hub+' \u00b7 ' : '') + ST_SHORT[st]));
-    bar.appendChild(s);
+/* The bar across the top of a week: each block over its days, in the same
+   columns as the calendar under it. Drag a block's end to change its days;
+   click the block for its bin. Nothing is drawn for a week with no blocks. */
+function terrBar(mon, gutter){
+  const spans = wkSpans(mon);
+  if(!spans.length) return null;
+  const bar = document.createElement('div');
+  bar.className = 'tbar' + (gutter ? ' withgut' : '');
+  bar.dataset.mon = mon;
+  if(gutter){ const g = document.createElement('div'); g.className = 'tgut'; g.textContent = 'Zone'; bar.appendChild(g); }
+  const off = gutter ? 2 : 1;
+  for(let d = 0; d < 7; d++){
+    const slot = document.createElement('div');
+    slot.className = 'tslot' + (d > 4 ? ' wknd' : '');
+    slot.style.gridColumn = String(d + off);
+    slot.dataset.d = d;
+    bar.appendChild(slot);
   }
-
-  const rt = document.createElement('div'); rt.className = 'rt';
-  const pend = pendingWeeks(weeksList()).length;
-  const b = document.createElement('button');
-  b.className = 'btn'; b.type = 'button';
-  b.textContent = 'Download week markers' + (pend ? ' ('+pend+')' : '');
-  b.disabled = !weeksList().length;
-  b.onclick = ()=>exportWeeks(pend ? 'pending' : 'all').catch(reportErr);
-  rt.appendChild(b);
-  bar.appendChild(rt);
+  spans.forEach(sp => {
+    const el = document.createElement('div');
+    const st = spanState(sp, WEEKS[mon]);
+    el.className = 'tblk s-' + st;
+    el.style.gridColumn = (sp.from + off) + ' / ' + (sp.to + off + 1);
+    el.title = zoneName(sp.zone) + ', ' + spanDays(sp) + '\n' + ST_LABEL[st] + '\nDrag an end to change the days. Click for more.';
+    el.innerHTML = '<span class="th l" aria-hidden="true"></span><i class="stx"></i><span class="tz"></span><span class="th r" aria-hidden="true"></span>';
+    el.querySelector('.tz').textContent = zoneName(sp.zone);
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', zoneName(sp.zone) + ', ' + spanDays(sp));
+    let dragged = false;
+    el.querySelectorAll('.th').forEach(h => h.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const left = h.classList.contains('l'), slots = [...bar.querySelectorAll('.tslot')];
+      let from = sp.from, to = sp.to;
+      // a drag stops short of a neighbour's last day: removing a block is the bin's job
+      const others = wkSpans(mon).filter(x => !(x.id === sp.id && x.zone === sp.zone));
+      const lo = Math.max(0, ...others.filter(x => x.from < sp.from).map(x => x.from + 1));
+      const hi = Math.min(6, ...others.filter(x => x.to > sp.to).map(x => x.to - 1));
+      try { h.setPointerCapture(e.pointerId); } catch(err){}
+      el.classList.add('drag');
+      const move = ev => {
+        const x = ev.clientX;
+        let d = slots.findIndex(sl => { const r = sl.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+        if(d < 0) d = x < slots[0].getBoundingClientRect().left ? 0 : x > slots[6].getBoundingClientRect().right ? 6 : -1;
+        if(d < 0) return;
+        if(left) from = Math.max(lo, Math.min(d, to)); else to = Math.min(hi, Math.max(d, from));
+        el.style.gridColumn = (from + off) + ' / ' + (to + off + 1);
+        dragged = true;
+      };
+      const up = async () => {
+        h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+        el.classList.remove('drag');
+        if(from === sp.from && to === sp.to){ setTimeout(() => { dragged = false; }, 0); return; }
+        const all = wkSpans(mon), mine = all.find(x => x.id === sp.id && x.zone === sp.zone) || sp;
+        mine.from = from; mine.to = to;
+        await wkSave(mon, spanFit(all, mine));
+        renderCalendar(); renderZoneMark();
+        toast(sp.zone + ' now ' + spanDays(mine) + '. Download current view to update Outlook');
+        setTimeout(() => { dragged = false; }, 0);
+      };
+      h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+    }));
+    const open = () => {
+      if(dragged) return;
+      const z = ZONES[sp.zone];
+      openCardMenu(zoneName(sp.zone), spanDays(sp) + ', ' + wkWord(mon) + (z && z.hub && z.hub !== 'n/a' ? ' · hub ' + z.hub : ''), [
+        {label: 'Remove from ' + wkWord(mon), icon: 'trash', danger: true, run: async () => {
+          if(!confirm('Remove ' + zoneName(sp.zone) + ' (' + spanDays(sp) + ') from ' + wkWord(mon) + '’s territory?\n\n' +
+              (sp.exp ? 'It is already in Outlook: delete it there too. A download can add and update, but not remove.' : 'It has not been downloaded.'))) return;
+          await wkSave(mon, wkSpans(mon).filter(x => !(x.id === sp.id && x.zone === sp.zone)));
+          renderCalendar(); renderZoneMark();
+          toast(sp.zone + ' removed from ' + wkWord(mon));
+        }}
+      ]);
+    };
+    el.addEventListener('click', e => { e.stopPropagation(); open(); });
+    el.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); open(); } });
+    bar.appendChild(el);
+  });
+  return bar;
 }
 
-/* ---------- week marker ICS ----------
-   No VTIMEZONE and no VALUE=DATE-TIME anywhere here. An all-day event is a
-   floating date, so the marker reads Monday to Friday in Perth, Auckland and
-   Brisbane alike, without any of the Z12 assumed-timezone trouble. */
+/* ---------- week markers in the .ics ----------
+   No VTIMEZONE and no VALUE=DATE-TIME here. An all-day event is a floating
+   date, so a block reads the same days in Perth, Auckland and Brisbane alike.
+   One event per block; a week's first block keeps the week's old UID. */
 function dstamp(d){ const p = n => String(n).padStart(2,'0');
   return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate()); }
-function buildWeekIcs(list){
-  const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Intralox//Field CRM//EN',
-             'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Intralox territory weeks'];
-  list.forEach(w=>{
-    const z = ZONES[w.zone] || {name:'unzoned', hub:'n/a', cov:''};
-    const mon = parseIso(w.mon), fri = addDays(mon,4);
+function weekEvents(blocks){
+  const L = [];
+  blocks.forEach(({mon, sp, w}) => {
+    const z = ZONES[sp.zone] || {name:'unzoned', hub:'n/a', cov:''};
+    const start = addDays(parseIso(mon), sp.from), end = addDays(parseIso(mon), sp.to);
     const who = plan.mgr || '';
-    const calls = APPTS.filter(ap=>{
-      const d = parseIso(ap.date); return d >= mon && d <= fri;
-    });
-    const inZone = calls.filter(ap=>{ const a = ACC_BY_NAME.get(ap.acct); return a && a.z === w.zone; });
-    const txt = [];
-    txt.push('Working ' + zoneName(w.zone));
+    const calls = APPTS.filter(ap => { const d = parseIso(ap.date); return d >= start && d <= end; });
+    const inZone = calls.filter(ap => { const a = ACC_BY_NAME.get(ap.acct); return a && a.z === sp.zone; });
+    const txt = ['Working ' + zoneName(sp.zone)];
     if(z.hub && z.hub !== 'n/a') txt.push('Hub: '+z.hub);
     if(z.cov && z.cov !== 'unresolved') txt.push('Covers: '+z.cov);
-    txt.push('Week of '+mon.getDate()+' '+MONNM[mon.getMonth()]+' '+mon.getFullYear()+', Monday to Friday.');
+    txt.push(DAYNM[sp.from] + (sp.to !== sp.from ? ' to ' + DAYNM[sp.to] : '') + ', week of ' + parseIso(mon).getDate() + ' ' +
+      MONNM[parseIso(mon).getMonth()] + ' ' + parseIso(mon).getFullYear() + '.');
     if(calls.length){
-      txt.push('', calls.length+' call'+(calls.length===1?'':'s')+' planned'+
-        (inZone.length !== calls.length ? ' ('+inZone.length+' in zone)' : '')+':');
-      calls.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start))
-        .forEach(ap=>{
-          const a = ACC_BY_NAME.get(ap.acct);
-          txt.push('  '+DAYNM[(parseIso(ap.date).getDay()+6)%7].slice(0,3)+' '+ap.start+
-            '  '+ap.acct+(a && a.z !== w.zone ? '  ['+a.z+']' : ''));
-        });
-    } else {
-      txt.push('', 'No calls booked yet.');
-    }
-    if(w.note) txt.push('', w.note);
-    txt.push('', 'Availability marker only \u2014 shown as free, so it will not block bookings.');
-
+      txt.push('', calls.length+' call'+(calls.length===1?'':'s')+' planned'+(inZone.length !== calls.length ? ' ('+inZone.length+' in zone)' : '')+':');
+      calls.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)).forEach(ap => {
+        const a = ACC_BY_NAME.get(ap.acct);
+        txt.push('  '+DAYNM[(parseIso(ap.date).getDay()+6)%7].slice(0,3)+' '+ap.start+'  '+ap.acct+(a && a.z !== sp.zone ? '  ['+a.z+']' : ''));
+      });
+    } else txt.push('', 'No calls booked yet.');
+    if(w && w.note) txt.push('', w.note);
+    txt.push('', 'Availability marker only — shown as free, so it will not block bookings.');
     L.push('BEGIN:VEVENT');
-    L.push('UID:wk-'+w.mon+'@field-crm.intralox');
-    L.push('SEQUENCE:'+(w.icsSeq||0));
+    L.push('UID:wk-'+mon+(sp.id ? '-'+sp.id : '')+'@field-crm.intralox');
+    L.push('SEQUENCE:'+(sp.seq||0));
     L.push('DTSTAMP:'+stamp());
     L.push('LAST-MODIFIED:'+stamp());
-    // DTEND on an all-day event is exclusive, so Saturday closes a Mon-Fri span
-    L.push('DTSTART;VALUE=DATE:'+dstamp(mon));
-    L.push('DTEND;VALUE=DATE:'+dstamp(addDays(mon,5)));
-    L.push('SUMMARY:'+icsEsc((who ? who+' \u2014 ' : '')+w.zone+' '+z.name));
+    // DTEND on an all-day event is exclusive: the day after the block's last
+    L.push('DTSTART;VALUE=DATE:'+dstamp(start));
+    L.push('DTEND;VALUE=DATE:'+dstamp(addDays(end,1)));
+    L.push('SUMMARY:'+icsEsc((who ? who+' — ' : '')+sp.zone+' '+z.name));
     L.push('LOCATION:'+icsEsc(z.hub && z.hub !== 'n/a' ? z.hub : z.name));
     L.push('DESCRIPTION:'+icsEsc(txt.join('\n')));
-    L.push('CATEGORIES:'+icsEsc('Territory week,'+w.zone));
-    // A week-long banner must never eat availability.
+    L.push('CATEGORIES:'+icsEsc('Territory week,'+sp.zone));
+    // a banner across days must never eat availability
     L.push('TRANSP:TRANSPARENT');
     L.push('X-MICROSOFT-CDO-BUSYSTATUS:FREE');
     L.push('X-MICROSOFT-CDO-INTENDEDSTATUS:FREE');
     L.push('X-MICROSOFT-CDO-ALLDAYEVENT:TRUE');
     L.push('END:VEVENT');
   });
-  L.push('END:VCALENDAR');
-  return L.map(fold).join('\r\n') + '\r\n';
-}
-async function exportWeeks(mode){
-  const all = weeksList();
-  if(!all.length){ toast('No territory weeks set. Pick a zone above the calendar.'); return; }
-  const list = mode === 'all' ? all : pendingWeeks(all);
-  if(!list.length){ toast('Every week marker is already downloaded.'); return; }
-  for(const w of list){
-    const cur = WEEKS[w.mon];
-    if(cur.icsSeq == null) cur.icsSeq = 0;
-    else if(wkState(cur) === 'changed') cur.icsSeq++;
-    w.icsSeq = cur.icsSeq;
-  }
-  downloadFile('territory-weeks-'+list[0].mon+(list.length>1?'-x'+list.length:'')+'.ics',
-               buildWeekIcs(list), 'text/calendar;charset=utf-8');
-  const now = Date.now();
-  for(const w of list){ const cur = WEEKS[w.mon]; cur.exp = wkRev(cur); cur.expAt = now; }
-  await saveWeeks();
-  renderTerritory();
-  toast(list.length+' week marker'+(list.length===1?'':'s')+' downloaded');
+  return L;
 }
 
 /* ---------- reassignment ---------- */
@@ -3284,6 +3354,7 @@ $('rApply').addEventListener('click', ()=>applyReassign(false).catch(reportErr))
 $('rRevert').addEventListener('click', ()=>applyReassign(true).catch(reportErr));
 $('rCancel').addEventListener('click', closeReassign);
 $('pReassign').addEventListener('click', ()=>openReassign({}));
+$('setReassign') && $('setReassign').addEventListener('click', ()=>openReassign({}));    // v194: from Settings
 
 /* ================= notes back into Dynamics =================
 
@@ -3604,7 +3675,7 @@ function inviteParts(ap){
   return {txt: txt.join('\n'), html: html, tz: zoneTz(a.z), assumed: zoneTzAssumed(a.z)};
 }
 
-function buildIcs(list, tasks){
+function buildIcs(list, tasks, blocks){
   tasks = tasks || [];
   const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Intralox//Field CRM//EN',
              'CALSCALE:GREGORIAN','METHOD:PUBLISH'];
@@ -3659,14 +3730,33 @@ function buildIcs(list, tasks){
     L.push('TRANSP:OPAQUE');
     L.push('END:VEVENT');
   });
+  L.push(...weekEvents(blocks || []));     // v194: the week's territory, in the same file
   L.push('END:VCALENDAR');
   return L.map(fold).join('\r\n') + '\r\n';
 }
 
+/* What the calendar shows (v194): the day, Monday to Sunday, or the month.
+   Before v194 Day downloaded the whole month and Week left out the weekend. */
+function viewRange(){
+  if(plan.view === 'day'){ const d = parseIso(iso(plan.anchor)); return {from: d, to: d}; }
+  if(plan.view === 'week'){ const s = startOfWeek(plan.anchor); return {from: s, to: addDays(s, 6)}; }
+  const y = plan.anchor.getFullYear(), m = plan.anchor.getMonth();
+  return {from: new Date(y, m, 1), to: new Date(y, m + 1, 0)};
+}
 function inRange(ap){
-  const d = parseIso(ap.date);
-  if(plan.view === 'week'){ const s = startOfWeek(plan.anchor); return d >= s && d <= addDays(s,4); }
-  return d.getFullYear() === plan.anchor.getFullYear() && d.getMonth() === plan.anchor.getMonth();
+  const d = parseIso(ap.date), r = viewRange();
+  return d >= r.from && d <= r.to;
+}
+// the territory blocks with a day in the view
+function blocksInView(){
+  const r = viewRange(), out = [];
+  for(let mon = startOfWeek(r.from); mon <= r.to; mon = addDays(mon, 7)){
+    const k = iso(mon);
+    wkSpans(k).forEach(sp => {
+      if(addDays(mon, sp.to) >= r.from && addDays(mon, sp.from) <= r.to) out.push({mon: k, sp, w: WEEKS[k]});
+    });
+  }
+  return out;
 }
 function downloadFile(name, text, mime){
   const b = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
@@ -3676,43 +3766,51 @@ function downloadFile(name, text, mime){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(u), 4000);
 }
-async function doExport(mode){
+/* v194 - Ben, 2026-11-06: "I need to be able to re-download anything whenever
+   I want to. Even if it does double up". One download: everything in the view,
+   every time - visits, tasks and the week's territory. The app cannot see what
+   Outlook holds; the same UIDs mean Outlook updates what it still has, and
+   puts back what was deleted there. */
+async function doExport(){
   const inView = APPTS.filter(inRange), tView = TASKS.filter(t => !t.deleted && t.date && inRange(t));   // v162: and the tasks
-  if(!inView.length && !tView.length){ toast('Nothing planned in this '+plan.view+'. Add an appointment first.'); return; }
-  const list = mode === 'all' ? inView : pendingAppts(inView);
-  const tlist = mode === 'all' ? tView : pendingTasks(tView);
-  if(!list.length && !tlist.length){ toast('Everything in this '+plan.view+' is already in your Outlook calendar.'); return; }
-  const n = list.length + tlist.length;
-  if(mode === 'all' && n > pendingAppts(inView).length + pendingTasks(tView).length &&
-     !confirm('Re-download all '+n+' appointment'+(n===1?'':'s')+' in this '+plan.view+
-              '?\n\nOutlook will update the ones it already has rather than duplicate them.')) return;
-  const assumed = list.filter(ap => { const a = ACC_BY_NAME.get(ap.acct); return zoneTzAssumed(a ? a.z : ''); });
+  const blocks = blocksInView();
+  if(!inView.length && !tView.length && !blocks.length){ toast('Nothing planned in this '+plan.view+'. Add an appointment first.'); return; }
+  const assumed = inView.filter(ap => { const a = ACC_BY_NAME.get(ap.acct); return zoneTzAssumed(a ? a.z : ''); });
   if(assumed.length && !confirm(assumed.length+' appointment'+(assumed.length===1?' is':'s are')+
      ' in a zone with no verified timezone. '+(assumed.length===1?'It':'They')+
      ' will be written as '+TZ_FALLBACK+'.\n\nDownload anyway?')) return;
 
-  // SEQUENCE rises before the file is written, so Outlook accepts an edited
-  // event as an update to the one it is already holding.
-  for(const ap of list){
+  // SEQUENCE rises for what changed since it was last downloaded, so Outlook
+  // takes it as an update to the copy it holds
+  for(const ap of inView){
     if(ap.icsSeq == null) ap.icsSeq = 0;
     else if(apState(ap) === 'changed') ap.icsSeq++;
   }
-  for(const t of tlist){
+  for(const t of tView){
     if(t.icsSeq == null) t.icsSeq = 0;
     else if(taskIcsState(t) === 'changed') t.icsSeq++;
   }
-  const name = 'field-calls-'+iso(plan.anchor)+(mode === 'all' ? '-all' : '')+'.ics';
-  downloadFile(name, buildIcs(list, tlist), 'text/calendar;charset=utf-8');
+  const weeks = {};
+  blocks.forEach(b => { if(b.sp.seq == null) b.sp.seq = 0; else if(spanState(b.sp, b.w) === 'changed') b.sp.seq++; (weeks[b.mon] = weeks[b.mon] || []).push(b.sp); });
+  const name = 'field-crm-' + plan.view + '-' + iso(viewRange().from) + '.ics';
+  downloadFile(name, buildIcs(inView, tView, blocks), 'text/calendar;charset=utf-8');
 
-  // Green only once the file has actually been handed over.
   const now = Date.now();
-  for(const ap of list){ ap.exp = apRev(ap); ap.expAt = now; await saveAppt(ap); }
-  for(const t of tlist){ t.exp = taskRev(t); t.expAt = now; t.updated = now; await tasksPut(t); }
+  for(const ap of inView){ ap.exp = apRev(ap); ap.expAt = now; await saveAppt(ap); }
+  for(const t of tView){ t.exp = taskRev(t); t.expAt = now; t.updated = now; await tasksPut(t); }
+  for(const mon of Object.keys(weeks)){
+    const all = wkSpans(mon);
+    weeks[mon].forEach(sp => { const x = all.find(y => y.id === sp.id && y.zone === sp.zone); if(x){ x.seq = sp.seq; x.exp = spanRev(x, WEEKS[mon]); x.expAt = now; } });
+    await wkSave(mon, all);
+  }
   renderPlan();
-  toast(list.length+' appointment'+(list.length===1?'':'s')+(tlist.length ? ' and '+tlist.length+' task'+(tlist.length===1?'':'s') : '')+' written to '+name);
+  const bits = [];
+  if(inView.length) bits.push(inView.length+' visit'+(inView.length===1?'':'s'));
+  if(tView.length) bits.push(tView.length+' task'+(tView.length===1?'':'s'));
+  if(blocks.length) bits.push(blocks.length+' territory block'+(blocks.length===1?'':'s'));
+  toast('Downloaded '+bits.join(', ').replace(/, ([^,]*)$/, ' and $1')+': open '+name+' to put them in Outlook');
 }
-$('pExport').addEventListener('click', ()=>doExport('pending').catch(e=>{ console.error(e); toast('Export failed: '+e.message); }));
-$('pExportAll').addEventListener('click', ()=>doExport('all').catch(e=>{ console.error(e); toast('Export failed: '+e.message); }));
+$('pExport').addEventListener('click', ()=>doExport().catch(e=>{ console.error(e); toast('Export failed: '+e.message); }));
 
 /* ================= Today and This Week =================
    The phone half of the planner. Read and act: what is on, tap to start, tap to
@@ -24045,6 +24143,7 @@ document.querySelectorAll('[data-perf]').forEach(b => b.addEventListener('click'
    update in settings". Plain words, newest first; after an update the app
    says so once on Home. */
 const CHANGES = [
+  ['v194', 'Plan: one download, Download current view (in the ⋯ menu). It downloads everything on the calendar now, the day, the week (Monday to Sunday) or the month, with its visits, tasks and territory, every time, so you can delete them in Outlook and download again. The week\'s territory is a bar across the top of the calendar: add a zone with Add under the Zone picker, add a second zone for the same week, and drag the end of a bar to change its days. Territory this week under the list, Today\'s list and the old downloads are gone from Plan; Reassign manager is in Settings.'],
   ['v193', 'The intake, on the PC: each call or quote request you finish goes to Claude by itself. After a sync, or when you mark a call done on the PC, it is filed in your PC folder with the file for Claude, and a ticket goes in the Intake folder there. In Claude, the intake skill works through them: the call report, the emails as Outlook drafts (nothing is sent), quote requests and follow-ups. Reports has Send to intake, and Bring in from Claude when Claude\'s reports are ready. Only your own calls go; the first time, the last two weeks\'.'],
   ['v192', 'Accessories, from the OneTrack list: wearstrips, retainer rings, CleanLock sprockets, rollers, shafts, spacers, scrapers and tools, each with its part number. Load the list in Settings, CRM and belt data, Accessories. In a call or quote request, tap Accessories for those not tied to one belt; a belt has its own Accessories section. Tap a choice in each row until the part number shows; a wearstrip starts on the snap-on, 500 ft, for a 1/4 in frame, and items for the belts\' series come first. They print in the quote request and the call notes. Reference has a OneTrack tab, and an order sheet can hold accessory favourites for the customer\'s form. Also fixed: Add from a description on a Blue Sheet, and the contact form\'s title, which shared names with other parts of the app.'],
   ['v191', 'A belt with no sprocket chosen no longer prints a Sprockets section of the bore and the counts filled in for it. The section appears once you give a sprocket size, material, description or part number. Belts already logged follow too; nothing you entered is changed.'],
@@ -24161,10 +24260,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $('pMgr').dispatchEvent(new Event('change'));
   });
 
-  /* Download leaves the menu open - it reports what it did and you often do the
-     other one straight after. The rest close, because they take you elsewhere. */
-  [['pmExport','pExport',false],['pmExportAll','pExportAll',false],
-   ['pmToday','pToday2',true],['pmReassign','pReassign',true]].forEach(([from,to,shut]) => {
+  /* Download leaves the menu open, and says what it did. v194: the one
+     download; Today is on Home, and Reassign manager is in Settings. */
+  [['pmExport','pExport',false]].forEach(([from,to,shut]) => {
     const b = $(from);
     if(b) b.addEventListener('click', () => {
       if(shut) closePlanMenu();

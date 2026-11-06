@@ -382,13 +382,13 @@ ok(await jo.g(`recGet('calls', 'cBenT')`), 'Delete test calls leaves a colleague
 
 // the team's reference data: a member has nothing to import
 jo.g('paintRole()');
-ok(jo.$('importBtn').hidden && jo.$('refBtn').hidden && jo.$('assetBtn').hidden && jo.$('ovFile').closest('.fld').hidden && jo.$('pmReassign').hidden, 'Jo has no import buttons and no Reassign');
+ok(jo.$('importBtn').hidden && jo.$('refBtn').hidden && jo.$('assetBtn').hidden && jo.$('ovFile').closest('.fld').hidden && jo.$('setReassign').closest('.adminonly').hidden, 'Jo has no import buttons and no Reassign');
 const note = jo.d.querySelector('#sxData .memberonly');
 ok(!note.hidden && /Ben keeps the CRM export/.test(note.textContent), 'and is told who keeps the data: ' + note.textContent);
 jo.g(`openReassign({account: 'Acme Foods'})`); await tick(50);
 ok(!jo.$('rdlg').hasAttribute('open') && /Ben looks after manager changes/.test(jo.$('toast').textContent), 'reassigning a manager is the admin\'s too');
 ben.g('paintRole()');
-ok(!ben.$('importBtn').hidden && !ben.$('ovFile').closest('.fld').hidden && !ben.$('pmReassign').hidden && ben.d.querySelector('#sxData .memberonly').hidden, 'Ben keeps every import');
+ok(!ben.$('importBtn').hidden && !ben.$('ovFile').closest('.fld').hidden && !ben.$('setReassign').closest('.adminonly').hidden && ben.d.querySelector('#sxData .memberonly').hidden, 'Ben keeps every import');
 
 // ================= v113: the team in Settings, adding and removing people =================
 ben.g('renderSb()'); jo.g('renderSb()');

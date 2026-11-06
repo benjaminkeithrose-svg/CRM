@@ -7,7 +7,7 @@
 <!-- Must match APP_BUILD in app.js and CACHE in sw.js. index.html carried no
      version of its own, which is why uploading it and not the others - or the
      others and not it - could not be detected. -->
-<meta name="build" content="v193">
+<meta name="build" content="v194">
 <title>Field CRM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- v149: the browser tab's icon, the same badge as the phone's -->
@@ -1390,19 +1390,6 @@ body.planning{padding-bottom:0}
 .cal-head .seg{margin-left:auto}
 .exp{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 /* ---------- territory weeks ---------- */
-.terr{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface);
-  border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
-.terr .tl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);font-weight:700}
-.terr .wk{display:flex;gap:5px;align-items:center}
-.terr .wk label{font-size:11px;color:var(--ink-3);margin:0;white-space:nowrap}
-.terr select{border:1px solid var(--line);border-radius:var(--r);padding:4px 6px;font-size:12.5px;background:var(--surface)}
-.terr .sum{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--ink-2)}
-.terr .rt{margin-left:auto;display:flex;gap:7px;align-items:center}
-.terr .stx{width:8px;height:8px;border-radius:50%;display:block}
-.terr .sum.s-new .stx{background:var(--cyan)}
-.terr .sum.s-changed .stx{background:var(--orange-dk)}
-.terr .sum.s-synced .stx{background:var(--ok)}
-.terr .sug{font-size:11px;color:var(--cyan-dk)}
 /* ---------- reassignment ---------- */
 .scopes{display:flex;flex-direction:column;border:1px solid var(--line-2);border-radius:var(--r)}
 .scopes label{display:flex;gap:9px;padding:8px 10px;border-bottom:1px solid var(--line-2);
@@ -1442,6 +1429,26 @@ select.est,input.est{border-style:dashed;border-color:var(--orange);background:v
 /* A gutter of hour labels, then the seven days (v94). Saturday and Sunday are
    narrower and shaded, as on the month. */
 .week{display:grid;grid-template-columns:46px repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:8px;align-items:start}
+/* v194: the week's territory, a bar over the days it covers */
+.tbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:6px;margin:0 0 6px;grid-auto-rows:30px}
+.tbar.withgut{grid-template-columns:46px repeat(5,minmax(0,1fr)) repeat(2,minmax(0,.7fr));gap:8px}
+.month>.tbar{grid-column:1 / -1;margin:2px 0 0}
+.tgut{grid-column:1;grid-row:1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:700;align-self:center}
+.tslot{grid-row:1;border-radius:6px}
+.tblk{grid-row:1;position:relative;z-index:1;display:flex;align-items:center;gap:6px;min-width:0;padding:0 16px;border-radius:6px;
+  background:#E3F0F5;border:1px solid #9FCBDB;border-left:3px solid var(--cyan-dk,#00708D);color:var(--ink);font-size:12.5px;font-weight:700;cursor:pointer;user-select:none}
+.tblk .tz{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tblk .stx{width:8px;height:8px;border-radius:50%;flex:none}
+.tblk.s-new .stx,.tday.s-new .stx{background:var(--cyan)}
+.tblk.s-changed .stx,.tday.s-changed .stx{background:var(--orange-dk)}
+.tblk.s-synced .stx,.tday.s-synced .stx{background:var(--ok)}
+.tblk .th{position:absolute;top:0;bottom:0;width:14px;cursor:ew-resize;touch-action:none}
+.tblk .th::after{content:"";position:absolute;top:8px;bottom:8px;left:5px;width:3px;border-radius:2px;background:#9FCBDB}
+.tblk .th.l{left:-2px}.tblk .th.r{right:0}
+.tblk.drag{box-shadow:0 2px 8px rgba(0,40,123,.25)}
+.tblk:focus-visible{outline:2px solid var(--key,#00287B);outline-offset:1px}
+.tday{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:6px 12px;border-radius:6px;background:#E3F0F5;border-left:3px solid var(--cyan-dk,#00708D);font-size:13px;font-weight:700}
+.tday .stx{width:8px;height:8px;border-radius:50%}
 .day.wknd{background:var(--sunk)}
 .gut{padding-top:30px}          /* clears the day header */
 .gh{font-size:10.5px;color:var(--ink-3);text-align:right;padding-right:6px;
@@ -1465,13 +1472,6 @@ select.est,input.est{border-style:dashed;border-color:var(--orange);background:v
 #pChips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 #pChips button{border-radius:var(--r-sm);justify-content:center}
 .cal-head .more{margin-left:6px;min-width:40px;font-size:18px;line-height:1}
-.terrwrap{border-top:1px solid var(--line-2);background:var(--surface);flex:none}
-.terrwrap>summary{padding:10px 12px;font-size:12px;font-weight:700;color:var(--ink-2);
-  cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
-.terrwrap>summary::-webkit-details-marker{display:none}
-.terrwrap>summary::after{content:"\25B8";margin-left:auto;color:var(--ink-3)}
-.terrwrap[open]>summary::after{content:"\25BE"}
-.terrwrap .terr{padding:0 12px 12px;max-height:34vh;overflow:auto}
 #planmenu .big,#planmenu .ghost{width:100%}
 /* One wide column instead of five narrow ones. Same grid, same drag, more room
    to read a short call and more room to get a thumb on it. */
@@ -2303,6 +2303,11 @@ details.bsx > .msg{margin:8px 12px}
     <p class="hint">A one-off move out of Task Slaughterer. Open tasks go on today from 8am; done ones go on the day you ticked them off. Saved notes and products go to Lists. Importing the same file again adds nothing.</p>
   </div>
   <div class="fld adminonly">
+    <label>Reassign manager</label>
+    <button class="ghost" id="setReassign" type="button">Reassign manager</button>
+    <p class="hint">Moves accounts from one account manager to another, here in the app. The CRM is not changed. Moved here from the Plan menu in v194.</p>
+  </div>
+  <div class="fld adminonly">
     <label>Zone overrides</label>
     <input type="file" id="ovFile" accept=".json">
     <button class="ghost" id="ovBtn">Load zone overrides</button>
@@ -2721,19 +2726,41 @@ details.bsx > .msg{margin:8px 12px}
         <li>Click <b>Save</b>.</li>
       </ol>
       <p>Drag a visit to another day to move it. The coloured chips filter by focus. To end a search, click <b>&times;</b> beside the box, or press Esc.</p>
-      <p>Under the zone, click <b>Add</b> to mark it as this week's territory. Once it is marked, it says so with a tick. Further down, <b>Territory this week</b> still downloads the week markers.</p>
       <p>Week and Day run Monday to Sunday. Saturday and Sunday are narrower and shaded. A visit booked on a weekend stays there.</p>
+    </div>
+  </details>
+  <details class="sx hx">
+    <summary><b>Mark the week's territory</b><span class="sxs">One zone or several</span></summary>
+    <div class="fld help">
+      <ol>
+        <li>On <b>Plan</b>, go to the week.</li>
+        <li>Pick the <b>Zone</b> you'll be in.</li>
+        <li>Click <b>Add</b> under the zone, for example <b>Add Z1 to this week</b>.</li>
+        <li>The zone shows as a bar across the top of the week, Monday to Friday.</li>
+        <li>For a second zone the same week, pick it in <b>Zone</b>.</li>
+        <li>Click <b>Add</b> under it.</li>
+        <li>To change the days a zone covers, drag the end of its bar left or right.</li>
+      </ol>
+      <p>A second zone takes the days you've booked visits in it that week. With none booked, it takes the free weekdays, or else Thursday and Friday. The zone already there gives those days up.</p>
+      <p>A bar can go onto Saturday or Sunday. Dragging stops one day short of the next zone. To take a zone off the week, click its bar, then <b>Remove</b>, then <b>OK</b>.</p>
+      <p>In Month, each week's bar sits above its row. In Day, the day's zone shows at the top.</p>
+      <p>The bars go to Outlook with <b>Download current view</b>, each as an all-day appointment shown as free. A bar you remove stays in Outlook until you delete it there.</p>
     </div>
   </details>
   <details class="sx hx">
     <summary><b>Put visits and tasks in Outlook</b><span class="sxs">On the PC</span></summary>
     <div class="fld help">
       <ol>
-        <li>On <b>Plan</b>, click <b>&#8943;</b> at the top right of the calendar.</li>
-        <li>Click <b>Download to Outlook</b>.</li>
+        <li>Open <b>Plan</b> from Home.</li>
+        <li>Click <b>Day</b>, <b>Week</b> or <b>Month</b> at the top of the calendar.</li>
+        <li>Use <b>&#8249;</b> and <b>&#8250;</b> to go to the one you want.</li>
+        <li>Click <b>&#8943;</b> at the top right of the calendar.</li>
+        <li>Click <b>Download current view</b>.</li>
         <li>Open the file it gives you, and accept it in Outlook.</li>
       </ol>
-      <p>Only visits that changed since last time are in the file, and downloading again updates Outlook rather than adding a second copy. The colour on a visit: blue is not in Outlook yet, green is in Outlook, orange has changed since. Download again.</p>
+      <p>Everything in the view goes, every time: the visits, the tasks and the week's territory. Day is that day; Week is Monday to Sunday; Month is the month.</p>
+      <p>Download as often as you like. Outlook updates what it already has rather than adding a second copy. If you deleted things in Outlook to start again, downloading puts them back.</p>
+      <p>The colour on a visit says what the app knows: blue is not downloaded yet, green is downloaded, orange has changed since you downloaded it. The app can't see your Outlook.</p>
       <p>Nobody is invited. Each visit goes in as an appointment for you alone, with the people ticked under <b>Who to see</b> listed in its notes. Moving or deleting it in Outlook never emails a customer. To invite someone, open the appointment in Outlook, add them, and press Send.</p>
       <p>Your tasks with a date go in the same file, as appointments at their time. They carry the category "Field CRM task". Ticking a task done in the app does not change Outlook.</p>
     </div>
@@ -2840,7 +2867,7 @@ details.bsx > .msg{margin:8px 12px}
         <li>Change the date, the start time or the minutes.</li>
         <li>Tap <b>Done</b>.</li>
       </ol>
-      <p>If the call has already been started and isn't compiled or done, its date moves with the visit. Download to Outlook again afterwards so the calendar follows.</p>
+      <p>If the call has already been started and isn't compiled or done, its date moves with the visit. Click <b>Download current view</b> again afterwards so Outlook follows.</p>
     </div>
   </details>
   <details class="sx hx">
@@ -4135,12 +4162,6 @@ details.bsx > .msg{margin:8px 12px}
           <button type="button" id="pDueOnly" aria-pressed="false"></button></div>
       </div>
       <div class="list" id="pList"></div>
-      <!-- Territory sits under the list, collapsed. It competes with the list
-           for height, and the list is the thing actually worked from. -->
-      <details class="terrwrap" id="terrWrap">
-        <summary>Territory this week</summary>
-        <div class="terr" id="terr"></div>
-      </details>
     </div>
     <div class="cal">
       <div class="cal-head">
@@ -4667,10 +4688,8 @@ details.bsx > .msg{margin:8px 12px}
   <div class="dlg-b">
     <div class="f"><label>Account manager</label><select id="pmMgr"></select>
       <p class="note">Set once. Other people's accounts can still be found with the search box.</p></div>
-    <button class="big" id="pmExport" type="button">Download to Outlook</button>
-    <button class="ghost" id="pmExportAll" type="button">Re-download everything shown</button>
-    <button class="ghost" id="pmToday" type="button">Today's list</button>
-    <button class="ghost adminonly" id="pmReassign" type="button">Reassign manager</button>
+    <button class="big" id="pmExport" type="button">Download current view</button>
+    <p class="note">Everything on the calendar now: the day, the week or the month, with its visits, tasks and territory. Every time, all of it.</p>
     <p class="note" id="pmHint"></p>
   </div>
   <div class="dlg-f"><span class="spacer"></span><button class="btn" id="pmClose" type="button">Close</button></div>
@@ -4681,7 +4700,6 @@ details.bsx > .msg{margin:8px 12px}
   <button id="pToday2" type="button"></button>
   <button id="pReassign" type="button"></button>
   <button id="pExport" type="button"></button>
-  <button id="pExportAll" type="button"></button>
   <span id="calHint"></span>
 </div>
 
